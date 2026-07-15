@@ -1,6 +1,6 @@
 <div align="center">
-  <h1>RPent</h1>
-  <p><i>A physical-agent framework where LLMs reason and VLAs act, in a closed loop.</i></p>
+  <img src="docs/logo.png" alt="RPent" width="200"/>
+  <h1>RPent: Agentic Infrastructure for the Physical World</h1>
 </div>
 
 <div align="center">
@@ -8,38 +8,20 @@
 [![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md)
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red.svg)](README.zh-CN.md)
 [![GitHub](https://img.shields.io/badge/GitHub-RPent-181717?logo=github)](https://github.com/RLinf/RPent)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](docs/README.md)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 </div>
-
-RPent is an **physical-agent framework** that puts a large language model *in the loop* as the decision-making brain. The LLM does high-level reasoning and calls tools; a Vision-Language-Action (VLA) policy such as **Pi0.5** or **RLDX-1** executes the low-level motor actions; a simulator (**LIBERO** or **RoboCasa**) closes the loop by returning observations and rendered frames. Reasoning, action, and simulation each run in their own process, so heavyweight GPU models and the physics engine never fight over one Python interpreter.
 
 <div align="center">
   <img src="docs/architecture.svg" alt="RPent architecture" width="960"/>
 </div>
 
-## Key Features
+RPent (Recursive Physical Agent) is an open framework for building embodied agents that continuously evolve through recursive interaction with the physical world. Rather than prescribing a single foundation model, RPent provides a recursive agent framework that harnesses heterogeneous intelligence, including perception, reasoning, memory, execution, and self-evolution, into a unified physical agent. Through continuous interaction, reflection, and adaptation, RPent enables physical agents to acquire new capabilities and evolve beyond their initial design.
 
-- **LLM-in-the-loop control.** The LLM is not fine-tuned — it drives the robot purely by calling tools (`pi0_pick`, `move_to`, `rotate_wrist`, `back_project`, `finish`, …). Each tool result is fed back as multimodal context (text + rendered images), so the model reasons over what it actually sees.
-- **Three-process architecture.** The **agent process** (LLM cerebrum + toolkit, no `torch`), the **env_server** (simulator + EGL rendering), and the **vla_server** (GPU policy weights) are separate processes wired by lightweight RPC. Either heavyweight process can be restarted, moved to another GPU, or pointed at a remote host independently.
-- **Pluggable reasoning brains (cerebrums).** Swap the decision brain with one flag — `--cerebrum {api, claude_code, codex}` — without touching the tools or prompts:
-  - `api` — a provider-agnostic tool-calling loop built on [pydantic-ai](https://ai.pydantic.dev/) (Anthropic / OpenAI / OpenAI-compatible), with prompt caching and history-image pruning.
-  - `claude_code` — the [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview), exposing the toolkit as an in-process MCP server.
-  - `codex` — the OpenAI Codex SDK, bridged to the toolkit over an HTTP MCP server.
-- **Two environments, two VLAs, one contract.** LIBERO (Pi0.5 over HTTP) and RoboCasa (RLDX-1 over socket-RPC) share the exact same env/vla process split; only the wire codec differs, chosen to fit each env's observation shape.
-- **Live dashboard.** An optional `--dashboard` starts a local FastAPI monitor that streams the agent's reasoning, real-time camera / Pi0 views, an action timeline, and clip replays — with a **bilingual UI** (`--dashboard_language {en, zh-cn}`).
-- **Add an environment by dropping a package on disk.** No central registry to edit — see [Adding a new environment](docs/ADD_A_NEW_ENV.md).
+The name **Pent** is inspired by the **Pentagram**, whose five points symbolize the integration of multimodal intelligence into a unified embodied agent. At its center, the infinity symbol (**∞**) represents the endless recursive cycle of perception, reasoning, execution, and self-evolution, through which intelligence continuously expands into the physical world.
 
-## How It Works
-
-A single run is an **LLM-in-the-loop** cycle:
-
-1. The LLM reasons about the task and calls a tool (e.g. `pi0_pick`).
-2. The tool's **primitive driver** asks the `vla_server` for an action chunk (`predict` / `vla_infer`).
-3. The `env_server` executes that chunk (`chunk_step` for LIBERO, stepwise `step` for RoboCasa).
-4. The env renders the resulting observation and camera frames.
-5. Results are turned into text + image content blocks and fed back to the LLM for the next turn.
-
-The loop ends when the LLM calls the `finish` tool (`success` / `failure` / `stuck`) or hits `--max_turns` / `--max_episode_steps`.
+RPent is built upon three core design principles: **Service-oriented**, **Standardized**, and **Composable**. RPent enables capabilities to be deployed as reusable services, connected through unified interfaces, and flexibly composed into diverse physical agents. Together, these principles allow RPent to move beyond traditional robot control frameworks and establish an **Agentic Infrastructure for the Physical World**, where intelligence is not only deployed, but continuously built, expanded, and evolved.
 
 ## Supported Environments
 
@@ -140,7 +122,7 @@ export CUDA_DEVICE=0
 #   • OpenAI-compatible chat endpoints:  --model openai-chat:glm-5.2
 #   • OpenAI responses endpoints:        --model openai:gpt-5.5
 #   • claude_code / codex cerebrums:     no provider prefix, e.g. --model claude-opus-4-8
-python cli/main.py --suite libero_object_swap --task 2 --seed 0 \
+python rpent/cli/main.py --suite libero_object_swap --task 2 --seed 0 \
   --cerebrum api --model anthropic:claude-opus-4-8 --max_tokens 8192
 ```
 
@@ -149,7 +131,7 @@ python cli/main.py --suite libero_object_swap --task 2 --seed 0 \
 Add `--dashboard` to open a browser monitor for the run. It boots a launcher screen where you pick the config, then streams reasoning, live views, and the action timeline. Use `--dashboard_language zh-cn` for the Chinese UI.
 
 ```bash
-python cli/main.py --dashboard --dashboard_language zh-cn \
+python rpent/cli/main.py --dashboard --dashboard_language zh-cn \
   --suite libero_goal_task --task 1 --seed 0 --cerebrum claude_code
 ```
 
@@ -181,7 +163,7 @@ See [SETUP_ROBOCASA.zh.md](docs/SETUP_ROBOCASA.zh.md) for the full RoboCasa365 +
 | `--dashboard` | off | Start the local dashboard for this run |
 | `--dashboard_language` | `en` | Dashboard UI language: `en` \| `zh-cn` |
 | `--vla_endpoint` | — | Reuse an already-running vla_server instead of spawning one |
-| `--no_driver` | off | Attach to an existing env_server / vla_server |
+| `--no-servers` | off | Attach to an existing env_server / vla_server |
 
 ## Documentation
 

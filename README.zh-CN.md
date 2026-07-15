@@ -1,6 +1,6 @@
 <div align="center">
-  <h1>RPent</h1>
-  <p><i>LLM 负责推理、VLA 负责执行，在仿真中形成闭环的具身智能体框架。</i></p>
+  <img src="docs/logo.png" alt="RPent" width="200"/>
+  <h1>RPent：面向物理世界的智能体基础设施</h1>
 </div>
 
 <div align="center">
@@ -8,38 +8,20 @@
 [![English](https://img.shields.io/badge/lang-English-blue.svg)](README.md)
 [![简体中文](https://img.shields.io/badge/语言-简体中文-red.svg)](README.zh-CN.md)
 [![GitHub](https://img.shields.io/badge/GitHub-RPent-181717?logo=github)](https://github.com/RLinf/RPent)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen.svg)](docs/README.md)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 </div>
-
-RPent 是一个把大语言模型放进「决策回路」的**具身智能体框架**。大模型负责高层推理并调用工具；一个视觉-语言-动作（VLA）策略——如 **Pi0.5** 或 **RLDX-1**——负责底层动作执行；仿真环境（**LIBERO** 或 **RoboCasa**）返回观测与渲染画面，闭合整个回路。推理、执行、仿真各自运行在独立进程中，重量级的 GPU 模型与物理引擎不会争抢同一个 Python 解释器。
 
 <div align="center">
   <img src="docs/architecture.svg" alt="RPent 架构" width="960"/>
 </div>
 
-## 核心特性
+RPent（Recursive Physical Agent，递归式物理智能体）是一个开放的具身智能体框架，用于构建能够通过与物理世界的**递归交互**而持续进化的智能体。RPent 并不预设某一个基础模型，而是提供一个递归式智能体框架，将感知、推理、记忆、执行与自我进化等**异构智能**统一整合为一个具身智能体。通过持续的交互、反思与适应，RPent 让具身智能体不断获取新能力，超越其初始设计。
 
-- **LLM-in-the-loop 控制。** 大模型无需微调——它完全通过调用工具（`pi0_pick`、`move_to`、`rotate_wrist`、`back_project`、`finish` …）来驱动机器人。每次工具调用的结果都以多模态上下文（文本 + 渲染图像）回灌，让模型基于「它实际看到的画面」进行推理。
-- **三进程架构。** **Agent 主进程**（LLM 决策大脑 + 工具容器，不加载 `torch`）、**env_server**（仿真器 + EGL 渲染）、**vla_server**（GPU 策略权重）彼此独立，用轻量 RPC 连接。两个重量级进程都可以独立重启、切换到另一块 GPU，或指向远程主机。
-- **可插拔的决策大脑（cerebrum）。** 用一个参数 `--cerebrum {api, claude_code, codex}` 切换决策大脑，无需改动工具或提示词：
-  - `api` —— 基于 [pydantic-ai](https://ai.pydantic.dev/) 的、与厂商无关的工具调用循环（Anthropic / OpenAI / OpenAI 兼容），带提示词缓存与历史图像裁剪。
-  - `claude_code` —— 使用 [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview)，把工具容器包装成进程内 MCP server。
-  - `codex` —— 使用 OpenAI Codex SDK，通过 HTTP MCP server 桥接工具。
-- **两套环境、两个 VLA、同一套契约。** LIBERO（Pi0.5 走 HTTP）与 RoboCasa（RLDX-1 走 socket-RPC）共用完全相同的 env/vla 进程拆分；仅传输编解码不同，按各自观测数据的形状而定。
-- **实时 Dashboard。** 可选的 `--dashboard` 会启动一个本地 FastAPI 监控页，实时推送智能体的推理流、实时摄像头 / Pi0 视角画面、动作时间线与片段回放——并提供**中英双语界面**（`--dashboard_language {en, zh-cn}`）。
-- **在磁盘上放一个包即可接入新环境。** 无需修改中心注册表——参见[接入新环境](docs/ADD_A_NEW_ENV.zh.md)。
+**Pent** 之名源自**五角星（Pentagram）**：五个顶点象征多模态智能融合为统一的具身智能体；其正中的无穷符号（**∞**）代表感知、推理、执行与自我进化的**无尽递归循环**——智能由此不断向物理世界扩展。
 
-## 工作原理
-
-一次运行就是一个 **LLM-in-the-loop** 循环：
-
-1. 大模型对任务进行推理，并调用某个工具（例如 `pi0_pick`）。
-2. 该工具的**原语驱动**向 `vla_server` 请求一段动作块（`predict` / `vla_infer`）。
-3. `env_server` 执行这段动作块（LIBERO 用 `chunk_step`，RoboCasa 逐步 `step`）。
-4. 环境渲染出新的观测与摄像头画面。
-5. 结果被转成「文本 + 图像」内容块，回灌给大模型进入下一轮。
-
-当大模型调用 `finish` 工具（`success` / `failure` / `stuck`），或达到 `--max_turns` / `--max_episode_steps` 上限时，循环结束。
+RPent 以**服务化（Service-oriented）、标准化（Standardized）、组合化（Composable）**为核心设计理念，将模型、机器人、技能、记忆与环境统一纳入智能体基础设施：通过**服务化**实现能力解耦，通过**标准化**实现生态连接，通过**组合化**实现智能重构，让具身智能系统能够像软件一样被构建、扩展和持续进化。这些原则让 RPent 超越传统机器人控制框架，成为一套**面向物理世界的智能体基础设施（Agentic Infrastructure for the Physical World）**——智能不仅在此被部署，更被持续构建、扩展与进化。
 
 ## 支持的环境
 
@@ -140,7 +122,7 @@ export CUDA_DEVICE=0
 #   • OpenAI 兼容 chat 端点：  --model openai-chat:glm-5.2
 #   • OpenAI responses 端点：  --model openai:gpt-5.5
 #   • claude_code / codex 大脑：无需 provider 前缀，如 --model claude-opus-4-8
-python cli/main.py --suite libero_object_swap --task 2 --seed 0 \
+python rpent/cli/main.py --suite libero_object_swap --task 2 --seed 0 \
   --cerebrum api --model anthropic:claude-opus-4-8 --max_tokens 8192
 ```
 
@@ -149,7 +131,7 @@ python cli/main.py --suite libero_object_swap --task 2 --seed 0 \
 加上 `--dashboard` 即可为本次运行打开一个浏览器监控页。它会先展示一个启动屏让你选择配置，然后实时推送推理流、实时画面与动作时间线。用 `--dashboard_language zh-cn` 切换到中文界面。
 
 ```bash
-python cli/main.py --dashboard --dashboard_language zh-cn \
+python rpent/cli/main.py --dashboard --dashboard_language zh-cn \
   --suite libero_goal_task --task 1 --seed 0 --cerebrum claude_code
 ```
 
@@ -181,7 +163,7 @@ bash scripts/run_robocasa.sh PickPlaceCounterToCabinet 0 0    # <任务> <GPU> <
 | `--dashboard` | 关 | 为本次运行启动本地 dashboard |
 | `--dashboard_language` | `en` | Dashboard 界面语言：`en` \| `zh-cn` |
 | `--vla_endpoint` | — | 复用已在运行的 vla_server，而非新起一个 |
-| `--no_driver` | 关 | 连接已存在的 env_server / vla_server |
+| `--no-servers` | 关 | 连接已存在的 env_server / vla_server |
 
 ## 文档
 
