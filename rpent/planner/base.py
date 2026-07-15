@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Protocol
@@ -92,6 +93,31 @@ class Planner(Protocol):
 # ---------------------------------------------------------------------------
 
 
+def _resolve_claude_model() -> str:
+    """Resolve the default model for the claude_code planner.
+
+    The planner runs the Claude Agent SDK with ``setting_sources=[]`` (RPent
+    owns the loop), so the operator's own ``.claude`` settings are otherwise
+    ignored — including the ``model`` they configured for their Claude Code.
+    To still honour that choice without forcing ``--model`` on every run,
+    fall back to, in order: ``ANTHROPIC_MODEL``/``CLAUDE_MODEL`` env, then the
+    ``model`` field of ``$CLAUDE_CONFIG_DIR/settings.json`` (or
+    ``~/.claude/settings.json``), then the SDK alias ``sonnet``.
+    """
+    env_model = os.environ.get("ANTHROPIC_MODEL") or os.environ.get("CLAUDE_MODEL")
+    if env_model:
+        return env_model
+    cfg_dir = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.expanduser("~/.claude")
+    settings_path = Path(cfg_dir) / "settings.json"
+    try:
+        data = json.loads(settings_path.read_text())
+        if isinstance(data, dict) and data.get("model"):
+            return str(data["model"])
+    except Exception:
+        pass
+    return "sonnet"
+
+
 def build_planner(
     planner_type: str,
     *,
@@ -157,7 +183,7 @@ def build_planner(
         return ClaudeCodePlanner(
             output_dir=output_dir,
             repo_root=get_repo_root(),
-            model=model or "sonnet",
+            model=model or _resolve_claude_model(),
             timeout_s=cc_timeout_s,
             max_budget_usd=cc_budget,
             extra_dirs=[str(get_memory_dir(env_name))],
