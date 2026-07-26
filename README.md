@@ -106,6 +106,8 @@ See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/in
 
 **3. Configure keys and checkpoints, then run.**
 
+> **Note:** The `rpent` command is registered by step 1's `pip install -e ".[full]"`. If you switched branches or are using a different venv, re-run `pip install -e ".[full]"` first. As a fallback, replace `rpent` with `python -m rpent.cli.main` — all flags are the same.
+
 ```bash
 # Anthropic key; no need to export the base url if you use the official endpoint.
 export ANTHROPIC_BASE_URL=https://xxx
@@ -146,6 +148,8 @@ rpent --env libero --dashboard --dashboard-language zh-cn \
   --suite libero_goal_task --task 1 --seed 0 --planner claude_code
 ```
 
+The dashboard state transitions to `done` when the agent loop finishes and the episode video is ready. In interactive mode (`--interactive`), the dashboard stays `running` while the interactive session is open — check the timeline for `libero_terminated: true` to confirm individual task completion before the session ends.
+
 For more detailed documentation, see the [RPent documentation](https://rpent.readthedocs.io/en/latest/).
 
 ## Key CLI Options
@@ -178,6 +182,55 @@ For more detailed documentation, see the [RPent documentation](https://rpent.rea
     <tr><td><code>--sam3-endpoint</code></td><td>— (spawn)</td><td><code>[protocol://]host:port</code> of an existing RPent SAM3 service (same rules). If unset, one is spawned locally.</td></tr>
   </tbody>
 </table>
+
+### Starting Servers Manually
+
+By default, `rpent` spawns `env_server`, `vla_server`, and `sam3_server` as local subprocesses. You can also start them independently (e.g. to reuse a long-running VLA across runs) and attach via `--env-endpoint` / `--vla-endpoint` / `--sam3-endpoint`.
+
+```bash
+# Start an env_server (LIBERO)
+python -m robots.libero.env_server \
+  --transport http --host 127.0.0.1 --port 50007 \
+  --suite libero_object_swap --task 2 --seed 0 \
+  --max-episode-steps 600 \
+  </dev/null
+
+# Start a vla_server
+python -m robots.libero.vla_server \
+  --transport http --host 127.0.0.1 --port 50008 \
+  --model-path /path/to/pi05-checkpoint \
+  </dev/null
+
+# Then run rpent, attaching to the pre-started servers:
+rpent --env libero --suite libero_object_swap --task 2 --seed 0 \
+  --planner claude_code --model claude-opus-4-8 \
+  --env-endpoint http://127.0.0.1:50007 \
+  --vla-endpoint http://127.0.0.1:50008
+```
+
+- Omit `--model-path` if `PI05_CHECKPOINT_PATH` is already exported in the environment.
+- The `</dev/null` redirect closes stdin so the server's parent-death watchdog does not block on terminal input.
+- See [Health Check (RPC)](#health-check-rpc) for how to verify the servers are ready.
+
+### Health Check (RPC)
+
+The `env_server`, `vla_server`, and `sam3_server` use RPC transport — they accept JSON-RPC-style POSTs to `/call`, not REST `GET /healthz`. A plain `curl` will return an empty response:
+
+```bash
+# WRONG — returns empty / 404
+curl http://127.0.0.1:50008/healthz
+```
+
+Use the built-in RPC client instead:
+
+```python
+from rpent.utils.http_rpc import HttpRpcClient
+
+client = HttpRpcClient("http://127.0.0.1:50008")
+client.call("healthz")  # -> {'status': 'ok'}
+```
+
+The main CLI polls `healthz` automatically after spawn; you only need this when running servers manually or debugging externally.
 
 ## Citation and Acknowledgement
 
