@@ -221,13 +221,13 @@ The `env_server`, `vla_server`, and `sam3_server` use RPC transport — they acc
 curl http://127.0.0.1:50008/healthz
 ```
 
-Use the built-in RPC client instead:
+Use a JSON-RPC POST instead:
 
-```python
-from rpent.utils.http_rpc import HttpRpcClient
-
-client = HttpRpcClient("http://127.0.0.1:50008")
-client.call("healthz")  # -> {'status': 'ok'}
+```bash
+curl -s -X POST http://127.0.0.1:50008/call \
+  -H "Content-Type: application/json" \
+  -d '{"id":"1","method":"healthz","args":[],"kwargs":{}}'
+# -> {"id":"1","ok":true,"result":{"status":"ok"}}
 ```
 
 The main CLI polls `healthz` automatically after spawn; you only need this when running servers manually or debugging externally.
