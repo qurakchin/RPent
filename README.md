@@ -192,14 +192,12 @@ By default, `rpent` spawns `env_server`, `vla_server`, and `sam3_server` as loca
 python -m robots.libero.env_server \
   --transport http --host 127.0.0.1 --port 50007 \
   --suite libero_object_swap --task 2 --seed 0 \
-  --max-episode-steps 600 \
-  </dev/null
+  --max-episode-steps 600
 
 # Start a vla_server
 python -m robots.libero.vla_server \
   --transport http --host 127.0.0.1 --port 50008 \
-  --model-path /path/to/pi05-checkpoint \
-  </dev/null
+  --model-path /path/to/pi05-checkpoint
 
 # Then run rpent, attaching to the pre-started servers:
 rpent --env libero --suite libero_object_swap --task 2 --seed 0 \
@@ -209,7 +207,6 @@ rpent --env libero --suite libero_object_swap --task 2 --seed 0 \
 ```
 
 - Omit `--model-path` if `PI05_CHECKPOINT_PATH` is already exported in the environment.
-- The `</dev/null` redirect closes stdin so the server's parent-death watchdog does not block on terminal input.
 - See [Health Check (RPC)](#health-check-rpc) for how to verify the servers are ready.
 
 ### Health Check (RPC)
