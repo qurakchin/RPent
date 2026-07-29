@@ -1,5 +1,6 @@
 """RoboCasa VLA server — loads RLDX model and exposes inference calls via RPC."""
 import argparse
+import os
 
 import numpy as np
 from robots.robocasa.env_utils import _to_numpy_tree
@@ -68,6 +69,11 @@ class RoboCasaVLAServer(RpcFacade):
 
 
 def main():
+    try:
+        import flash_attn  # noqa: F401
+    except ImportError:
+        os.environ.setdefault("RLDX_ATTN_IMPL", "sdpa")
+
     p = argparse.ArgumentParser()
     p.add_argument("--transport", choices=["socket", "http"], default="http")
     p.add_argument("--host", type=str, default="127.0.0.1")
