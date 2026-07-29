@@ -1127,3 +1127,45 @@ def back_project_batch(
         "camera": camera,
         "resolution": resolution,
     }
+
+
+def write_recipe_from_states(output_dir: str, recipe_tag: str) -> str:
+    """Export non-error RoboCasa primitive commands from the state trace as JSONL."""
+    states_path = os.path.join(output_dir, "states.json")
+    states = json.load(open(states_path)) if os.path.exists(states_path) else []
+
+    primitive_actions = {
+        "move_to",
+        "move_delta",
+        "rotate_pitch",
+        "set_gripper",
+        "release",
+        "scripted_grasp",
+        "rldx_skill",
+        "rldx_arm",
+        "navigate_to",
+        "move_base",
+        "reset",
+    }
+
+    commands = []
+    for entry in states:
+        if not entry:
+            continue
+        command = entry.get("command")
+        if command is None:
+            continue
+        if command.get("action") not in primitive_actions:
+            continue
+        result = entry.get("result")
+        if isinstance(result, dict) and result.get("error"):
+            continue
+        commands.append(command)
+
+    recipe_path = os.path.join(output_dir, f"recipe_{recipe_tag}.jsonl")
+    tmp_path = recipe_path + ".tmp"
+    with open(tmp_path, "w") as f:
+        for command in commands:
+            f.write(json.dumps(command, separators=(",", ":")) + "\n")
+    os.replace(tmp_path, recipe_path)
+    return recipe_path
