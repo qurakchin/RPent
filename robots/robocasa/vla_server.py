@@ -47,9 +47,6 @@ class RoboCasaVLAServer(RpcFacade):
                 raise
         raise ValueError(f"unknown RPC method: {method!r}")
 
-    def healthz(self):
-        return {"ok": True}
-
     def get_modality_config(self):
         return {
             "video_delta_indices": self._vdi.tolist(),

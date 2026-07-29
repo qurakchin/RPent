@@ -1,6 +1,5 @@
 """RoboCasa env client — thin RPC layer over the env server."""
 from __future__ import annotations
-import time
 import numpy as np
 from rpent.utils.rpc import RpcClient
 
@@ -26,10 +25,8 @@ _TIMEOUT_S = {
 }
 
 class RoboCasaEnvClient:
-    def __init__(self, client: RpcClient, *, expected_meta: dict,
-                 connect_retry_s: float = 120.0):
+    def __init__(self, client: RpcClient, *, expected_meta: dict):
         self._client = client
-        self.wait_for_healthz(timeout_s=connect_retry_s)
         server_meta = self._client.call("env.get_env_meta", timeout_s=_TIMEOUT_S["default"])
         for k, v in expected_meta.items():
             assert server_meta.get(k) == v, (
@@ -37,25 +34,6 @@ class RoboCasaEnvClient:
         self.camera_h = server_meta["camera_h"]
         self.camera_w = server_meta["camera_w"]
         self._last_obs = self._client.call("env.raw_obs", timeout_s=_TIMEOUT_S["default"])
-
-    def wait_for_healthz(self, *, timeout_s: float = 120.0,
-                         poll_timeout_s: float = 5.0) -> None:
-        """Block until the env server responds to ``healthz`` or *timeout_s* elapses.
-        Each probe uses ``poll_timeout_s`` as the RPC timeout — the connection
-        failure/refusal itself acts as the loop cadence; no extra sleep."""
-        # TODO move into RpcClient
-        deadline = time.monotonic() + timeout_s
-        last_err: Exception | None = None
-        while time.monotonic() < deadline:
-            try:
-                self._client.call("env.healthz",
-                    timeout_s=min(poll_timeout_s, max(0.1, deadline - time.monotonic())))
-                return
-            except (ConnectionRefusedError, ConnectionError, OSError) as exc:
-                last_err = exc
-        raise ConnectionError(
-            f"Could not connect to env server after {timeout_s}s: {last_err}"
-        ) from last_err
 
     def _resolve_cam(self, name):
         return CAM_ALIAS.get(name, name)
