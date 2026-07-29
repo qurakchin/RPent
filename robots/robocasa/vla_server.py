@@ -69,10 +69,7 @@ class RoboCasaVLAServer(RpcFacade):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument(
-        "--model_path",
-        default="/mnt/public/zhuchunyang_rl/RLDX_pure/checkpoints/RLDX-1-FT-RC365",
-    )
+    p.add_argument("--model_path", required=True, help="RLDX checkpoint path")
     p.add_argument("--transport_host", type=str, default="127.0.0.1")
     p.add_argument("--transport_port", type=int, default=0)
     args = p.parse_args()
