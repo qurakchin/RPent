@@ -97,7 +97,7 @@ class RLDXSkill:
         if self._video_dir is None or not self._frames:
             self._frames = None
             return None
-        import imageio
+        import imageio.v2 as imageio
         os.makedirs(self._video_dir, exist_ok=True)
         path = os.path.join(self._video_dir, f"cmd_{self._video_idx:02d}.mp4")
         try:

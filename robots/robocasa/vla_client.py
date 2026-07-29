@@ -1,7 +1,10 @@
 """RoboCasa VLA client — thin RPC layer over the VLA server."""
 from __future__ import annotations
 
-from rpent.utils.rpc import RpcClient
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rpent.utils.rpc import RpcClient
 
 _TIMEOUT_S = {
     "default": 30.0,
