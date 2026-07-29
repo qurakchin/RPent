@@ -2,7 +2,10 @@
 import argparse
 import inspect
 import os
+import queue
 import re
+import threading
+import traceback
 import numpy as np
 import robosuite
 import robocasa  # noqa: F401 — registers robocasa envs
@@ -17,6 +20,9 @@ from robots.robocasa.env_utils import (
 )
 from rpent.utils.logging import get_logger
 from rpent.utils.rpc import RpcFacade
+from rpent.utils.daemon import watch_parent_death
+from rpent.utils.http_rpc import HttpRpcServer
+from rpent.utils.socket_rpc import SocketRpcServer
 
 logger = get_logger("driver")
 
@@ -291,6 +297,54 @@ class RoboCasaEnvFacade(RpcFacade):
             self.env.close()
         except Exception:
             pass
+
+    def serve(self, *, transport, host, port, parent_watch=False):
+        """Override: single render-thread dispatch so EGL context stays current."""
+        work_queue = queue.Queue()
+
+        def render_loop():
+            while (item := work_queue.get()) is not None:
+                event, req = item
+                try:
+                    req["result"] = self._dispatch(req["method"], req["args"], req["kwargs"])
+                except Exception:
+                    req["error"] = traceback.format_exc()
+                event.set()
+
+        threading.Thread(target=render_loop, name="egl-render", daemon=True).start()
+
+        def dispatch(method, args, kwargs):
+            if method == "healthz":
+                return {"status": "ok"}
+            if method == "shutdown":
+                self._shutdown_event.set()
+                return {"ok": True}
+            event = threading.Event()
+            req = {"method": method, "args": args, "kwargs": kwargs, "result": None, "error": None}
+            work_queue.put((event, req))
+            event.wait()
+            if req["error"]:
+                raise RuntimeError(req["error"])
+            return req["result"]
+
+        server_cls = HttpRpcServer if transport == "http" else SocketRpcServer
+        server = server_cls((host, port), dispatch)
+        bound_host, bound_port = server.server_address
+        bound_host = "127.0.0.1" if bound_host == "0.0.0.0" else bound_host
+        url = f"{transport}://{bound_host}:{bound_port}"
+        print(f"RPC server listening on {url}", flush=True)
+        logger.info("RPC server listening on %s", url)
+
+        if parent_watch:
+            watch_parent_death(self._shutdown_event.set)
+
+        try:
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            self._shutdown_event.wait()
+        finally:
+            work_queue.put(None)
+            server.shutdown()
+            server.server_close()
 
 
 # ---------------------------------------------------------------------------
