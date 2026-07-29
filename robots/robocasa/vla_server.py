@@ -1,4 +1,4 @@
-"""RoboCasa VLA server — loads Pi0.5 RLDX model and exposes inference calls via RPC."""
+"""RoboCasa VLA server — loads RLDX model and exposes inference calls via RPC."""
 import argparse
 
 import numpy as np
@@ -15,7 +15,7 @@ logger = get_logger("driver")
 
 
 class RoboCasaVLAServer(RpcFacade):
-    """Loads Pi0.5 RLDX model and exposes inference-only RPC methods."""
+    """Loads RLDX model and exposes inference-only RPC methods."""
 
     def __init__(self, model_path):
         super().__init__()
@@ -69,16 +69,17 @@ class RoboCasaVLAServer(RpcFacade):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--model_path", required=True, help="RLDX checkpoint path")
-    p.add_argument("--transport_host", type=str, default="127.0.0.1")
-    p.add_argument("--transport_port", type=int, default=0)
+    p.add_argument("--transport", choices=["socket", "http"], default="http")
+    p.add_argument("--host", type=str, default="127.0.0.1")
+    p.add_argument("--port", type=int, default=0)
+    p.add_argument("--model-path", required=True, help="RLDX checkpoint path")
     args = p.parse_args()
 
     vla = RoboCasaVLAServer(args.model_path)
     vla.serve(
-        transport="socket",
-        host=args.transport_host,
-        port=args.transport_port,
+        transport=args.transport,
+        host=args.host,
+        port=args.port,
     )
 
 

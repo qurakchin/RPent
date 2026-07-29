@@ -300,18 +300,19 @@ class RoboCasaEnvFacade(RpcFacade):
 
 def main():
     p = argparse.ArgumentParser()
+    p.add_argument("--transport", choices=["socket", "http"], default="http")
+    p.add_argument("--host", type=str, default="127.0.0.1")
+    p.add_argument("--port", type=int, default=0)
     p.add_argument("--env", dest="env_name", default="OpenDrawer")
     p.add_argument("--split", default="target")
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--transport_host", type=str, default="127.0.0.1")
-    p.add_argument("--transport_port", type=int, default=0)
     args = p.parse_args()
 
     env_facade = RoboCasaEnvFacade(args.env_name, split=args.split, seed=args.seed)
     env_facade.serve(
-        transport="socket",
-        host=args.transport_host,
-        port=args.transport_port,
+        transport=args.transport,
+        host=args.host,
+        port=args.port,
     )
 
 

@@ -71,6 +71,8 @@ def _add_cli_args(parser: argparse.ArgumentParser, use_dashboard: bool) -> None:
                         help="[protocol://]host:port of an existing env_server")
     parser.add_argument("--vla-endpoint", default=None,
                         help="[protocol://]host:port of an existing vla_server")
+    parser.add_argument("--vla-model-path", default=None,
+                        help="RLDX checkpoint path for locally spawned vla_server")
     parser.add_argument("--cuda-device", default=None,
                         help="GPU device(s) to expose via CUDA_VISIBLE_DEVICES.")
 
@@ -118,7 +120,7 @@ def _parse_config(args: argparse.Namespace) -> RunConfig:
 def _parse_endpoint(endpoint: str) -> tuple[str, str, int]:
     """Parse ``[protocol://]host:port`` into ``(protocol, host, port)``.
 
-    Protocol defaults to ``socket`` for robocasa (numpy-heavy payloads).
+    Protocol defaults to ``http`` when the prefix is omitted.
     """
     if "://" in endpoint:
         protocol, _, rest = endpoint.partition("://")
@@ -177,8 +179,9 @@ def _init_runtime(
                 "--env", args.robocasa_env,
                 "--split", args.robocasa_split,
                 "--seed", str(args.seed),
-                "--transport_host", host,
-                "--transport_port", str(port),
+                "--transport", "http",
+                "--host", host,
+                "--port", str(port),
             ],
             env=_subprocess_env(
                 args.cuda_device,
@@ -188,7 +191,7 @@ def _init_runtime(
         )
         env_daemon.start()
         daemons.append(env_daemon)
-        env_client: RpcClient = SocketRpcClient(host, port)
+        env_client: RpcClient = HttpRpcClient(f"http://{host}:{port}")
         wait_for_ready(env_client, timeout_s=120.0)
     else:
         protocol, host, port = _parse_endpoint(args.env_endpoint)
@@ -203,21 +206,27 @@ def _init_runtime(
 
     # --- vla_server --------------------------------------------------------
     if args.vla_endpoint is None:
+        if not args.vla_model_path:
+            raise ValueError(
+                "--vla-model-path is required when spawning a local vla_server"
+            )
         host, port = "127.0.0.1", pick_free_port()
         vla_daemon = ProcessDaemon(
             name="vla_server",
             cmd=[
                 sys.executable,
                 str(get_repo_root() / "robots" / "robocasa" / "vla_server.py"),
-                "--transport_host", host,
-                "--transport_port", str(port),
+                "--model-path", args.vla_model_path,
+                "--transport", "http",
+                "--host", host,
+                "--port", str(port),
             ],
             env=_subprocess_env(args.cuda_device),
             log_path=str(Path(output_dir) / "vla_server.log"),
         )
         vla_daemon.start()
         daemons.append(vla_daemon)
-        vla_rpc: RpcClient = SocketRpcClient(host, port)
+        vla_rpc: RpcClient = HttpRpcClient(f"http://{host}:{port}")
         wait_for_ready(vla_rpc, timeout_s=300.0)
     else:
         protocol, host, port = _parse_endpoint(args.vla_endpoint)
