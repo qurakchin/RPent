@@ -32,6 +32,9 @@ class RoboCasaEnvFacade(RpcFacade):
     def __init__(self, env_name, split="target", seed=0, camera_h=256, camera_w=256,
                  cameras=None, use_camera_obs=False):
         super().__init__()
+        self.env_name = env_name
+        self.split = split
+        self.seed = seed
         self.cameras = list(cameras) if cameras else list(DEFAULT_CAMS)
         self.camera_h, self.camera_w = camera_h, camera_w
         self._last_obs = None
@@ -147,7 +150,13 @@ class RoboCasaEnvFacade(RpcFacade):
         return self.env.get_ep_meta()
 
     def get_env_meta(self):
-        return {"camera_h": self.camera_h, "camera_w": self.camera_w}
+        return {
+            "env_name": self.env_name,
+            "split": self.split,
+            "seed": self.seed,
+            "camera_h": self.camera_h,
+            "camera_w": self.camera_w,
+        }
 
     def get_terminated(self):
         return self._terminated or self.check_success()

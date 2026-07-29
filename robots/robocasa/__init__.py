@@ -229,6 +229,9 @@ def _init_runtime(
         "env": RoboCasaEnvClient(
             env_client,
             expected_meta={
+                "env_name": args.robocasa_env,
+                "split": args.robocasa_split,
+                "seed": args.seed,
                 "camera_h": 256,
                 "camera_w": 256,
             },

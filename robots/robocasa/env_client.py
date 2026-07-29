@@ -27,10 +27,15 @@ _TIMEOUT_S = {
 class RoboCasaEnvClient:
     def __init__(self, client: RpcClient, *, expected_meta: dict):
         self._client = client
-        server_meta = self._client.call("env.get_env_meta", timeout_s=_TIMEOUT_S["default"])
-        for k, v in expected_meta.items():
-            assert server_meta.get(k) == v, (
-                f"env_meta mismatch: expected {k}={v!r}, got {server_meta.get(k)!r}")
+        server_meta = self._client.call(
+            "env.get_env_meta", timeout_s=_TIMEOUT_S["default"]
+        )
+        assert server_meta == expected_meta, (
+            f"env_meta mismatch: expected={expected_meta!r} "
+            f"actual={server_meta!r}. The env_server was launched with "
+            "different args than this client expects — kill the stale "
+            "env_server and relaunch."
+        )
         self.camera_h = server_meta["camera_h"]
         self.camera_w = server_meta["camera_w"]
         self._last_obs = self._client.call("env.raw_obs", timeout_s=_TIMEOUT_S["default"])
