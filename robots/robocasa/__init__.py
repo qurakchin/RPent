@@ -161,6 +161,7 @@ def _init_runtime(
     from robots.robocasa.vla_client import RoboCasaVLAClient
     from rpent.utils.daemon import ProcessDaemon, pick_free_port
     from rpent.utils.rpc import wait_for_ready
+    from rpent.utils.http_rpc import HttpRpcClient
     from rpent.utils.socket_rpc import SocketRpcClient
 
     daemons: list[ProcessDaemon] = []
@@ -188,14 +189,16 @@ def _init_runtime(
         env_daemon.start()
         daemons.append(env_daemon)
         env_client: RpcClient = SocketRpcClient(host, port)
-        wait_for_ready(env_client)
+        wait_for_ready(env_client, timeout_s=120.0)
     else:
         protocol, host, port = _parse_endpoint(args.env_endpoint)
         if protocol == "socket":
             env_client = SocketRpcClient(host, port)
+        elif protocol == "http":
+            env_client = HttpRpcClient(f"http://{host}:{port}")
         else:
             raise ValueError(
-                f"--env-endpoint protocol must be socket for robocasa, got {protocol!r}"
+                f"--env-endpoint protocol must be socket or http, got {protocol!r}"
             )
 
     # --- vla_server --------------------------------------------------------
@@ -215,14 +218,16 @@ def _init_runtime(
         vla_daemon.start()
         daemons.append(vla_daemon)
         vla_rpc: RpcClient = SocketRpcClient(host, port)
-        wait_for_ready(vla_rpc)
+        wait_for_ready(vla_rpc, timeout_s=300.0)
     else:
         protocol, host, port = _parse_endpoint(args.vla_endpoint)
         if protocol == "socket":
             vla_rpc = SocketRpcClient(host, port)
+        elif protocol == "http":
+            vla_rpc = HttpRpcClient(f"http://{host}:{port}")
         else:
             raise ValueError(
-                f"--vla-endpoint protocol must be socket for robocasa, got {protocol!r}"
+                f"--vla-endpoint protocol must be socket or http, got {protocol!r}"
             )
 
     primitives_kwargs = {
