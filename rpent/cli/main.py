@@ -274,6 +274,7 @@ def main() -> int:
             agent_error = result.error
     except Exception as e:
         logger.error("EXCEPTION in agent loop: %s", e)
+        agent_error = str(e)
     finally:
         # Agent-side: flush the episode video before the env+model
         recipe_path = toolkit.write_recipe(recipe_tag)
@@ -307,7 +308,10 @@ def main() -> int:
         logger.error("error: %s", agent_error)
 
     if args.dashboard and dashboard_state is not None:
-        dashboard_state.mark_done()
+        if agent_error:
+            dashboard_state.mark_failed(error=agent_error)
+        else:
+            dashboard_state.mark_done()
         logger.info(
             "Run finished. Dashboard still serving at %s. Press Ctrl+C to stop.",
             dashboard_url,
