@@ -112,6 +112,14 @@ class State:
                 terminated = any(item.get("terminated") for item in self._timeline)
             self._terminated = bool(terminated)
 
+    def mark_failed(self, error: str | None = None) -> None:
+        with self._lock:
+            self._state = "failed"
+            if error:
+                self._events.append(
+                    {"type": "error", "text": error}
+                )
+
     def events_since(self, since: int) -> list[dict[str, Any]]:
         with self._lock:
             return list(self._events[since:])
