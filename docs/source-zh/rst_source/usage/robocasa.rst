@@ -1,15 +1,11 @@
 RoboCasa
 ========
 
-.. note::
-
-   RoboCasa 支持仍在开发中，暂不可用。下文描述的是计划中的接入方式——
-   目前仓库里还没有 ``robots/robocasa/`` 包。当前状态见概览的功能矩阵。
-
 `RoboCasa <https://robocasa.ai>`_ 是厨房尺度、长时序的操作 environment。
-在 RPent 中它将由 **RLDX-1** VLA 策略驱动，通过 pickle-framed socket RPC
-（而非 LIBERO 用的 HTTP）提供服务——因为 RLDX 的观测是历史堆叠的嵌套
-numpy dict，socket 天然承载，HTTP 反而需要额外设计 wire 格式。
+在 RPent 中由 **RLDX-1** VLA 策略驱动，默认通过 HTTP RPC 提供服务
+（与 LIBERO 一致），也支持 pickle-framed socket 传输。详见
+``robots/robocasa/vla_server.py`` 与 ``robots/robocasa/__init__.py``
+中的传输选择逻辑。
 
 可用任务家族
 ------------
@@ -24,6 +20,27 @@ RoboCasa 覆盖标准厨房 benchmark:
 具体列表取决于 RoboCasa 版本；当前目录参见
 `RoboCasa <https://robocasa.ai>`_ 上游。
 
+运行一个任务
+------------
+
+RoboCasa 的 CLI 参数由 ``robots/robocasa/__init__`` 注册，可通过
+``rpent --env robocasa --help`` 查看:
+
+.. code-block:: bash
+
+   rpent --env robocasa \
+         --robocasa-env OpenDrawer \
+         --robocasa-split target \
+         --seed 0 \
+         --vla-model-path /path/to/rldx \
+         --planner claude_code \
+         --model claude-opus-4-8
+
+使用 ``--env-endpoint`` / ``--vla-endpoint`` 指向已运行的服务器
+(``[protocol://]host:port``)；不指定时，RPent 会就地启动 env 和 VLA
+子进程，日志分别写到 ``<output_dir>/env_server.log`` 和
+``<output_dir>/vla_server.log``。
+
 Toolkit 与 LIBERO 的差异
 ------------------------
 
@@ -36,4 +53,4 @@ RoboCasa toolkit 的工具 *形状* 和 LIBERO 相同 (一次原语调用、
   理由参见 :doc:`../development/add_robot`。
 - **观测形状。** RLDX-1 看到的是 3 路相机 video 张量
   ``(1, T, H, W, 3)``, 按历史 ``T`` 堆叠，加上 ``state.*``、annotation、
-  session / reset_memory。
+  以及一个 session id (用于 ``reset_session`` / ``predict``)。
