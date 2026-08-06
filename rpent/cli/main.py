@@ -86,8 +86,8 @@ def _build_argparser() -> argparse.ArgumentParser:
         description="Standalone hybrid LLM-in-the-loop physical agent",
     )
 
-    ap.add_argument("--env", dest="env_name", required=True, choices=["libero"],
-                    help="Environment backend: libero.")
+    ap.add_argument("--env", dest="env_name", required=True, choices=["libero", "robocasa"],
+                    help="Environment backend: libero | robocasa.")
 
     # models
     ap.add_argument("--planner", default="api",
