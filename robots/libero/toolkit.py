@@ -15,6 +15,8 @@ from rpent.dashboard.events import DashboardEventSink, ToolResultEvent
 from rpent.tools.toolkit import ToolCancelled, Toolkit
 from rpent.utils.logging import get_logger, get_output_dir
 
+logger = get_logger("libero_toolkit")
+
 
 class LiberoToolkit(Toolkit):
     """Toolkit for the LIBERO environment."""
@@ -88,7 +90,7 @@ class LiberoToolkit(Toolkit):
             try:
                 self._primitives.save_frame_slice(start_frame, str(video_path), fps=20)
             except Exception as e:
-                get_logger("libero_toolkit").warning(
+                logger.warning(
                     f"failed to save action clip to {video_path}: {e}"
                 )
         libero_tools.dump_state(
@@ -140,8 +142,7 @@ class LiberoToolkit(Toolkit):
         self._primitives = primitives
 
     def close(self) -> None:
-        """Flush the agent-side video buffer to disk (end-of-run).
-        """
+        """Flush the agent-side video buffer to disk (end-of-run)."""
         if self._video_path is None:
             return
         try:
@@ -149,7 +150,7 @@ class LiberoToolkit(Toolkit):
         except Exception as e:
             # The runner is in the cleanup path; never let a video save
             # abort it.
-            get_logger("libero_toolkit").warning(
+            logger.warning(
                 f"failed to save video to {self._video_path}: {e}"
             )
 
