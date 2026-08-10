@@ -286,7 +286,6 @@ class RLDXSkill:
                 self._vla_client.reset_session(self._sid)
             except Exception:
                 pass
-        self._first = True
         self._last_prompt = None          # post-reset: next call is a fresh task
         if self._hist is not None:
             self._hist.clear()

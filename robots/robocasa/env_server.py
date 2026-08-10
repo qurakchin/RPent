@@ -147,6 +147,7 @@ class RoboCasaEnvFacade(RpcFacade):
     def render_raw(self, cam, h, w, depth):
         """sim.render in ROBOSUITE-NATIVE orientation (matches the camera
         transform matrices). rgb uint8 HxWx3, depth metric HxW."""
+        import robosuite.utils.camera_utils as CU
         out = self.env.sim.render(width=w, height=h, camera_name=cam, depth=depth)
         if depth:
             rgb, d = out
@@ -163,6 +164,7 @@ class RoboCasaEnvFacade(RpcFacade):
         return out
 
     def get_camera_meta(self, camera_name, height=None, width=None):
+        import robosuite.utils.camera_utils as CU
         K = CU.get_camera_intrinsic_matrix(self.env.sim, camera_name, height, width)
         Ext = CU.get_camera_extrinsic_matrix(self.env.sim, camera_name)  # cam->world
         m = self.env.sim.model
@@ -177,6 +179,7 @@ class RoboCasaEnvFacade(RpcFacade):
         }
 
     def get_camera_transform(self, camera_name, height=None, width=None):
+        import robosuite.utils.camera_utils as CU
         T = CU.get_camera_transform_matrix(self.env.sim, camera_name, height, width)
         return np.linalg.inv(T)  # T_p2w
 

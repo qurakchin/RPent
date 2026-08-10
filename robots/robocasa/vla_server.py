@@ -23,7 +23,7 @@ class RoboCasaVLAFacade(RpcFacade):
         from rldx.eval.rollout_policy import create_rldx_sim_policy
 
         self.policy = create_rldx_sim_policy(
-            model_path, EmbodimentTag.GENERAL_EMBODIMENT, "", None
+            model_path, EmbodimentTag.GENERAL_EMBODIMENT, "", None,
         )
         mod = self.policy.get_modality_config()
         self._vdi = np.asarray(mod["video"].delta_indices)
@@ -54,6 +54,11 @@ class RoboCasaVLAFacade(RpcFacade):
         }
 
     def predict(self, obs_dict, options):
+        # policy.get_action returns dict[str, np.ndarray] because RLDX's
+        # PolicyRuntime._decode already .cpu().numpy()s torch internally, and
+        # _NumpyEncoder (http_rpc) tags numpy arrays at JSON time. If you ever
+        # bypass _decode (e.g. call the model forward directly), you must
+        # .cpu().numpy() the result here — _NumpyEncoder raises on torch.Tensor.
         actions, info = self.policy.get_action(obs_dict, options=options)
         return actions
 
@@ -85,14 +90,16 @@ def main():
     args = p.parse_args()
 
     if args.cuda_device is not None:
-        target = str(args.cuda_device)
+        # New RLDX create_rldx_sim_policy hardcodes device=0 internally and
+        # does not accept a device argument. Map physical GPU to cuda:0
+        # via CUDA_VISIBLE_DEVICES instead.
         prev = os.environ.get("CUDA_VISIBLE_DEVICES")
-        if prev is not None and prev != target:
+        if prev is not None:
             logger.warning(
                 "CUDA_VISIBLE_DEVICES=%s is already set; overriding with --cuda-device=%s",
                 prev, args.cuda_device,
             )
-        os.environ["CUDA_VISIBLE_DEVICES"] = target
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda_device)
 
     facade = RoboCasaVLAFacade(args.model_path)
     facade.serve(

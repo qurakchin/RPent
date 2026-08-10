@@ -22,8 +22,8 @@ import traceback
 
 
 class RoboCasaDriver:
-    def __init__(self, toolkit, workdir="/tmp/rc_repl"):
-        self.toolkit = toolkit
+    def __init__(self, primitives, workdir="/tmp/rc_repl"):
+        self.primitives = primitives
         self.workdir = workdir
 
     # ---------- command dispatch + main loop ----------
@@ -31,16 +31,17 @@ class RoboCasaDriver:
         act = cmd.get("action")
         if act is None:
             return {"error": "missing 'action' field in command"}
-        # Pass all keys EXCEPT "action" as kwargs — the toolkit's execute_tool
-        # dispatches to the right handler and the function signature defaults apply.
         kwargs = {k: v for k, v in cmd.items() if k != "action"}
-        return self.toolkit.execute_tool(act, kwargs)
+        handler = getattr(self.primitives, act, None)
+        if handler is None:
+            return {"error": f"unknown primitive: {act}"}
+        return handler(**kwargs)
 
     def run(self, max_commands=700, poll=0.5):
         step = 0
-        self.toolkit.dump_state(step)                # initial state_00
+        self.primitives.dump_state(step)               # initial state_00
         try:
-            self.toolkit.dump_success_criteria()     # success_criteria.md (what counts as done)
+            self.primitives.dump_success_criteria()    # success_criteria.md (what counts as done)
         except Exception as _e:
             print(f"[driver] success_criteria dump failed: {_e}", flush=True)
         print(f"[driver] ready. workdir={self.workdir}  state_00 dumped.", flush=True)
@@ -60,7 +61,7 @@ class RoboCasaDriver:
             except Exception as e:
                 res = {"error": str(e), "trace": traceback.format_exc()[-800:]}
             try:
-                st = self.toolkit.dump_state(step)
+                st = self.primitives.dump_state(step)
             except Exception as e:
                 print(f"[driver] dump_state failed (non-fatal): {e}\n{traceback.format_exc()[-600:]}", flush=True)
                 st = {"success": False, "_dump_error": str(e)}
@@ -68,7 +69,7 @@ class RoboCasaDriver:
                     json.dump({"step": step, "success": False, "dump_error": str(e),
                                "state": {}}, f)
             with open(f"{self.workdir}/log_{step:02d}.json", "w") as f:
-                json.dump({"command": cmd, "result": res, "dt": round(time.time() - t0, 2)}, f, indent=2)
+                json.dump({"command": cmd, "result": res, "dt": round(time.time() - t0, 2)}, f, indent=2, default=str)
             print(f"[driver] step {step}: {cmd.get('action')} -> "
                   f"{ {k: res[k] for k in ('ok','error','final_dist') if k in res} } "
                   f"success={st['success']}", flush=True)
