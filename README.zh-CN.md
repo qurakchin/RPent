@@ -149,7 +149,7 @@ rpent --env libero --suite libero_object_swap --task 2 --seed 0 \
 
 ### 实时 Dashboard
 
-加上 `--dashboard` 后，会启动本地监控服务，并在终端输出访问地址。打开该地址后，可以在启动页面确认配置；运行开始后，页面会实时显示智能体的推理过程、相机画面和动作时间线。使用 `--dashboard-language zh-cn` 可切换到中文界面。
+加上 `--dashboard` 后，会启动本地监控服务，并在终端输出访问地址。打开该地址后，可以在启动页面确认配置；运行开始后，页面会实时显示智能体的推理过程、相机画面、动作时间线以及片段回放。使用 `--dashboard-language zh-cn` 可切换到中文界面。
 
 ```bash
 rpent --env libero --dashboard --dashboard-language zh-cn \
@@ -159,14 +159,7 @@ rpent --env libero --dashboard --dashboard-language zh-cn \
 
 ### RoboCasa
 
-RoboCasa 使用独立入口与安装指南。
-
-```bash
-bash scripts/setup_robocasa.sh                                # 一次性安装
-bash scripts/run_robocasa.sh PickPlaceCounterToCabinet 0 0    # <任务> <GPU> <种子>
-```
-
-完整的 RoboCasa365 + RLDX-1 部署流程见 [SETUP_ROBOCASA.zh.md](docs/SETUP_ROBOCASA.zh.md)。
+RoboCasa 使用独立入口与安装指南。安装与运行流程见 [RoboCasa 使用文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/usage/robocasa.html)。
 
 更详细的文档请参见 [RPent 中文文档](https://rpent.readthedocs.io/zh-cn/latest/)。
 
