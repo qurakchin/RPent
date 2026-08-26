@@ -4,10 +4,7 @@ backend: ``docs/source-zh/rst_source/development/add_env.rst``.
 
 from __future__ import annotations
 
-from typing import Any, Callable
-
 from rpent.utils.rpc import RpcFacade
-from rpent.utils.rwlock import RWLock
 
 
 class BaseEnvFacade(RpcFacade):
@@ -26,9 +23,9 @@ class BaseEnvFacade(RpcFacade):
            client owns the caching policy.
 
     RPC routing:
-        ``_dispatch`` uses a registration dict (``self._rpc``) instead of
-        dynamic ``getattr`` routing. Subclasses register their own methods in
-        ``_register_rpc``.
+        ``_dispatch`` (inherited from :class:`RpcFacade`) uses a
+        registration dict (``self._rpc``) instead of dynamic ``getattr``
+        routing. Subclasses register their own methods in ``_register_rpc``.
 
     EGL single-thread:
         Subclasses that must keep EGL single-threaded must override ``serve``
@@ -37,11 +34,8 @@ class BaseEnvFacade(RpcFacade):
     """
 
     def __init__(self):
-        super().__init__()
-        self._dispatch_lock = RWLock()
         # server side does not cache obs / terminated — only the client caches
-        self._rpc: dict[str, Callable] = {}
-        self._readonly_methods: set[str] = set()
+        super().__init__()
         self._register_rpc()
 
     # ---- framework ----
@@ -73,16 +67,6 @@ class BaseEnvFacade(RpcFacade):
             "env.get_camera_meta",
             "env.render_camera",
         ])
-
-    def _dispatch(self, method: str, args: tuple, kwargs: dict) -> Any:
-        handler = self._rpc.get(method)
-        if handler is None:
-            raise ValueError(f"unknown RPC method: {method!r}")
-        if method in self._readonly_methods:
-            with self._dispatch_lock.read():
-                return handler(*args, **kwargs)
-        with self._dispatch_lock.write():
-            return handler(*args, **kwargs)
 
     # ---- abstract methods (subclasses must override) ----
     def reset(self):
