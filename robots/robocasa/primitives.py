@@ -331,7 +331,7 @@ class RoboCasaPrimitives:
         """
         o = self.env.current_raw_obs
         return {
-            "task_language": o.get("language", self.env.get_ep_meta().get("lang", "")),
+            "task_language": o.get("language", self.env.get_task_language()),
             "success": self.env.check_success(),
             # NUMERIC progress toward success (counters/sub-predicates the env's own
             # _check_success computes) so the agent has a feedback loop, not just a bool.
@@ -355,7 +355,7 @@ class RoboCasaPrimitives:
             task_lang = prompt
         else:
             task_lang = (self.env.current_raw_obs.get("language")
-                         or self.env.get_ep_meta().get("lang", "")) or prompt
+                         or self.env.get_task_language()) or prompt
         # Auto-reseed history if a non-VLA primitive ran since the last VLA call
         # (read _vla_desync BEFORE clearing it)
         fr = bool(force_reset) or self._vla_desync
