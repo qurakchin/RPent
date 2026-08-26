@@ -104,3 +104,12 @@ class BaseEnvFacade(RpcFacade):
           it before executing any action.
         """
         raise NotImplementedError
+
+    def get_camera_meta(self):
+        raise NotImplementedError
+
+    def render_camera(self):
+        raise NotImplementedError
+
+    def get_task_language(self):
+        raise NotImplementedError
