@@ -720,15 +720,14 @@ def _build_tools(toolkit: Toolkit, *, no_images: bool = False) -> list[Tool]:
     """Build the API-only image reader plus pydantic-ai toolkit wrappers."""
     image_reader = _make_image_reader(toolkit.state, no_images=no_images)
     tools: list[Tool] = [Tool(image_reader, name="read_image")]
-    for spec in toolkit.get_tools_spec():
-        name = spec["name"]
+    for tool in toolkit.get_tools_spec():
+        name = tool.name
         tools.append(
             Tool.from_schema(
                 function=_make_tool_function(toolkit, name, no_images=no_images),
                 name=name,
-                description=spec.get("description", ""),
-                json_schema=spec.get("input_schema")
-                or {"type": "object", "properties": {}},
+                description=tool.description,
+                json_schema=tool.input_schema or {"type": "object", "properties": {}},
                 takes_ctx=False,
             )
         )
