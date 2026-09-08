@@ -1006,6 +1006,7 @@ def query_world_map(
             "summary": {"total_clusters": 0, "total_pixels_matched": 0},
         }
 
+    # Grid-based clustering
     h, w = world_map.shape[:2]
     grid_cells = max(8, min(32, h // 32))
     cell_h = max(1, h // grid_cells)
