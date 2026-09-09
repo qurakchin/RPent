@@ -132,11 +132,14 @@ for large or history-stacked nested-NumPy observations to move length-prefixed
 pickle frames and skip repeated JSON encoding. Pickle is unsafe on untrusted
 input, so only point ``socket`` at trusted endpoints.
 
-Environment and VLA clients should normally subclass ``BaseEnvClient`` and
-``BaseVLAClient``; their servers should subclass ``BaseEnvFacade`` and
-``BaseVLAFacade`` and register extension routes through ``_register_rpc``. The
-bases provide common routing and locking on top of ``RpcFacade``. Subclass
-``RpcFacade`` directly only for a service type without a specialized base. Do
-not implement ``healthz`` or ``shutdown`` in application subclasses.
+Server: subclass ``rpent.utils.rpc.RpcFacade`` and implement
+``_dispatch(method, args, kwargs, *, session_id=None)`` for business RPCs
+(e.g. ``reset``, ``step``, ``predict``). The ``session_id`` keyword is
+``None`` for stateless env servers; pass ``enable_sessions=True`` to the
+base ``__init__`` and override ``_on_session_drop`` for servers that
+isolate per-client state (e.g. a VLA with memory buffers). Do not
+implement ``healthz`` or ``shutdown`` in the subclass — the base takes
+care of them, plus the ``session.register`` / ``session.close`` RPCs when
+sessions are enabled.
 
 Details are in the env_server / vla_server sections of :doc:`add_robot`.
