@@ -29,6 +29,40 @@ from rpent.utils.rpc.main_thread_serve import MainThreadServeMixin
 logger = get_logger("env_server")
 
 
+def check_asset_patch():
+    """Verify that the robosuite asset patch (navview camera on Omron base) is applied.
+
+    Raises RuntimeError with a clear message if the patch is missing.
+    """
+    import importlib.util
+    import xml.etree.ElementTree as ET
+
+    spec = importlib.util.find_spec("robosuite")
+    if spec is None or not spec.submodule_search_locations:
+        raise RuntimeError("robosuite package not found — is it installed?")
+    pkg_dir = list(spec.submodule_search_locations)[0]
+    xml_path = os.path.join(
+        pkg_dir, "models", "assets", "bases", "omron_mobile_base.xml"
+    )
+    if not os.path.isfile(xml_path):
+        raise RuntimeError(
+            f"omron_mobile_base.xml not found at {xml_path}. "
+            "The robosuite package may be damaged or installed incorrectly."
+        )
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    for cam in root.iter("camera"):
+        if cam.get("name") == "navview":
+            return  # patch found
+    raise RuntimeError(
+        "Missing navview camera in omron_mobile_base.xml. "
+        'Apply the patch: add <camera mode="fixed" name="navview" '
+        'pos="0.2 0 1.6" xyaxes="0 -1 0 0.643 0 0.766" fovy="75"/> '
+        'inside the <body name="base"> element. '
+        "See RLinf/robosuite@rlinf for the patched version."
+    )
+
+
 DEFAULT_CAMS = [
     "robot0_agentview_left",
     "robot0_agentview_right",
@@ -88,6 +122,7 @@ class RoboCasaEnvFacade(MainThreadServeMixin, BaseEnvFacade):
         use_camera_obs=False,
     ):
         super().__init__()
+        check_asset_patch()
         import robocasa  # noqa: F401 — registers robocasa envs
         import robosuite
         from robosuite.controllers import load_composite_controller_config
@@ -179,8 +214,78 @@ class RoboCasaEnvFacade(MainThreadServeMixin, BaseEnvFacade):
         obs, reward, done, info = self.env.step(a)
         return obs, reward, done, info
 
-    def check_success(self):
-        return bool(self.env._check_success())
+    def chunk_step(self, flat_actions, *, return_all_frames: bool = False):
+        """Run a full action chunk in one RPC. ``flat_actions`` shape
+        ``[N, action_dim]``.
+
+        Always renders the 3 VLA cameras at 256x256 for the FINAL obs (so
+        the VLA's chunk-boundary history frame is current without separate
+        ``render_camera`` RPCs). When ``return_all_frames=True``, also
+        renders the agentview per-step and returns ``list[Obs]`` (one per
+        step) for video recording — matching the per-step cadence of manual
+        primitives (``_step_arm`` / ``move_to`` call ``record_frame`` after
+        every ``env.step``), so the VLA and manual primitives produce the
+        SAME per-step frame density in the unified episode buffer (the
+        per-chunk vs per-step mismatch is what produced broken videos).
+
+        Returns ``(obs_or_list, reward, done, info, n_applied)``. Breaks
+        early on env success; ``n_applied`` reports how many actions were
+        actually applied.
+        """
+        actions = np.asarray(flat_actions, dtype=np.float64)
+        if actions.ndim != 2 or actions.shape[1] != self.env.action_dim:
+            raise ValueError(
+                f"expected (N, {self.env.action_dim}) action array, got shape {actions.shape}"
+            )
+        obs_list = [] if return_all_frames else None
+        obs = reward = done = info = None
+        n_applied = 0
+        r = 256
+        for i in range(actions.shape[0]):
+            obs, reward, done, info = self.env.step(actions[i])
+            n_applied += 1
+            if return_all_frames:
+                # Per-step: render ONLY the agentview (the video's camera).
+                # The other 2 VLA cameras are rendered once at the chunk
+                # boundary (below) for the VLA history's chunk-boundary frame.
+                step_obs = dict(obs)
+                step_obs["robot0_agentview_left_rgb"] = self.render_camera(
+                    "robot0_agentview_left", r, r, False
+                )[::-1]
+                obs_list.append(step_obs)
+            success = bool(reward)
+            if success:
+                break
+        # Always render the 3 VLA cameras for the final obs (the VLA history
+        # needs all 3 at the chunk boundary).
+        final_obs = self._snapshot_vla_frame(obs) if obs is not None else None
+        if return_all_frames and obs_list:
+            # Replace the last step's agentview-only snapshot with the full
+            # 3-camera snapshot so the VLA history's chunk-boundary frame
+            # (built from obs_list[-1]) has all 3 cameras.
+            obs_list[-1] = final_obs
+        return (
+            (obs_list if return_all_frames else final_obs),
+            reward,
+            done,
+            info,
+            n_applied,
+        )
+
+    def _snapshot_vla_frame(self, obs):
+        """Augment robosuite obs with the 3 VLA cameras at 256x256 (top-down
+        orientation, matching ``render_camera``'s vertical flip)."""
+        r = 256
+        out = dict(obs)
+        for cam in (
+            "robot0_agentview_left",
+            "robot0_agentview_right",
+            "robot0_eye_in_hand",
+        ):
+            out[f"{cam}_rgb"] = self.render_camera(
+                camera_name=cam, height=r, width=r, depth=False
+            )[::-1]
+        return out
 
     def render_camera(self, camera_name, height, width, depth):
         """sim.render in ROBOSUITE-NATIVE orientation (matches the camera

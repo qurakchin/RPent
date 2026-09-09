@@ -93,6 +93,8 @@
    核心接口 <rst_source/development/interfaces>
    Memory 管理 <rst_source/development/memory>
    添加新机器人 <rst_source/development/add_robot>
+   添加 env 后端 <rst_source/development/add_env>
+   添加 VLA 后端 <rst_source/development/add_vla>
    添加动作原语 <rst_source/development/add_primitive>
 
 .. toctree::

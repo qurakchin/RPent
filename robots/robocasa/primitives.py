@@ -18,14 +18,23 @@ import os
 
 import numpy as np
 
+from robots.robocasa.env_client import RoboCasaEnvClient
 from robots.robocasa.rldx_skill import RLDXSkill
+from robots.robocasa.vla_client import RoboCasaVLAClient
 
 OSC_POS_SCALE = 0.05  # action 1.0 -> 0.05 m target delta
 OSC_ROT_SCALE = 0.5  # action 1.0 -> 0.5 rad
 
 
 class RoboCasaPrimitives:
-    def __init__(self, env_client, workdir, hi_res, vla_client, check_cancelled=None):
+    def __init__(
+        self,
+        env_client: RoboCasaEnvClient,
+        workdir,
+        hi_res,
+        vla_client: RoboCasaVLAClient,
+        check_cancelled=None,
+    ):
         self.env = env_client
         self.workdir = workdir
         self.hi_res = hi_res
@@ -48,7 +57,10 @@ class RoboCasaPrimitives:
         self._fwd_offset = None  # world_forward_heading = base_yaw + offset
         self._cam_meta_cache = {}
         self._rldx = RLDXSkill(
-            self.env, vla_client=vla_client, check_cancelled=check_cancelled
+            self.env,
+            vla_client=vla_client,
+            check_cancelled=check_cancelled,
+            record_frame_callback=self.record_frame,
         )
         # "mid-call" desync guard: True whenever a NON-VLA primitive (move/navigate/
         # manual grasp) or a reset has stepped the env since the last rldx_skill call.
@@ -66,7 +78,9 @@ class RoboCasaPrimitives:
         self._frames = []
 
     def record_frame(self, img=None):
-        """Snapshot the current agentview to the frame buffer, if recording."""
+        """Snapshot img agentview to the frame buffer, if recording."""
+        # img
+        # img = np.asarray(obs["robot0_agentview_left_rgb"], dtype=np.uint8)
         if img is None:
             img = self.env.render_camera(
                 camera_name="agentview",
@@ -404,8 +418,8 @@ class RoboCasaPrimitives:
         """
         o = self.env.current_raw_obs
         return {
-            "task_language": o.get("language", self.env.get_task_language()) or "",
-            "success": self.env.check_success(),
+            "task_language": o.get("language", self.env.get_task_language()),
+            "success": self.env.success,
             # NUMERIC progress toward success (counters/sub-predicates the env's own
             # _check_success computes) so the agent has a feedback loop, not just a bool.
             "task_progress": self.task_progress(),
@@ -431,35 +445,14 @@ class RoboCasaPrimitives:
         settle_patience,
         settle_eps,
     ):
-        """Execute RLDX with the environment's live, full task language."""
-        del use_prompt  # Accepted for compatibility with historical task recipes.
-        configured_max_chunks = os.environ.get("RLDX_MAX_CHUNKS")
-        if configured_max_chunks is not None:
-            max_chunks = int(configured_max_chunks)
-        configured_action_steps = os.environ.get("RLDX_ACTION_STEPS_PER_CHUNK")
-        if configured_action_steps is not None:
-            n_action_steps = int(configured_action_steps)
-        configured_settle_patience = os.environ.get("RLDX_SETTLE_PATIENCE")
-        if configured_settle_patience is not None:
-            settle_patience = int(configured_settle_patience)
-        for name, value in (
-            ("max_chunks", max_chunks),
-            ("n_action_steps", n_action_steps),
-            ("settle_patience", settle_patience),
-        ):
-            if value < 1:
-                return {"error": f"{name} must be positive; VLA was not executed"}
-        task_lang = (
-            self.env.current_raw_obs.get("language") or self.env.get_task_language()
-        )
-        if not task_lang:
-            return {
-                "error": "RoboCasa task language is unavailable; VLA was not executed",
-                "effective_prompt": "",
-                "prompt_overridden": False,
-            }
-
-        prompt_overridden = prompt != task_lang
+        """Execute a VLA skill (RLDX). Resolves task_lang, computes force_reset with
+        _vla_desync, clears _vla_desync."""
+        if use_prompt:
+            task_lang = prompt
+        else:
+            task_lang = (
+                self.env.current_raw_obs.get("language") or self.env.get_task_language()
+            ) or prompt
         # Auto-reseed history if a non-VLA primitive ran since the last VLA call
         # (read _vla_desync BEFORE clearing it)
         fr = bool(force_reset) or self._vla_desync
