@@ -25,7 +25,6 @@ with a per-call session id + reset_memory for the RLDX memory module.
 
 from collections import deque
 
-import imageio.v2 as imageio
 import numpy as np
 
 from robots.robocasa.env_client import RoboCasaEnvClient
@@ -68,7 +67,7 @@ class RLDXSkill:
         self.unmap_action = PandaOmronKeyConverter.unmap_action
 
         self.video_delta_indices = (
-            self.vla.get_video_delta_indices()
+            np.asarray(self.vla.get_modality_config()["video_delta_indices"])
         )  # video delta indices, e.g. [-6,-4,-2,0]
         video_history_maxlen = (
             int(self.video_delta_indices.max() - self.video_delta_indices.min()) + 2
@@ -278,25 +277,43 @@ class RLDXSkill:
                 chunked_actions.append(a)
             if self._check_cancelled is not None:
                 self._check_cancelled()
-            recording = self._record_frame_callback is not None
-            chunked_obs, _, _, _, chunked_frames, n_applied = self.env.chunk_step(
-                chunked_actions
-            )
+            chunked_obs, _, _, _, n_applied = self.env.chunk_step(chunked_actions)
             applied += n_applied
             # Per-step agentview into the unified episode buffer (matches
             # manual primitives' per-step cadence — fixes the per-chunk vs
             # per-step density mismatch that produced inconsistent video).
-            for step_obs, step_frames in zip(chunked_obs, chunked_frames):
-                self._record_frame_callback(step_obs)
-                self._raw_frame(prompt, raw_obs=step_obs, frames=step_frames)
-                if recording:
-                    self._record_frame_callback(xxx)
+            # Per-step obs carry only the agentview; the chunk-boundary obs
+            # carries all 3 VLA cameras, so the history frame is advanced
+            # once per chunk from it.
+            for step_obs in chunked_obs:
+                if recording and self._record_frame_callback is not None:
+                    self._record_frame_callback(
+                        step_obs["robot0_agentview_left_rgb"]
+                    )
+            final_obs = chunked_obs[-1]
+            self.video_history.append(
+                self._raw_frame(
+                    prompt,
+                    raw_obs=final_obs,
+                    frames={
+                        "robot0_agentview_left": final_obs[
+                            "robot0_agentview_left_rgb"
+                        ],
+                        "robot0_agentview_right": final_obs[
+                            "robot0_agentview_right_rgb"
+                        ],
+                        "robot0_eye_in_hand": final_obs[
+                            "robot0_eye_in_hand_rgb"
+                        ],
+                    },
+                )
+            )
             # ROBUST grasp check once per chunk (direction-agnostic; see _grasp_contact)
             g_now, g_obj = self._grasp_contact()
             if g_now:
                 grasp_ever = True
                 grasp_obj = grasp_obj or g_obj
-            if self.env.check_success():
+            if self.env.success:
                 status = "success"
                 break
             eef_now = np.asarray(self.env.eef_pos, np.float64)
