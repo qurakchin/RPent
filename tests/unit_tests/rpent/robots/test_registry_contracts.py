@@ -29,9 +29,24 @@ from robots.robotwin.robot_spec import (
 from rpent.robots import enumerate_robots, get_robot_spec
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 
-EXPECTED_ROBOTS = ("dual_franka", "franka", "libero", "robocasa", "robotwin")
+EXPECTED_ROBOTS = (
+    "dual_franka",
+    "franka",
+    "libero",
+    "robocasa",
+    "robotwin",
+    "yam",
+)
 
 PROMPT_VARIABLES = {
+    "yam": {
+        "task_name": "tabletop_cleanup_a",
+        "seed": 0,
+        "recipe_tag": "yam_tabletop_cleanup_a_s0",
+        "instruction": "Sort bottles by brand and spoons by color",
+        "mode": "eval",
+        "memory_dir": "/memory",
+    },
     "libero": {
         "suite": "libero_object_task",
         "task": 2,
@@ -102,6 +117,13 @@ def test_registry_discovers_exactly_the_source_checkout_robots() -> None:
 
 
 @pytest.mark.parametrize("robot_name", EXPECTED_ROBOTS)
+def test_exploration_capability_and_memory_defaults(robot_name: str) -> None:
+    spec = get_robot_spec(robot_name)
+    assert spec.supports_exploration is (robot_name in {"libero", "yam"})
+    assert spec.default_memory_profile == ("local" if robot_name == "yam" else "hf")
+
+
+@pytest.mark.parametrize("robot_name", EXPECTED_ROBOTS)
 def test_robot_prompts_render_from_public_spec(robot_name: str) -> None:
     spec = get_robot_spec(robot_name)
 
@@ -119,7 +141,9 @@ def test_dashboard_metadata_has_consistent_fields_and_channels(
     robot_name: str,
 ) -> None:
     dashboard = get_robot_spec(robot_name).dashboard
-    assert dashboard is not None
+    if dashboard is None:
+        assert robot_name == "yam"
+        return
 
     task = dashboard["task"]
     fields = tuple(field["name"] for field in task["fields"])

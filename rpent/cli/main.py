@@ -252,8 +252,9 @@ def _handoff_message(output_dir, session_number: int, session_max: int) -> str:
         f"{attempts_dir}/ ({', '.join(prior) if prior else 'none yet'}), and their "
         "working notes are in the memory inbox under wip/.\n\n"
         "Read every archive and the working notes before acting. Do not repeat "
-        "failed approaches. A fresh toolkit has already restored a clean scene; "
-        "inspect it before acting."
+        "failed approaches. A new planner session does not prove that the scene "
+        "was reset. Inspect the current environment and follow the robot-specific "
+        "reset and operator-readiness requirements before acting."
     )
 
 
@@ -292,7 +293,14 @@ def _start_continuation_session(
             "session_max": session_max,
         },
     )
+    previous_session = (
+        Path(output_dir) / "sessions" / f"session_{session_number - 1:03d}"
+    )
     session_message = _handoff_message(output_dir, session_number, session_max)
+    session_message += (
+        f"\nRead the previous session's recorded steps in {previous_session}/ "
+        f"and working notes under {prompt_vars.get('memory_inbox', 'the memory inbox')}/wip/."
+    )
     return planner, system_prompt, session_message
 
 
@@ -325,13 +333,15 @@ def main() -> int:
     args.robot_name = early.robot_name
     if args.dashboard and args.interactive:
         parser.error("--dashboard and --interactive cannot be used together")
-    if args.explore and args.robot_name != "libero":
-        parser.error("--explore is currently supported only for LIBERO")
+    if args.explore and not robot_spec.supports_exploration:
+        parser.error(f"--explore is not supported by {robot_spec.name}")
     if args.explore and args.memory_profile == "hf":
         parser.error("--explore cannot be used with --memory-profile hf")
     if args.explore and getattr(args, "explore_sessions", 1) <= 0:
         parser.error("--explore-sessions must be greater than 0")
-    args.memory_profile = args.memory_profile or ("local" if args.explore else "hf")
+    args.memory_profile = args.memory_profile or (
+        "local" if args.explore else robot_spec.default_memory_profile
+    )
     if args.memory_profile == "hf" and args.memory_dir is not None:
         parser.error("--memory-dir requires --memory-profile local or --explore")
     if args.dashboard:
@@ -456,7 +466,7 @@ def main() -> int:
                 state_output_dir = (
                     output_dir / "sessions" / f"session_{session_number:03d}"
                 )
-            if robot_name == "libero":
+            if robot_spec.supports_exploration:
                 toolkit = get_toolkit(
                     robot_name,
                     primitives_kwargs=primitives_kwargs,
@@ -488,7 +498,7 @@ def main() -> int:
                 messages += result.messages
                 stats = result.stats
                 agent_error = result.error
-                if robot_name == "libero":
+                if robot_spec.supports_exploration:
                     solved = toolkit.solved()
                     if solved:
                         recipe_path = toolkit.write_recipe(recipe_tag)
@@ -533,6 +543,7 @@ def main() -> int:
         "model": args.model,
         "elapsed_s": round(elapsed, 1),
         "finish": finish_result,
+        "environment_success": environment_success,
         "stats": stats,
         "messages": _serialize_messages(messages),
     }

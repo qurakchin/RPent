@@ -77,6 +77,9 @@ def _capture_validated_args(
     def get_robot_spec(name: str):
         captured["robot_name"] = name
         return SimpleNamespace(
+            name=name,
+            supports_exploration=name == "libero",
+            default_memory_profile="hf",
             add_cli_args=add_cli_args,
             parse_config=parse_config,
         )
@@ -184,7 +187,7 @@ def test_robot_and_env_aliases_are_mutually_exclusive(
             ["--robot", "libero", "--dashboard", "--interactive"],
             "cannot be used together",
         ),
-        (["--robot", "robocasa", "--explore"], "supported only for LIBERO"),
+        (["--robot", "robocasa", "--explore"], "not supported by robocasa"),
         (
             ["--robot", "libero", "--explore", "--memory-profile", "hf"],
             "cannot be used with --memory-profile hf",
@@ -232,6 +235,8 @@ def test_shared_cli_validation_stops_before_robot_runtime(
         "get_robot_spec",
         lambda name: SimpleNamespace(
             name=name,
+            supports_exploration=name == "libero",
+            default_memory_profile="hf",
             add_cli_args=add_cli_args,
             parse_config=parse_config,
         ),
@@ -410,6 +415,7 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
 
     robot_spec = RobotSpec(
         name="libero",
+        supports_exploration=True,
         prompts=PromptBundle(
             system=lambda variables: "simulated system prompt",
             user=lambda variables: "simulated user task",
