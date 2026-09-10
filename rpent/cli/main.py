@@ -326,6 +326,14 @@ def _start_continuation_session(
         session_message += "\n\nOriginal operator task instruction:\n" + str(
             prompt_vars["initial_user_message"]
         )
+    previous_session = (
+        Path(output_dir) / "sessions" / f"session_{session_number - 1:03d}"
+    )
+    memory_inbox = prompt_vars.get("memory_inbox", "the memory inbox")
+    session_message += (
+        f"\nRead the previous session's recorded steps in {previous_session}/ "
+        f"and working notes under {memory_inbox}/wip/."
+    )
     return planner, system_prompt, session_message
 
 
@@ -405,7 +413,9 @@ def main() -> int:
         parser.error("--explore cannot be used with --memory-profile hf")
     if args.explore and getattr(args, "explore_sessions", 1) <= 0:
         parser.error("--explore-sessions must be greater than 0")
-    args.memory_profile = args.memory_profile or ("local" if args.explore else "hf")
+    args.memory_profile = args.memory_profile or (
+        "local" if args.explore else robot_spec.default_memory_profile
+    )
     if args.memory_profile == "hf" and args.memory_dir is not None:
         parser.error("--memory-dir requires --memory-profile local or --explore")
     if args.dashboard:
@@ -670,6 +680,7 @@ def main() -> int:
         "model": args.model,
         "elapsed_s": round(elapsed, 1),
         "finish": finish_result,
+        "environment_success": environment_success,
         "stats": stats,
         "messages": _serialize_messages(messages),
     }

@@ -77,6 +77,9 @@ def _capture_validated_args(
     def get_robot_spec(name: str):
         captured["robot_name"] = name
         return SimpleNamespace(
+            name=name,
+            supports_exploration=name == "libero",
+            default_memory_profile="hf",
             add_cli_args=add_cli_args,
             parse_config=parse_config,
             supports_exploration=name == "libero",
@@ -235,6 +238,8 @@ def test_shared_cli_validation_stops_before_robot_runtime(
         "get_robot_spec",
         lambda name: SimpleNamespace(
             name=name,
+            supports_exploration=name == "libero",
+            default_memory_profile="hf",
             add_cli_args=add_cli_args,
             parse_config=parse_config,
             supports_exploration=name == "libero",
@@ -494,6 +499,7 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
 
     robot_spec = RobotSpec(
         name="libero",
+        supports_exploration=True,
         prompts=PromptBundle(
             system=lambda variables: "simulated system prompt",
             user=lambda variables: "simulated user task",
