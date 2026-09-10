@@ -79,24 +79,25 @@ class RoboCasaEnvClient(BaseEnvClient):
 
     def chunk_step(self, flat_actions):
         """Apply N actions in one RPC. Returns
-        ``(obs_or_list, last_reward, last_done, last_info, n_applied)``.
+        ``(obs_list, last_reward, last_done, last_info, n_applied)``.
 
-        ``obs`` is ``list[Obs]`` when ``return_all_frames=True`` (one entry
-        per chunk step, each carrying the per-step agentview as
-        ``'robot0_agentview_left_rgb'``; the LAST entry also carries the
-        right + wrist cameras for the VLA history's chunk-boundary frame).
-        When ``False``, ``obs`` is the final obs dict with all 3 VLA
-        cameras rendered.
+        Always requests ``return_all_frames=True`` — the RLDX skill consumes
+        the per-step obs list (one entry per applied step, each carrying the
+        per-step agentview as ``'robot0_agentview_left_rgb'``; the LAST entry
+        also carries the right + wrist cameras for the VLA history's
+        chunk-boundary frame). ``last_reward`` is the scalar reward of the
+        last applied step (breaks early on env success).
         """
         result = self._client.call(
             "env.chunk_step",
             args=(flat_actions,),
+            kwargs={"return_all_frames": True},
             timeout_s=self._TIMEOUT_S["env.chunk_step"],
         )
-        obs_field = result[0]
-        success_field = result[1]
+        obs_field = result[0]  # list[Obs], one per applied step
+        reward_field = result[1]  # scalar reward of the last applied step
         self.last_obs = obs_field[-1]
-        self.success = bool(success_field[-1])
+        self.success = bool(reward_field)
         return result
 
     @property

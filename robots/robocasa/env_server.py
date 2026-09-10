@@ -164,7 +164,6 @@ class RoboCasaEnvFacade(MainThreadServeMixin, BaseEnvFacade):
     def _register_rpc(self):
         """Register all RPC methods."""
         super()._register_rpc()
-        self._rpc["env.check_success"] = self.check_success
         self._rpc["env.get_camera_transform"] = self.get_camera_transform
         self._rpc["env.grasp_contact"] = self.grasp_contact
         self._rpc["env.reassemble_env_action"] = self.reassemble_env_action
@@ -173,7 +172,6 @@ class RoboCasaEnvFacade(MainThreadServeMixin, BaseEnvFacade):
         # Read-only methods
         self._readonly_methods.update(
             [
-                "env.check_success",
                 "env.get_camera_transform",
                 "env.grasp_contact",
                 "env.get_success_criteria_text",

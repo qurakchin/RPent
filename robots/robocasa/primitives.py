@@ -423,7 +423,7 @@ class RoboCasaPrimitives:
             # NUMERIC progress toward success (counters/sub-predicates the env's own
             # _check_success computes) so the agent has a feedback loop, not just a bool.
             "task_progress": self.task_progress(),
-            "robocasa_terminated": self.env.terminated,
+            "robocasa_terminated": self.env.success,
             "state": {
                 "robot0_eef_pos": self.env.eef_pos.tolist(),
                 "robot0_eef_quat": self.env.eef_quat.tolist(),
@@ -472,8 +472,8 @@ class RoboCasaPrimitives:
         result["effective_max_chunks"] = max_chunks
         result["effective_n_action_steps"] = n_action_steps
         result["effective_settle_patience"] = settle_patience
-        result["prompt_overridden"] = prompt_overridden
-        if prompt_overridden:
+        result["prompt_overridden"] = bool(use_prompt)
+        if use_prompt:
             result["requested_prompt"] = prompt
         return result
 
