@@ -90,10 +90,10 @@ Because the model runs in its own process, adding a model-based
 primitive requires a few additional components:
 
 1. **Write ``vla_server.py``.** This process owns only the model weights
-   and CUDA context. Use
-   :class:`rpent.robots.components.vla_facade_base.BaseVLAFacade` as the base
-   class, implement ``predict``, and register any additional model RPCs by
-   extending ``_register_rpc``:
+   and CUDA context. Subclass
+   :class:`rpent.robots.components.vla_facade_base.BaseVLAFacade`, register
+   your model methods in ``_register_rpc`` (the base already registers
+   ``vla.predict``), and start the service via ``self.serve(...)``:
 
    - The default transport is **HTTP** (JSON over ``POST /call``),
      which works well for flat ``image + state`` payloads such as the
@@ -101,6 +101,13 @@ primitive requires a few additional components:
    - Switch to **socket RPC** (``--transport socket``) if your obs is
      a nested dict of numpy arrays with history stacks (avoids the
      JSON re-encode overhead).
+   - If the model holds per-client state (memory buffers, RTC chunks),
+     pass ``enable_sessions=True`` to the base ``__init__`` so each
+     caller gets an isolated session; the facade injects the caller's
+     private session id as a ``session_id`` kwarg into every handler,
+     and :meth:`_on_session_drop` is fired on ``session.close`` and idle
+     expiry to clean up. See :ref:`add-robot-sessions` for the full
+     lifecycle.
 
    ``BaseVLAFacade`` registers ``vla.predict`` and serializes model calls;
    its inherited ``RpcFacade.serve`` handles transport binding, ``healthz``,
@@ -162,9 +169,11 @@ connect to an instance that is already running:
 
    rpent --robot libero --vla-endpoint http://vla-host:8000 ...
 
-If the model keeps per-episode state, expose a ``vla_reset`` RPC and
-call it between tasks. The same server process can then be reused safely
-across sequential runs.
+If the model keeps per-episode state, enable per-client sessions on the
+server (``enable_sessions=True`` + :meth:`_on_session_drop`) so each
+caller's policy state is isolated and cleaned up on close or idle expiry.
+The same server process can then be reused safely across sequential runs.
+See :ref:`add-robot-sessions` for the full lifecycle.
 
 Session-aware VLA backends (per-client policy state)
 ----------------------------------------------------

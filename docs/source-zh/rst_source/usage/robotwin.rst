@@ -167,8 +167,8 @@ expert 程序选择；实际来源 seed 记录在 recipe 元数据中。
 机械臂选择、像素、坐标、姿态、净空与接触点均不是新 episode 的直接命令。当前环境原生
 task language 与最新 observation 始终优先，所有几何信息都必须重新定位。
 
-``evidence_status=supported`` 表示 recipe 有成功 clean 轨迹支持；``experimental``
-仍然只是弱先验。使用时先阅读 ``MEMORY.md``，再只选与当前任务和失败模式相关的
+``evidence_status=supported`` 表示 recipe 有成功的 ``demo_clean`` 轨迹支持；``experimental``
+仍然只是弱先验。使用时先阅读 ``memory/MEMORY.md``，再只选与当前任务和失败模式相关的
 少量笔记。
 
 结果复现

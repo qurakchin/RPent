@@ -84,13 +84,19 @@ primitives 方法，以及调用完成后的状态快照。区别仅在于方法
 由于模型运行在独立进程中，添加基于模型的原语还需要以下组件：
 
 1. **编写 ``vla_server.py``。** 该进程只持有模型权重和 CUDA 上下文。
-   继承 :class:`rpent.robots.components.vla_facade_base.BaseVLAFacade`，实现
-   ``predict``，并通过扩展 ``_register_rpc`` 注册其他模型 RPC：
+   继承 :class:`rpent.robots.components.vla_facade_base.BaseVLAFacade`，
+   在 ``_register_rpc`` 中注册模型方法（基类已注册 ``vla.predict``），
+   再通过 ``self.serve(...)`` 启动服务：
 
    - 默认传输方式为 **HTTP**，通过 ``POST /call`` 传输 JSON，适合
      LIBERO/Pi0.5 使用的扁平 ``image + state`` 数据。
    - 当观测数据包含多帧历史信息或采用嵌套数据结构时，可以切换到
      **socket RPC**\ （``--transport socket``），避免重复进行 JSON 编码。
+   - 如果模型持有按 client 隔离的状态（memory buffer、RTC chunk），在
+     ``__init__`` 传 ``enable_sessions=True``，每个 caller 会获得独立
+     session；facade 把 caller 的私有 session id 作为 ``session_id``
+     kwarg 注入所有 handler，并在 :meth:`_on_session_drop` 中清理。完整生命
+     周期见 :ref:`add-robot-sessions-zh`。
 
    ``BaseVLAFacade`` 会注册 ``vla.predict`` 并串行化模型调用；继承的
    ``RpcFacade.serve`` 负责绑定传输层、处理 ``healthz`` 和 ``shutdown``、
@@ -146,8 +152,11 @@ primitives 方法，以及调用完成后的状态快照。区别仅在于方法
 
    rpent --robot libero --vla-endpoint http://vla-host:8000 ...
 
-如果模型会保存每个回合的内部状态，应提供 ``vla_reset`` RPC，并在任务之间
-调用它完成重置。这样，同一个服务进程就能安全地复用于多次连续运行。
+如果模型会保存每个回合的内部状态，应在 server 侧启用按 client 隔离的
+session（``enable_sessions=True`` + :meth:`_on_session_drop`），每个 caller
+的 policy state 会自动隔离，并在 session close 或 idle 过期时清理。这样，
+同一个服务进程就能安全地复用于多次连续运行。完整生命周期见
+:ref:`add-robot-sessions-zh`。
 
 带会话状态的 VLA 后端（按客户端隔离策略状态）
 ------------------------------------------------
@@ -199,7 +208,7 @@ queue 把请求从 transport 线程交给该线程：
 mixin 覆盖的 ``serve`` 与 :class:`~rpent.utils.rpc.RpcFacade` 的
 ``serve`` 契约一致：同样支持 ``healthz`` / ``shutdown``、parent-watch
 和 session 支持（构造传 ``enable_sessions=True`` 时，``serve`` 仍须传
-``session_sweep_s``）。子类**不需要**重写 ``serve`` 来委托——直接继承
+``session_sweep_s``）。子类 **不需要重写** ``serve`` 来委托——直接继承
 即可（参考 ``robots/robocasa/env_server.py`` 的
 ``RoboCasaEnvFacade``）。不需要 EGL 单线程的后端直接继承基类用默认
 ``serve``。

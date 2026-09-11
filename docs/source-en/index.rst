@@ -103,7 +103,9 @@ Welcome to RPent
    System Internals <rst_source/development/architecture>
    Core Interfaces <rst_source/development/interfaces>
    Add a New Robot <rst_source/development/add_robot>
+   Add an Env Backend <rst_source/development/add_env>
    Add an Action Primitive <rst_source/development/add_primitive>
+   Add a VLA Backend <rst_source/development/add_vla>
    Memory Management <rst_source/development/memory>
 
 .. toctree::

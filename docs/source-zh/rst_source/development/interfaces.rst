@@ -48,7 +48,7 @@
 
 ``get_toolkit`` 一般只需把 ``primitives_kwargs`` 传给机器人子类；
 ``dashboard_events`` 和 ``config`` 由当前 runner 传入。它需要构造一个
-:class:`~rpent.memory.MemoryManager`（root 取自
+:class:`~rpent.memory.MemoryManager` （root 取自
 ``config.prompt_vars["memory_dir"]``，未设置时回退到
 ``get_memory_dir(robot_name)``）并传给 toolkit。Memory 访问权限在
 ``MemoryManager`` 上配置。如果某个机器人还需要额外参数，可以继续声明
@@ -123,9 +123,17 @@ runtime 钩子中解析）：
 观测数据很大、或是多帧堆叠的嵌套 NumPy 字典时可改 ``socket``，用带长度前缀的
 pickle 数据帧传输，省掉反复的 JSON 编解码。pickle 不适合不可信输入，socket 只应连接可信端点。
 
-环境和 VLA client 通常应分别继承 ``BaseEnvClient``、``BaseVLAClient``；服务端
-分别继承 ``BaseEnvFacade``、``BaseVLAFacade``，并通过 ``_register_rpc`` 注册
-扩展路由。这些基类在 ``RpcFacade`` 之上提供公共路由和锁。只有尚无专用基类的
-服务类型才直接继承 ``RpcFacade``。业务子类不必实现 ``healthz`` / ``shutdown``。
+服务端：env 后端继承
+:class:`rpent.robots.components.env_facade_base.BaseEnvFacade`，VLA 后端继承
+:class:`rpent.robots.components.vla_facade_base.BaseVLAFacade` （两者都继承
+``rpent.utils.rpc.RpcFacade``）。业务方法在 ``_register_rpc`` 中注册（基类已注册
+``env.reset`` / ``env.step`` / ``env.chunk_step``、``vla.predict`` 等公共路由），
+**不要覆写** ``_dispatch``。env 的 handler 不接收 ``session_id``；需要按 client
+隔离状态的 VLA 后端（如带 memory buffer 的）在 ``__init__`` 传
+``enable_sessions=True``、``serve`` 传正数 ``session_sweep_s``，并重写
+``_on_session_drop``——facade 会把 caller 的 ``session_id`` 注入所有 handler。
+``healthz`` / ``shutdown`` 不必在子类里写 —— base
+会处理；启用 session 时 ``session.register`` / ``session.close`` 也由 base
+处理。
 
 细节见 :doc:`add_robot` 中的 env_server 与 vla_server 章节。

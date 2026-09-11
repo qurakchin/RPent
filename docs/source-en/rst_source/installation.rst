@@ -86,7 +86,26 @@ These resources usually need to be downloaded only once;
 
       HF_ENDPOINT=https://hf-mirror.com liberopro-download-assets --skip-existing
 
-3. (Optional) Real-world robot dependencies
+3. (Optional) Install the RoboCasa365 stack
+-------------------------------------------
+
+The ``.[robocasa]`` extra installs the full RoboCasa365 stack — the
+``RLinf/robosuite`` fork (branch ``rpent``, which provides the Omron base's
+fixed ``navview`` camera), the PyPI packages ``rlinf-robocasa365`` and
+``rlinf-rldx``, and the MuJoCo 3.3.0 / lerobot dependencies they pull in.
+RLDX-1 needs specific PyTorch / torchvision / flash-attn versions
+installed **before** the extra, plus a post-install setup (macros,
+kitchen assets, env vars) and an ``RLDX-1-FT-RC365`` checkpoint. The formal
+Target50 reproduction environment additionally pins exact versions via
+``robots/robocasa/eval/target50-constraints.txt`` and
+``target50-overrides.txt``. See :doc:`usage/robocasa` for the full
+walkthrough.
+
+.. code-block:: bash
+
+   uv pip install -e ".[robocasa]"
+
+4. (Optional) Real-world robot dependencies
 -------------------------------------------
 
 Franka and SO-101 support is being rolled in; when it lands, each
