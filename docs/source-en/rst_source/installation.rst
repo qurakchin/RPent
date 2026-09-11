@@ -89,14 +89,17 @@ These resources usually need to be downloaded only once;
 3. (Optional) Install the RoboCasa365 stack
 -------------------------------------------
 
-The ``.[robocasa]`` extra installs the full RoboCasa365 stack — MuJoCo
-3.3.1, the ARISE-Initiative robosuite fork, the pinned lerobot commit,
-protobuf, and the ``robocasa`` package itself (a wheel from the
-``github.com/qurakchin/robocasa`` fork, branch ``v1.0.1_rlinf``).
+The ``.[robocasa]`` extra installs the full RoboCasa365 stack — the
+``RLinf/robosuite`` fork (branch ``rpent``, which provides the Omron base's
+fixed ``navview`` camera), the PyPI packages ``rlinf-robocasa365`` and
+``rlinf-rldx``, and the MuJoCo 3.3.0 / lerobot dependencies they pull in.
 RLDX-1 needs specific PyTorch / torchvision / flash-attn versions
 installed **before** the extra, plus a post-install setup (macros,
-kitchen assets, env vars) and an ``RLDX-1-FT-RC365`` checkpoint. See
-:doc:`usage/robocasa` for the full walkthrough.
+kitchen assets, env vars) and an ``RLDX-1-FT-RC365`` checkpoint. The formal
+Target50 reproduction environment additionally pins exact versions via
+``robots/robocasa/eval/target50-constraints.txt`` and
+``target50-overrides.txt``. See :doc:`usage/robocasa` for the full
+walkthrough.
 
 .. code-block:: bash
 

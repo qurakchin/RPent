@@ -84,9 +84,9 @@ primitives 方法，以及调用完成后的状态快照。区别仅在于方法
 由于模型运行在独立进程中，添加基于模型的原语还需要以下组件：
 
 1. **编写 ``vla_server.py``。** 该进程只持有模型权重和 CUDA 上下文。
-   继承 :class:`rpent.utils.rpc.RpcFacade`，并通过
-   ``_dispatch(method, args, kwargs, *, session_id=None)`` 暴露
-   模型方法（如 ``predict``）：
+   继承 :class:`rpent.robots.components.vla_facade_base.BaseVLAFacade`，
+   在 ``_register_rpc`` 中注册模型方法（基类已注册 ``vla.predict``），
+   再通过 ``self.serve(...)`` 启动服务：
 
    - 默认传输方式为 **HTTP**，通过 ``POST /call`` 传输 JSON，适合
      LIBERO/Pi0.5 使用的扁平 ``image + state`` 数据。
@@ -94,8 +94,8 @@ primitives 方法，以及调用完成后的状态快照。区别仅在于方法
      **socket RPC**\ （``--transport socket``），避免重复进行 JSON 编码。
    - 如果模型持有按 client 隔离的状态（memory buffer、RTC chunk），在
      ``__init__`` 传 ``enable_sessions=True``，每个 caller 会获得独立
-     session；server 把 caller 的私有 session id 通过 ``session_id``
-     注入 ``_dispatch``，并在 :meth:`_on_session_drop` 中清理。完整生命
+     session；facade 把 caller 的私有 session id 作为 ``session_id``
+     kwarg 注入所有 handler，并在 :meth:`_on_session_drop` 中清理。完整生命
      周期见 :ref:`add-robot-sessions-zh`。
 
    ``BaseVLAFacade`` 会注册 ``vla.predict`` 并串行化模型调用；继承的
@@ -208,7 +208,7 @@ queue 把请求从 transport 线程交给该线程：
 mixin 覆盖的 ``serve`` 与 :class:`~rpent.utils.rpc.RpcFacade` 的
 ``serve`` 契约一致：同样支持 ``healthz`` / ``shutdown``、parent-watch
 和 session 支持（构造传 ``enable_sessions=True`` 时，``serve`` 仍须传
-``session_sweep_s``）。子类**不需要**重写 ``serve`` 来委托——直接继承
+``session_sweep_s``）。子类 **不需要重写** ``serve`` 来委托——直接继承
 即可（参考 ``robots/robocasa/env_server.py`` 的
 ``RoboCasaEnvFacade``）。不需要 EGL 单线程的后端直接继承基类用默认
 ``serve``。

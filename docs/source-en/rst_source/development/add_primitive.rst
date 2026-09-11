@@ -90,9 +90,10 @@ Because the model runs in its own process, adding a model-based
 primitive requires a few additional components:
 
 1. **Write ``vla_server.py``.** This process owns only the model weights
-   and CUDA context. Subclass :class:`rpent.utils.rpc.RpcFacade` and
-   expose your model methods (e.g. ``predict``) via
-   ``_dispatch(method, args, kwargs, *, session_id=None)``:
+   and CUDA context. Subclass
+   :class:`rpent.robots.components.vla_facade_base.BaseVLAFacade`, register
+   your model methods in ``_register_rpc`` (the base already registers
+   ``vla.predict``), and start the service via ``self.serve(...)``:
 
    - The default transport is **HTTP** (JSON over ``POST /call``),
      which works well for flat ``image + state`` payloads such as the
@@ -102,9 +103,9 @@ primitive requires a few additional components:
      JSON re-encode overhead).
    - If the model holds per-client state (memory buffers, RTC chunks),
      pass ``enable_sessions=True`` to the base ``__init__`` so each
-     caller gets an isolated session; the server injects the caller's
-     private session id into ``_dispatch`` as ``session_id``, and
-     :meth:`_on_session_drop` is fired on ``session.close`` and idle
+     caller gets an isolated session; the facade injects the caller's
+     private session id as a ``session_id`` kwarg into every handler,
+     and :meth:`_on_session_drop` is fired on ``session.close`` and idle
      expiry to clean up. See :ref:`add-robot-sessions` for the full
      lifecycle.
 

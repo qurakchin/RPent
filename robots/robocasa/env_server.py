@@ -59,7 +59,7 @@ def check_asset_patch():
         'Apply the patch: add <camera mode="fixed" name="navview" '
         'pos="0.2 0 1.6" xyaxes="0 -1 0 0.643 0 0.766" fovy="75"/> '
         'inside the <body name="base"> element. '
-        "See RLinf/robosuite@rlinf for the patched version."
+        "See RLinf/robosuite@rpent for the patched version."
     )
 
 

@@ -92,13 +92,14 @@ RPent 可以通过一条 ``pip install`` 命令完成安装，并提供多种可
 3. (可选) 安装 RoboCasa365 stack
 ---------------------------------
 
-``.[robocasa]`` extra 装齐整个 RoboCasa365 stack —— MuJoCo 3.3.1、
-ARISE-Initiative robosuite fork、pinned lerobot commit、protobuf，
-以及 ``robocasa`` 包本身（从 ``github.com/qurakchin/robocasa`` fork
-的 ``v1.0.1_rlinf`` 分支装的 wheel）。RLDX-1 需要特定版本的
-PyTorch / torchvision / flash-attn 在 extra **之前** 装好，还要做
-安装后处理（macros、厨房 assets、env vars）并下一个
-``RLDX-1-FT-RC365`` checkpoint。完整步骤见 :doc:`usage/robocasa`。
+``.[robocasa]`` extra 装齐整个 RoboCasa365 运行栈 —— ``RLinf/robosuite``
+的 ``rpent`` 分支 fork（含 Omron 底盘固定的 ``navview`` 相机）、PyPI 包
+``rlinf-robocasa365`` 与 ``rlinf-rldx``，以及它们带入的 MuJoCo 3.3.0、
+lerobot 等传递依赖。RLDX-1 需要特定版本的 PyTorch / torchvision /
+flash-attn 在 extra **之前** 装好，还要做安装后处理（macros、厨房 assets、
+env vars）并下一个 ``RLDX-1-FT-RC365`` checkpoint。正式 Target50 复现环境
+还会用 ``robots/robocasa/eval/target50-constraints.txt`` 与
+``target50-overrides.txt`` 固定确切版本；完整步骤见 :doc:`usage/robocasa`。
 
 .. code-block:: bash
 
