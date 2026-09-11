@@ -121,8 +121,8 @@ class Sam3Facade(RpcFacade):
         self._image_state: dict[str, Any] | None = None
 
     def _register_rpc(self) -> None:
-        self._rpc["segment"] = self.segment
-        self._readonly_methods.add("segment")
+        self._rpc["sam3.segment"] = self.segment
+        self._readonly_methods.add("sam3.segment")
 
     def _segment_bytes(
         self,
@@ -289,6 +289,8 @@ class Sam3Facade(RpcFacade):
             raise ValueError("provide exactly one of text_prompt or point")
         if has_text:
             text_prompt = text_prompt.strip()
+        if not 0.0 <= float(min_score) <= 1.0:
+            raise ValueError("min_score must be between 0 and 1")
 
         image_bytes = base64.b64decode(image_base64, validate=True)
         if not image_bytes:

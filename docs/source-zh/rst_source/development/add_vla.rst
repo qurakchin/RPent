@@ -1,7 +1,7 @@
 添加 VLA 后端
 ==============
 
-在 RPent 中，*VLA 后端*（Vision-Language-Action 模型）把训练好的策略
+在 RPent 中，*VLA 后端* （Vision-Language-Action 模型）把训练好的策略
 （Pi0.5 / RLDX-1 / LingBot-VLA 等）包装成 RPC 服务，对上层 primitives 层
 （``run_vla`` / ``pi0_pick`` / ``rldx_skill`` / ``lingbot_act``）暴露
 统一的 ``predict`` 接口。本页讲如何基于统一基类
@@ -24,10 +24,11 @@
 **2. RPC 路由用注册字典.**
 
 ``_dispatch`` 用注册字典（``self._rpc``）替代 ``if method == "predict"``
-链. 子类在 ``_register_rpc`` 中注册自己的方法, 所有 handler 必须接受
-``session_id`` kwarg（VLA 不需要时忽略）. 子类重写 ``_register_rpc``
-时应先调 ``super()._register_rpc()`` 再追加自己的 handler, 避免漏注册
-基类已注册的 ``predict``.
+链. 子类在 ``_register_rpc`` 中注册自己的方法. 启用 session 的后端,
+所有 handler 必须接受 ``session_id`` kwarg（由 facade 注入, VLA 不需要时
+忽略）; 无 session 的后端 handler **不接收该 kwarg**. 子类重写
+``_register_rpc`` 时应先调 ``super()._register_rpc()`` 再追加自己的
+handler, 避免漏注册基类已注册的 ``predict``.
 
 **3. predict 的 obs / options / 返回值结构后端特有.**
 
@@ -46,7 +47,7 @@ VLA 后端根据策略状态是否按客户端隔离，分为两类:
   memory/RTC）, 需要 ``session_id`` 隔离不同客户端的策略状态,
   session 结束时还要清理该客户端的策略状态.
 
-两类后端的 ``session_id`` 都由 RPC facade 从连接派生, 客户端**不**传——
+两类后端的 ``session_id`` 都由 RPC facade 从连接派生, 客户端 **不传**——
 facade 的 ``_dispatch`` 收到 RPC 调用时从连接派生 ``session_id``, 作为
 kwarg 传给 ``predict`` handler. 有 session 的后端在 ``predict`` 里用
 ``session_id`` 隔离策略状态; 无 session 的后端忽略它.
@@ -60,9 +61,9 @@ kwarg 传给 ``predict`` handler. 有 session 的后端在 ``predict`` 里用
 统一基类已落地到 ``rpent/robots/components/`` 下两个文件:
 
 - :mod:`rpent.robots.components.vla_facade_base` —
-  :class:`~rpent.robots.components.vla_facade_base.BaseVLAFacade`（server 侧）
+  :class:`~rpent.robots.components.vla_facade_base.BaseVLAFacade` （server 侧）
 - :mod:`rpent.robots.components.vla_client_base` —
-  :class:`~rpent.robots.components.vla_client_base.BaseVLAClient`（client 侧）
+  :class:`~rpent.robots.components.vla_client_base.BaseVLAClient` （client 侧）
 
 BaseVLAFacade（server 侧）
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -78,17 +79,17 @@ BaseVLAFacade（server 侧）
   子类必须实现实际推理
 - ``_register_rpc()``: 默认注册 ``vla.predict`` -> ``self.predict``,
   子类可重写追加（重写时先调 ``super()._register_rpc()``）
-- ``_dispatch(self, method, args, kwargs, *, session_id=None)``:
-  从 ``self._rpc`` 取 handler, 用 ``self._lock`` 串行化, 把
-  ``session_id`` 作为 kwarg 传给所有 handler（readonly 方法也要
-  接受该 kwarg, 不需要时忽略）
+- ``_dispatch`` （继承自 :class:`~rpent.utils.rpc.RpcFacade`, **不要覆写**）:
+  从 ``self._rpc`` 取 handler, 用 ``self._dispatch_lock`` 串行化
+  （``_readonly_methods`` 里的方法走共享读锁, 其余走独占写锁）; 启用
+  session 时把 caller 的 ``session_id`` 作为 kwarg 注入所有 handler
 - 子类自行在 ``__init__`` 中加载模型
 - 可选钩子 ``_on_session_drop(self, session_id)``: session 被
   ``session.close`` RPC 或空闲超时清理时触发, 有 session 的后端
   在这里清掉该客户端的策略状态（见下节）
 
 BaseVLAClient（client 侧）
-~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 薄包装 :class:`~rpent.utils.rpc.RpcClient`:
 
@@ -98,7 +99,7 @@ BaseVLAClient（client 侧）
 - ``predict(self, obs, options=None)``: 调
   ``self._client.call("vla.predict", args=(obs, options),
   timeout_s=self._TIMEOUT_S["predict"])``
-- 客户端**不**传 ``session_id``（由 facade 注入）
+- 客户端 **不传** ``session_id``，由 facade 注入
 
 接入步骤
 --------
@@ -112,7 +113,7 @@ BaseVLAClient（client 侧）
 
       class MyVLAFacade(BaseVLAFacade):
           def __init__(self, *, model_path: str, device: str = "cuda"):
-              super().__init__(device=device)
+              super().__init__()  # 无 session 后端用默认 enable_sessions=False
               self.policy = load_my_policy(model_path, device=device)
 
           def predict(self, obs, options, *, session_id=None):
@@ -134,10 +135,11 @@ BaseVLAClient（client 侧）
       def get_model_meta(self, *, session_id=None):
           return {"action_dim": ..., "horizon": ...}
 
-   所有 handler 必须接受 ``session_id`` kwarg. 有 session 的后端如需
-   ``reset_session`` 额外 RPC, 见下节.
+   启用 session 的后端, 所有 handler 必须接受 ``session_id`` kwarg
+   （无 session 的后端不接收）. 有 session 的后端如需 ``reset_session``
+   额外 RPC, 见下节.
 
-3. 继承 :class:`~rpent.robots.components.vla_client_base.BaseVLAClient`（可选）.
+3. 继承 :class:`~rpent.robots.components.vla_client_base.BaseVLAClient` （可选）.
    如果客户端需要额外方法（如 ``reset_session``）, 继承后追加:
 
    .. code-block:: python
@@ -215,7 +217,7 @@ BaseVLAClient（client 侧）
        actions, info = self.policy.get_action(obs, options=options)
        return actions
 
-必须**拒绝**调用方传入的 ``session_ids``（防止客户端伪造值串到
+必须 **拒绝调用方传入的** ``session_ids`` （防止客户端伪造值串到
 别的 session）, 再强制覆写为 ``[session_id]``. 这里的 ``session_id``
 是 facade 注入的, 不要从 ``options`` 里读.
 
@@ -280,14 +282,15 @@ session 本体保持存活, 后续调用继续用.
   ``predict`` 里懒加载
 - ``_register_rpc`` 重写时必须先调 ``super()._register_rpc()``, 再追加
   自己的 handler
-- ``_dispatch`` 所有 handler 必须接受 ``session_id`` kwarg（不需要时
-  忽略）
+- 启用 session 的后端, 所有 handler 必须接受 ``session_id`` kwarg
+  （由 facade 注入, 不需要时忽略）; 无 session 的后端 handler **不接收**
+  该 kwarg
 - 客户端 ``predict`` 不传 ``session_id``——由 facade 从连接派生后
   注入到 server 端 handler
 - ``_TIMEOUT_S["predict"]`` 默认 120s, 如果模型推理更慢, 子类可重写
   ``_TIMEOUT_S`` 调大
 - 有 session 的后端: 构造传 ``enable_sessions=True`` +
-  ``session_timeout_s``, ``serve`` 必须传 ``session_sweep_s``（> 0）;
+  ``session_timeout_s``, ``serve`` 必须传 ``session_sweep_s`` （> 0）;
   ``predict`` / ``reset_session`` 强制覆写 ``session_ids`` 为
   ``[session_id]`` 并拒绝客户端传入; ``_on_session_drop`` 里清策略状态
 - 无 session 的后端: ``predict`` 忽略 ``session_id``, 构造

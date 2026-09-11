@@ -185,16 +185,18 @@ facade registers each name explicitly.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Mirror the client's API in a facade class on the server side (e.g.
-``MyEnvFacade``). Subclass :class:`rpent.utils.rpc.RpcFacade`, implement
-``_dispatch(method, args, kwargs, *, session_id=None)`` to route ``env.*``
-calls to your methods, and delegate startup to ``self.serve(...)``.
-Methods take the same positional / keyword arguments the client sends and
-return pickleable values (numpy, not torch — the agent side does not import
-torch).
+``MyEnvFacade``). Subclass
+:class:`rpent.robots.components.env_facade_base.BaseEnvFacade`, register
+``env.*`` methods in ``_register_rpc`` (the base already registers
+``env.reset`` / ``env.step`` / ``env.chunk_step`` / ``env.get_env_meta`` and
+friends), and delegate startup to ``self.serve(...)``. Methods take the same
+positional / keyword arguments the client sends and return pickleable values
+(numpy, not torch — the agent side does not import torch).
 
-The ``session_id`` keyword is ``None`` for env servers (they don't isolate
-per-client state) but **must** be in the signature so the base class can
-pass it through. See :ref:`add-robot-sessions` below for when to use it.
+Env servers are not session-aware: ``BaseEnvFacade``'s ``_dispatch`` passes
+only ``*args / **kwargs`` to handlers and does **not** inject ``session_id``,
+so env handlers neither need nor should declare a ``session_id`` parameter.
+See :ref:`add-robot-sessions` below for when per-client isolation is needed.
 
 .. code-block:: python
 
@@ -202,20 +204,14 @@ pass it through. See :ref:`add-robot-sessions` below for when to use it.
 
    class MyEnvFacade(BaseEnvFacade):
        def __init__(self, env, meta):
-           super().__init__()  # enable_sessions=False by default
+           super().__init__()  # routes registered here, enable_sessions=False
            self._env = env
            self._meta = meta
-           super().__init__()
 
-       def _dispatch(self, method, args, kwargs, *, session_id=None):
-           # Subclasses MUST take self._lock around the body — the
-           # ThreadingHTTPServer dispatches each request on its own thread,
-           # and most env servers touch a single subprocess worker / EGL
-           # context that is not safe for concurrent access.
-           with self._lock:
-               if method.startswith("env."):
-                   return getattr(self, method[len("env."):])(*args, **kwargs)
-               raise ValueError(f"unknown RPC method: {method!r}")
+       def _register_rpc(self):
+           super()._register_rpc()
+           # custom methods need explicit registration
+           self._rpc["env.custom_method"] = self.custom_method
 
        # Abstract methods required by BaseEnvFacade
        def get_env_meta(self): ...
@@ -232,11 +228,12 @@ pass it through. See :ref:`add-robot-sessions` below for when to use it.
    facade.serve(transport="http", host=host, port=port)
 
 ``BaseEnvFacade`` registers common routes through ``_register_rpc`` and
-serializes state-changing calls with its read/write lock. Add a route to
-``_readonly_methods`` only when it is genuinely safe to run concurrently with
-other reads. The inherited ``RpcFacade.serve`` handles transport binding (HTTP
-or socket), ``healthz`` / ``shutdown``, parent-death detection, and clean
-teardown.
+routes every call through ``RpcFacade._dispatch``, which serializes
+state-changing calls with its read/write lock. Do **not** override
+``_dispatch``; add a route to ``_readonly_methods`` only when it is genuinely
+safe to run concurrently with other reads. The inherited ``RpcFacade.serve``
+handles transport binding (HTTP or socket), ``healthz`` / ``shutdown``,
+parent-death detection, and clean teardown.
 
 .. _add-robot-sessions:
 
@@ -248,28 +245,24 @@ across callers — e.g. a VLA server with RLDX memory/RTC buffers, where two
 agents sharing a server must not bleed policy state into each other's
 rollouts. Leave them off for stateless env servers.
 
-Server side — pass ``enable_sessions=True`` to the base ``__init__`` and a
-positive ``session_sweep_s`` to :meth:`serve`. Override
-:meth:`_on_session_drop` to clean up per-client state on close or idle
-expiry:
+Server side — the subclass constructor passes ``enable_sessions=True`` and
+``session_timeout_s``; :meth:`serve` takes a positive ``session_sweep_s``.
+Override :meth:`_on_session_drop` to clean up per-client state on close or
+idle expiry. With sessions enabled, ``BaseVLAFacade``'s ``_dispatch`` injects
+the caller's ``session_id`` as a kwarg into every handler (sessionless
+backends ignore it):
 
 .. code-block:: python
 
-   class MyVLAFacade(RpcFacade):
+   from rpent.robots.components.vla_facade_base import BaseVLAFacade
+
+   class MyVLAFacade(BaseVLAFacade):
        def __init__(self, model_path):
            super().__init__(enable_sessions=True,
                             session_timeout_s=3600.0)
            self._model = load_model(model_path)
 
-       def _dispatch(self, method, args, kwargs, *, session_id=None):
-           with self._lock:
-               # Business methods that need the caller's sid accept it
-               # explicitly; others ignore it.
-               if method == "env.predict":
-                   return self.predict(*args, session_id=session_id, **kwargs)
-               raise ValueError(f"unknown RPC method: {method!r}")
-
-       def predict(self, obs, *, session_id):
+       def predict(self, obs, options, *, session_id=None):
            # Server injects the sid; the caller never supplies it.
            return self._model.predict(obs, session_ids=[session_id])
 

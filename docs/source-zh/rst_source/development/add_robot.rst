@@ -171,15 +171,17 @@ facade 会显式注册每个名称。
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 在 ``env_server`` 中定义与 client API 对应的 facade 类，例如
-``MyEnvFacade``。该类继承 :class:`rpent.utils.rpc.RpcFacade`，实现
-``_dispatch(method, args, kwargs, *, session_id=None)``，将 ``env.*`` 请求
-分派给对应方法，再通过 ``self.serve(...)`` 启动服务。方法接收与 client 一致
-的位置参数和关键字参数，返回可 pickle 的值（使用 numpy，不要返回 torch；
-agent 进程不导入 torch）。
+``MyEnvFacade``。该类继承
+:class:`rpent.robots.components.env_facade_base.BaseEnvFacade`，在
+``_register_rpc`` 中注册 ``env.*`` 方法（基类已注册 ``env.reset`` /
+``env.step`` / ``env.chunk_step`` / ``env.get_env_meta`` 等公共路由），再通过
+``self.serve(...)`` 启动服务。方法接收与 client 一致的位置参数和关键字参数，
+返回可 pickle 的值（使用 numpy，不要返回 torch；agent 进程不导入 torch）。
 
-``session_id`` 关键字对 env server 来说始终是 ``None``（env server 不做按
-client 的状态隔离），但**必须**写在签名里，base class 才能把该参数透传过来。
-何时需要启用 sessions 见下方 :ref:`add-robot-sessions-zh`。
+env server 不启用 session，``BaseEnvFacade`` 的 ``_dispatch`` 只把
+``*args / **kwargs`` 透传给 handler，**不注入** ``session_id``——因此 env 的
+handler 不必（也不应）声明 ``session_id`` 参数。何时需要按 client 隔离状态、
+如何启用 session，见下方 :ref:`add-robot-sessions-zh`。
 
 .. code-block:: python
 
@@ -224,26 +226,23 @@ socket）、提供 ``healthz`` 和 ``shutdown``、检测父进程退出并执行
 memory/RTC buffer 的 VLA server，两个 agent 共用一个 server 时不能让各自的
 policy state 串话。无状态的 env server 不要开。
 
-Server 侧 —— 在 ``__init__`` 传 ``enable_sessions=True``，并在 :meth:`serve`
-传正数 ``session_sweep_s``。重写 :meth:`_on_session_drop`，在 session close
-或 idle 过期时清理该 client 的状态：
+Server 侧 —— 子类构造时传 ``enable_sessions=True`` 和
+``session_timeout_s``，并在 :meth:`serve` 传正数 ``session_sweep_s``。重写
+:meth:`_on_session_drop`，在 session close 或 idle 过期时清理该 client 的状态。
+启用 session 后，``BaseVLAFacade`` 的 ``_dispatch`` 会把 caller 的
+``session_id`` 作为 kwarg 注入所有 handler（无 session 的后端忽略它）：
 
 .. code-block:: python
 
-   class MyVLAFacade(RpcFacade):
+   from rpent.robots.components.vla_facade_base import BaseVLAFacade
+
+   class MyVLAFacade(BaseVLAFacade):
        def __init__(self, model_path):
            super().__init__(enable_sessions=True,
                             session_timeout_s=3600.0)
            self._model = load_model(model_path)
 
-       def _dispatch(self, method, args, kwargs, *, session_id=None):
-           with self._lock:
-               # 需要 sid 的业务方法显式接收；其他方法忽略它。
-               if method == "env.predict":
-                   return self.predict(*args, session_id=session_id, **kwargs)
-               raise ValueError(f"unknown RPC method: {method!r}")
-
-       def predict(self, obs, *, session_id):
+       def predict(self, obs, options, *, session_id=None):
            # 由 server 注入 sid，caller 永远不传。
            return self._model.predict(obs, session_ids=[session_id])
 
@@ -251,9 +250,6 @@ Server 侧 —— 在 ``__init__`` 传 ``enable_sessions=True``，并在 :meth:`
            # 在 session.close RPC（client atexit）和 idle 过期被 sweep 线程
            # 删除时都会触发。
            self._model.reset(session_ids=[session_id])
-
-       def serve(self, ...):
-           super().serve(..., session_sweep_s=60.0)
 
 Client 侧 —— 构造 transport 时传 ``enable_sessions=True``，client 会自动
 生成私有 session id、在连接时通过 :func:`wait_for_ready` 注册、每次调用都

@@ -132,12 +132,18 @@ for large or history-stacked nested-NumPy observations to move length-prefixed
 pickle frames and skip repeated JSON encoding. Pickle is unsafe on untrusted
 input, so only point ``socket`` at trusted endpoints.
 
-Server: subclass ``rpent.utils.rpc.RpcFacade`` and implement
-``_dispatch(method, args, kwargs, *, session_id=None)`` for business RPCs
-(e.g. ``reset``, ``step``, ``predict``). The ``session_id`` keyword is
-``None`` for stateless env servers; pass ``enable_sessions=True`` to the
-base ``__init__`` and override ``_on_session_drop`` for servers that
-isolate per-client state (e.g. a VLA with memory buffers). Do not
+Server: env backends subclass
+:class:`rpent.robots.components.env_facade_base.BaseEnvFacade` and VLA
+backends subclass
+:class:`rpent.robots.components.vla_facade_base.BaseVLAFacade` (both inherit
+``rpent.utils.rpc.RpcFacade``). Register business methods in
+``_register_rpc`` — the base already registers ``env.reset`` / ``env.step`` /
+``env.chunk_step`` and ``vla.predict`` — and do **not** override
+``_dispatch``. Env handlers do not receive ``session_id``; VLA backends that
+isolate per-client state (e.g. a VLA with memory buffers) pass
+``enable_sessions=True`` to the base ``__init__``, a positive
+``session_sweep_s`` to ``serve``, and override ``_on_session_drop`` — the
+facade then injects the caller's ``session_id`` into every handler. Do not
 implement ``healthz`` or ``shutdown`` in the subclass — the base takes
 care of them, plus the ``session.register`` / ``session.close`` RPCs when
 sessions are enabled.
