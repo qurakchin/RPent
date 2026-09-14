@@ -229,6 +229,6 @@ def _build_env_runtime_kwargs(args: argparse.Namespace, env_rpc: Any) -> dict[st
 
 
 def _build_vla_runtime_kwargs(vla_rpc: Any) -> dict[str, Any]:
-    from rpent.robots.components.vla_client_base import BaseVLAClient
+    from rpent.robots.components.pi05_vla_client import Pi05VLAClient
 
-    return {"model": BaseVLAClient(vla_rpc)}
+    return {"model": Pi05VLAClient(vla_rpc, embodiment="yam")}

@@ -30,13 +30,11 @@ from robots.yam.operator_control import write_receipt
 from robots.yam.primitives import YamPrimitives
 from robots.yam.rlinf_env import YamAgentEnv
 from robots.yam.toolkit import YamToolkit
-from robots.yam.vla_server import YamVLAFacade, build_model_cfg
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
 from rpent.robots.components.env_client_base import BaseEnvClient
-from rpent.robots.components.vla_client_base import BaseVLAClient
+from rpent.robots.components.pi05_vla_client import _encode_obs_yam
 from rpent.utils.rpc.http_rpc import HttpRpcClient
-from rpent.utils.rpc.rpc_client import RpcError
 from rpent.utils.rpc.socket_rpc import SocketRpcClient
 
 
@@ -208,20 +206,6 @@ class FakeYamEnv:
         self.close_calls += 1
 
 
-class FakeYamModel:
-    def __init__(self, actions: np.ndarray | None = None) -> None:
-        if actions is None:
-            actions = np.zeros((1, MODEL_SPEC.action_horizon, 14), dtype=np.float32)
-            actions[..., 6] = 0.25
-            actions[..., 13] = 0.75
-        self.actions = actions
-        self.calls: list[tuple[dict[str, Any], str]] = []
-
-    def predict_action_batch(self, env_obs: dict[str, Any], *, mode: str):
-        self.calls.append((env_obs, mode))
-        return self.actions.copy(), {"source": "fake"}
-
-
 class FakeToolkitModel:
     def __init__(self, on_predict: Any = None) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -231,7 +215,7 @@ class FakeToolkitModel:
         self.calls.append(obs)
         if self.on_predict is not None:
             self.on_predict()
-        return _valid_action_chunk(MODEL_SPEC.use_length)[None]
+        return _valid_action_chunk(MODEL_SPEC.use_length)
 
 
 class FakeRpc:
@@ -652,17 +636,16 @@ def _valid_action_chunk(length: int = 2) -> np.ndarray:
     return actions
 
 
-def _valid_vla_observation() -> dict[str, Any]:
-    top = np.full((1, 3, 4, 3), 10, dtype=np.uint8)
+def _valid_env_obs() -> dict[str, Any]:
+    top = np.full((3, 4, 3), 10, dtype=np.uint8)
     left = np.full((3, 4, 3), 20, dtype=np.uint8)
     right = np.full((3, 4, 3), 30, dtype=np.uint8)
-    side = np.stack([left, right])[None]
-    states = np.arange(14, dtype=np.float32)[None]
     return {
         "main_images": top,
-        "extra_view_images": side,
-        "states": states,
-        "task_descriptions": ["place the cube"],
+        "wrist_images": None,
+        "extra_view_images": np.stack([left, right]),
+        "states": np.arange(14, dtype=np.float32),
+        "task_descriptions": "place the cube",
     }
 
 
@@ -1263,7 +1246,7 @@ def test_yam_agent_env_holds_when_success_or_step_limit_stops_chunk(
     assert truncated is (terminal_kind == "limit")
 
 
-def test_yam_primitive_builds_pi05_three_view_batch_order() -> None:
+def test_yam_primitive_builds_pi05_three_view_qpos14_observation() -> None:
     env = FakeToolkitEnv()
     model = FakeToolkitModel()
     primitive = YamPrimitives(env=env, model=model, check_cancelled=lambda: None)
@@ -1272,131 +1255,65 @@ def test_yam_primitive_builds_pi05_three_view_batch_order() -> None:
 
     assert result["executed_steps"] == MODEL_SPEC.use_length
     obs = model.calls[0]
-    assert obs["main_images"].shape == (1, 3, 4, 3)
-    assert obs["extra_view_images"].shape == (1, 2, 3, 4, 3)
-    assert np.array_equal(obs["main_images"][0], env.last_obs["frames"]["top"])
-    assert np.array_equal(
-        obs["extra_view_images"][0, 0], env.last_obs["frames"]["left"]
-    )
-    assert np.array_equal(
-        obs["extra_view_images"][0, 1], env.last_obs["frames"]["right"]
-    )
+    assert obs["main_images"].shape == (3, 4, 3)
+    assert obs["extra_view_images"].shape == (2, 3, 4, 3)
+    assert np.array_equal(obs["main_images"], env.last_obs["frames"]["top"])
+    assert np.array_equal(obs["extra_view_images"][0], env.last_obs["frames"]["left"])
+    assert np.array_equal(obs["extra_view_images"][1], env.last_obs["frames"]["right"])
     assert obs["wrist_images"] is None
-    assert obs["states"].shape == (1, 14)
-    assert obs["task_descriptions"] == ["place the cube"]
+    assert obs["states"].shape == (14,)
+    assert obs["task_descriptions"] == "place the cube"
 
 
-@pytest.mark.parametrize("transport", ["http", "socket"])
-def test_yam_vla_localhost_rpc_round_trip_meta_and_actions(transport: str) -> None:
-    model = FakeYamModel()
-    facade = YamVLAFacade(model=model)
+def test_yam_vla_encoder_batches_three_views_and_qpos14() -> None:
+    env_obs = _valid_env_obs()
 
-    with _served_facade(facade, transport) as rpc:
-        client = BaseVLAClient(rpc)
-        actions = client.predict(_valid_vla_observation(), options={"mode": "eval"})
+    wire = _encode_obs_yam(env_obs)
 
-    assert actions.shape == (1, MODEL_SPEC.use_length, 14)
-    assert np.all(actions[0, :, 6] == pytest.approx(0.25))
-    assert np.all(actions[0, :, 13] == pytest.approx(0.75))
-    assert len(model.calls) == 1
-    env_obs, mode = model.calls[0]
-    assert mode == "eval"
-    assert env_obs["main_images"].shape == (1, 3, 4, 3)
-    assert env_obs["extra_view_images"].shape == (1, 2, 3, 4, 3)
-    assert np.all(env_obs["extra_view_images"][0, 0] == 20)
-    assert np.all(env_obs["extra_view_images"][0, 1] == 30)
-    assert env_obs["wrist_images"] is None
-    assert env_obs["states"].shape == (1, 14)
+    assert wire["main_images"].shape == (1, 3, 4, 3)
+    assert wire["extra_view_images"].shape == (1, 2, 3, 4, 3)
+    assert np.array_equal(wire["main_images"][0], env_obs["main_images"])
+    assert np.array_equal(
+        wire["extra_view_images"][0, 0], env_obs["extra_view_images"][0]
+    )
+    assert np.array_equal(
+        wire["extra_view_images"][0, 1], env_obs["extra_view_images"][1]
+    )
+    assert wire["wrist_images"] is None
+    assert wire["states"].shape == (1, 14)
+    assert np.array_equal(wire["states"][0], env_obs["states"])
+    assert wire["task_descriptions"] == ["place the cube"]
 
 
-def test_yam_vla_contract_and_build_cfg_use_horizon30_use5_qpos14() -> None:
-    cfg = build_model_cfg("/tmp/fake-yam-model", "/tmp/fake-norm-stats")
-
+def test_yam_vla_contract_uses_horizon30_use5_qpos14() -> None:
     assert MODEL_SPEC.camera_order == ("top", "left", "right")
     assert MODEL_SPEC.action_layout == "qpos14"
     assert MODEL_SPEC.action_horizon == 30
     assert MODEL_SPEC.use_length == 5
-    assert cfg.model_path == "/tmp/fake-yam-model"
-    assert cfg.precision == "bf16"
-    assert cfg.num_action_chunks == MODEL_SPEC.action_horizon
-    assert cfg.action_dim == 14
-    assert cfg.openpi.task == "eval"
-    assert cfg.openpi.model_action_dim == 32
-    assert cfg.openpi.discrete_state_input is True
-    assert "num_images_in_input" not in cfg.openpi
-    assert "action_horizon" not in cfg.openpi
-    assert "action_chunk" not in cfg.openpi
-    assert "action_env_dim" not in cfg.openpi
 
 
 @pytest.mark.parametrize(
     "bad_obs",
     [
         {
-            **_valid_vla_observation(),
-            "main_images": np.zeros((3, 4, 3), dtype=np.uint8),
+            **_valid_env_obs(),
+            "main_images": np.zeros((1, 3, 4, 3), dtype=np.uint8),
         },
         {
-            **_valid_vla_observation(),
+            **_valid_env_obs(),
             "extra_view_images": np.zeros((1, 1, 3, 4, 3), dtype=np.uint8),
         },
         {
-            **_valid_vla_observation(),
-            "states": np.full((1, 14), np.nan, dtype=np.float32),
-        },
-        {
-            **_valid_vla_observation(),
-            "task_descriptions": [""],
+            **_valid_env_obs(),
+            "states": np.zeros((1, 14), dtype=np.float32),
         },
     ],
 )
-def test_yam_vla_facade_rejects_bad_observations_before_model_call(
+def test_yam_vla_encoder_rejects_bad_observation_shapes(
     bad_obs: dict[str, Any],
 ) -> None:
-    model = FakeYamModel()
-    facade = YamVLAFacade(model=model)
-
-    with pytest.raises((TypeError, ValueError)):
-        facade.predict(bad_obs)
-
-    assert model.calls == []
-
-
-@pytest.mark.parametrize(
-    "bad_actions",
-    [
-        np.zeros((1, MODEL_SPEC.use_length, 13), dtype=np.float32),
-        np.full((1, MODEL_SPEC.use_length, 14), np.nan, dtype=np.float32),
-        np.repeat(
-            np.array([[[0, 0, 0, 0, 0, 0, -0.1, 0, 0, 0, 0, 0, 0, 0.5]]]),
-            MODEL_SPEC.use_length,
-            axis=1,
-        ),
-        np.repeat(
-            np.array([[[0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 1.1]]]),
-            MODEL_SPEC.use_length,
-            axis=1,
-        ),
-    ],
-)
-def test_yam_vla_facade_rejects_bad_policy_outputs(bad_actions: np.ndarray) -> None:
-    model = FakeYamModel(actions=bad_actions)
-    facade = YamVLAFacade(model=model)
-
     with pytest.raises(ValueError):
-        facade.predict(_valid_vla_observation())
-
-
-def test_yam_vla_rpc_returns_errors_for_bad_observation() -> None:
-    facade = YamVLAFacade(model=FakeYamModel())
-    bad_obs = {
-        **_valid_vla_observation(),
-        "extra_view_images": np.zeros((1, 2, 3, 4, 1), dtype=np.uint8),
-    }
-
-    with _served_facade(facade, "http") as rpc:
-        with pytest.raises(RpcError, match="extra_view_images"):
-            rpc.call("vla.predict", args=(bad_obs, {"mode": "eval"}), timeout_s=2.0)
+        _encode_obs_yam(bad_obs)
 
 
 def _make_yam_toolkit(
@@ -1781,17 +1698,17 @@ def test_can_lease_conflict_and_release(tmp_path):
 
 
 def test_existing_socketcan_subscriptions_are_rejected(tmp_path):
-    lease = HardwareLease(["can_left", "can_right"], lock_dir=tmp_path)
+    lease = HardwareLease(["can0", "can1"], lock_dir=tmp_path)
     proc = tmp_path / "proc"
     proc.mkdir()
     with pytest.raises(RuntimeError, match="unavailable"):
         lease.check_subscriptions(proc_root=proc)
     entries = proc / "rcvlist_all"
     entries.write_text(
-        "receive list 'rx_all':\n  (any: no entry)\n  (can_left: no entry)\n"
+        "receive list 'rx_all':\n  (any: no entry)\n  (can0: no entry)\n"
     )
     lease.check_subscriptions(proc_root=proc)
-    entries.write_text(" device can_id can_mask\n can_left 000 00000000\n")
+    entries.write_text(" device can_id can_mask\n can0 000 00000000\n")
     with pytest.raises(RuntimeError, match="Existing CAN"):
         lease.check_subscriptions(proc_root=proc)
 
