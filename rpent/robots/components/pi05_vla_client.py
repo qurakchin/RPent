@@ -132,6 +132,35 @@ def _encode_obs_dual_franka(env_obs: dict) -> dict:
     }
 
 
+def _encode_obs_yam(env_obs: dict) -> dict:
+    """Real dual-arm YAM obs → openpi batched wire obs.
+
+    The rig sends the top camera as ``main_images``, the left and right
+    wrist cameras stacked as two ``extra_view_images``, and the 14-D qpos
+    ``states`` vector (left 6 + gripper + right 6 + gripper).
+    """
+    main = np.asarray(env_obs["main_images"])
+    if main.ndim != 3:
+        raise ValueError(f"expected [H,W,3] image, got shape {main.shape}")
+    extras = np.asarray(env_obs["extra_view_images"])
+    if extras.ndim != 4:
+        raise ValueError(
+            f"extra_view_images must be [N,H,W,3]; got shape {extras.shape}"
+        )
+    states = np.asarray(env_obs["states"], dtype=np.float32)
+    if states.ndim != 1:
+        raise ValueError(
+            f"states must be single-env shape [state_dim]; got {states.shape}"
+        )
+    return {
+        "main_images": main.astype(np.uint8)[None],
+        "wrist_images": None,
+        "extra_view_images": extras.astype(np.uint8)[None],
+        "states": states[None],
+        "task_descriptions": [str(env_obs.get("task_descriptions") or "")],
+    }
+
+
 # NOTE: an embodiment registered here must also exist in the server's
 # ``PI05_EMBODIMENTS`` (and ``PI05_ROBOT_PLATFORMS`` if it sets ROBOT_PLATFORM);
 # the two registries are kept in sync manually.
@@ -139,6 +168,7 @@ _ENCODE_OBS: dict[str, Any] = {
     "libero": _encode_obs_libero,
     "franka": _encode_obs_franka,
     "dual_franka": _encode_obs_dual_franka,
+    "yam": _encode_obs_yam,
 }
 
 

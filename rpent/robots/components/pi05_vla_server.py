@@ -81,6 +81,23 @@ PI05_EMBODIMENTS: dict[str, dict] = {
             "add_value_head": False,
         },
     },
+    "yam": {
+        # Real dual-arm YAM qpos14 joint policy. Serve it with
+        # ``--model-backend openpi_rlinf``: the RLinf-native loader takes its
+        # shapes from this preset, and ``openpi.task`` picks the eval wrapper.
+        "precision": "bf16",
+        "num_steps": 5,
+        "num_action_chunks": 30,
+        "action_dim": 14,
+        "openpi": {
+            "task": "eval",
+            "config_name": "pi05_yam_joint",
+            "model_action_dim": 32,
+            "paligemma_variant": "gemma_2b",
+            "action_expert_variant": "gemma_300m",
+            "discrete_state_input": True,
+        },
+    },
 }
 
 PI05_ROBOT_PLATFORMS: dict[str, str] = {
