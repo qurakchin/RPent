@@ -668,12 +668,12 @@ class YamGeometry:
         )
         if self.table_z is not None and self.table_surface is not None:
             raise ValueError("configure only one of table_z and table_surface")
-        self.table_clearance_m = float(self.config.get("table_clearance_m", 0.03))
+        self.table_clearance_m = float(self.config["table_clearance_m"])
         if self.table_z is not None and not np.isfinite(self.table_z):
             raise ValueError("table_z must be finite")
         if not np.isfinite(self.table_clearance_m) or self.table_clearance_m < 0:
             raise ValueError("table_clearance_m must be finite and non-negative")
-        self.path_joint_delta = float(self.config.get("path_joint_delta", 0.02))
+        self.path_joint_delta = float(self.config["path_joint_delta"])
         if not np.isfinite(self.path_joint_delta) or self.path_joint_delta <= 0:
             raise ValueError("path_joint_delta must be finite and positive")
         self._kinematics = kinematics

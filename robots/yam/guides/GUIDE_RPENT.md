@@ -52,9 +52,14 @@ Do not invent a new TCP offset on the Agent side. The supplied quaternion is
 an exact request: the planner may fail instead of silently changing orientation.
 
 The current geometric guard checks sampled TCP clearance above the configured
-table. It does not cover arm links, self-collision, two-arm collisions, held
-objects, fixtures, or force/contact limits. Start with one arm in a cleared
-workspace and keep the other arm in its operator-confirmed staging area.
+table and runs a MuJoCo mesh collision guard over the installed two-arm model:
+it tests all cross-arm pairs (including static bases) and non-adjacent links
+within each arm, plus fixed table-geometry clearance. It still does not cover
+camera mounts, cables, held objects, the leader arms, fixtures absent from the
+installed models, or force/contact limits; path sampling is not a
+continuous-collision or tracking-error guarantee. Start with one arm in a
+cleared workspace and keep the other arm in its operator-confirmed staging
+area.
 When a view reports `world_xyz_limitation`, inspect it before attempting pixel
 localization. Invalid depth or an unaligned wrist frame is not a usable target.
 Calibration files must match the current camera mounts and TCP model. A saved

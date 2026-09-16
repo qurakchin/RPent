@@ -13,6 +13,13 @@ import pytest
 from robots.yam.geometry import ARM_SLICES, YamCalibration, YamGeometry
 
 
+def geometry_config(**overrides):
+    """Minimal config carrying the knobs every ``YamGeometry`` reads."""
+    config = {"table_clearance_m": 0.03, "path_joint_delta": 0.02}
+    config.update(overrides)
+    return config
+
+
 class Solver:
     def solve(self, target, seed, gripper):
         return SimpleNamespace(
@@ -40,7 +47,9 @@ class RecordingGuard:
 
 @pytest.mark.parametrize("arm", ["left", "right"])
 def test_plan_preserves_other_arm_and_both_grippers(arm):
-    geometry = YamGeometry({"collision_guard": {"enabled": True}}, kinematics=Solver())
+    geometry = YamGeometry(
+        geometry_config(collision_guard={"enabled": True}), kinematics=Solver()
+    )
     geometry.calibration = YamCalibration({}, np.eye(4), {})
     guard = RecordingGuard()
     geometry._collision_guard = guard
@@ -58,7 +67,7 @@ def test_plan_preserves_other_arm_and_both_grippers(arm):
 
 def test_transition_checks_interior_even_with_only_two_requested_samples():
     geometry = YamGeometry(
-        {"collision_guard": {"enabled": True}, "path_joint_delta": 0.01}
+        geometry_config(collision_guard={"enabled": True}, path_joint_delta=0.01)
     )
     guard = RecordingGuard(reject_interior=True)
     geometry._collision_guard = guard
@@ -72,14 +81,16 @@ def test_transition_checks_interior_even_with_only_two_requested_samples():
 
 
 def test_disabled_guard_does_not_require_mujoco_or_calibration():
-    geometry = YamGeometry(kinematics=Solver())
+    geometry = YamGeometry(geometry_config(), kinematics=Solver())
     result = geometry.check_qpos_transition(np.zeros(14), np.zeros(14))
     assert result["ok"] and not result["checked"]
 
 
 def test_enabled_guard_fails_closed_without_base_calibration():
     pytest.importorskip("mujoco")
-    geometry = YamGeometry({"collision_guard": {"enabled": True}}, kinematics=Solver())
+    geometry = YamGeometry(
+        geometry_config(collision_guard={"enabled": True}), kinematics=Solver()
+    )
     with pytest.raises(ValueError, match="calibrated right base"):
         geometry.check_qpos_transition(np.zeros(14), np.zeros(14))
 
@@ -87,10 +98,10 @@ def test_enabled_guard_fails_closed_without_base_calibration():
 @pytest.mark.parametrize(
     "config",
     [
-        {"collision_guard": {"enabled": "false"}},
-        {"collision_guard": {"clearance_m": float("nan")}},
-        {"path_joint_delta": 0},
-        {"table_z": float("nan")},
+        geometry_config(collision_guard={"enabled": "false"}),
+        geometry_config(collision_guard={"clearance_m": float("nan")}),
+        geometry_config(path_joint_delta=0),
+        geometry_config(table_z=float("nan")),
     ],
 )
 def test_invalid_guard_configuration_rejected(config):
@@ -109,10 +120,10 @@ def actual_kinematics():
 def actual_geometry(kinematics, *, spacing=1.2, table_z=None):
     # Synthetic geometry fixtures, never station positions or hardware commands.
     geometry = YamGeometry(
-        {
-            "collision_guard": {"enabled": True, "clearance_m": 0.003},
-            "table_z": table_z,
-        },
+        geometry_config(
+            collision_guard={"enabled": True, "clearance_m": 0.003},
+            table_z=table_z,
+        ),
         kinematics=kinematics,
     )
     transform = np.eye(4)
@@ -215,10 +226,10 @@ def surface_config(**overrides):
         "depth_m": 0.3,
     }
     surface.update(overrides)
-    return {
-        "collision_guard": {"enabled": True, "clearance_m": 0.003},
-        "table_surface": surface,
-    }
+    return geometry_config(
+        collision_guard={"enabled": True, "clearance_m": 0.003},
+        table_surface=surface,
+    )
 
 
 @pytest.mark.parametrize(
@@ -305,19 +316,24 @@ def test_actual_finite_surface_does_not_block_space_beyond_footprint(actual_kine
 def test_invalid_base_link2_margin_rejected(margin):
     with pytest.raises(ValueError, match="base_link2_clearance_m"):
         YamGeometry(
-            {"collision_guard": {"clearance_m": 0.01, "base_link2_clearance_m": margin}}
+            geometry_config(
+                collision_guard={
+                    "clearance_m": 0.01,
+                    "base_link2_clearance_m": margin,
+                }
+            )
         )
 
 
 def test_scoped_base_link2_margin_still_rejects_limit_collision(actual_kinematics):
     geometry = YamGeometry(
-        {
-            "collision_guard": {
+        geometry_config(
+            collision_guard={
                 "enabled": True,
                 "clearance_m": 0.01,
                 "base_link2_clearance_m": 0.008,
             }
-        },
+        ),
         kinematics=actual_kinematics,
     )
     transform = np.eye(4)
@@ -339,13 +355,13 @@ def test_scoped_base_link2_margin_still_rejects_limit_collision(actual_kinematic
 
 def test_scoped_base_link2_margin_does_not_relax_cross_arm_pairs(actual_kinematics):
     geometry = YamGeometry(
-        {
-            "collision_guard": {
+        geometry_config(
+            collision_guard={
                 "enabled": True,
                 "clearance_m": 0.01,
                 "base_link2_clearance_m": 0.008,
             }
-        },
+        ),
         kinematics=actual_kinematics,
     )
     transform = np.eye(4)

@@ -1,0 +1,81 @@
+# RPent example config for the dual-arm YAM rig.
+#
+# One file describes the whole rig: machine identity (motors, cameras), site
+# calibration (extrinsics, work surface), the primitive-control knobs, and the
+# operator receipt path. Copy this file to a site config and edit the channels,
+# serials and table geometry in place; the control knobs below are the
+# packaged defaults a site may retune.
+#
+# The task name, language, seed and step budget are env_server CLI flags, so
+# the env server and the Agent are started with the same values; placing them
+# in this file is an error, not an override.
+robot:
+  left_follower:
+    # Kernel SocketCAN interface name (``ip link``), not a logical alias.
+    channel: "can0"
+    arm_type: yam
+    gripper_type: flexible_4310
+    ee_mass: null
+    # null triggers end-to-end gripper calibration on first connect; keep the
+    # gripper empty and its travel clear.
+    gripper_limits: null
+    gravity_comp_factor: [1.0, 1.1, 1.1, 1.2, 1.0, 1.0]
+    grav_comp_kd: null
+    coulomb_friction: null
+    use_coulomb_friction: true
+    enable_auto_recovery: false
+  right_follower:
+    channel: "can1"
+    arm_type: yam
+    gripper_type: flexible_4310
+    ee_mass: null
+    gripper_limits: null
+    gravity_comp_factor: [1.0, 1.1, 1.1, 1.2, 1.0, 1.0]
+    grav_comp_kd: null
+    coulomb_friction: null
+    use_coulomb_friction: true
+    enable_auto_recovery: false
+
+# Fixed 640x480@30 RealSense rig; replace the serials with the ones on site.
+cameras:
+  - name: top
+    serial: "REPLACE_TOP_SERIAL"
+    resolution: [640, 480]
+    fps: 30
+  - name: left
+    serial: "REPLACE_LEFT_WRIST_SERIAL"
+    resolution: [640, 480]
+    fps: 30
+  - name: right
+    serial: "REPLACE_RIGHT_WRIST_SERIAL"
+    resolution: [640, 480]
+    fps: 30
+
+# Hand-eye extrinsics bundle written by the calibration step; null disables
+# world-frame projection that depends on wrist cameras.
+extrinsics_path: null
+# Height (world z, metres) of the work surface; null disables the table guard.
+table_z: null
+# Local file the on-site operator writes ready/success/failure/abort receipts
+# to; read by the env server and written by ``robots.yam.operator_control``.
+operator_receipt_path: "/tmp/rpent_yam_operator_receipt.json"
+
+# Primitive-control knobs. These are safety/robustness limits a site may
+# retune; the packaged values are the rig defaults and there is no second copy
+# in Python. ``load_config`` flattens the section into the keys consumers read.
+control:
+  # Max commanded joint delta per primitive step (rad); null disables RPent's
+  # own slew check.
+  max_joint_delta_per_step: 0.05
+  # Max wait for a fresh measured state before a command is rejected.
+  feedback_timeout_s: 0.25
+  # Max wait for a camera frame.
+  camera_frame_timeout_s: 1.0
+  # Frames discarded when a RealSense pipeline opens.
+  camera_warmup_frames: 15
+  # Minimum clearance (m) kept between a link and the configured table.
+  table_clearance_m: 0.03
+  # Joint-space spacing (rad) used when discretizing a planned arm path.
+  path_joint_delta: 0.02
+  # Observed-qpos drift (rad) below which the arm counts as stationary.
+  qpos_static_tolerance_rad: 0.001

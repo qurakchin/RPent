@@ -70,9 +70,7 @@ class YamAgentEnv:
         )
         self.step_lim = int(self.config.get("max_episode_steps", 1000))
         self.control_hz = float(MODEL_SPEC.control_hz)
-        self.max_joint_delta_per_step = self.config.get(
-            "max_joint_delta_per_step", 0.05
-        )
+        self.max_joint_delta_per_step = self.config["max_joint_delta_per_step"]
         if self.max_joint_delta_per_step is not None:
             self.max_joint_delta_per_step = float(self.max_joint_delta_per_step)
         self.lower, self.upper = joint_limits_from_config(self.config)
@@ -436,6 +434,8 @@ class YamAgentEnv:
         runtime_config = DualYamJointEnvConfig(
             task_description=self.task_language,
             step_frequency=self.control_hz,
+            # A null slew limit disables RPent's own check, but RLinf's runtime
+            # still needs a finite per-step cap.
             max_joint_delta=max(float(self.max_joint_delta_per_step or 0.05), 1e-6),
             # RPent validates hard limits, command slew and the measured-to-target
             # path. A second per-joint measured-position clip would reshape that
@@ -443,7 +443,7 @@ class YamAgentEnv:
             enforce_runtime_joint_limits=False,
             joint_limit_min=self.lower.tolist(),
             joint_limit_max=self.upper.tolist(),
-            feedback_timeout_s=float(self.config.get("feedback_timeout_s", 0.25)),
+            feedback_timeout_s=float(self.config["feedback_timeout_s"]),
         )
         hardware = SimpleNamespace(
             left_follower=self._device_config("left_follower", "can_left"),
@@ -521,7 +521,7 @@ class YamAgentEnv:
         deadline = time.monotonic() + float(
             self.config.get(
                 "projection_observe_timeout_s",
-                self.config.get("camera_frame_timeout_s", 1.0),
+                self.config["camera_frame_timeout_s"],
             )
         )
         while True:
@@ -558,10 +558,8 @@ class YamAgentEnv:
         )
         qpos_delta = qpos_after - qpos_before
         qpos_delta_linf = float(np.max(np.abs(qpos_delta)))
-        qpos_static_tolerance = float(
-            self.config.get("qpos_static_tolerance_rad", 1e-3)
-        )
-        camera_timeout_s = float(self.config.get("camera_frame_timeout_s", 1.0))
+        qpos_static_tolerance = float(self.config["qpos_static_tolerance_rad"])
+        camera_timeout_s = float(self.config["camera_frame_timeout_s"])
         now_monotonic_s = time.monotonic()
         views = {}
         for name, frame in snapshot["views"].items():

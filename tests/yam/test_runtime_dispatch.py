@@ -17,7 +17,12 @@ from robots.yam.rlinf_env import YamAgentEnv
 def dispatch_env(monkeypatch):
     backend_module = pytest.importorskip("rlinf.envs.realworld.yam.i2rt_backend")
     types = pytest.importorskip("rlinf.envs.realworld.yam.types")
-    env = YamAgentEnv({"max_joint_delta_per_step": 0.02, "max_tracking_error_rad": 0.1})
+    env = YamAgentEnv({
+        "max_joint_delta_per_step": 0.02,
+        "max_tracking_error_rad": 0.1,
+        "table_clearance_m": 0.03,
+        "path_joint_delta": 0.02,
+    })
     followers = []
 
     class Follower:

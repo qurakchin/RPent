@@ -631,9 +631,9 @@ def test_operator_control_ready_writes_receipt_and_start_resets(
     from robots.yam import operator_control
 
     receipt_path = tmp_path / "operator-receipt.json"
-    config_path = tmp_path / "yam-config.json"
+    config_path = tmp_path / "yam-robot.yaml"
     config_path.write_text(
-        json.dumps({"operator_receipt_path": str(receipt_path)}),
+        f"operator_receipt_path: {receipt_path}\n",
         encoding="utf-8",
     )
 
@@ -654,7 +654,7 @@ def test_operator_control_ready_writes_receipt_and_start_resets(
         "sys.argv",
         [
             "operator_control",
-            "--config",
+            "--robot-config",
             str(config_path),
             "--endpoint",
             "http://env",

@@ -105,13 +105,13 @@ class YamPrimitives:
             prompt if prompt is not None and prompt.strip() else instruction
         )
         return {
-            "main_images": np.asarray(frames["top"])[None],
+            "main_images": np.asarray(frames["top"]),
             "wrist_images": None,
-            "extra_view_images": np.stack([frames["left"], frames["right"]])[None],
+            "extra_view_images": np.stack([frames["left"], frames["right"]]),
             "states": np.asarray(
                 self.env.last_obs["state"]["joint_position"], dtype=np.float32
-            )[None],
-            "task_descriptions": [policy_instruction],
+            ),
+            "task_descriptions": policy_instruction,
         }
 
     def _record_chunk_payload(self, payload: Any) -> None:
@@ -160,9 +160,9 @@ class YamPrimitives:
             )
             observation = self._build_policy_observation(prompt=prompt)
             episode_id = self.env.last_info["episode_status"]["episode_id"]
-            actions = validate_actions(np.asarray(self.model.predict(observation))[0])[
-                : MODEL_SPEC.use_length
-            ]
+            actions = validate_actions(
+                np.asarray(self.model.predict(observation))
+            )[: MODEL_SPEC.use_length]
             payload, _, _, _, info = self.env.chunk_step(
                 actions,
                 action_type="qpos",
