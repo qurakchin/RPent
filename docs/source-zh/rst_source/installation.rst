@@ -89,7 +89,23 @@ RPent 可以通过一条 ``pip install`` 命令完成安装，并提供多种可
 
       HF_ENDPOINT=https://hf-mirror.com liberopro-download-assets --skip-existing
 
-3. (可选) 真实机器人依赖
+3. (可选) 安装 RoboCasa365 stack
+---------------------------------
+
+``.[robocasa]`` extra 装齐整个 RoboCasa365 运行栈 —— ``RLinf/robosuite``
+的 ``rpent`` 分支 fork（含 Omron 底盘固定的 ``navview`` 相机）、PyPI 包
+``rlinf-robocasa365`` 与 ``rlinf-rldx``，以及它们带入的 MuJoCo 3.3.0、
+lerobot 等传递依赖。RLDX-1 需要特定版本的 PyTorch / torchvision /
+flash-attn 在 extra **之前** 装好，还要做安装后处理（macros、厨房 assets、
+env vars）并下一个 ``RLDX-1-FT-RC365`` checkpoint。正式 Target50 复现环境
+还会用 ``robots/robocasa/eval/target50-constraints.txt`` 与
+``target50-overrides.txt`` 固定确切版本；完整步骤见 :doc:`usage/robocasa`。
+
+.. code-block:: bash
+
+   uv pip install -e ".[robocasa]"
+
+4. (可选) 真实机器人依赖
 ------------------------
 
 Franka 与 SO-101 的支持正在逐步接入; 每个机器人的 robot 包未来会以一个

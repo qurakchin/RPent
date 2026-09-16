@@ -40,8 +40,16 @@ CAM_ALIAS = {
 
 
 class RoboCasaEnvClient(BaseEnvClient):
+    """RoboCasa env client. ``reset`` / ``step`` / ``chunk_step`` and the
+    ``expected_meta`` handshake are inherited from :class:`EnvClient`.
+
+    Camera dimensions (``camera_h`` / ``camera_w``) come from
+    ``expected_meta`` — the base handshake asserts it matches the server.
+    """
+
     _TIMEOUT_S = {
         **BaseEnvClient._TIMEOUT_S,
+        "env.render_camera": 120.0,
         "env.grasp_contact": 10.0,
     }
 
@@ -58,6 +66,7 @@ class RoboCasaEnvClient(BaseEnvClient):
         self.last_obs = self._client.call(
             "env.reset", timeout_s=self._TIMEOUT_S["env.reset"]
         )
+        self.success = False
         return self.last_obs
 
     def step(self, flat_action):
@@ -65,16 +74,31 @@ class RoboCasaEnvClient(BaseEnvClient):
             "env.step", args=(flat_action,), timeout_s=self._TIMEOUT_S["env.step"]
         )
         self.last_obs = result[0]
+        self.success = bool(result[1])
         return result
 
-    def check_success(self):
-        return self._client.call(
-            "env.check_success", timeout_s=self._TIMEOUT_S["default"]
-        )
+    def chunk_step(self, flat_actions):
+        """Apply N actions in one RPC. Returns
+        ``(obs_list, last_reward, last_done, last_info, n_applied)``.
 
-    @property
-    def terminated(self):
-        return self.check_success()
+        Always requests ``return_all_frames=True`` — the RLDX skill consumes
+        the per-step obs list (one entry per applied step, each carrying the
+        per-step agentview as ``'robot0_agentview_left_rgb'``; the LAST entry
+        also carries the right + wrist cameras for the VLA history's
+        chunk-boundary frame). ``last_reward`` is the scalar reward of the
+        last applied step (breaks early on env success).
+        """
+        result = self._client.call(
+            "env.chunk_step",
+            args=(flat_actions,),
+            kwargs={"return_all_frames": True},
+            timeout_s=self._TIMEOUT_S["env.chunk_step"],
+        )
+        obs_field = result[0]  # list[Obs], one per applied step
+        reward_field = result[1]  # scalar reward of the last applied step
+        self.last_obs = obs_field[-1]
+        self.success = bool(reward_field)
+        return result
 
     @property
     def current_raw_obs(self):
