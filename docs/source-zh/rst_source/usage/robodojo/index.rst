@@ -13,9 +13,10 @@ SAM3 感知与 memory 层完全复用，只替换"身体"（仿真器/机器人�
   三相机 + 深度 + 标定、joint/ee 动作、逐相机视频录制）。
 * ``robots/robodojo/env_client.py`` —— 继承 ``BaseEnvClient`` 的 rpent
   侧客户端。
-* ``robots/robodojo/vla_server.py`` / ``vla_client.py`` —— Pi_05 策略服务
-  （XPolicyLab WebSocket）适配到共享 ``BaseVLAFacade`` / ``BaseVLAClient``
-  协议。
+* Pi0.5 策略走共享的 ``rpent/robots/components/pi05_vla_server.py`` /
+  ``pi05_vla_client.py``（``--embodiment robodojo``）；RoboDojo 观测到
+  openpi 三视图的编码与 14 维关节动作的解码分别在客户端的
+  ``_encode_obs_robodojo`` 与 ``tools.py`` 的 ``pi0_pick``。
 * ``robots/robodojo/toolkit.py`` / ``tools.py`` —— view_env_state /
   back_project / segment / move_to / set_gripper / pi0_pick / stabilize /
   place_in_bin / get_reward_details 等原语。

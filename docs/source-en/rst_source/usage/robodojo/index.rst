@@ -16,9 +16,11 @@ Key modules
   actions; per-camera video recording).
 * ``robots/robodojo/env_client.py`` — rpent-side client inheriting
   ``BaseEnvClient``.
-* ``robots/robodojo/vla_server.py`` / ``vla_client.py`` — Pi_05 policy
-  service (XPolicyLab WebSocket) adapted to the shared ``BaseVLAFacade`` /
-  ``BaseVLAClient`` protocol.
+* The Pi0.5 policy is served by the shared
+  ``rpent/robots/components/pi05_vla_server.py`` /
+  ``pi05_vla_client.py`` (``--embodiment robodojo``); the RoboDojo-to-openpi
+  view encoding lives in the client's ``_encode_obs_robodojo`` and the 14-D
+  joint action decode in ``pi0_pick`` (``tools.py``).
 * ``robots/robodojo/toolkit.py`` / ``tools.py`` — primitives:
   ``view_env_state``, ``back_project``, ``segment``, ``move_to``,
   ``set_gripper``, ``pi0_pick``, ``stabilize``, ``place_in_bin``,

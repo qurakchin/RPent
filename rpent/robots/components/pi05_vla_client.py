@@ -132,6 +132,39 @@ def _encode_obs_dual_franka(env_obs: dict) -> dict:
     }
 
 
+def _encode_obs_robodojo(env_obs: dict) -> dict:
+    """RoboDojo dual-arm ARX-X5 obs → openpi batched wire obs.
+
+    RoboDojo exposes three views (head plus the two wrists) and a 14-D joint
+    state ``[left_arm(6), right_arm(6), left_gripper(1), right_gripper(1)]``.
+    The head camera is the main view; each wrist camera is one wrist view.
+    """
+    vision = env_obs["vision"]
+    state = env_obs["state"]
+
+    def _view(camera: str) -> np.ndarray:
+        return _batch_views(np.asarray(vision[camera]["color"]))
+
+    states = np.concatenate(
+        [
+            np.asarray(state[key], dtype=np.float32).reshape(-1)
+            for key in (
+                "left_arm_joint_state",
+                "right_arm_joint_state",
+                "left_ee_joint_state",
+                "right_ee_joint_state",
+            )
+        ]
+    )
+    return {
+        "main_images": _view("cam_head"),
+        "wrist_images": _view("cam_left_wrist"),
+        "extra_view_images": _view("cam_right_wrist"),
+        "states": states[None],
+        "task_descriptions": [str(env_obs.get("instruction") or "")],
+    }
+
+
 # NOTE: an embodiment registered here must also exist in the server's
 # ``PI05_EMBODIMENTS`` (and ``PI05_ROBOT_PLATFORMS`` if it sets ROBOT_PLATFORM);
 # the two registries are kept in sync manually.
@@ -139,6 +172,7 @@ _ENCODE_OBS: dict[str, Any] = {
     "libero": _encode_obs_libero,
     "franka": _encode_obs_franka,
     "dual_franka": _encode_obs_dual_franka,
+    "robodojo": _encode_obs_robodojo,
 }
 
 

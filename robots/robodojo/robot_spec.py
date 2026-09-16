@@ -225,7 +225,7 @@ def _add_cli_args(parser: argparse.ArgumentParser, use_dashboard: bool) -> None:
     parser.add_argument(
         "--vla-endpoint",
         default=None,
-        help="[protocol://]host:port of an existing Pi_05 policy server",
+        help="[protocol://]host:port of an existing Pi0.5 VLA server",
     )
     parser.add_argument(
         "--sam3-endpoint",

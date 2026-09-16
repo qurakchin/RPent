@@ -128,6 +128,51 @@ robotwin = [
     "rlinf-lingbotvla==0.1.1",
     "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@v0.7.8",
 ]
+robodojo = [
+    "rpent[robodojo-sim,sam3]",
+    # The RoboDojo openpi config/policy live on this branch, not in the
+    # released rpent-rlinf.
+    "rlinf @ git+https://github.com/qurakchin/rlinf.git@rlinf_robodojo",
+    "rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent",
+]
+robodojo-sim = [
+    # Isaac Sim 5.1 and the Isaac Lab fork RoboDojo pins (source/isaaclab is
+    # 0.54.3). The upstream installer reaches these through `isaaclab.sh
+    # --install`; here each source package is a direct git reference.
+    "isaacsim[all,extscache]==5.1.0",
+    "isaaclab @ git+https://github.com/yuechen0614/IsaacLab.git@main#subdirectory=source/isaaclab",
+    "isaaclab_assets @ git+https://github.com/yuechen0614/IsaacLab.git@main#subdirectory=source/isaaclab_assets",
+    "isaaclab_contrib @ git+https://github.com/yuechen0614/IsaacLab.git@main#subdirectory=source/isaaclab_contrib",
+    "isaaclab_mimic @ git+https://github.com/yuechen0614/IsaacLab.git@main#subdirectory=source/isaaclab_mimic",
+    "isaaclab_rl @ git+https://github.com/yuechen0614/IsaacLab.git@main#subdirectory=source/isaaclab_rl",
+    "isaaclab_tasks @ git+https://github.com/yuechen0614/IsaacLab.git@main#subdirectory=source/isaaclab_tasks",
+    "torch==2.7.0",
+    "torchvision==0.22.0",
+    "torchaudio==2.7.0",
+    "nvidia-curobo[cu12] @ git+https://github.com/yuechen0614/curobo.git@main",
+    # CuRobo pins carried over from the validated deployment.
+    "viser==0.1.34",
+    "tyro==0.9.0",
+    "websockets==12.0",
+    # The runtime pins RoboDojo's installer applies on top of Isaac Sim
+    # (`pin_runtime_deps` in scripts/install.sh).
+    "numpy==1.26.0",
+    "filelock==3.13.1",
+    "warp-lang==1.11.0",
+    "onnx>=1.18,<1.22",
+    "ipython<9",
+    # RoboDojo's own Python dependencies.
+    "opencv-python-headless==4.11.0.86",
+    "pillow",
+    "matplotlib",
+    "scipy==1.15.3",
+    "scikit-learn",
+    "huggingface_hub",
+    "transforms3d",
+    "ffmpeg",
+    "open3d",
+    "msgpack-numpy",
+]
 
 [tool.uv]
 prerelease = "if-necessary"

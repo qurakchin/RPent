@@ -373,6 +373,19 @@ def _arm_ee_joint_key(arm: str) -> str:
     return f"{arm}_ee_joint_state"
 
 
+def _action_dict_from_vector(vector) -> dict:
+    """Split one 14-D VLA action into the env's joint action dict."""
+    import numpy as np
+
+    values = np.asarray(vector, dtype=np.float64).reshape(-1)
+    return {
+        "left_arm_joint_state": values[0:6].tolist(),
+        "right_arm_joint_state": values[6:12].tolist(),
+        "left_ee_joint_state": values[12:13].tolist(),
+        "right_ee_joint_state": values[13:14].tolist(),
+    }
+
+
 def _refresh_obs(primitives) -> dict:
     primitives._last_obs = primitives.env.get_obs()
     return primitives._last_obs
@@ -546,7 +559,9 @@ def pi0_pick(
         actions = vla.predict(obs)
         chunks_used = c + 1
         for action in actions:
-            obs_step, _reward, _done, info = primitives.env.step(action)
+            obs_step, _reward, _done, info = primitives.env.step(
+                _action_dict_from_vector(action)
+            )
             st = obs_step["state"]
             for a in arms:
                 t = track[a]

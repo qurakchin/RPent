@@ -63,6 +63,21 @@ PI05_EMBODIMENTS: dict[str, dict] = {
             "add_value_head": False,
         },
     },
+    "robodojo": {
+        "num_action_chunks": 5,
+        "action_dim": 14,
+        "use_proprio": True,
+        "num_steps": 5,
+        "add_value_head": False,
+        "openpi": {
+            "config_name": "pi05_robodojo_arx_x5",
+            "num_images_in_input": 3,
+            "action_chunk": 5,
+            "num_steps": 5,
+            "action_env_dim": 14,
+            "add_value_head": False,
+        },
+    },
 }
 
 PI05_ROBOT_PLATFORMS: dict[str, str] = {
