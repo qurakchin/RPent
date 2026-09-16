@@ -14,12 +14,13 @@ SciPy、RealSense 等真机库。NumPy 保持 2.2.6，没有改动 RLinf 的虚�
 
 本地配置（不提交、不上传）：
 
-- `logs/yambox_deployment/site/task_a.json`
-- `logs/yambox_deployment/site/task_b.json`
+- `logs/yambox_deployment/site/task_a.yaml`
+- `logs/yambox_deployment/site/task_b.yaml`
 
-两个配置使用相同任务名 `tabletop_cleanup`、不同 seed 标签和语言映射，语言取自当前
-RLinf `collect_tabletop_cleanup_1.sh` 与 `_2.sh`。三瓶全部入袋、同色勺碗、碗归位，
-左右都按未镜像 top 画面。几何原语中没有品牌/袋子的固定坐标规则。
+两个 YAML 用相同的 CAN 通道和相机序列号；任务名、seed 标签和语言映射是
+命令行参数，语言取自当前 RLinf `collect_tabletop_cleanup_1.sh` 与 `_2.sh`。
+三瓶全部入袋、同色勺碗、碗归位，左右都按未镜像 top 画面。几何原语中没有
+品牌/袋子的固定坐标规则。
 
 设备字段继承当前数采配置，包括 gravity 和摩擦开关；RPent 不自动清故障，
 `enable_auto_recovery=false`。当前原语每步指令限制 0.02 rad，规划间隔 0.01 rad，
@@ -43,8 +44,9 @@ RPent 的硬限位、步幅、最新实测路径与跟踪误差检查保留，SD
 ## 首次接管与服务
 
 必须取得现场人员确认：四臂支撑稳定、可急停、工作区和允许范围明确、其他数采/遥操
-正常退出且全程不重启。RPent 按通道加进程锁并检查现存 SocketCAN 订阅，但其他程序
-不共享该锁，仍需现场保证排他。不能擅自终止用户进程。
+正常退出且全程不重启。RPent 按通道加进程锁并检查现存 SocketCAN 订阅
+（`devices.*.channel` 必须填内核 SocketCAN 接口名，如 `can0`/`can1`，不是逻辑别名），
+但其他程序不共享该锁，仍需现场保证排他。不能擅自终止用户进程。
 
 首次 observe（包括 Agent 连接）会打开三相机、连接电机并输出保持扭矩。
 `gripper_limits=null` 会触发夹爪寻两端标定，必须保证夹爪无物且运动空间清楚。
@@ -55,10 +57,21 @@ RPent 的硬限位、步幅、最新实测路径与跟踪误差检查保留，SD
 ```bash
 cd /home/yambox/cynws/RPent
 export RPENT_RLINF_ROOT=/home/yambox/cynws/RLinf
+SITE_ROBOT_CONFIG=logs/yambox_deployment/site/task_a.yaml
+TASK_LANGUAGE='把桌面上的方块放进目标容器'
 .venv/bin/python -m robots.yam.env_server \
-  --config logs/yambox_deployment/site/task_a.json \
+  --robot-config "$SITE_ROBOT_CONFIG" \
+  --task-name tabletop_cleanup --task-language "$TASK_LANGUAGE" \
+  --seed 0 --max-episode-steps 12000 \
   --transport http --host 127.0.0.1 --port 8110
 ```
+
+site YAML 是整机唯一配置：从 `robots/yam/config/example.yaml` 复制后改机器身份与
+现场标定（follower CAN 通道、三相机序列号、`extrinsics_path`、`table_z`、
+`operator_receipt_path`）。控制参数（slew、超时、相机预热、桌面余量、路径步长、
+静止容差）集中在同一文件的 `control:` section，可按现场重调，代码不再有第二份
+默认值；`runtime_config.py` 只负责读取并把该 section 展平。任务名、语言、seed 和
+step 预算都是命令行参数，必须与 Agent 侧完全一致。
 
 服务 `healthz` 与静态 metadata 不打开硬件；observe/reset/render 则可能初始化硬件。
 先核实三图、相机身份、静止腕图投影、实际关节与 TCP、标定多点投影和活动范围，
@@ -70,11 +83,13 @@ export RPENT_RLINF_ROOT=/home/yambox/cynws/RLinf
 
 ```bash
 .venv/bin/python -m robots.yam.operator_control \
-  --config logs/yambox_deployment/site/task_a.json --event status
+  --robot-config "$SITE_ROBOT_CONFIG" --event status
 .venv/bin/python -m robots.yam.operator_control \
-  --config logs/yambox_deployment/site/task_a.json \
+  --robot-config "$SITE_ROBOT_CONFIG" \
   --event start --episode-id ACTUAL_EPISODE_ID --note '现场已确认摆场和允许范围'
 ```
+
+回执路径取自 site YAML 的 `operator_receipt_path`，不配置则拒绝启动。
 
 status 可能调用 observe，须在接管确认后使用。start 消费 ready 并开始首回合，
 不自动复位机器人。Explore 要求人工恢复场景时，实际恢复后写 `--event ready`，
@@ -83,14 +98,13 @@ status 可能调用 observe，须在接管确认后使用。start 消费 ready �
 
 ## 无 VLA Agent 与 Explore
 
-用配置中的实际语言启动，确保 ENV 和 Agent task/seed/step limit 相同：
+用与 ENV 完全相同的 task/seed/step limit 启动 Agent：
 
 ```bash
 cd /home/yambox/cynws/RPent
 export RPENT_RLINF_ROOT=/home/yambox/cynws/RLinf
-SITE_CONFIG=logs/yambox_deployment/site/task_a.json
 export CODEX_BIN=/home/yambox/.vscode-server/extensions/openai.chatgpt-26.903.61454-linux-x64/bin/linux-x86_64/codex
-TASK_LANGUAGE="$(.venv/bin/python -c 'import json,sys; print(json.load(open(sys.argv[1]))["task_language"])' "$SITE_CONFIG")"
+TASK_LANGUAGE='把桌面上的方块放进目标容器'
 .venv/bin/python -m rpent.cli.main --robot yam --planner codex \
   --task-name tabletop_cleanup --task-language "$TASK_LANGUAGE" --seed 0 \
   --max-episode-steps 12000 --env-endpoint http://127.0.0.1:8110 --without-vla \

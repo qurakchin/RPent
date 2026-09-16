@@ -50,6 +50,8 @@ def test_geometry_uses_solve_handeye_t_grasp_to_cam_in_forward_direction(
     )
     config = {
         "extrinsics_path": str(extrinsics_path),
+        "table_clearance_m": 0.03,
+        "path_joint_delta": 0.02,
     }
     geometry = YamGeometry(
         config,

@@ -25,8 +25,12 @@ from pathlib import Path
 class HardwareLease:
     """Lock RPent writers and reject pre-existing SocketCAN subscriptions.
 
-    Other programs do not share these locks. The operator must still keep
-    collectors and other controllers stopped throughout the session.
+    ``channels`` are the kernel SocketCAN interface names (for example
+    ``can0``/``can1``) the follower drivers open, not logical aliases;
+    ``check_subscriptions`` compares them against the device field of
+    ``/proc/net/can/rcvlist_*`` records. Other programs do not share these
+    locks. The operator must still keep collectors and other controllers
+    stopped throughout the session.
     """
 
     def __init__(self, channels: list[str], *, lock_dir: Path = Path("/tmp")):

@@ -594,11 +594,16 @@ def _yam_agent_config(
         "seed": 12,
         "max_episode_steps": step_lim,
         "max_joint_delta_per_step": None,
+        "feedback_timeout_s": 0.25,
+        "camera_frame_timeout_s": 1.0,
+        "camera_warmup_frames": 15,
+        "table_clearance_m": 0.01,
+        "path_joint_delta": 0.02,
+        "qpos_static_tolerance_rad": 0.001,
         "operator_receipt_path": (
             None if operator_receipt_path is None else str(operator_receipt_path)
         ),
         "table_z": -1.0,
-        "table_clearance_m": 0.01,
         "extrinsics_path": str(extrinsics_path),
     }
 

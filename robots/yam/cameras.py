@@ -50,8 +50,8 @@ class YamRgbdCameraRig:
     ) -> None:
         self.config = dict(config)
         self.calibration = calibration or load_calibration(config)
-        self.camera_timeout_s = float(self.config.get("camera_frame_timeout_s", 1.0))
-        self.warmup_frames = int(self.config.get("camera_warmup_frames", 15))
+        self.camera_timeout_s = float(self.config["camera_frame_timeout_s"])
+        self.warmup_frames = int(self.config["camera_warmup_frames"])
         self._rs: Any | None = None
         self._pipelines: dict[str, Any] = {}
         self._aligners: dict[str, Any] = {}

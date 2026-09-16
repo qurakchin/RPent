@@ -90,13 +90,14 @@ RPC 服务端拥有 30 Hz 执行节拍，网络延时不能决定 CAN 控制周�
 | 模块 | 职责 |
 |---|---|
 | `contracts.py` | 纯常量、维度、相机顺序、policy/runtime 契约 |
+| `runtime_config.py` / `config/example.yaml` | 单一 YAML 描述整机：机器身份（CAN 通道、相机序列号、外参、桌面高度）、控制参数（slew/超时/桌面余量）与回执路径；任务字段走 CLI |
 | `robot_spec.py` / `__init__.py` | 自动发现、CLI、RunConfig、外部 env/VLA 初始化、本地 memory |
 | `env_client.py` / `env_server.py` | Base 客户端/Facade 的兼容适配，显式 observe/reset，CPU numpy 边界 |
 | `rlinf_env.py` | lazy import RLinf，唯一 runtime writer、执行预算/取消/episode、快照 |
 | `cameras.py` / `geometry.py` | 常驻三路 RGBD、明确 CV/world 变换、FK/IK 适配与桌面检查 |
 | `primitives.py` | pi05_act、move_to、rotate_wrist、set_gripper、release |
 | `toolkit.py` / `tools.py` | 与 RoboTwin 对齐的工具及状态、图片、世界点、动作记录 |
-| `vla_server.py` + 公共 `BaseVLAClient` | 复用 YAM OpenPI config/transforms，3 图 + qpos14 输入输出 |
+| 框架 `pi05_vla_server.py` / `pi05_vla_client.py` 的 `yam` preset/encoder | 复用框架 Pi0.5 VLA 服务与客户端，3 图 + qpos14 输入输出（`openpi_rlinf` 后端） |
 | `prompts/` / `guides/` | 真机限制、工具使用与 explore/eval 区别 |
 | `tests/yam/` | 无硬件 fake runtime、RPC、VLA、几何、取消/人工终态测试 |
 
