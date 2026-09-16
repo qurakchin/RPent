@@ -101,6 +101,8 @@ Welcome to RPent
    Core Interfaces <rst_source/development/interfaces>
    Memory Management <rst_source/development/memory>
    Add a New Robot <rst_source/development/add_robot>
+   Add an Env Backend <rst_source/development/add_env>
+   Add a VLA Backend <rst_source/development/add_vla>
    Add an Action Primitive <rst_source/development/add_primitive>
 
 .. toctree::

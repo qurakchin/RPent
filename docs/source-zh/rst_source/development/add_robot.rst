@@ -173,10 +173,16 @@ facade 会显式注册每个名称。
 
 在 ``env_server`` 中定义与 client API 对应的 facade 类，例如
 ``MyEnvFacade``。该类继承
-:class:`rpent.robots.components.env_facade_base.BaseEnvFacade`；基类已提供公共 RPC 路由和
-读写分派锁。子类实现公共环境方法，并通过 ``_register_rpc`` 增加环境专用路由。
-方法接收与 client 一致的位置参数和关键字参数，返回传输层支持的 Python / NumPy
-值（不要返回 torch；agent 进程不导入 torch）。
+:class:`rpent.robots.components.env_facade_base.BaseEnvFacade`，在
+``_register_rpc`` 中注册 ``env.*`` 方法（基类已注册 ``env.reset`` /
+``env.step`` / ``env.chunk_step`` / ``env.get_env_meta`` 等公共路由），再通过
+``self.serve(...)`` 启动服务。方法接收与 client 一致的位置参数和关键字参数，
+返回可 pickle 的值（使用 numpy，不要返回 torch；agent 进程不导入 torch）。
+
+env server 不启用 session，``BaseEnvFacade`` 的 ``_dispatch`` 只把
+``*args / **kwargs`` 透传给 handler，**不注入** ``session_id``——因此 env 的
+handler 不必（也不应）声明 ``session_id`` 参数。何时需要按 client 隔离状态、
+如何启用 session，见下方 :ref:`add-robot-sessions-zh`。
 
 .. code-block:: python
 
@@ -211,6 +217,59 @@ facade 会显式注册每个名称。
 状态的调用。只有确认某个扩展路由可以安全地与其他读操作并发时，才把它加入
 ``_readonly_methods``。继承的 ``RpcFacade.serve`` 负责绑定传输方式（HTTP 或
 socket）、提供 ``healthz`` 和 ``shutdown``、检测父进程退出并执行资源清理。
+
+.. _add-robot-sessions-zh:
+
+1.3 按 client 隔离的 session（可选）
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+当 server 持有需要按 client 隔离的状态时启用 session —— 例如带 RLDX
+memory/RTC buffer 的 VLA server，两个 agent 共用一个 server 时不能让各自的
+policy state 串话。无状态的 env server 不要开。
+
+Server 侧 —— 子类构造时传 ``enable_sessions=True`` 和
+``session_timeout_s``，并在 :meth:`serve` 传正数 ``session_sweep_s``。重写
+:meth:`_on_session_drop`，在 session close 或 idle 过期时清理该 client 的状态。
+启用 session 后，``BaseVLAFacade`` 的 ``_dispatch`` 会把 caller 的
+``session_id`` 作为 kwarg 注入所有 handler（无 session 的后端忽略它）：
+
+.. code-block:: python
+
+   from rpent.robots.components.vla_facade_base import BaseVLAFacade
+
+   class MyVLAFacade(BaseVLAFacade):
+       def __init__(self, model_path):
+           super().__init__(enable_sessions=True,
+                            session_timeout_s=3600.0)
+           self._model = load_model(model_path)
+
+       def predict(self, obs, options, *, session_id=None):
+           # 由 server 注入 sid，caller 永远不传。
+           return self._model.predict(obs, session_ids=[session_id])
+
+       def _on_session_drop(self, session_id):
+           # 在 session.close RPC（client atexit）和 idle 过期被 sweep 线程
+           # 删除时都会触发。
+           self._model.reset(session_ids=[session_id])
+
+Client 侧 —— 构造 transport 时传 ``enable_sessions=True``，client 会自动
+生成私有 session id、在连接时通过 :func:`wait_for_ready` 注册、每次调用都
+带上、进程退出时关闭：
+
+.. code-block:: python
+
+   from rpent.utils.http_rpc import HttpRpcClient
+   from rpent.utils.rpc import wait_for_ready
+
+   rpc = HttpRpcClient(f"http://{host}:{port}", enable_sessions=True)
+   wait_for_ready(rpc, daemon=vla_daemon)
+   # sid 对 client 私有，业务代码看不到。
+
+启用 session 后，base ``dispatch`` 会拒绝 ``session_id is None`` 的业务调用
+（抛 ``RpcError``），caller 必须先 ``session.register`` —— 对 session-aware
+client，:func:`wait_for_ready` 会自动完成。sweep 线程按 ``session_sweep_s``
+周期删除 idle 过期的 session 并触发 ``_on_session_drop``；idle timeout 由
+server 持有（构造时的 ``session_timeout_s``），而非 client 持有。
 
 .. _add-robot-prompts:
 

@@ -54,6 +54,12 @@ class BaseVLAFacade(RpcFacade):
     # ---- framework ----
     def _register_rpc(self):
         self._rpc["vla.predict"] = self.predict
+        # Inference does not mutate shared server state, so it runs under the
+        # shared read lock (concurrent with other predicts); sessionful
+        # backends keep the exclusive write lock on their state-mutating
+        # methods (e.g. ``vla.reset_session``), which then serialises them
+        # against ``predict``.
+        self._readonly_methods.add("vla.predict")
 
     # ---- abstract methods (subclasses must override) ----
     def predict(self, *args, **kwargs):
