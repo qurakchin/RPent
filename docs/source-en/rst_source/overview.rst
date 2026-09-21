@@ -76,10 +76,6 @@ Feature Matrix
      - - Franka
        - SO-101
 
-RoboDojo provides dual-arm control, three-camera RGB-D, Pi_05 and Flash replay.
-Task discovery does not establish task success; handover is not implemented
-and low-Z scripted IK has reachability limits. See its guide for task scope.
-
 Next steps
 ----------
 

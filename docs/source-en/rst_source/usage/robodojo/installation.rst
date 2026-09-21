@@ -1,149 +1,152 @@
-RoboDojo Backend Installation
-=============================
+RoboDojo Backend Installation & Reproduction
+=============================================
 
-This page covers what the RPent integration adds on top of the upstream
-repositories. Follow the official RoboDojo and XPolicyLab instructions for the
-simulator, CUDA and policy dependencies; GPU execution needs the matching
-assets and checkpoints, and RPent does not download them.
+This page summarizes the RoboDojo backend setup. The authoritative,
+command-complete guide (three-runtime layout, editable IsaacLab, CuRobo, the
+JAX-to-PyTorch checkpoint conversion, norm stats, and every required
+environment variable) is ``docs/ROBODOJO_INSTALLATION.md``.
 
-Python environments
+The summary below was validated end-to-end on a Linux x86_64 workstation
+(NVIDIA RTX PRO 6000 Blackwell, driver 580.173.02, Ubuntu 24.04); the
+observations in the authoritative guide were reproduced separately on an RTX
+4090 (driver 550.127.08).
+
+Runtime composition
 -------------------
 
-The backend drives three interpreters and they must stay separate. Isaac Sim
-pins ``websockets==12.0``, ``numpy==1.26.0``, ``packaging==23.0``,
-``filelock==3.13.1`` and ``typing_extensions==4.12.2``; the RPent environment
-runs a newer ``websockets`` with its own ``torch`` build, and the Pi_05
-environment runs JAX and ``openpi``. Installing them into one interpreter
-breaks the Isaac Sim pins.
+The integration keeps three isolated runtimes, plus large assets and one
+planner credential; RPent only orchestrates them and never mixes them:
 
-**1. RPent.** Install the repository, then add the perception extra this
-backend uses:
+.. list-table::
+   :header-rows: 1
 
-.. code-block:: bash
+   * - Runtime
+     - Python
+     - Contents
+     - Purpose
+   * - RPent venv
+     - 3.11
+     - rpent itself + SAM3
+     - agent loop / tools / memory
+   * - robodojo-sim
+     - 3.11
+     - Isaac Sim 5.1 / IsaacLab 0.54.3 / CuRobo (or import stub)
+     - simulation
+   * - Pi0.5 policy env (uv)
+     - 3.11
+     - RLinf + rpent-openpi (openpi Pi0.5)
+     - policy server
 
-   uv pip install -e ".[sam3]"
+Prerequisites
+-------------
 
-**2. RoboDojo simulator.** Use the upstream installer, which builds the Isaac
-Sim environment and the vendored CuRobo. That script is the supported path and
-RPent does not re-implement it:
+* Linux x86_64, NVIDIA GPU, ~100-180 GB disk;
+* RoboDojo official checkpoint (``RoboDojo-sim-arx_x5-joint-0``, published
+  ~44.7 GB, not fully downloaded in this reproduction) and the ``Assets/``
+  tree (measured 15,365 files / 41.27 GB, 39 GiB) from ModelScope;
+* SAM3 checkpoint (~3.45 GB) plus the CLIP BPE vocabulary (bundled in the
+  sam3 wheel);
+* driver: upstream requires 570.x or newer (CUDA 12.8); driver 550 was
+  observed to work via CUDA 12.x minor-version compatibility.
 
-.. code-block:: bash
-
-   cd /path/to/RoboDojo
-   bash scripts/install.sh
-
-The combination this backend is validated against is Python 3.11 with
-``isaacsim 5.1.0.0``, ``torch 2.7.0+cu128``, ``numpy 1.26.0``,
-``websockets 12.0``, ``viser 0.1.34``, ``tyro 0.9.0`` and ``warp-lang 1.11.0``,
-with CuRobo installed from ``third_party/curobo``. Pass that environment's
-interpreter as ``--sim-python``, and do not install RPent or Pi_05 packages into
-it.
-
-**3. Pi_05 policy.** Build the uv environment named by XPolicyLab's deploy
-config (``policy_uv_env_path: openpi``):
-
-.. code-block:: bash
-
-   cd /path/to/RoboDojo/XPolicyLab/policy/Pi_05
-   bash install.sh
-
-The script requires ``uv`` and creates ``openpi/.venv``. The RoboDojo launcher
-activates that environment and needs a conda installation plus an interpreter it
-can import YAML from, so set ``ROBODOJO_CONDA_ROOT`` when the default one cannot.
-Pass the matching interpreter as ``--pi05-python``. RPent is not installed into
-this environment: the CLI composes ``PYTHONPATH`` for every child service from
-the RPent repository root, ``--source-root`` and ``--xpolicylab-root``, so no
-RPent package has to live in the policy environment.
-
-Sources and assets
-------------------
-
-Install Git LFS before cloning the official repository and its submodules:
+RPent + SAM3
+------------
 
 .. code-block:: bash
 
-   git lfs install
-   git clone --recurse-submodules https://github.com/RoboDojo-Benchmark/RoboDojo.git
-   cd RoboDojo
-   git lfs pull
-   git submodule foreach --recursive 'git lfs pull'
-   git lfs fsck
+   # Install from the PARENT of the rpent checkout so the sim-only
+   # [tool.uv] override-dependencies are not applied to the agent stack.
+   uv pip install -e "./rpent[robodojo]"   # full RoboDojo install
 
-Download the asset/checkpoint repositories linked by the official RoboDojo
-release with the same Git LFS workflow: clone, ``git lfs pull``, and
-``git lfs fsck``. Follow that release's placement instructions. Confirm that
-required files contain real data rather than LFS pointer text before starting
-the simulator. If a release has incomplete LFS attributes, resolve that with
-the dataset publisher; RPent does not provide a custom materializer.
+``.[robodojo]`` is the only correct RoboDojo extra: it pulls ``robodojo-sim``
+plus ``sam3`` plus the pinned ``rlinf`` / ``rpent-openpi`` git dependencies.
+There is no ``openpi`` extra, and ``.[sam3]`` alone is missing Isaac Sim /
+IsaacLab / CuRobo. On Blackwell, pin ``torch==2.7.1+cu128`` /
+``torchvision==0.22.1+cu128``.
 
-RPent configuration
+RoboDojo sources
+----------------
+
+Clone the official RoboDojo repository (including the XPolicyLab submodule) and
+pin it to the validated commit. The RPent runner reads the workspace file
+``<ROBODOJO_WORKSPACE>/config/runtime.env``; its keys are
+``ROBODOJO_SOURCE_ROOT``, ``ROBODOJO_XPOLICYLAB_ROOT``, ``ROBODOJO_SIM_ENV``,
+and ``ROBODOJO_PI05_ENV``.
+
+Simulation environment (Isaac Sim / IsaacLab / CuRobo)
+------------------------------------------------------
+
+* ``isaacsim[all,extscache]==5.1.0``;
+* the pinned IsaacLab 0.54.3 fork. IsaacLab MUST be installed EDITABLE
+  (``-e source/isaaclab`` plus ``_assets`` and ``_tasks``): a non-editable
+  VCS-subdirectory install ships only ``__init__.py`` and loses
+  ``config/extension.toml``. The ``robodojo-sim`` extra's git references exist
+  only to keep the extra resolvable, not as a working IsaacLab install;
+* ``h5py`` must be added to the sim env (``isaaclab_tasks`` imports it);
+* CuRobo is imported at module level by
+  ``env/robot_manager/robot_manager.py`` ->
+  ``env/planner_manager/curobo_planner``. The pinned fork is a v2 rewrite that
+  JIT-compiles kernels at runtime via ``cuda.core``, so ``nvidia-curobo[cu12]``
+  installs as a normal Python package (no CUDA build at install time); kernels
+  compile on the first planner construction. Install it editable for working
+  IK / ee actions, or use an import-only stub plus conditional
+  ``need_planner: False`` on machines without it. The stub must NOT be on
+  ``PYTHONPATH`` when real CuRobo is installed: ``PYTHONPATH`` precedes
+  ``site-packages``, so it would shadow the real package;
+* REQUIRED after cloning the assets: generate the real planner config by
+  running ``python utils/update_embodiment_config_path.py`` from the RoboDojo
+  repo root. It writes ``Assets/Robots/<robot>/curobo.yml`` and bakes ABSOLUTE
+  asset paths, so re-run it whenever the repo or asset location changes.
+  Without it ``CuroboPlanner`` dies with
+  ``FileNotFoundError: .../Assets/Robots/x5/curobo.yml``. With it, the env
+  server logs ``CuRobo planner AVAILABLE`` and ``env.get_status`` reports
+  ``ik_available: true``.
+
+RoboDojo assets
+---------------
+
+The measured ``Assets/`` tree is 15,365 files / 41.27 GB (39 GiB). The
+``14,506`` LFS-file and ``9,224`` eval-layout counts previously quoted here
+could not be verified against the pinned checkout; treat them as unverified.
+
+Pi0.5 policy environment
+------------------------
+
+Build a separate env with RLinf plus ``rpent-openpi`` (openpi Pi0.5), then
+convert the published JAX/orbax checkpoint to PyTorch, because the loader only
+accepts ``*.safetensors`` or ``model_state_dict/full_weights.pt``:
+
+.. code-block:: bash
+
+   ln -sfn <ckpt>/59999 ckpt_torch/jax_pi05_src
+   venv_policy/bin/python -m rlinf.utils.ckpt_convertor.convert_openpi_jax_to_python \
+     --checkpoint-dir "$PWD/ckpt_torch/jax_pi05_src" \
+     --output-path  "$PWD/ckpt_torch/pi05_robodojo_arx_x5" \
+     --config-name pi05_aloha --precision bfloat16
+
+Run it as a module (a script-path invocation makes
+``rlinf/utils/ckpt_convertor/openpi/`` shadow the real ``openpi`` package), and
+make sure ``--checkpoint-dir`` contains the lowercase token ``pi05`` (the
+converter branches on that substring).
+
+Wiring & smoke test
 -------------------
 
-Configure SAM3's checkpoint using ``SAM3_CHECKPOINT_PATH``, and export the
-placement settling budget. The default leaves objects unstable in official
-mode; the variable is read by the RoboDojo checkout, not by RPent, and the CLI
-passes it on to the child services it starts:
+``robots/robodojo/robot_spec.py`` reads
+``<ROBODOJO_WORKSPACE>/config/runtime.env`` (``ROBODOJO_SIM_ENV``,
+``ROBODOJO_PI05_ENV``, ``ROBODOJO_SOURCE_ROOT``, ``ROBODOJO_XPOLICYLAB_ROOT``);
+set ``ROBODOJO_WORKSPACE`` so the CLI finds it. Required env vars:
+``PI05_CHECKPOINT_PATH``, ``PI05_NORM_STATS_PATH`` (the DIRECTORY containing
+``norm_stats.json``), ``SAM3_CHECKPOINT_PATH``, and the LLM credential
+(``claude_code`` checks ``ANTHROPIC_API_KEY`` exactly). Smoke chain:
 
-.. code-block:: bash
+.. code-block:: text
 
-   export ROBODOJO_PLACEMENT_SETTLE_STEPS=1000
+   robodojo.sh doctor (RoboDojo workspace) -> official Pi0.5 debug gate ->
+   bare eval -> rpent --robot robodojo ...
 
-Supply the RoboDojo checkout and the Python executables explicitly:
-
-.. code-block:: bash
-
-   rpent --robot robodojo --task put_bottles_into_dustbin --layout 0 \
-     --source-root /path/to/RoboDojo \
-     --sim-python /path/to/sim-env/bin/python \
-     --pi05-python /path/to/pi05-env/bin/python
-
-``--xpolicylab-root`` defaults to ``SOURCE_ROOT/XPolicyLab``; set it for
-a separate checkout. Both Python flags default to the current interpreter,
-so separate runtimes must pass their executable paths. The CLI constructs
-child import paths without reading a workspace's ``config/runtime.env`` or
-changing the parent environment. Existing shell environment variables are
-inherited by child processes.
-
-Use ``--env-endpoint``, ``--vla-endpoint``, and ``--sam3-endpoint`` to attach
-to already running services. A borrowed service requires no local source or
-Python path for that component. The CLI starts the shared
-``rpent.robots.components.pi05_vla_server`` with ``--policy-backend xpolicylab``
-and an explicit ``--policy-root`` pointing to ``XPolicyLab/policy/Pi_05``.
-This adapter uses XPolicyLab's launcher and checkpoint loader, not RLinf's
-Pi0.5 loader (the shared server's default ``--policy-backend rlinf``).
-Changing backend does not convert checkpoints or observation formats.
-
-Every owned service logs and writes into the run's output directory: the CLI
-passes it as ``--save-dir`` to the environment server and as ``--output-dir``
-to the policy entry point, so concurrent runs do not share state.
-
-Verify the installation
------------------------
-
-Run one bounded development episode and confirm the services come up before the
-planner takes over:
-
-.. code-block:: bash
-
-   export ROBODOJO_PLACEMENT_SETTLE_STEPS=1000
-   rpent --robot robodojo --task put_bottles_into_dustbin --layout 0 \
-     --planner codex --model <planner-model> --max-turns 1 \
-     --source-root /path/to/RoboDojo \
-     --sim-python /path/to/sim-env/bin/python \
-     --pi05-python /path/to/pi05-env/bin/python \
-     --output-dir /path/to/run-output
-
-Expected behaviour:
-
-* ``/path/to/run-output`` contains ``robodojo_env_server.log``,
-  ``sam3_server.log``, ``robodojo_vla_server.log`` and, once the policy server is
-  spawned, ``vla_server.log``.
-* The environment server reports ready, and the first observation carries
-  ``cam_head``, ``cam_left_wrist`` and ``cam_right_wrist`` with intrinsics and
-  extrinsics, plus joint and gripper state.
-* The run writes one MP4 per camera under ``/path/to/run-output/videos``.
-* Shutdown leaves no owned child process behind and the GPUs return to idle.
-
-A service that exits during startup is the usual failure mode; read its log in
-the run output directory first. Isaac Sim start-up takes tens of seconds and the
-first run also compiles shaders.
+Observed peak VRAM for the full three-service run was 20,242 MiB on a 24 GB
+card (env ~6.6 GB, Pi0.5 ~7.9 GB, SAM3 ~4 GB). The earlier ``~45 GB`` figure
+described a different host and should not be used for planning. Full command
+sequences, troubleshooting, and known pins are in
+``docs/ROBODOJO_INSTALLATION.md`` and ``robots/robodojo/guides/interface.md``.
