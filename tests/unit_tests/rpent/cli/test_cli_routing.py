@@ -609,7 +609,7 @@ def test_yam_continuation_handoff_points_to_prior_session_and_memory_inbox(
     assert system_prompt == "system:explore:local"
     assert str(prior_session) in message
     assert f"{memory_inbox}/wip/" in message
-    assert "does not prove that the scene was reset" in message
+    assert "the physical scene is not automatically reset" in message
     assert "clean scene" not in message
 
 

@@ -85,10 +85,10 @@ PI05_EMBODIMENTS: dict[str, dict] = {
         # Real dual-arm YAM qpos14 joint policy. Serve it with
         # ``--model-backend openpi_rlinf``: the RLinf-native loader takes its
         # shapes from this preset, and ``openpi.task`` picks the eval wrapper.
-        "precision": "bf16",
-        "num_steps": 5,
         "num_action_chunks": 30,
         "action_dim": 14,
+        "num_steps": 5,
+        "precision": "bf16",
         "openpi": {
             "task": "eval",
             "config_name": "pi05_yam_joint",

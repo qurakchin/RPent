@@ -26,6 +26,8 @@ from robots.robocasa import robot_spec as robocasa_robot_spec
 from robots.robocasa import toolkit as robocasa_toolkit
 from robots.robotwin import robot_spec as robotwin_robot_spec
 from robots.robotwin import toolkit as robotwin_toolkit
+from robots.yam import robot_spec as yam_robot_spec
+from robots.yam import toolkit as yam_toolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.robots import RunConfig
 
@@ -44,6 +46,7 @@ def _run_config(memory_dir: Path, *, recipe_tag: str = "cell-s0") -> RunConfig:
     [
         (robocasa_robot_spec, robocasa_toolkit, "RoboCasaToolkit", "memory"),
         (robotwin_robot_spec, robotwin_toolkit, "RoboTwinToolkit", "memory"),
+        (yam_robot_spec, yam_toolkit, "YamToolkit", "memory"),
     ],
 )
 def test_evaluation_toolkit_factories_use_configured_read_only_memory(
@@ -83,6 +86,7 @@ def test_evaluation_toolkit_factories_use_configured_read_only_memory(
     [
         ("libero", libero_robot_spec, libero_toolkit, "LiberoToolkit"),
         ("robotwin", robotwin_robot_spec, robotwin_toolkit, "RoboTwinToolkit"),
+        ("yam", yam_robot_spec, yam_toolkit, "YamToolkit"),
     ],
 )
 def test_toolkit_factories_fall_back_to_each_robot_memory_root(

@@ -56,7 +56,7 @@ class YamToolkit(Toolkit):
     def __init__(
         self,
         *,
-        primitives_kwargs: dict[str, Any],
+        runtime_kwargs: dict[str, Any],
         dashboard_events: DashboardEventSink,
         memory: MemoryManager,
         mode: str = "evaluation",
@@ -79,7 +79,7 @@ class YamToolkit(Toolkit):
         self._latest_status: dict[str, Any] = {}
         self._primitives = YamPrimitives(
             check_cancelled=self.raise_if_cancelled,
-            **primitives_kwargs,
+            **runtime_kwargs,
         )
         self._register_yam_tools()
         initial = self.get_env_state(

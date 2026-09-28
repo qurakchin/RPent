@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 def get_robot_spec() -> RobotSpec:
     return RobotSpec(
         name="yam",
+        is_real_robot=True,
         supports_exploration=True,
         default_memory_profile="local",
         finalize_run=finalize_run,
@@ -54,7 +55,7 @@ def get_robot_spec() -> RobotSpec:
 
 def get_toolkit(
     *,
-    primitives_kwargs: dict[str, Any],
+    runtime_kwargs: dict[str, Any],
     dashboard_events: DashboardEventSink,
     config: RunConfig,
     mode: str = "evaluation",
@@ -70,7 +71,7 @@ def get_toolkit(
         inbox_cell_tag=config.recipe_tag if explore else None,
     )
     return YamToolkit(
-        primitives_kwargs=primitives_kwargs,
+        runtime_kwargs=runtime_kwargs,
         dashboard_events=dashboard_events,
         memory=memory,
         mode=mode,
@@ -183,10 +184,10 @@ def _init_runtime(
         raise ValueError("--vla-endpoint or --without-vla is required for YAM")
 
     owned_daemons: dict[str, ProcessDaemon] = {}
-    primitives_kwargs: dict[str, Any] = {}
+    runtime_kwargs: dict[str, Any] = {}
     if "env" in selected:
         env_rpc = make_rpc_client(args.env_endpoint)
-        primitives_kwargs.update(
+        runtime_kwargs.update(
             try_wait_server(
                 owned_daemons,
                 dashboard_events,
@@ -199,7 +200,7 @@ def _init_runtime(
         )
     if "vla" in selected:
         vla_rpc = make_rpc_client(args.vla_endpoint)
-        primitives_kwargs.update(
+        runtime_kwargs.update(
             try_wait_server(
                 owned_daemons,
                 dashboard_events,
@@ -210,7 +211,7 @@ def _init_runtime(
                 post_fn=lambda: _build_vla_runtime_kwargs(vla_rpc),
             )
         )
-    return list(owned_daemons.values()), primitives_kwargs
+    return list(owned_daemons.values()), runtime_kwargs
 
 
 def _build_env_runtime_kwargs(args: argparse.Namespace, env_rpc: Any) -> dict[str, Any]:

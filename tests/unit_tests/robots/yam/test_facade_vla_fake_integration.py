@@ -1339,7 +1339,7 @@ def _make_yam_toolkit(
         inbox_cell_tag="yam_place_cube_s12" if mode == "exploration" else None,
     )
     toolkit = YamToolkit(
-        primitives_kwargs={"env": env, "model": model},
+        runtime_kwargs={"env": env, "model": model},
         dashboard_events=NullDashboardEventSink(),
         memory=memory,
         mode=mode,
@@ -1416,7 +1416,7 @@ def test_yam_toolkit_pi05_act_rejects_model_side_episode_reset(tmp_path) -> None
     model = FakeToolkitModel(on_predict=env.force_new_episode_id)
     memory = MemoryManager(tmp_path / "memory", memory_access="read_only")
     toolkit = YamToolkit(
-        primitives_kwargs={"env": env, "model": model},
+        runtime_kwargs={"env": env, "model": model},
         dashboard_events=NullDashboardEventSink(),
         memory=memory,
         mode="evaluation",

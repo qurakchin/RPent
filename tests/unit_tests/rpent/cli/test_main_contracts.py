@@ -78,13 +78,12 @@ def _capture_validated_args(
         captured["robot_name"] = name
         return SimpleNamespace(
             name=name,
-            supports_exploration=name == "libero",
-            default_memory_profile="hf",
             add_cli_args=add_cli_args,
             parse_config=parse_config,
             supports_exploration=name == "libero",
             supports_human_interactive_exploration=False,
             is_real_robot=False,
+            default_memory_profile="hf",
         )
 
     monkeypatch.setattr(
@@ -238,13 +237,12 @@ def test_shared_cli_validation_stops_before_robot_runtime(
         "get_robot_spec",
         lambda name: SimpleNamespace(
             name=name,
-            supports_exploration=name == "libero",
-            default_memory_profile="hf",
             add_cli_args=add_cli_args,
             parse_config=parse_config,
             supports_exploration=name == "libero",
             supports_human_interactive_exploration=False,
             is_real_robot=False,
+            default_memory_profile="hf",
         ),
     )
     monkeypatch.setattr(sys, "argv", ["rpent", *argv])
@@ -507,7 +505,6 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
         add_cli_args=add_cli_args,
         parse_config=parse_config,
         init_runtime=init_runtime,
-        supports_exploration=True,
     )
 
     def build_planner(*args: Any, **kwargs: Any) -> ScriptedPlanner:

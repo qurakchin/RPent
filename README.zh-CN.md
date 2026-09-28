@@ -100,7 +100,7 @@ RPent 面向以下四类用户：
         <ul style="margin-left: 0; padding-left: 16px;">
           <li>Franka</li>
           <li>SO-101</li>
-          <li>YAM</li>
+          <li><a href="https://rpent.readthedocs.io/zh-cn/latest/rst_source/usage/yam.html">YAM</a></li>
         </ul>
       </td>
     </tr>

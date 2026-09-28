@@ -20,7 +20,7 @@ RPent supports two families of primitives out of the box:
 For the concrete per-robot configuration (which VLA runs
 against which robot, checkpoint paths, tool surface), see the
 robot pages: :doc:`libero`, :doc:`robocasa`, :doc:`franka`,
-:doc:`dual_franka`, :doc:`so101`.
+:doc:`dual_franka`, :doc:`so101`, :doc:`yam`.
 
 Which VLA runs where
 --------------------
@@ -49,6 +49,10 @@ Which VLA runs where
      - RLDX-1 (task-dependent)
      - HTTP or socket RPC
      - ``robots/so101/vla_server.py`` *(planned)*
+   * - YAM (real)
+     - Pi0.5
+     - HTTP or socket RPC
+     - ``rpent/robots/components/pi05_vla_server.py --embodiment yam``
 
 The VLA server exposes the same ``predict`` / ``healthz`` methods over
 both HTTP (JSON) and socket (pickle-framed) transports. When starting

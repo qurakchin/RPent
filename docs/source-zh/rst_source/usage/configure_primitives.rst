@@ -16,7 +16,7 @@ RPent 内置两类原语：
 
 各机器人的具体配置，例如使用哪个 VLA、checkpoint 路径以及对外提供的工具，
 请参考对应的机器人页面：:doc:`libero`、:doc:`robocasa`、
-:doc:`franka`、:doc:`dual_franka`、:doc:`so101`。
+:doc:`franka`、:doc:`dual_franka`、:doc:`so101`、:doc:`yam`。
 
 各机器人使用的 VLA
 ------------------
@@ -45,6 +45,10 @@ RPent 内置两类原语：
      - RLDX-1 (依任务而定)
      - HTTP 或 socket RPC
      - ``robots/so101/vla_server.py`` *(规划中)*
+   * - YAM (真机)
+     - Pi0.5
+     - HTTP 或 socket RPC
+     - ``rpent/robots/components/pi05_vla_server.py --embodiment yam``
 
 VLA server 通过统一的 ``predict`` 和 ``healthz`` 方法提供服务，并支持
 HTTP（JSON）和 socket（pickle-framed）两种传输方式。直接启动 VLA server

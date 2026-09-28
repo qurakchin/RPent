@@ -78,8 +78,6 @@ class RobotSpec:
     supports_human_interactive_exploration: bool = False
     memory_repo_id: str = "RLinf/RPent-memory"
     finalize_run: RunFinalizer | None = None
-    #: Toolkit accepts exploration mode, attempt budget, and session state path.
-    supports_exploration: bool = False
     #: Local robots can avoid implicit remote memory synchronization.
     default_memory_profile: str = "hf"
     #: Replay this robot's recorded plan for one cell, in place of a planner.

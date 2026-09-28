@@ -153,12 +153,14 @@ def sample_world_xyz(
                 pixel=[row, col],
             )
         xyz = np.nanmedian(region[finite], axis=0)
-        samples.append({
-            "pixel": [row, col],
-            "valid": True,
-            "xyz": xyz.tolist(),
-            "valid_points": int(finite.sum()),
-        })
+        samples.append(
+            {
+                "pixel": [row, col],
+                "valid": True,
+                "xyz": xyz.tolist(),
+                "valid_points": int(finite.sum()),
+            }
+        )
     return {
         "success": True,
         "step_idx": state["step_idx"],

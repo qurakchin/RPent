@@ -120,7 +120,9 @@ def test_registry_discovers_exactly_the_source_checkout_robots() -> None:
 @pytest.mark.parametrize("robot_name", EXPECTED_ROBOTS)
 def test_exploration_capability_and_memory_defaults(robot_name: str) -> None:
     spec = get_robot_spec(robot_name)
-    assert spec.supports_exploration is (robot_name in {"libero", "yam"})
+    assert spec.supports_exploration is (
+        robot_name in {"dual_franka", "libero", "yam"}
+    )
     assert spec.default_memory_profile == ("local" if robot_name == "yam" else "hf")
 
 
