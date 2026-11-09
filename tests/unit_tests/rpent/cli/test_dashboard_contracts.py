@@ -53,7 +53,7 @@ def test_dashboard_check_inherits_parsed_reasoning_effort(tmp_path, monkeypatch)
         is_real_robot=False,
         supports_human_interactive_exploration=False,
         prepare_memory=lambda args, config: None,
-        dashboard={
+        resolve_dashboard=lambda args: {
             "task": {
                 "command": "/rpent-task",
                 "usage": "/rpent-task <seed>",

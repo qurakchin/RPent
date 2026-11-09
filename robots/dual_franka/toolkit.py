@@ -132,7 +132,9 @@ class DualFrankaToolkit(FrankaToolkit):
             )
         super().raise_if_cancelled()
 
-    def execute_tool(self, name: str, input_dict: dict[str, Any]) -> ToolResult:
+    def execute_tool(
+        self, name: str, input_dict: dict[str, Any], *, source: str | None = None
+    ) -> ToolResult:
         if self._direct_verdict_event.is_set():
             return ToolResult(
                 data={
@@ -142,7 +144,7 @@ class DualFrankaToolkit(FrankaToolkit):
                     "motion_refused": True,
                 }
             )
-        return super().execute_tool(name, input_dict)
+        return super().execute_tool(name, input_dict, source=source)
 
     def finalize_direct_verdict(self) -> dict[str, Any]:
         """Record fresh operator evidence after all active work has stopped."""

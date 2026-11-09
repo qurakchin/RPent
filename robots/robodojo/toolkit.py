@@ -69,8 +69,10 @@ class RoboDojoToolkit(Toolkit):
                 name: entry for name, entry in self._tools.items() if name in allowed
             }
 
-    def execute_tool(self, name, input_dict):
-        result = super().execute_tool(name, input_dict)
+    def execute_tool(
+        self, name: str, input_dict: dict[str, Any], *, source: str | None = None
+    ) -> ToolResult:
+        result = super().execute_tool(name, input_dict, source=source)
         if not self.eval_fair and name in {
             "segment",
             "back_project",
