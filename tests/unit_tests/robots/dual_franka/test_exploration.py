@@ -92,8 +92,8 @@ def setup(tmp_path, monkeypatch, dual_franka_robot_config):
     return toolkit, env, replies
 
 
-def call(t, name, **kwargs):
-    return t.execute_tool(name, kwargs).data
+def call(t, name, *, source=None, **kwargs):
+    return t.execute_tool(name, kwargs, source=source).data
 
 
 def reset(t, replies):
@@ -106,21 +106,26 @@ def verdict(t, replies, answer):
     return call(t, "request_operator_verdict")
 
 
+@pytest.mark.parametrize("source", [None, "dashboard"])
 def test_failed_attempt_reset_success_preserves_logs_and_exports_only_winner(
-    setup, tmp_path
+    setup, tmp_path, source
 ):
     t, env, replies = setup
     assert env.resets == 0
-    assert "error" in call(t, "move_delta", arm="left", delta_xyz=[0.01, 0, 0])
+    assert "error" in call(
+        t, "move_delta", arm="left", delta_xyz=[0.01, 0, 0], source=source
+    )
     assert not env.moves
     assert reset(t, replies)["exploration"]["attempt"] == 1
-    call(t, "move_delta", arm="left", delta_xyz=[0.01, 0, 0])
+    call(t, "move_delta", arm="left", delta_xyz=[0.01, 0, 0], source=source)
+    assert t.state.latest_record().command.get("source") == source
     assert verdict(t, replies, "failure slipped")["status"] == "failure"
     assert "error" in call(t, "finish", status="success", summary="agent claim")
     first_steps = len(t.state.records())
     first_image = t.state.load("left_wrist.png", step=2).copy()
     assert reset(t, replies)["exploration"]["attempt"] == 2
-    call(t, "move_delta", arm="right", delta_xyz=[0.02, 0, 0])
+    call(t, "move_delta", arm="right", delta_xyz=[0.02, 0, 0], source=source)
+    assert t.state.latest_record().command.get("source") == source
     assert verdict(t, replies, "success object lifted")["status"] == "success"
     assert t.solved()
     finish = call(t, "finish", status="failure", summary="done")
@@ -504,7 +509,8 @@ def test_setup_describes_operator_reset_in_exploration(setup):
     assert "vla_handoff" in result["available_primitives"]
 
 
-def test_direct_success_stops_active_tool_and_records_memory(setup, tmp_path):
+@pytest.mark.parametrize("source", [None, "dashboard"])
+def test_direct_success_stops_active_tool_and_records_memory(setup, tmp_path, source):
     import threading
 
     from rpent.tools.toolkit import ToolCancelled
@@ -525,18 +531,19 @@ def test_direct_success_stops_active_tool_and_records_memory(setup, tmp_path):
     t.add_tool(t._tools["move_delta"].with_handler(active_motion), replace=True)
     worker = threading.Thread(
         target=lambda: results.append(
-            call(t, "move_delta", arm="right", delta_xyz=[0.01, 0, 0])
+            call(t, "move_delta", arm="right", delta_xyz=[0.01, 0, 0], source=source)
         )
     )
     worker.start()
     assert entered.wait(2)
     assert t.request_direct_verdict("success")
     assert t.request_direct_verdict("success")  # idempotent, never another attempt
-    assert call(t, "open_gripper", arm="left")["motion_refused"]
+    assert call(t, "open_gripper", arm="left", source=source)["motion_refused"]
     release.set()
     worker.join(2)
     assert not worker.is_alive()
     assert results[0]["code"] == "tool_cancelled"
+    assert t.state.latest_record().command.get("source") == source
     with pytest.raises(ToolCancelled):
         t.raise_if_cancelled()
     result = t.finalize_direct_verdict()

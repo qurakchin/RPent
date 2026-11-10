@@ -176,7 +176,9 @@ class RoboDojoPrimitives:
             )
         except Exception as exc:
             result["feedback_error"] = str(exc)
-        return ToolResult(data=result)
+        return ToolResult(
+            data=result, execution_uncertain=result.get("execution_uncertain") is True
+        )
 
     @tool
     def rotate_wrist(
@@ -230,7 +232,9 @@ class RoboDojoPrimitives:
             result["gripper_val"] = self.env.get_motion_state()[f"{arm}_gripper"]
         except Exception as exc:
             result["feedback_error"] = str(exc)
-        return ToolResult(data=result)
+        return ToolResult(
+            data=result, execution_uncertain=result.get("execution_uncertain") is True
+        )
 
     @tool
     def release(

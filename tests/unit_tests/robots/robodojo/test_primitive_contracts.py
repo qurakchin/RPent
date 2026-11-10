@@ -145,7 +145,14 @@ def test_cancellation_retains_acknowledged_progress(motion):
     assert result["episode_status"]["remaining_steps"] == 96
 
 
-def test_ambiguous_mutation_timeout_is_not_retried(motion):
+@pytest.mark.parametrize(
+    ("name", "arguments"),
+    [
+        ("release", {"arm": "right"}),
+        ("move_to", {"arm": "right", "xyz": [0.1, 0.2, 0.9]}),
+    ],
+)
+def test_ambiguous_mutation_timeout_is_not_retried(motion, name, arguments):
     env, primitive = motion
 
     def fail(**kwargs):
@@ -153,7 +160,9 @@ def test_ambiguous_mutation_timeout_is_not_retried(motion):
         raise TimeoutError("reply lost")
 
     env.step_joint_update = fail
-    result = primitive.release(arm="right").data
+    native = getattr(primitive, name)(**arguments)
+    result = native.data
+    assert native.execution_uncertain
     assert len(env.updates) == 1
     assert result["execution_uncertain"] and not result["completed"]
     assert result["executed_steps"] == 0 and result["error"] == "reply lost"
@@ -330,6 +339,68 @@ def toolkit_factory(tmp_path, monkeypatch):
         return env, toolkit
 
     return create
+
+
+@pytest.mark.parametrize("control", ["harness", "dashboard"])
+@pytest.mark.parametrize(
+    ("name", "arguments"),
+    [
+        ("release", {"arm": "right"}),
+        ("move_to", {"arm": "right", "xyz": [0.1, 0.2, 0.9]}),
+    ],
+)
+def test_ambiguous_mutation_blocks_harness_and_manual_admission(
+    toolkit_factory, tmp_path, control, name, arguments
+):
+    from rpent.dashboard.events import RunStartedEvent
+    from rpent.dashboard.interaction import InteractionUnavailableError
+    from rpent.dashboard.state import DashboardState
+    from rpent.planner.deepseek_harness import _ToolBoundary
+
+    env, toolkit = toolkit_factory()
+
+    def fail(**kwargs):
+        env.updates.append(kwargs)
+        raise TimeoutError("reply lost")
+
+    env.step_joint_update = fail
+    try:
+        if control == "harness":
+            boundary = _ToolBoundary(toolkit)
+            result = boundary.execute_tool(name, arguments)
+            assert boundary.execution_uncertain
+            with pytest.raises(RuntimeError, match="uncertain"):
+                boundary.resume_calls()
+            assert boundary.execute_tool(name, arguments).is_error
+        else:
+            state = DashboardState(
+                output_dir=tmp_path / "dashboard",
+                dashboard_spec=robot_spec.ROBODOJO_DASHBOARD_SPEC,
+            )
+            state.shared_services_ready()
+            state.submit_input("/rpent-task put_bottles_into_dustbin 0")
+            assert state.wait_for_task(timeout=0) is not None
+            state.emit(RunStartedEvent())
+            state.configure_planner_control(
+                refresh_manual_observations=True, withdraw_queued=True
+            )
+            state.bind_toolkit(toolkit)
+            state.set_planner_activity("idle", accepting_input=True)
+            result = state.execute_primitive(name, arguments)
+            assert state.manual_execution_uncertain
+            state.submit_input("continue")
+            assert state.claim_next_pending_message() is None
+            with pytest.raises(InteractionUnavailableError):
+                state.execute_primitive(name, arguments)
+            assert result.data["log"]["command"]["source"] == "dashboard"
+
+        assert result.execution_uncertain and result.is_error
+        native = result.data["log"]["result"]
+        assert native["execution_uncertain"] and not native["completed"]
+        assert native["executed_steps"] == 0 and native["error"] == "reply lost"
+        assert len(env.updates) == 1
+    finally:
+        toolkit.close()
 
 
 def test_observations_and_motion_report_budget_at_capture_time(toolkit_factory):
