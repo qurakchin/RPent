@@ -47,6 +47,12 @@ from rpent.tools import Toolkit, ToolResult, common
 from rpent.tools import tool as declare_tool
 
 FINISH_ARGS = {"status": "success", "summary": "done"}
+FINISH_RESULT = {
+    "_finish": True,
+    **FINISH_ARGS,
+    "call_ok": True,
+    "execution_status": "completed",
+}
 
 
 class Events:
@@ -165,7 +171,7 @@ def test_finish_returns_transcript_for_rpent_without_step_files(tmp_path, monkey
     model = TestModel(call_tools=[], custom_output_args=FINISH_ARGS)
     result, toolkit, _ = solve(tmp_path, model)
     assert result.error is None
-    assert result.finish_result == {"_finish": True, **FINISH_ARGS}
+    assert result.finish_result == FINISH_RESULT
     assert toolkit.calls == [("finish", FINISH_ARGS)]
     assert result.stats["turns_used"] == 1
     assert [m["role"] for m in result.messages] == ["user", "assistant", "tool"]
@@ -175,7 +181,7 @@ def test_finish_returns_transcript_for_rpent_without_step_files(tmp_path, monkey
     assert call["input"] == FINISH_ARGS
     returned = result.messages[2]
     assert returned["tool_call_id"] == call["id"]
-    assert json.loads(returned["content"]) == {"_finish": True, **FINISH_ARGS}
+    assert json.loads(returned["content"]) == FINISH_RESULT
     assert not list(tmp_path.iterdir())
     assert model.last_model_request_parameters.output_tools[0].name == "finish"
     assert "finish" not in [
@@ -207,7 +213,7 @@ def test_refused_finish_retries_without_claiming_success(tmp_path):
     assert result.error is None
     assert len(attempts) == 3
     assert result.stats["turns_used"] == 3
-    assert result.finish_result == {"_finish": True, **FINISH_ARGS}
+    assert result.finish_result == FINISH_RESULT
     assert "finish refused" in repr(histories[1])
     assert "finish refused" in json.dumps(result.messages)
 
@@ -369,7 +375,7 @@ def test_read_image_returns_saved_artifact_and_records_call(
         no_images=no_images,
     )
     assert result.error is None
-    assert result.finish_result == {"_finish": True, **FINISH_ARGS}
+    assert result.finish_result == FINISH_RESULT
     returned = next(
         part
         for message in histories[1]
@@ -454,7 +460,7 @@ def test_read_image_errors_reach_model_without_ending_run(
         tmp_path, FunctionModel(stream_function=stream), toolkit, events
     )
     assert result.error is None
-    assert result.finish_result == {"_finish": True, **FINISH_ARGS}
+    assert result.finish_result == FINISH_RESULT
     returned = next(
         part
         for message in histories[1]
@@ -1109,7 +1115,7 @@ def test_offline_http_planner_executes_action_and_finish(tmp_path, no_images):
         )
         assert result.error is None
         assert toolkit.calls == [("move", {}), ("finish", FINISH_ARGS)]
-        assert result.finish_result == {"_finish": True, **FINISH_ARGS}
+        assert result.finish_result == FINISH_RESULT
         assert len(toolkit.state.planner_records()) == 2
         assert all(
             p.source_ids.get("provider.response_id")
@@ -1305,7 +1311,7 @@ def test_api_executes_readonly_calls_concurrently(tmp_path):
     calls = toolkit.state.planner_records()[0].tool_calls
     assert [c.raw_result.data["data"]["label"] for c in calls] == ["left", "right"]
     assert all(c.status == "completed" for c in calls)
-    assert result.finish_result == {"_finish": True, **FINISH_ARGS}
+    assert result.finish_result == FINISH_RESULT
     assert result.stats["tool_calls"] == 3
 
 
@@ -1366,8 +1372,21 @@ def test_capture_keeps_original_tool_result_and_actual_multimodal_feedback(
     assert planners[0].request.data["model_request_parameters"]["function_tools"]
     assert planners[0].request.data["model_request_parameters"]["output_tools"]
     call = planners[0].tool_calls[0]
-    assert call.raw_result.data == {"data": original, "images": [original_image]}
-    assert json.loads(call.feedback.data["return_value"][0]) == {"position": 5}
+    assert call.raw_result.data == {
+        "data": original,
+        "images": [original_image],
+        "image_labels": [],
+        "call_ok": True,
+        "error": None,
+        "no_execution": False,
+        "execution_uncertain": False,
+        "execution_status": "completed",
+    }
+    assert json.loads(call.feedback.data["return_value"][0]) == {
+        "position": 5,
+        "call_ok": True,
+        "execution_status": "completed",
+    }
     image_content = call.feedback.data["return_value"][1:]
     assert len(image_content) == 2
     assert all(

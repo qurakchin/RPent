@@ -25,7 +25,7 @@ VLA 和 WAM 通过公共 AM 基类复用 RPC 注册与推理转发。VLA 保留�
      -> <model>/adapter/encode.py -> predict_native -> adapter/decode.py
      -> action chunk -> platform env_client.chunk_step -> simulator
 
-``wam_act`` 在 LIBERO 的 ``tools.py`` 和 RoboTwin 的 ``primitives.py`` 中通过 ``@tool`` 声明，返回 ``ToolResult(data=...)``。平台已有 toolkit 负责工具注册、取消、状态采集和录制。
+LIBERO 在 ``tools.py`` 中声明 ``wam_act``；RoboTwin 注册共享的 ``PolicyTools`` 工具族，并通过 ``policy.py`` 绑定平台实现。两者都用 ``@tool`` 声明工具并返回 ``ToolResult(data=...)``。平台已有 toolkit 负责工具注册、取消、状态采集和录制。
 
 .. list-table:: 文件职责
    :header-rows: 1
@@ -83,7 +83,7 @@ VLA 启动函数也使用 ``AMConfig.spawn_worker()``。平台保留各自的服
 
 由于模型运行在独立进程中，添加基于模型的原语还需要以下组件：
 
-1. **编写 ``vla_server.py``。** 该进程只持有模型权重和 CUDA 上下文。继承 :class:`rpent.robots.components.am_facade_base.BaseVLAFacade`，实现 ``predict``，并通过扩展 ``_register_rpc`` 注册其他模型 RPC：
+1. **编写** ``vla_server.py``。该进程只持有模型权重和 CUDA 上下文。继承 :class:`rpent.robots.components.am_facade_base.BaseVLAFacade`，实现 ``predict``，并通过扩展 ``_register_rpc`` 注册其他模型 RPC：
 
    - 默认传输方式为 **HTTP**，通过 ``POST /call`` 传输 JSON，适合
      LIBERO/Pi0.5 使用的扁平 ``image + state`` 数据。
@@ -113,7 +113,7 @@ VLA 启动函数也使用 ``AMConfig.spawn_worker()``。平台保留各自的服
 
 4. **在 toolkit 中注册声明的工具。** 具体做法与脚本化原语相同。
 
-5. **在 ``robot_spec.py`` 中连接各组件。** 机器人的 ``get_toolkit`` 使用 ``runtime_kwargs`` 构造 toolkit：
+5. **连接各组件：** 在 ``robot_spec.py`` 中完成接线。机器人的 ``get_toolkit`` 使用 ``runtime_kwargs`` 构造 toolkit：
 
    .. code-block:: python
 

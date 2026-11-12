@@ -37,18 +37,52 @@ MAX_TOOL_TEXT_BYTES = 60000
 
 @dataclass
 class ToolResult:
-    """Tool payload and PNG images; errors stay in the payload's ``error`` key."""
+    """Domain payload, images, and the framework's call/execution layers.
+
+    ``data`` holds the domain result. The remaining fields describe the call:
+    whether the framework could deliver it (``call_ok``), whether a physical
+    action was definitely not attempted (``no_execution``), and whether a
+    state-changing request may have outlived the call (``execution_uncertain``).
+    ``call_ok`` never means that the requested action succeeded.
+    """
 
     data: dict[str, Any] = field(default_factory=dict)
     images: list[bytes] = field(default_factory=list)
+    image_labels: list[str] = field(default_factory=list)
+    call_ok: bool = True
+    error: dict[str, Any] | None = None
+    no_execution: bool = False
+    execution_uncertain: bool = False
+    execution_status: str | None = None
 
     @property
     def is_error(self) -> bool:
-        return self.data.get("error") is not None
+        return (
+            not self.call_ok
+            or self.error is not None
+            or self.data.get("error") is not None
+        )
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a shallow copy of the public JSON payload."""
-        return dict(self.data)
+        """Return the planner-facing payload with explicit result layers.
+
+        Domain keys stay at the top level for backward compatibility. The
+        framework layers are added only when they carry information, except
+        ``call_ok``, which is always explicit.
+        """
+        payload = dict(self.data)
+        payload["call_ok"] = self.call_ok
+        if self.error is not None:
+            payload["error"] = dict(self.error)
+        if self.no_execution:
+            payload["no_execution"] = True
+        if self.execution_uncertain:
+            payload["execution_uncertain"] = True
+        if self.execution_status is not None:
+            payload["execution_status"] = self.execution_status
+        if self.image_labels:
+            payload["image_labels"] = list(self.image_labels)
+        return payload
 
     def to_text(self) -> str:
         """Encode the original tool payload without truncating internal state."""
@@ -63,12 +97,18 @@ class ToolResult:
 
 
 def tool_error(code: str, message: str, **details: Any) -> ToolResult:
-    """Build a structured tool error with a code, message, and optional details."""
+    """Build a structured tool error that did not reach execution.
+
+    Domain tools use this for requests rejected before any environment write,
+    such as a missing artifact view.
+    """
+    error = {"code": code, "message": message, **details}
     return ToolResult(
-        data={
-            "error": {"code": code, "message": message, **details},
-            "success": False,
-        }
+        data={"error": error, "success": False},
+        call_ok=False,
+        error=error,
+        no_execution=True,
+        execution_status="not_started",
     )
 
 
@@ -254,7 +294,7 @@ def _declare_tool(
         schema_generator=_ToolJsonSchema,
     ).tool_def
     input_schema = definition.parameters_json_schema
-    input_schema.pop("additionalProperties", None)
+    input_schema.setdefault("additionalProperties", False)
     input_schema.update(json_schema_extra or {})
     fields: dict[str, Any] = {}
     for name, parameter in parameters.items():

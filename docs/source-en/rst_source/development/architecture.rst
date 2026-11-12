@@ -43,7 +43,7 @@ different robots.
    * - Planner
      - Select tools, manage model interaction, and return ``PlannerResult``. The ``api`` backend uses the native Pydantic AI loop and Harness sliding-window history trimming; ``claude_code`` and ``codex`` use their respective SDKs. LIBERO Flash executes stored plans.
    * - Toolkit
-     - Define schemas, dispatch calls, record state, and expose results as ``ToolResult`` for the planner.
+     - Define schemas, dispatch calls, record state, and expose domain data plus call and execution status as ``ToolResult`` for the planner.
    * - Environment service
      - Own the simulator or robot connection, execute actions, and expose native state and success information.
    * - VLA / perception services
@@ -68,9 +68,11 @@ Shared execution and interfaces live under ``rpent/``. Each package under
      session/      # Session and task lifecycle
      dashboard/    # Web UI and event delivery
      robots/       # Discovery, descriptors, runtime components
-     tools/        # Toolkit and shared tool behavior
+     tools/        # Toolkit, tool families, and execution layers
      memory/       # Memory permissions, merge, and indexing
      evaluation/   # Evaluation result support
+   toolkits/
+     geometry/     # Shared geometry tool and its evaluation
    robots/
      libero/
      robocasa/

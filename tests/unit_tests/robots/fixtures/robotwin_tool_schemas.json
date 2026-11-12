@@ -1,0 +1,480 @@
+{
+  "view_env_state": {
+    "name": "view_env_state",
+    "description": "Read one recorded EnvState step and its synchronized camera views. Step -1 selects the latest entry. Embeds up to four RGB views labeled name@step. Read-only.",
+    "input_schema": {
+      "properties": {
+        "step": {
+          "default": -1,
+          "description": "Step number; 0 = initial, -1 = latest.",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    }
+  },
+  "geometry": {
+    "name": "geometry",
+    "description": "Localize one visible target from the current or a recorded camera view. Returns a world-frame center and axis-aligned extent with quality flags. Give a natural-language target when the runtime can ground it, or a [row,col] pixel measured on the selected view. Read-only; does not move the robot.",
+    "input_schema": {
+      "properties": {
+        "target": {
+          "description": "Natural-language target, e.g. 'the red block on the left'.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pixel": {
+          "description": "[row, col] chosen on the selected view; skips grounding.",
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "view": {
+          "description": "Camera view; omit for the default view.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "step": {
+          "description": "Recorded step; -1 = latest.",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "quantities": {
+          "description": "Requested measurements; defaults to center and extent.",
+          "items": {
+            "enum": [
+              "center",
+              "extent",
+              "z_range",
+              "orientation"
+            ],
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "type": [
+            "array",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "query_world_map": {
+    "name": "query_world_map",
+    "description": "Read deterministic world-xyz samples from a half-open [row_start,col_start,row_end,col_end] region. The view is also the bbox coordinate space and must match the source RGB artifact; view_specs gives [height,width]. This is read-only.",
+    "input_schema": {
+      "properties": {
+        "view": {
+          "description": "Artifact view and bbox coordinate space. It must match the RGB image used to choose the bbox.",
+          "type": "string"
+        },
+        "bbox": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": "array"
+        },
+        "step": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "max_points": {
+          "default": 256,
+          "maximum": 4096,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "view",
+        "bbox"
+      ],
+      "type": "object"
+    }
+  },
+  "move_to": {
+    "name": "move_to",
+    "description": "Plan and move one arm to a world-frame xyz and optional wxyz orientation. Reports pose_error and a stop_reason; completed means the waypoints ran, not that the grasp succeeded.",
+    "input_schema": {
+      "properties": {
+        "arm": {
+          "description": "Arm to move.",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "type": "string"
+        },
+        "xyz": {
+          "description": "Target world position in metres.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 3,
+          "minItems": 3,
+          "type": "array"
+        },
+        "quat": {
+          "description": "Target wxyz orientation; default keeps the current orientation.",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "gripper": {
+          "description": "Optional normalized gripper command applied along the path.",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "substeps": {
+          "default": 25,
+          "description": "Waypoints to execute; 0 keeps the whole planned path.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "arm",
+        "xyz"
+      ],
+      "type": "object"
+    }
+  },
+  "rotate_wrist": {
+    "name": "rotate_wrist",
+    "description": "Rotate one end effector about world Z by a relative angle in degrees.",
+    "input_schema": {
+      "properties": {
+        "arm": {
+          "description": "Arm to rotate.",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "type": "string"
+        },
+        "delta_yaw_deg": {
+          "description": "Relative world-Z rotation in degrees.",
+          "type": "number"
+        },
+        "gripper": {
+          "description": "Optional normalized gripper command applied along the path.",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "substeps": {
+          "default": 25,
+          "description": "Waypoints to execute; 0 keeps the whole planned path.",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "arm",
+        "delta_yaw_deg"
+      ],
+      "type": "object"
+    }
+  },
+  "set_gripper": {
+    "name": "set_gripper",
+    "description": "Move one normalized gripper to val through interpolated native actions.",
+    "input_schema": {
+      "properties": {
+        "arm": {
+          "description": "Arm whose gripper moves.",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "type": "string"
+        },
+        "val": {
+          "description": "Normalized target from 0 (closed) to 1 (open).",
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "steps": {
+          "default": 10,
+          "description": "Interpolated actions before returning feedback.",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "arm",
+        "val"
+      ],
+      "type": "object"
+    }
+  },
+  "release": {
+    "name": "release",
+    "description": "Open one gripper, by default to 1.0, through interpolated native actions.",
+    "input_schema": {
+      "properties": {
+        "arm": {
+          "description": "Arm whose gripper opens.",
+          "enum": [
+            "left",
+            "right"
+          ],
+          "type": "string"
+        },
+        "val": {
+          "default": 1.0,
+          "description": "Normalized target from 0 (closed) to 1 (open).",
+          "type": "number"
+        },
+        "steps": {
+          "default": 10,
+          "description": "Interpolated actions before returning feedback.",
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "arm"
+      ],
+      "type": "object"
+    }
+  },
+  "lingbot_act": {
+    "name": "lingbot_act",
+    "description": "Run the bound VLA policy with its native task instruction. The optional prompt is recorded but never sent to the policy.",
+    "input_schema": {
+      "properties": {
+        "chunks": {
+          "default": 4,
+          "description": "Number of predictions to execute before returning feedback.",
+          "minimum": 1,
+          "type": "integer"
+        },
+        "use_length": {
+          "const": 50,
+          "default": 50,
+          "description": "Native action count per prediction; fixed by the model.",
+          "type": "integer"
+        },
+        "prompt": {
+          "description": "Recorded observation about this call; not sent to the policy.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "type": "object"
+    }
+  },
+  "recall": {
+    "name": "recall",
+    "description": "Search published memory for prior findings. Returns matching notes with confidence and paths; inspect a match before relying on it.",
+    "input_schema": {
+      "properties": {
+        "query": {
+          "description": "Words to look for in titles and note bodies.",
+          "type": "string"
+        },
+        "scope": {
+          "description": "Memory layer to search.",
+          "enum": [
+            "all",
+            "global",
+            "task-family"
+          ],
+          "type": "string"
+        },
+        "limit": {
+          "description": "Maximum matches to return.",
+          "maximum": 20,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "query"
+      ],
+      "type": "object"
+    }
+  },
+  "remember": {
+    "name": "remember",
+    "description": "Draft a reusable finding into the current exploration cell's inbox. Drafts are not published until the cell merges; write only what the run actually observed.",
+    "input_schema": {
+      "properties": {
+        "scope": {
+          "description": "Global lesson or task-family note.",
+          "enum": [
+            "global",
+            "task-family"
+          ],
+          "type": "string"
+        },
+        "body": {
+          "description": "Markdown body stating the observation and when it applies.",
+          "type": "string"
+        },
+        "title": {
+          "description": "Short global title; required for a global draft.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "primitive",
+                "perception",
+                "strategy",
+                "failure",
+                "infra"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Global category."
+        },
+        "applies_when": {
+          "description": "Global applicability condition.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "suite": {
+          "description": "Task-family suite name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "regime": {
+          "description": "Task-family regime name.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "task_id": {
+          "description": "Task-family task id.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "task_language": {
+          "description": "Task-family task instruction.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "description": "Why this finding is worth keeping.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "scope",
+        "body"
+      ],
+      "type": "object"
+    }
+  },
+  "corroborate": {
+    "name": "corroborate",
+    "description": "Record whether this cell's run confirmed or contradicted a published memory. Merging updates its evidence and confidence.",
+    "input_schema": {
+      "properties": {
+        "memory_id": {
+          "description": "Published memory id, without the .md suffix.",
+          "type": "string"
+        },
+        "outcome": {
+          "description": "Whether the run confirmed or contradicted the claim.",
+          "enum": [
+            "confirmed",
+            "contradicted"
+          ],
+          "type": "string"
+        },
+        "evidence": {
+          "description": "Concrete observation supporting the outcome.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "memory_id",
+        "outcome"
+      ],
+      "type": "object"
+    }
+  },
+  "finish": {
+    "name": "finish",
+    "description": "Stop the run. A fresh native status query is authoritative; requesting success cannot override TASK_ENV.eval_success.",
+    "input_schema": {
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "summary"
+      ],
+      "type": "object"
+    }
+  },
+  "render": {
+    "name": "render",
+    "description": "Capture a fresh synchronized RoboTwin agent observation.",
+    "input_schema": {
+      "properties": {},
+      "type": "object"
+    }
+  }
+}

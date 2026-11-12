@@ -14,7 +14,7 @@ and leave grounded memory for later evaluation runs. You are agent
 READ_ORDER = """Before the first robot mutation:
 1. Read robots/robotwin/guides/GUIDE_RPENT.md completely.
 2. Inspect view_env_state(step=0) and its head image.
-3. Read relevant published task, task-family, and global memory.
+3. Call recall for relevant published task-family and global memory.
 4. Read {{memory_inbox}}/wip/ for notes from earlier attempts or sessions.
 
 Fresh observations and the current task_language override historical memory.
@@ -25,43 +25,14 @@ MEMORY = """During exploration, write working notes only below
 {{output_dir}}/attempts/attempt_<N>_failed.json with the attempt number,
 approach, commands and parameters tried, observed progress, bounded failure
 mechanism, and one meaningful change for the next attempt. Also append a
-concise handoff note to {{memory_inbox}}/wip/notes.md. After success, write
-concise task-family or global proposals directly under {{memory_inbox}}/. Never
-write directly into published memory directories.
+concise handoff note to {{memory_inbox}}/wip/notes.md.
 
-Every proposed file must begin with parseable YAML frontmatter.
-
-Task-family proposal template:
-
-    ---
-    id: task-family_robotwin_<task-name>
-    scope: task-family
-    suite: robotwin
-    regime: {{task_config}}
-    task_id: {{task_name}}
-    task_language: <verbatim initial task language>
-    evidence:
-      cells: [{{recipe_tag}}]
-      attempts: <number attempted>
-      solved_seeds: [{{seed}}]
-      failed_seeds: []
-    confidence: single-shot
-    related: []
-    ---
-
-Global proposal template:
-
-    ---
-    id: global_<kind>_<short-name>
-    scope: global
-    kind: <primitive|perception|strategy|failure|infra>
-    title: <short descriptive title>
-    applies_when: <specific applicability conditions>
-    evidence:
-      cells: [{{recipe_tag}}]
-    confidence: single-shot
-    related: []
-    ---"""
+Record publishable findings with remember. Use scope="task-family" with suite,
+regime, task_id, and the verbatim task_language, or scope="global" with a kind,
+title, and applies_when. The tool adds this cell's evidence and stores a draft;
+it is published only when the cell merges. Do not write directly into published
+memory directories. When this run confirms or contradicts an existing note,
+call corroborate with its memory_id and the concrete observation."""
 
 RUNTIME = """The registered RoboTwin Toolkit is the only control surface. Do
 not use shell, Python, network clients, hidden environment state, evaluator
@@ -91,8 +62,8 @@ Re-check the recorded post-reset trajectory before writing the audit; do not
 invent, omit, or reorder commands. Do not claim a successful trajectory unless
 a recorded success step exists after the final reset.
 
-Working notes belong in {{memory_inbox}}/wip/; publishable memory proposals
-belong directly in {{memory_inbox}}/."""
+Working notes belong in {{memory_inbox}}/wip/; publishable findings belong in
+remember drafts, not in hand-written published-memory files."""
 
 
 def system_prompt() -> dict[str, PromptNode]:

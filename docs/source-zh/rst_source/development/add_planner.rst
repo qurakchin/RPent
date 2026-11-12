@@ -37,7 +37,7 @@
 
 1. 接收已经渲染好的 ``system_prompt`` 和 ``user_message``。
 2. 从 ``toolkit.list_tools()`` 取得工具的 ``name``、``description`` 和 ``input_schema``，并通过 ``toolkit.execute_tool(name, arguments)`` 执行工具。
-3. 将 ``ToolResult.to_text()`` 的文本和 ``ToolResult.images`` 中的 PNG 字节转换成模型 SDK 所需的格式。
+3. 将 ``ToolResult.to_text()`` 的文本和 ``ToolResult.images`` 中的 PNG 字节转换成模型 SDK 所需的格式，并保留模型可见结果中的调用与执行字段（``call_ok``、``error``、``no_execution``、``execution_uncertain`` 和 ``execution_status``）。
 4. 识别 ``ToolResult.data.get("_finish")``，并按 ``max_turns`` 等限制终止循环。
 5. 返回包含结束状态、消息、统计信息和可选错误的 ``PlannerResult``。
 

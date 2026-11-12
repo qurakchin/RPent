@@ -17,32 +17,14 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from contextlib import nullcontext
-from typing import Annotated, Any, Literal
+from typing import Any
 
 import numpy as np
-from pydantic import Field
 
 from robots.robotwin.env_client import RoboTwinEnvClient
-from robots.robotwin.robot_spec import MODEL_SPEC, ROBOTWIN_CAMERA_NAMES
 from robots.robotwin.vla_client import LingBotVLAClient
 from robots.robotwin.wam_client import RoboTwinWAMClient
-from rpent.session.env_capture import CapturingEnvClient
 from rpent.tools import ToolResult, tool
-
-
-def _qmult(left: np.ndarray, right: np.ndarray) -> np.ndarray:
-    w1, x1, y1, z1 = left
-    w2, x2, y2, z2 = right
-    return np.asarray(
-        [
-            w1 * w2 - x1 * x2 - y1 * y2 - z1 * z2,
-            w1 * x2 + x1 * w2 + y1 * z2 - z1 * y2,
-            w1 * y2 - x1 * z2 + y1 * w2 + z1 * x2,
-            w1 * z2 + x1 * y2 - y1 * x2 + z1 * w2,
-        ],
-        dtype=np.float64,
-    )
 
 
 class RoboTwinPrimitives:
@@ -69,6 +51,16 @@ class RoboTwinPrimitives:
         self.native_actions = 0
         self._recording = False
         self._frames: list[np.ndarray] = []
+
+    def check_cancelled(self) -> None:
+        """Raise when the current tool call has been interrupted."""
+        self._check_cancelled()
+
+    def recording_frames(self) -> bool:
+        """Whether chunk execution should return every frame for the video."""
+        return self._recording and (
+            self.env.execution_capabilities.get("chunk_step_all_frames") is True
+        )
 
     def start_recording(self) -> None:
         self._recording = True
@@ -124,19 +116,6 @@ class RoboTwinPrimitives:
             "requested_steps": requested,
             "executed_steps": executed,
             "stop_reason": stop_reason,
-        }
-
-    def _build_lingbot_observation(self) -> dict[str, Any]:
-        """Assemble the rgb-only observation the LingBot policy infers on."""
-        views = {}
-        for camera_name in ROBOTWIN_CAMERA_NAMES:
-            views[camera_name] = {
-                "rgb": np.asarray(self.env.render_camera(camera_name))
-            }
-        return {
-            "views": views,
-            "robot_state": self.env.last_info["robot_state"],
-            "task_language": self.env.get_task_language(),
         }
 
     @staticmethod
@@ -227,270 +206,6 @@ class RoboTwinPrimitives:
                 "action_type": action_type,
                 "episode_status": info["episode_status"],
             }
-        )
-
-    @tool
-    def lingbot_act(
-        self,
-        *,
-        chunks: Annotated[int, Field(ge=1, json_schema_extra={"default": 4})] = 4,
-        use_length: Annotated[
-            int, Field(json_schema_extra={"default": 50, "const": 50})
-        ] = 50,
-        prompt: str | None = None,
-    ) -> ToolResult:
-        """Run LingBot-VLA eef16 actions using the native task instruction. The optional prompt is recorded but never sent to the policy."""
-        if int(chunks) < 1:
-            raise ValueError("chunks must be at least 1")
-        if int(use_length) != MODEL_SPEC.use_length:
-            raise ValueError(
-                f"RoboTwin LingBot requires use_length={MODEL_SPEC.use_length}"
-            )
-        return self._policy_act(
-            chunks=int(chunks),
-            use_length=MODEL_SPEC.use_length,
-            prompt=prompt,
-            action_type="ee",
-            override_prompt=False,
-        )
-
-    @tool
-    def wam_act(
-        self,
-        prompt: Annotated[str, Field(min_length=1)] | None = None,
-        *,
-        max_chunks: Annotated[int, Field(strict=True, ge=1, le=4)] = 1,
-    ) -> ToolResult:
-        """Execute bounded action chunks from the selected WAM on current observations. Omit prompt for the native task, or supply a subtask for this call. Inspect the resulting state before continuing; predictions do not establish task success.
-
-        Args:
-            prompt: Concrete instruction for this call; omit or null for the native task.
-            max_chunks: One to four predictions before planner feedback (default 1).
-        """
-        if type(max_chunks) is not int or not 1 <= max_chunks <= 4:
-            raise ValueError("max_chunks must be an integer between 1 and 4")
-        if prompt is not None and (not isinstance(prompt, str) or not prompt.strip()):
-            raise ValueError("prompt must be a non-empty instruction or null")
-        return self._policy_act(
-            chunks=max_chunks,
-            use_length=None,
-            prompt=prompt,
-            action_type=self.model.action_type,
-            override_prompt=True,
-        )
-
-    def _policy_act(
-        self,
-        *,
-        chunks: int,
-        use_length: int | None,
-        prompt: str | None,
-        action_type: str,
-        override_prompt: bool,
-    ) -> ToolResult:
-        executed = 0
-        requested = chunks * use_length if use_length is not None else 0
-        native_prompt = None
-        for _ in range(int(chunks)):
-            self._check_cancelled()
-            status = self.env.last_info["episode_status"]
-            step_lim = status.get("step_lim")
-            budget_exhausted = step_lim is not None and int(
-                status.get("take_action_cnt", 0)
-            ) >= int(step_lim)
-            if status.get("eval_success") is True or budget_exhausted:
-                break
-            observation = self._build_lingbot_observation()
-            if override_prompt and prompt is not None:
-                observation["task_language"] = prompt
-            native_prompt = observation["task_language"]
-            prediction = (
-                self.env.prediction(native_prompt)
-                if isinstance(self.env, CapturingEnvClient)
-                else nullcontext()
-            )
-            with prediction:
-                actions = (
-                    self.model.predict(observation)
-                    if self.policy_kind == "wam"
-                    else self.model.infer(observation)
-                )
-                if use_length is not None:
-                    actions = actions[:use_length]
-                else:
-                    requested += len(actions)
-                self._check_cancelled()
-                payload, _, _, _, info = self.env.chunk_step(
-                    actions,
-                    action_type=action_type,
-                    return_all_frames=self._recording
-                    and self.env.execution_capabilities.get("chunk_step_all_frames")
-                    is True,
-                )
-            if self._recording and isinstance(payload, dict) and "frames" in payload:
-                for frame in payload["frames"]:
-                    self.record_frame(frame["observation"]["head_camera"]["rgb"])
-            count = int(info.get("executed_actions", 0))
-            executed += count
-            self.policy_actions += count
-            self.native_actions += count
-            self._check_cancelled()
-        status = self.env.last_info["episode_status"]
-        return ToolResult(
-            data={
-                **self._completion(
-                    requested=requested, executed=executed, status=status
-                ),
-                "success": True,
-                "prompt": native_prompt,
-                "agent_prompt_ignored": prompt is not None and not override_prompt,
-                "ignored_agent_prompt": prompt if not override_prompt else None,
-                "episode_status": status,
-            }
-        )
-
-    @tool
-    def move_to(
-        self,
-        *,
-        arm: Literal["left", "right"],
-        xyz: Annotated[list[float], Field(min_length=3, max_length=3)],
-        quat: Annotated[list[float], Field(min_length=4, max_length=4)] | None = None,
-        gripper: float | None = None,
-        substeps: Annotated[int, Field(ge=0, json_schema_extra={"default": 25})] = 25,
-    ) -> ToolResult:
-        """Plan and move one arm to a world-frame xyz and wxyz orientation. The native planner returns qpos waypoints executed with fresh state."""
-        if int(substeps) < 0:
-            raise ValueError("substeps must be non-negative")
-        self._check_cancelled()
-        state = self.env.last_info["robot_state"]
-        if quat is None:
-            key = "left_eef_pose" if arm == "left" else "right_eef_pose"
-            quat = np.asarray(state[key], dtype=np.float64)[3:].tolist()
-        target = np.asarray([*xyz, *quat], dtype=np.float64)
-        planned = self.env.plan_arm_path(arm, target)
-        self._check_cancelled()
-        if planned["status"] != "Success" or planned.get("position") is None:
-            return ToolResult(
-                data={
-                    "completed": False,
-                    "requested_steps": 0,
-                    "executed_steps": 0,
-                    "stop_reason": "plan_failed",
-                    "success": False,
-                    "plan_status": planned["status"],
-                    "hint": "target may be unreachable or in collision",
-                }
-            )
-        path = np.asarray(planned["position"], dtype=np.float64)
-        if substeps == 1:
-            path = path[-1:]
-        elif substeps >= 2 and len(path) > substeps:
-            indices = np.linspace(0, len(path) - 1, substeps).astype(int)
-            path = path[indices]
-        updates = [
-            {"arm": arm, "arm_qpos": waypoint, "gripper": gripper} for waypoint in path
-        ]
-        execution = self.apply_qpos_updates(updates)
-        executed = int(execution.get("executed_actions", 0))
-        self.native_actions += executed
-        self._check_cancelled()
-        status = execution["episode_status"]
-        final = self.env.last_info["robot_state"]
-        key = "left_eef_pose" if arm == "left" else "right_eef_pose"
-        final_pose = np.asarray(final[key], dtype=np.float64)
-        return ToolResult(
-            data={
-                **execution,
-                **self._completion(
-                    requested=len(updates), executed=executed, status=status
-                ),
-                "success": True,
-                "plan_status": planned["status"],
-                "waypoints": len(path),
-                "final_eef_xyz": final_pose[:3].tolist(),
-                "final_dist_m": float(
-                    np.linalg.norm(final_pose[:3] - np.asarray(xyz, dtype=np.float64))
-                ),
-            }
-        )
-
-    @tool
-    def rotate_wrist(
-        self,
-        *,
-        arm: Literal["left", "right"],
-        delta_yaw_deg: float,
-        gripper: float | None = None,
-        substeps: Annotated[int, Field(ge=0, json_schema_extra={"default": 25})] = 25,
-    ) -> ToolResult:
-        """Rotate one EEF about world Z by a relative angle in degrees."""
-        state = self.env.last_info["robot_state"]
-        key = "left_eef_pose" if arm == "left" else "right_eef_pose"
-        pose = np.asarray(state[key], dtype=np.float64)
-        yaw = np.deg2rad(float(delta_yaw_deg))
-        world_z = np.asarray([np.cos(yaw / 2), 0.0, 0.0, np.sin(yaw / 2)])
-        result = self.move_to(
-            arm=arm,
-            xyz=pose[:3].tolist(),
-            quat=_qmult(world_z, pose[3:]).tolist(),
-            gripper=gripper,
-            substeps=substeps,
-        )
-        result.data["requested_delta_yaw_deg"] = float(delta_yaw_deg)
-        return result
-
-    @tool
-    def set_gripper(
-        self,
-        *,
-        arm: Literal["left", "right"],
-        val: Annotated[float, Field(ge=0, le=1)],
-        steps: Annotated[int, Field(ge=1, json_schema_extra={"default": 10})] = 10,
-    ) -> ToolResult:
-        """Linearly move one normalized gripper to val over 10 actions."""
-        if int(steps) < 1:
-            raise ValueError("steps must be at least 1")
-        self._check_cancelled()
-        state = self.env.last_info["robot_state"]
-        current = float(state[f"{arm}_gripper"])
-        step_count = int(steps)
-        target = float(val)
-        values = [
-            current + (target - current) * index / step_count
-            for index in range(1, step_count + 1)
-        ]
-        updates = [{"arm": arm, "gripper": float(value)} for value in values]
-        execution = self.apply_qpos_updates(updates)
-        executed = int(execution.get("executed_actions", 0))
-        self.native_actions += executed
-        self._check_cancelled()
-        status = execution["episode_status"]
-        now = self.env.last_info["robot_state"]
-        return ToolResult(
-            data={
-                **execution,
-                **self._completion(
-                    requested=len(updates), executed=executed, status=status
-                ),
-                "success": True,
-                "gripper_val": float(now[f"{arm}_gripper"]),
-            }
-        )
-
-    @tool
-    def release(
-        self,
-        *,
-        arm: Literal["left", "right"],
-        val: Annotated[float, Field(json_schema_extra={"default": 1.0})] = 1.0,
-        steps: Annotated[int, Field(ge=1, json_schema_extra={"default": 10})] = 10,
-    ) -> ToolResult:
-        """Open one gripper to 1.0 over 10 native actions."""
-        return self.set_gripper(
-            arm=arm,
-            val=val,
-            steps=steps,
         )
 
     def status(self) -> dict[str, Any]:

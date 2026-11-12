@@ -32,9 +32,11 @@ The WAM execution path illustrates the platform/model boundary:
      -> <model>/adapter/encode.py -> predict_native -> adapter/decode.py
      -> action chunk -> platform env_client.chunk_step -> simulator
 
-``wam_act`` lives in LIBERO's ``tools.py`` and RoboTwin's ``primitives.py``.
-Both use ``@tool`` and return ``ToolResult(data=...)``. The existing platform
-toolkit owns registration, cancellation, state capture and recording.
+LIBERO declares ``wam_act`` in ``tools.py``. RoboTwin registers the shared
+``PolicyTools`` family and binds it to the platform through ``policy.py``.
+Both declare tools with ``@tool`` and return ``ToolResult(data=...)``. The
+existing platform toolkit owns registration, cancellation, state capture and
+recording.
 
 .. list-table:: Ownership
    :header-rows: 1
@@ -112,7 +114,7 @@ Add a VLA
 Because the model runs in its own process, adding a model-based
 primitive requires a few additional components:
 
-1. **Write ``vla_server.py``.** This process owns only the model weights
+1. **Write** ``vla_server.py``. This process owns only the model weights
    and CUDA context. Use
    :class:`rpent.robots.components.am_facade_base.BaseVLAFacade` as the base
    class, implement ``predict``, and register any additional model RPCs by
@@ -161,7 +163,7 @@ primitive requires a few additional components:
 4. **Register the declared tool in the toolkit.** Follow the
    same pattern as for a scripted primitive.
 
-5. **Wire the components together in ``robot_spec.py``.** The
+5. **Wire the components together in** ``robot_spec.py``. The
    robot's ``get_toolkit`` builds the toolkit with
    ``runtime_kwargs``:
 

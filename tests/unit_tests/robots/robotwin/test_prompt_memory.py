@@ -41,7 +41,7 @@ def test_prompts_render_with_memory_relative_paths():
         "memory/robotwin/task-specific/robotwin_beat_block_hammer_demo_randomized_s0_recipe.jsonl"
         in system
     )
-    assert "memory/robotwin/MEMORY.md" in system
+    assert "Call recall with the task name" in system
     assert "task: beat_block_hammer" in user
     assert "seed: 100000" in user
     assert "task_config: demo_randomized" in user

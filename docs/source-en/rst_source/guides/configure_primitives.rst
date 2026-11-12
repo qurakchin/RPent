@@ -11,7 +11,7 @@ RPent provides two main types of action tools:
 - **VLA actions** use a vision-language-action model to generate action sequences, such as LIBERO’s ``pi0_pick``. The model usually runs in a separate service.
 - **Scripted actions** execute parameterized motions, such as ``move_to``, ``rotate_wrist``, and ``release``. Names and arguments depend on the environment.
 
-``back_project``, ``segment``, and ``view_env_state`` are perception or state-reading tools; they do not themselves represent robot motion. ``finish`` ends the planner loop. Task success is determined by the environment or the real-robot operator.
+Perception and state-reading tools, such as the shared ``geometry`` tool, ``view_env_state``, and each platform’s own ``back_project`` or ``segment`` tools, do not themselves represent robot motion. ``finish`` ends the planner loop. Task success is determined by the environment or the real-robot operator.
 
 Models by Platform
 ------------------

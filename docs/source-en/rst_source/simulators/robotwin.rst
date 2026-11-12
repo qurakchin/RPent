@@ -61,6 +61,8 @@ Observation and Action
 
 The table distinguishes planner tools, model inputs, and the environment’s success criterion.
 
+Planner tools include ``view_env_state``, ``query_world_map``, and ``geometry`` for state, saved world coordinates, and target localization; ``move_to``, ``rotate_wrist``, ``set_gripper``, and ``release`` for scripted motion; and ``lingbot_act`` or ``wam_act`` for the configured policy. ``render`` captures a fresh synchronized observation. Motion results report ``completed``, ``stop_reason``, ``stop_evidence``, ``pose_error``, and ``executed_steps``; ``completed`` means the planned waypoints ran, not that the task succeeded.
+
 .. list-table::
    :header-rows: 1
 
@@ -248,10 +250,12 @@ Task Memory
 The published planner memory lives under ``robotwin/`` in the dataset. The HF
 profile syncs it to ``<RPent-clone-path>/memory/robotwin/`` for read-only use.
 
-``MEMORY.md`` indexes reusable experience across tasks, including
-perception cues, control heuristics, recovery strategies, parameter-selection
-guidance, and common failure modes. The planner can follow the index to read
-only the memory entries relevant to the current task or observed failure.
+Reusable experience is stored as notes under ``global/`` and
+``task-family/``, covering perception cues, control heuristics, recovery
+strategies, parameter-selection guidance, and common failure modes. The
+``recall`` tool searches note titles and bodies and returns matching notes with
+their confidence and paths; inspect a match before relying on it. ``MEMORY.md``
+remains an optional index for browsing the corpus.
 
 For each evaluation task, ``task-specific/<task>_s0.json`` is the semantic recipe
 distilled from a successful trajectory. It describes the phase-level goals,
@@ -276,8 +280,8 @@ must be localized again.
 
 An ``evidence_status`` of ``supported`` means the recipe is backed by a
 successful clean trajectory. An ``experimental`` recipe remains a weak prior.
-Start with ``MEMORY.md`` and read only the notes relevant to the current
-task and failure mode.
+Start with ``recall`` for the current task and observed failure, then read only
+the returned notes that apply.
 
 Exploration Mode
 ----------------
@@ -297,7 +301,9 @@ with at most five attempts per session by default:
 ``reset`` uses the environment's ordinary episode reset, so the planner
 re-runs perception after every reset. The runner exports only the winning
 commands after the final reset. Exploration memory is written to the current
-local inbox. Drafts are merged when the run completes normally without an agent
+local inbox. Use ``remember`` to draft reusable findings and ``corroborate`` to
+record whether the run confirmed or contradicted a published note. Drafts and
+corroborations are merged when the run completes normally without an agent
 execution error. Pass ``--no-auto-merge-memory`` to disable automatic merging.
 
 .. raw:: html

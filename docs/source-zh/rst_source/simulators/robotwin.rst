@@ -61,6 +61,8 @@ C2R 使用干净场景中的成功轨迹作为经验，在随机场景中评测�
 
 下表区分规划器使用的工具、模型输入及环境的成功判定。
 
+规划器工具包括用于读取状态、保存的世界坐标和目标定位的 ``view_env_state``、``query_world_map`` 与 ``geometry``，用于程序化运动的 ``move_to``、``rotate_wrist``、``set_gripper`` 和 ``release``，以及用于当前策略的 ``lingbot_act`` 或 ``wam_act``。``render`` 采集一帧新的同步观测。运动结果报告 ``completed``、``stop_reason``、``stop_evidence``、``pose_error`` 和 ``executed_steps``；``completed`` 只表示规划的路点已执行，不代表任务已经成功。
+
 .. list-table::
    :header-rows: 1
 
@@ -203,7 +205,7 @@ RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带�
 
 公开的 RoboTwin 记忆位于数据集的 ``robotwin/`` 目录，HF 模式会将其同步到 ``memory/robotwin/``。
 
-``MEMORY.md`` 索引可跨任务复用的经验，例如感知线索、控制参数和失败恢复方法。规划器按当前任务与遇到的问题选择相关条目。
+可跨任务复用的经验以笔记形式保存在 ``global/`` 和 ``task-family/`` 下，包括感知线索、控制启发、失败恢复方法、参数选择和常见失败模式。``recall`` 工具按标题和正文检索笔记，返回匹配项的置信度与路径；采用前应先查看匹配内容。``MEMORY.md`` 仍可作为浏览语料的可选索引。
 
 每个评测任务的 ``task-specific/<task>_s0.json`` 描述阶段目标、可观察的完成条件、控制方式及已知失败模式。配套的 ``task-specific/<task>_s0_recipe.jsonl`` 保存历史工具调用，供规划器参考动作顺序和 VLA 动作块的执行节奏。
 
@@ -211,7 +213,7 @@ RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带�
 
 这些参考来自成功的 ``demo_clean`` 轨迹，用于指导独立的 ``demo_randomized`` 任务。可以参考操作阶段和控制方式；任务指令、机械臂选择、像素、坐标、姿态、避障空间及接触位置，都必须按当前任务和观测重新确认。
 
-``evidence_status=supported`` 表示有成功的干净场景轨迹作为证据；``experimental`` 表示经验尚不充分。先阅读索引，再选择与本次任务有关的少量笔记。
+``evidence_status=supported`` 表示有成功的干净场景轨迹作为证据；``experimental`` 表示经验尚不充分。先用 ``recall`` 检索当前任务和已观察到的失败，再阅读其中适用的少量笔记。
 
 探索模式
 --------
@@ -226,7 +228,7 @@ RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带�
      --explore --explore-sessions 3 --explore-attempts-per-session 5 \
      --memory-dir /path/to/robotwin-memory
 
-``reset`` 使用环境原生的复位机制，因此每次复位后，规划器都需要重新获取观测并定位。运行器只导出最后一次复位后成功尝试的动作序列。探索产生的记忆写入本地草稿目录（inbox）；运行正常结束、未发生智能体执行错误时，会自动合并草稿。传入 ``--no-auto-merge-memory`` 可关闭自动合并。
+``reset`` 使用环境原生的复位机制，因此每次复位后，规划器都需要重新获取观测并定位。运行器只导出最后一次复位后成功尝试的动作序列。探索产生的记忆写入本地草稿目录（inbox）；用 ``remember`` 起草可复用的经验，用 ``corroborate`` 记录本次运行确认或反驳了哪条已发布笔记。运行正常结束、未发生智能体执行错误时，会自动合并草稿和印证记录。传入 ``--no-auto-merge-memory`` 可关闭自动合并。
 
 实验复现
 --------

@@ -35,6 +35,7 @@ from rpent.dashboard.events import DashboardEventSink, StepRecordEvent
 from rpent.session import Payload
 from rpent.session.env_capture import current_tool_call
 from rpent.tools.base import Tool, ToolResult, iter_tools
+from rpent.tools.execution import track_execution
 from rpent.utils.logging import get_logger
 from rpent.utils.templates import substitute
 
@@ -130,6 +131,26 @@ class ToolCancelled(Exception):
     """Raised when an environment reaches a safe cancellation boundary."""
 
 
+def _failure_result(
+    code: str,
+    message: str,
+    *,
+    data: dict[str, Any] | None = None,
+    no_execution: bool = True,
+    execution_uncertain: bool = False,
+    execution_status: str = "not_started",
+) -> ToolResult:
+    """Build a framework-level failure with explicit execution layers."""
+    return ToolResult(
+        data=dict(data) if data is not None else {"error": message},
+        call_ok=False,
+        error={"code": code, "message": message},
+        no_execution=no_execution,
+        execution_uncertain=execution_uncertain,
+        execution_status=execution_status,
+    )
+
+
 class Toolkit:
     """Base toolkit: registers common tools and dispatches tool calls.
 
@@ -173,10 +194,31 @@ class Toolkit:
             raise ValueError(f"Tool already registered: {tool.name}")
         self._tools[tool.name] = tool
 
-    def add_tools(self, tools: Iterable[Tool]) -> None:
-        """Register declarations collected from explicitly chosen tool owners."""
-        for tool in tools:
-            self.add_tool(tool)
+    def add_tools(
+        self,
+        *owners: Any,
+        capabilities: Any = None,
+        config: Any = None,
+    ) -> None:
+        """Register declarations from tool families and explicit tool iterables.
+
+        A family exposes ``tools(capabilities, config)`` and trims its
+        declarations to the capabilities the host actually connected. Passing
+        a plain iterable of declarations keeps the older registration path.
+        """
+        for owner in owners:
+            family = getattr(owner, "tools", None)
+            if callable(family) and not isinstance(owner, Tool):
+                for declaration in family(capabilities, config):
+                    self.add_tool(declaration)
+                continue
+            if isinstance(owner, (str, bytes)) or not isinstance(owner, Iterable):
+                raise TypeError(
+                    "add_tools expects a tool family or an iterable of Tool "
+                    f"declarations, got {type(owner).__name__}"
+                )
+            for declaration in owner:
+                self.add_tool(declaration)
 
     def _register_common_tools(self) -> None:
         from rpent.tools.common import CommonTools
@@ -216,14 +258,22 @@ class Toolkit:
         )
 
     def execute_tool(self, name: str, input_dict: dict[str, Any]) -> ToolResult:
-        """Validate one call, execute it, and capture state for advancing tools."""
+        """Validate one call, execute it, and capture state for advancing tools.
+
+        The returned result fills the call/execution layers: parameters that
+        never reach a handler are ``call_ok=False, no_execution=True``; a
+        handler that raises after an environment client issued a write is
+        ``execution_uncertain``. Domain results stay in ``data``.
+        """
         tool = self._tools.get(name)
         if tool is None:
-            return ToolResult(data={"error": f"unknown tool: {name}"})
+            return _failure_result("unknown_tool", f"unknown tool: {name}")
         try:
             parameters = tool.args_schema.model_validate(input_dict, strict=True)
         except ValidationError as exc:
-            return ToolResult(
+            return _failure_result(
+                "validation",
+                f"bad arguments for {name}",
                 data={
                     "error": f"bad arguments for {name}",
                     "errors": exc.errors(
@@ -231,7 +281,7 @@ class Toolkit:
                         include_context=False,
                         include_input=False,
                     ),
-                }
+                },
             )
         kwargs = {
             field: getattr(parameters, field) for field in type(parameters).model_fields
@@ -240,52 +290,81 @@ class Toolkit:
         try:
             operation = self._scheduler.acquire(readonly=tool.readonly)
         except ToolCancelled as exc:
-            return ToolResult(
-                data={"error": str(exc), "code": "tool_cancelled", "interrupted": True}
+            return _failure_result(
+                "cancelled",
+                str(exc),
+                data={"error": str(exc), "code": "tool_cancelled", "interrupted": True},
             )
 
         try:
             started = time.perf_counter()
             capture = current_tool_call.get()
-            try:
-                self.raise_if_cancelled()
-                if capture is not None:
-                    capture.start(action_source=tool.action_source)
-                native = tool(**kwargs)
-            except TypeError as exc:
-                native = ToolResult(
-                    data={
-                        "error": f"bad arguments for {name}: {exc}",
-                        "got": input_dict,
-                    }
-                )
-            except ToolCancelled as exc:
-                native = ToolResult(
-                    data={
-                        "error": str(exc),
-                        "code": "tool_cancelled",
-                        "interrupted": True,
-                    }
-                )
-            except Exception as exc:
-                logger.exception("Tool %s failed", name)
-                native = ToolResult(
-                    data={"error": str(exc), "traceback": traceback.format_exc()}
-                )
+            with track_execution() as trace:
+                try:
+                    self.raise_if_cancelled()
+                    if capture is not None:
+                        capture.start(action_source=tool.action_source)
+                    native = tool(**kwargs)
+                except TypeError as exc:
+                    native = _failure_result(
+                        "validation",
+                        f"bad arguments for {name}: {exc}",
+                        data={
+                            "error": f"bad arguments for {name}: {exc}",
+                            "got": input_dict,
+                        },
+                    )
+                except ToolCancelled as exc:
+                    native = _failure_result(
+                        "cancelled",
+                        str(exc),
+                        data={
+                            "error": str(exc),
+                            "code": "tool_cancelled",
+                            "interrupted": True,
+                        },
+                        no_execution=not trace.issued,
+                        execution_uncertain=trace.issued,
+                        execution_status="unknown" if trace.issued else "not_started",
+                    )
+                except Exception as exc:
+                    logger.exception("Tool %s failed", name)
+                    native = _failure_result(
+                        "execution_uncertain" if trace.issued else "execution_failed",
+                        str(exc),
+                        data={"error": str(exc), "traceback": traceback.format_exc()},
+                        no_execution=not trace.issued,
+                        execution_uncertain=trace.issued,
+                        execution_status="unknown" if trace.issued else "not_started",
+                    )
+
+            if native.execution_status is None:
+                native.execution_status = "completed"
 
             if capture is not None and capture.started:
                 capture.result(
                     Payload(
                         format="rpent.tool_result",
                         format_version="1",
-                        data={"data": native.data, "images": native.images},
+                        data={
+                            "data": native.data,
+                            "images": native.images,
+                            "image_labels": native.image_labels,
+                            "call_ok": native.call_ok,
+                            "error": native.error,
+                            "no_execution": native.no_execution,
+                            "execution_uncertain": native.execution_uncertain,
+                            "execution_status": native.execution_status,
+                        },
                         completeness="complete",
                     )
                 )
 
             if not tool.readonly:
                 elapsed_s = round(time.perf_counter() - started, 2)
-                result_dict = native.to_dict()
+                # State records keep the domain payload; the call/execution
+                # layers travel in the captured ``rpent.tool_result`` record.
+                result_dict = dict(native.data)
                 command = {"action": name, **input_dict}
                 record: StepRecord | None = None
                 try:
@@ -296,21 +375,30 @@ class Toolkit:
                     )
                 except Exception as exc:
                     logger.exception("State capture failed after %s", name)
+                    message = f"failed to capture state after {name}: {exc}"
                     native.data["state_capture_error"] = str(exc)
                     if not native.is_error:
-                        native.data["error"] = (
-                            f"failed to capture state after {name}: {exc}"
-                        )
+                        native.data["error"] = message
+                        native.error = {
+                            "code": "execution_uncertain",
+                            "message": message,
+                        }
                     native.data.setdefault("traceback", traceback.format_exc())
+                    native.execution_uncertain = True
+                    native.execution_status = "partial"
                 else:
                     record = self._state.latest_record()
                     if native.is_error:
                         for key, value in native.data.items():
                             observed.data.setdefault(key, value)
-                        observed.data["error"] = native.data["error"]
-                    native = ToolResult(
+                        observed.data["error"] = native.data.get(
+                            "error", observed.data.get("error")
+                        )
+                    native = replace(
+                        native,
                         data=observed.data,
                         images=native.images + observed.images,
+                        image_labels=native.image_labels + observed.image_labels,
                     )
                 if record is not None:
                     self._publish_step(record)
@@ -318,14 +406,20 @@ class Toolkit:
             try:
                 json.dumps(native.to_dict(), allow_nan=False, default=str)
             except (TypeError, ValueError) as exc:
-                native = ToolResult(
-                    data={"error": f"Tool result serialization failed: {exc}"},
-                    images=native.images,
+                message = f"Tool result serialization failed: {exc}"
+                native = replace(
+                    native,
+                    data={"error": message},
+                    call_ok=False,
+                    error={"code": "execution_failed", "message": message},
                 )
             if capture is not None:
+                cancelled = native.error is not None and (
+                    native.error.get("code") == "cancelled"
+                )
                 capture.finish(
                     "cancelled"
-                    if native.data.get("code") == "tool_cancelled"
+                    if cancelled or native.data.get("code") == "tool_cancelled"
                     else "failed"
                     if native.is_error
                     else "completed",

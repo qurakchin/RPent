@@ -547,7 +547,11 @@ def test_claude_bridge_readonly_calls_execute_concurrently(
     assert list(replies) == ["second", "first"]
     for call_id, reply in replies.items():
         assert not reply.isError
-        assert json.loads(reply.content[0].text) == args
+        assert json.loads(reply.content[0].text) == {
+            **args,
+            "call_ok": True,
+            "execution_status": "completed",
+        }
         assert base64.b64decode(reply.content[1].data) == call_id.encode()
 
     calls = state.tool_call_records()
@@ -566,7 +570,16 @@ def test_claude_bridge_readonly_calls_execute_concurrently(
             assert call.name == "sense" and call.arguments.data == args
             assert call.status == "completed" and call.planner_id is None
             assert call.missing["planner_id"].reason == "not_recorded"
-            assert call.raw_result.data == {"data": args, "images": [call_id.encode()]}
+            assert call.raw_result.data == {
+                "data": args,
+                "images": [call_id.encode()],
+                "image_labels": [],
+                "call_ok": True,
+                "error": None,
+                "no_execution": False,
+                "execution_uncertain": False,
+                "execution_status": "completed",
+            }
             assert call.feedback.data == {
                 "content": [
                     block.model_dump(by_alias=True, exclude_none=True)

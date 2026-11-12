@@ -22,16 +22,30 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
-from robots.robotwin import tools
+from robots.robotwin.motion import RoboTwinMotionBackend
+from robots.robotwin.observation import dump_observation, world_from_depth
+from robots.robotwin.policy import RoboTwinPolicyBinding
 from robots.robotwin.primitives import RoboTwinPrimitives
 from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
 from rpent.session.env_capture import CapturingEnvClient
-from rpent.tools import ToolResult, iter_tools, tool
+from rpent.tools import Tool, ToolResult, iter_tools, tool
+from rpent.tools.capabilities import Capabilities
 from rpent.tools.direct_action import direct_action_tool
+from rpent.tools.memory_tools import MemoryTools
+from rpent.tools.motion_tools import MotionTools
+from rpent.tools.policy_tools import PolicyConfig, PolicyTools
+from rpent.tools.scene_tools import (
+    EnvStateObservationProvider,
+    MolmoGrounder,
+    Sam3Segmenter,
+    SceneTools,
+    view_env_state,
+)
 from rpent.tools.toolkit import Toolkit
 from rpent.utils.logging import get_output_dir
+from toolkits.geometry.tool import GeometryToolConfig
 
 if TYPE_CHECKING:
     from robots.robotwin.env_client import RoboTwinEnvClient
@@ -49,45 +63,6 @@ _RECIPE_ACTIONS = {
     "set_gripper",
     "release",
 }
-
-
-def _world_from_depth(
-    depth_metric: np.ndarray, camera_meta: dict[str, Any]
-) -> np.ndarray:
-    """Back-project metric depth into the RoboTwin world frame."""
-    depth = np.asarray(depth_metric, dtype=np.float64)
-    if depth.ndim != 2:
-        raise ValueError(f"RoboTwin depth must have shape [H,W], got {depth.shape}")
-
-    intrinsic = np.asarray(camera_meta.get("intrinsic_K"), dtype=np.float64)
-    cam2world = np.asarray(camera_meta.get("cam2world_gl"), dtype=np.float64)
-    if intrinsic.shape != (3, 3):
-        raise ValueError("RoboTwin camera intrinsic_K must have shape (3,3)")
-    if cam2world.shape != (4, 4):
-        raise ValueError("RoboTwin camera cam2world_gl must have shape (4,4)")
-    if not np.isfinite(intrinsic).all() or not np.isfinite(cam2world).all():
-        raise ValueError("RoboTwin camera calibration must contain only finite values")
-
-    height, width = depth.shape
-    if camera_meta.get("height") != height or camera_meta.get("width") != width:
-        raise ValueError(
-            "RoboTwin depth shape does not match camera metadata: "
-            f"depth={depth.shape}, metadata="
-            f"({camera_meta.get('height')}, {camera_meta.get('width')})"
-        )
-    fx, fy = intrinsic[0, 0], intrinsic[1, 1]
-    cx, cy = intrinsic[0, 2], intrinsic[1, 2]
-    rows, cols = np.mgrid[0:height, 0:width]
-    camera_points = np.stack(
-        [
-            (cols - cx) * depth / fx,
-            -(rows - cy) * depth / fy,
-            -depth,
-        ],
-        axis=-1,
-    )
-    world = camera_points @ cam2world[:3, :3].T + cam2world[:3, 3]
-    return world.astype(np.float32)
 
 
 class RoboTwinToolkit(Toolkit):
@@ -143,6 +118,7 @@ class RoboTwinToolkit(Toolkit):
             }
         self._primitives.start_recording()
         self._action_frame_cursor = self._primitives.recorded_frame_count()
+        self._register_families(runtime_kwargs)
         self._register_robotwin_tools()
         if enable_direct_action:
             self.add_tool(
@@ -165,25 +141,78 @@ class RoboTwinToolkit(Toolkit):
                 "episode_status", self._latest_status
             )
 
+    def _register_families(self, runtime_kwargs: dict[str, Any]) -> None:
+        molmo = runtime_kwargs.get("molmo_client")
+        sam3 = runtime_kwargs.get("sam3_client")
+        grounder = MolmoGrounder(molmo) if molmo is not None else None
+        segmenter = Sam3Segmenter(sam3) if sam3 is not None else None
+        views = tuple(ROBOTWIN_CAMERA_NAMES)
+        self._capabilities = Capabilities(
+            env=dict(getattr(self._primitives.env, "server_meta", {}) or {}),
+            execution=dict(
+                getattr(self._primitives.env, "execution_capabilities", {}) or {}
+            ),
+            segmentation=segmenter is not None,
+            grounding=grounder is not None,
+            policy_backends=(self._policy_kind,),
+            real_robot=False,
+            depth_views=views,
+            calibrated_views=views,
+            native_tools=("execute_action", "finish", "render", "reset"),
+        )
+        provider = EnvStateObservationProvider(
+            self._state,
+            default_view="head_camera",
+            camera_conventions=dict.fromkeys(views, "opengl"),
+        )
+        binding = RoboTwinPolicyBinding(self._primitives)
+        self.add_tools(
+            SceneTools(
+                state=self._state,
+                provider=provider,
+                config=GeometryToolConfig(),
+                grounder=grounder,
+                segmenter=segmenter,
+            ),
+            MotionTools(RoboTwinMotionBackend(self._primitives)),
+            PolicyTools(
+                binding,
+                config=PolicyConfig(use_length=binding.use_length),
+            ),
+            MemoryTools(self._memory),
+            capabilities=self._capabilities,
+            config={"mode": self._mode},
+        )
+
+    @classmethod
+    def declared_tools(cls, *, policy_kind: str = "vla") -> list[Tool]:
+        """Collect declarations without constructing an environment.
+
+        The registration path binds handlers to one instance; this snapshot is
+        used by offline schema checks and documentation tooling.
+        """
+        from rpent.tools.motion_tools import MotionTools
+        from rpent.tools.policy_tools import PolicyTools
+        from rpent.tools.scene_tools import view_env_state
+        from rpent.tools.world_coordinates import query_world_map
+        from toolkits.geometry.tool import geometry
+
+        policy = iter_tools(PolicyTools)
+        policy_name = "wam_act" if policy_kind == "wam" else "lingbot_act"
+        return [
+            view_env_state,
+            geometry,
+            query_world_map,
+            *iter_tools(MotionTools),
+            next(item for item in policy if item.name == policy_name),
+            *iter_tools(MemoryTools),
+            *iter_tools(RoboTwinPrimitives),
+            cls.render,
+        ]
+
     def _register_robotwin_tools(self) -> None:
-        for definition in iter_tools(tools):
-            if definition.name == "view_env_state":
-                handler = partial(definition, state=self._state)
-            else:
-                handler = partial(definition, self._state)
-            self.add_tool(definition.with_handler(handler))
         for definition in iter_tools(self._primitives):
-            excluded = "lingbot_act" if self._policy_kind == "wam" else "wam_act"
-            if definition.name == excluded:
-                continue
-            handler = (
-                definition
-                if definition.name == "finish"
-                else partial(self._step, definition.name)
-            )
-            self.add_tool(
-                definition.with_handler(handler), replace=definition.name == "finish"
-            )
+            self.add_tool(definition, replace=True)
         self.add_tool(self.render)
         if self._mode == "exploration":
             self.add_tool(
@@ -242,13 +271,10 @@ class RoboTwinToolkit(Toolkit):
         return ToolResult(data=payload)
 
     def _capture_full_observation(self) -> dict[str, Any]:
-        """Assemble the full observation (rgb + depth + camera_meta + world_xyz).
+        """Assemble rgb, depth, calibration, and world maps for one state.
 
-        This is the dump/recording path consumed by ``tools.dump_observation``
-        and the ``sample_world_xyz`` agent tool. It deliberately fetches depth
-        and camera_meta so ``world_xyz`` can be back-projected and saved as an
-        artifact -- distinct from the rgb-only observation built for LingBot
-        inference in ``RoboTwinPrimitives._build_lingbot_observation``.
+        These artifacts feed ``view_env_state`` and ``geometry``. Policy
+        inference builds a lighter RGB-only observation in the policy binding.
         """
         env = self._primitives.env
         views: dict[str, dict[str, Any]] = {}
@@ -263,7 +289,7 @@ class RoboTwinToolkit(Toolkit):
             views[camera_name] = {
                 "rgb": np.asarray(rgb),
                 "depth": np.asarray(depth, dtype=np.float32),
-                "world_xyz": _world_from_depth(depth, camera_meta),
+                "world_xyz": world_from_depth(depth, camera_meta),
                 "camera_meta": camera_meta,
             }
         return {
@@ -287,7 +313,7 @@ class RoboTwinToolkit(Toolkit):
         status = self._primitives.status()
         self._latest_status = status
         observation = self._capture_full_observation()
-        record = tools.dump_observation(
+        record = dump_observation(
             observation,
             env_state=self._state,
             status=status,
@@ -306,7 +332,7 @@ class RoboTwinToolkit(Toolkit):
                     step=record.step_idx,
                     fps=20,
                 )
-        return tools.view_env_state(record.step_idx, state=self._state)
+        return view_env_state(record.step_idx, state=self._state)
 
     def close(self) -> None:
         """Flush the per-step frame buffer into ``episode.mp4`` (LIBERO parity)."""
