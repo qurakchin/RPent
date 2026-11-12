@@ -88,7 +88,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 Dashboard 会话
 ----------------
 
-Dashboard 使用长期运行的 Session 管理服务，每次任务创建新的 TaskRun。``DashboardSpec`` 定义任务命令、可见相机、可用控件，以及标记为 ``shared`` 或 ``unique`` 的运行组件。
+Dashboard 使用长期运行的 Session 管理服务，每次任务创建新的 TaskRun。``DashboardSpec`` 定义任务命令及其字段、标记为 ``shared`` 或 ``unique`` 的运行组件，以及动作原语控件。
 
 LIBERO 会话复用 Pi0.5 和 SAM3，每个任务拥有独立环境并按顺序执行。任务创建新的工具集和规划器对话；组件由创建它的会话或任务清理。
 

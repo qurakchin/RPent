@@ -114,6 +114,15 @@ pytest tests/unit_tests -v
 pytest tests/unit_tests/rpent/cli/test_main_contracts.py -k xxx -x
 ```
 
+CI also installs the `flywheel` extra and OpenCV before running the unit suite;
+without them, the flywheel and calibration tests are skipped. To run the complete
+suite locally, add those packages to your test environment:
+
+```bash
+uv pip install -e ".[test,flywheel]" --torch-backend cpu
+uv pip install "opencv-python-headless==4.10.0.84"
+```
+
 If a check fails or modifies files, review the changes and run it again.
 
 Update documentation alongside user-visible changes:
@@ -124,6 +133,15 @@ Update documentation alongside user-visible changes:
 - update docstrings and examples for public APIs;
 - update the README when installation, quick-start, or advertised features
   change.
+
+Build both languages with warnings treated as errors before opening the pull
+request:
+
+```bash
+uv pip install -r docs/requirements.txt
+sphinx-build -W --keep-going docs/source-en docs/build/html-en
+sphinx-build -W --keep-going docs/source-zh docs/build/html-zh
+```
 
 ### Step 5. Commit and open a pull request
 
@@ -160,14 +178,16 @@ Pull request titles should use the same format. Keep the scope lowercase and the
 description short and specific.
 
 Push the branch to your fork and open a pull request against
-`RLinf/RPent:main`. A helpful pull request description includes:
+`RLinf/RPent:main`. Fill in the repository's
+[pull request template](.github/PULL_REQUEST_TEMPLATE.md): state the problem,
+the change, any contract or migration impact, what validation actually ran, and
+known limitations. Link the issue when one exists (`Fixes #123` or
+`Refs #123`).
 
-- the problem and why the change is needed;
-- a concise summary of the implementation;
-- a linked issue when one exists (`Fixes #123` or `Refs #123`);
-- compatibility changes, migrations, new dependencies, and runtime impact;
-- the exact automated checks that were run;
-- any manual GPU, simulator, service, or robot verification.
+Keep validation levels separate. CPU tests, simulator runs, model-service runs,
+and real-robot runs are different evidence, and a lower level does not stand in
+for a higher one. Do not present one successful task as validation of a whole
+benchmark.
 
 Review the complete diff yourself before marking the pull request ready for
 review.
@@ -177,8 +197,8 @@ review.
 - Do not weaken or delete a failing test merely to make CI pass.
 - Do not commit credentials, logs, checkpoints, downloaded assets, or generated
   results.
-- Do not make required CI depend on network access, model services, simulators,
-  or robot hardware.
+- Do not make the required CI test runs depend on model services, simulators,
+  robot hardware, or network downloads beyond package installation.
 
 ## 3. Responsible use of AI
 

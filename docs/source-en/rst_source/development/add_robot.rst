@@ -241,11 +241,13 @@ teardown.
 2. ``prompt_bundle.py``
 -----------------------
 
-Define two prompt factories, ``system_prompt()`` and ``user_prompt()``, and
-build a ``PromptBundle(system=system_prompt, user=user_prompt)`` in the
-robot's ``robot_spec.py`` (see the entry point above). Each factory returns an ordered
-``dict[str, PromptNode]`` of titled sections; ``PromptBundle.render`` assembles
-and fills them. One prompt serves every planner (API loop, Claude Code, Codex):
+Define two prompt factories, ``system_prompt(variables)`` and
+``user_prompt(variables)``, and build a ``PromptBundle(system=system_prompt,
+user=user_prompt)`` in the robot's ``robot_spec.py`` (see the entry point
+above). Each factory receives the run's prompt variables and returns a
+``PromptNode``, typically an ordered ``dict[str, PromptNode]`` of titled
+sections; ``PromptBundle.render`` assembles and fills them. One prompt serves
+every planner (API loop, Claude Code, Codex):
 refer to tools by their bare names (``move_to``, ...) and note once that the
 Claude Code and Codex SDKs show them as ``mcp__rpent__<name>``. Do not
 maintain separate prompt copies for CLI and API planners.
@@ -253,11 +255,15 @@ maintain separate prompt copies for CLI and API planners.
 .. code-block:: python
 
    # robots/myrobot/prompt_bundle.py
+   from typing import Mapping
+
    from robots.myrobot.prompts import system as system_parts
    from robots.myrobot.prompts import user as user_parts
    from rpent.prompt.utils import PromptNode
 
-   def system_prompt() -> PromptNode:
+   def system_prompt(
+       variables: Mapping[str, object] | None = None,
+   ) -> PromptNode:
        return {
            "INTRO": system_parts.PREAMBLE,
            "GOAL": system_parts.GOAL,
@@ -267,7 +273,9 @@ maintain separate prompt copies for CLI and API planners.
            "OUTPUT": system_parts.OUTPUT,
        }
 
-   def user_prompt() -> PromptNode:
+   def user_prompt(
+       variables: Mapping[str, object] | None = None,
+   ) -> PromptNode:
        return {
            "TASK": user_parts.TASK,
            "BEGIN": user_parts.BEGIN,
@@ -301,7 +309,7 @@ state needed for the current run. It exposes one method per primitive tool
 ``@tool``. Type annotations and Google-style docstrings define their schemas and
 descriptions, including readers such as ``view_env_state`` and ``back_project``.
 
-**Per-step state dump** — ``dump_state(driver, env_state, log)`` opens
+**Per-step state dump** — ``dump_state(primitives, env_state, log)`` opens
 ``env_state.record_step(...)`` and receives the allocated step index; the
 ``StepRecord`` is appended and committed immediately. Save large observations
 through ``env_state.save(...)`` — inside a ``record_step`` block the ``step``
@@ -438,12 +446,12 @@ Optional Run-result Finalizer
 -----------------------------
 
 ``RobotSpec.finalize_run`` is a universal, robot-agnostic end-of-run hook.
-RoboCasa is its current consumer and uses it to record per-cell evaluation
-results for later statistics and aggregation. Any robot that publishes
-machine-readable evaluation artifacts may register the hook. The default is
-``None`` and leaves the runner unchanged. When the hook is present, the normal
-terminal runner captures ``toolkit.solved()`` before closing the toolkit, then
-passes a structured ``RunFinalizationContext`` to the hook after runtime
+RoboCasa, RoboDojo, and YAM register it to record per-cell evaluation results
+for later statistics and aggregation. Any robot that publishes machine-readable
+evaluation artifacts may register the hook. The default is ``None`` and leaves
+the runner unchanged. When the hook is present, both the terminal runner and
+the Dashboard capture ``toolkit.solved()`` before closing the toolkit, then
+pass a structured ``RunFinalizationContext`` to the hook after runtime
 cleanup. The hook owns the artifact schema and filename; RPent only defines the
 lifecycle boundary.
 

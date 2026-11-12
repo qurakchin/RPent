@@ -31,7 +31,7 @@
 Dashboard
 ---------
 
-Dashboard 支持 ``api``、``claude_code`` 和 ``codex`` 规划器。在命令行传递 ``--planner`` 与 ``--model``，配置方式和普通运行一致，详见 :doc:`configure_planner`。
+Dashboard 支持 ``api``、``claude_code``、``codex`` 和 ``flash`` 规划器。在命令行传递 ``--planner`` 与 ``--model``，配置方式和普通运行一致，详见 :doc:`configure_planner`。Flash Mode 适用于提供重放钩子的机器人（LIBERO、单臂和双臂 Franka），使用 Molmo 服务定位，不调用 LLM。
 
 启动并提交任务
 ~~~~~~~~~~~~~~~~~~~~~
@@ -51,7 +51,7 @@ Session 配置全部来自命令行，打开地址后会直接进入实时监控
 
 每个 TaskRun 使用独立环境，VLA 和 SAM3 服务由 Session 复用。可通过新的 ``/rpent-task`` 启动或切换任务；运行中也可以发送消息引导智能体，并按 Esc 请求中断。在终端按 Ctrl+C 可结束 Session。
 
-``--dashboard`` 不能与 ``--interactive`` 或 ``--env-endpoint`` 同时使用；外部 ``--am-endpoint`` 和 ``--sam3-endpoint`` 服务仍然可用。使用 ``--dashboard-language zh-cn`` 可切换中文 UI。
+``--dashboard`` 不能与 ``--tui`` 同时使用。为每个 TaskRun 启动新环境的 Session 不能使用 ``--env-endpoint``；外部 ``--am-endpoint`` 和 ``--sam3-endpoint`` 服务仍然可用。使用 ``--dashboard-language zh-cn`` 可切换中文 UI。
 
 查看结果与结束会话
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

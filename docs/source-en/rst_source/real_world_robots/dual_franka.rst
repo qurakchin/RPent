@@ -461,9 +461,9 @@ environment and model services automatically; do not start VLA in another termin
 
 Connection initializes controllers and grippers without resetting robot posture.
 The agent first calls ``request_scene_reset``: secure held objects, restore the
-tabletop and check both reset paths, then answer ``done`` to allow reset and a
-fresh observation. Motion remains blocked if confirmation or reset fails. Each
-new run/session needs its own confirmation.
+tabletop and check the reset path for both arms, then answer ``done`` to allow
+reset and a fresh observation. Motion remains blocked if confirmation or reset
+fails. Each new run/session needs its own confirmation.
 
 The example uses Codex, ``gpt-6-astra`` and ``xhigh`` reasoning. Claude Code is
 also available: replace the planner/model options with
@@ -495,14 +495,32 @@ Exploration keeps per-session state and operator records under
 verdict, not a successful RPC or the planner's own ``finish`` text. See
 :ref:`run-output-files` for the common output layout.
 
+Verification Status
+-------------------
+
+The v0.1 release notes and the :doc:`dual-arm demo page
+<../real_world_demos/franka>` record demonstrations of tableware sorting after
+a goal change, steel-ball pouring, plate wiping, and storage. These are
+demonstration records, not a success-rate evaluation. This page reports no
+episode count or success rate, and a successful demo does not establish
+performance on a different rig or task.
+
 Tools and Artifacts
 -------------------
 
-The extension exposes ``view_env_state``, ``view_camera_meta``, ``move_delta``,
-``rotate_delta``, ``open_gripper``, ``close_gripper``, and ``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place``. Each
-analytic motion selects exactly one arm, ``left`` or ``right``. Mutating tools
-capture per-arm state and synchronized left-wrist, base, and right-wrist images
-in RPent's central ``EnvState``.
+The extension exposes ``view_env_state``, ``view_camera_meta``,
+``describe_dual_franka_setup``, ``back_project``, ``segment``, ``move_delta``,
+``rotate_delta``, ``open_gripper``, ``close_gripper``,
+``recover_joint_posture``, ``vla_right_grasp`` / ``vla_handoff`` /
+``vla_left_place``, ``request_scene_reset``, and
+``request_operator_verdict``. Each analytic motion selects exactly one arm,
+``left`` or ``right``. ``back_project`` and ``segment`` use the configured
+metric camera views; ``segment`` also requires a SAM3 client.
+``recover_joint_posture`` re-commands each gripper's current open/closed state,
+resets both arms to ``workspace.joint_reset_qpos``, and by default returns both
+TCPs near their pre-recovery poses. Mutating tools capture per-arm state and
+synchronized left-wrist, base, and right-wrist images in RPent's central
+``EnvState``.
 
 Attended Exploration
 --------------------
@@ -573,3 +591,41 @@ robot configuration. Translation annotations name ``base``, ``d455``,
 ``left_wrist`` or ``right_wrist`` with depth and valid calibration.
 Primitive moves specify ``arm: left`` or ``arm: right``; left-arm workspace
 checks convert the shared right-base target into the left-base frame.
+
+Safety and Stopping
+-------------------
+
+Keep an operator at the hardware emergency stop for the entire run. The
+software stops below stop command execution or hold the current posture; they
+do not cut motor power and do not replace the emergency stop.
+
+Before confirming ``request_scene_reset``, secure every held object and clear
+the area around both arms. The reset runs the RLinf environment reset, which
+moves both arms to ``workspace.joint_reset_qpos`` and opens both grippers.
+Confirm that the reset path for both arms is clear before replying ``done``.
+The reset is a motion; keep the emergency stop within reach when you confirm
+it. Replying ``abort`` or closing the operator prompt leaves motion blocked before
+the reset starts, so the arms stay where they are. A failed reset also keeps
+motion blocked; inspect the arms before continuing, because the reset attempt
+may have moved them, and use the emergency stop if needed.
+
+During a run:
+
+* ``Ctrl+C`` requests RPent shutdown. An in-flight RPC or motion may still
+  finish before the process exits.
+* In the VLA diagnostic console, ``Ctrl+C`` or the ``STOP`` file stops between
+  actions. Neither is a hardware emergency stop.
+* ``/abort`` in exploration or Dashboard stops the task, but already-issued
+  actions may still return. Wait for both arms to stop, then inspect the scene.
+
+``recover_joint_posture`` is a motion tool. It re-commands each gripper's
+current open/closed state, resets both arms to ``workspace.joint_reset_qpos``,
+and by default returns both TCPs near their pre-recovery poses. Use it only
+when ``joint_health`` reports a warning or critical state, and keep the
+emergency stop within reach while it runs.
+
+RPent's dual-Franka environment server does not command a home pose when a run
+ends: it disconnects the cameras and closes the environment. Before closing services,
+stop the run, keep the emergency stop accessible, and follow the arm
+controller's shutdown procedure. Do not assume the arms move to a safe pose on
+exit.

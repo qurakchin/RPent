@@ -17,4 +17,4 @@ Choose a platform for installation and usage instructions.
    * - :doc:`yam`
      - Installation, configuration, and operation.
    * - :doc:`so101`
-     - Content coming soon.
+     - Not yet integrated; no setup guide.

@@ -3,6 +3,8 @@ Dual-Arm Franka
 
 Watch task execution on dual-arm Franka. For installation, calibration, motion checks, and operation, see :doc:`Dual-Arm Franka Deployment <../real_world_robots/dual_franka>`.
 
+This page uses the ``real_world_demos/franka`` path while its videos show the dual-arm setup; single-arm deployment is documented in :doc:`Single-Arm Franka <../real_world_robots/franka>`.
+
 .. raw:: html
 
    <div class="rpent-demo-list">

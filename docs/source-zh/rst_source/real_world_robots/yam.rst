@@ -94,7 +94,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 * 桌面几何、关节限位与碰撞设置：按真机环境的实测值填写。
 * ``reset`` 和 ``park_on_close``：分别设置复位姿态和待机姿态；每种姿态均需填写双臂实测关节位置 ``left_qpos/right_qpos``，每侧各 7 维。
 
-配置好两种姿态后，启用 ``reset.enabled`` 和 ``park_on_close.enabled``。待机姿态未配置时，ENV 无法启动。不要照搬其他真机的关节位置。
+配置好两种姿态后，启用 ``reset.enabled`` 和 ``park_on_close.enabled``。``park_on_close.enabled`` 未启用时 ENV 无法启动；每个启用的姿态都要给出双臂共 14 维关节位置，且位于配置的关节限位内。不要照搬其他真机的关节位置。
 
 如需使用其他文件，请传入 ``--robot-config /path/to/robot_config.yaml``。任务 ID、任务指令、seed 和步数上限通过命令行指定。
 
@@ -255,7 +255,7 @@ Codex 配置
    python -m robots.yam.manual --task-id "$TASK_ID" --mode primitives \
      --env-endpoint socket://127.0.0.1:8110 --max-episode-steps 1000
 
-每行输入一个 JSON，例如 ``{"tool":"status"}``。支持 ``move_to``、``rotate_wrist``、``set_gripper`` 和 ``release``，通过 ``arguments`` 传参。
+每行输入一个 JSON，例如 ``{"tool":"status"}``。支持 ``status``、``stop``、``move_to``、``rotate_wrist``、``set_gripper`` 和 ``release``；动作参数通过 ``arguments`` 传入，``status`` 和 ``stop`` 不需要参数。
 
 **VLA 预测与执行检查**
 
@@ -324,9 +324,14 @@ Codex 配置
      --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
      --event success --note '现场已确认本回合任务完成'
 
-失败或中止时，分别使用 ``--event failure`` 或 ``--event abort``，并填写说明。
+失败或中止时，分别使用 ``--event failure`` 或 ``--event abort``，并提供当前 ``--episode-id`` 和说明。
 
 ``eval_success=True`` 表示现场人员已确认当前回合成功。
+
+验证状态
+--------
+
+v0.1 发布说明和\ :doc:`YAM 演示页 <../real_world_demos/yam>`\ 记录了以下演示：YAM 读取瓶身与袋子标签来分类饮料，通过小幅试抬检查抓取，在路径受阻时调整腕部姿态，并移开碗以取得被遮挡的勺子。这些是演示记录，不是成功率评测。本页不报告回合数或成功率；单次演示成功也不能证明在另一套设备上的表现。
 
 .. _yam-tools:
 
@@ -371,6 +376,22 @@ YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``r
 
 停止与退出
 ----------
+
+.. warning::
+
+   运动期间必须由现场操作员值守硬件急停。下文的软件停止只会保持当前位姿或结束当前回合，不会切断电机电源，不能替代硬件急停。
+
+要停止正在运行的任务，请携带当前回合 ID 发送 abort 回执：
+
+.. code-block:: bash
+
+   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
+     --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
+     --event abort --note '停止任务并保持机械臂'
+
+``--event abort`` 会写入 abort 回执并调用 ``env.request_stop``。该请求会设置停止锁存，并在下一个安全的写入边界保持实测关节位置；调用会在保持动作确认前返回（``hold_confirmed: false``）。在机械臂停止前，请远离机械臂并保持急停可触及。``abort`` 不会执行 ``park_on_close`` 的待机回位动作。
+
+在手动诊断控制台中，``{"tool":"stop"}`` 会发送同样的停止请求，``quit`` 也会在退出前发送停止请求；两者都不会回位或释放夹爪。如果控制台提示操作结果不确定，请检查现场并重启控制台，不要重复执行该命令。
 
 停止任务后，先将夹爪中的物体放稳或取下，确认返回待机姿态的路径安全，再在人工操作终端执行：
 

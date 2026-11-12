@@ -374,10 +374,15 @@ RLinf 按配置的节点创建相机句柄，不会跨节点搜索被移动的 U
 
 探索模式的逐会话状态和人工记录位于 ``sessions/session_<NNN>/``。真机任务成功以操作员判定为准，RPC 成功或规划器自己的 ``finish`` 文本不能替代该判定。通用目录说明见 :ref:`run-output-files`。
 
+验证状态
+--------
+
+v0.1 发布说明和\ :doc:`双臂演示页 <../real_world_demos/franka>`\ 记录了任务目标变化后的餐具整理、倒钢珠、擦盘和收纳演示。这些是演示记录，不是成功率评测。本页不报告回合数或成功率；单次演示成功也不能证明在另一套设备或任务上的表现。
+
 工具与状态产物
 --------------
 
-双臂 Franka 扩展提供 ``view_env_state``、``view_camera_meta``、 ``move_delta``、``rotate_delta``、``open_gripper``、``close_gripper`` 和 ``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place``。每次解析式运动只会作用于一条臂（``left`` 或 ``right``）。所有会改变环境状态的工具都会在 RPent 统一的 ``EnvState`` 中保存每条臂的状态以及同步的 left-wrist、base 和 right-wrist 图像。
+双臂 Franka 扩展提供 ``view_env_state``、``view_camera_meta``、``describe_dual_franka_setup``、``back_project``、``segment``、``move_delta``、``rotate_delta``、``open_gripper``、``close_gripper``、``recover_joint_posture``、``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place``、``request_scene_reset`` 和 ``request_operator_verdict``。每次解析式运动只会作用于一条臂（``left`` 或 ``right``）。``back_project`` 和 ``segment`` 使用配置的度量相机视角；``segment`` 还需要 SAM3 客户端。``recover_joint_posture`` 会重新下发每个夹爪当前的张开/闭合状态，将双臂关节复位到 ``workspace.joint_reset_qpos``，默认还会将两个 TCP 移回恢复前的位置附近。所有会改变环境状态的工具都会在 RPent 统一的 ``EnvState`` 中保存每条臂的状态以及同步的 left-wrist、base 和 right-wrist 图像。
 
 探索模式（人工复位与判定）
 --------------------------
@@ -418,3 +423,20 @@ Flash 回放
 平移标注使用具有深度和有效标定的 ``base``、``d455``、``left_wrist`` 或
 ``right_wrist`` 相机。移动原语通过 ``arm: left`` 或 ``arm: right`` 指定机械臂；
 左臂工作空间检查会把共享的右基座目标坐标转换到左基座坐标系。
+
+安全与停止
+----------
+
+整个运行期间都必须由操作员值守硬件急停。下文的软件停止只会停止命令执行或保持当前位姿，不会切断电机电源，也不能替代硬件急停。
+
+确认 ``request_scene_reset`` 前，先固定或取下夹持物，并清理双臂周围的区域。该复位会执行 RLinf 的环境复位，将双臂移动到 ``workspace.joint_reset_qpos`` 并张开两个夹爪。回复 ``done`` 前，请确认双臂的复位路径都已清空。复位本身也是运动，确认时请保持急停可触及。回复 ``abort`` 或关闭操作员输入会在复位开始前锁定运动，机械臂保持在原位。复位本身失败时运动同样保持锁定；此时复位尝试可能已移动机械臂，请先检查机械臂，必要时使用急停。
+
+运行期间：
+
+* 按 ``Ctrl+C`` 会请求关闭 RPent；正在执行的 RPC 或运动仍可能完成。
+* 在 VLA 诊断控制台中，``Ctrl+C`` 或 ``STOP`` 文件只会在动作之间停止。两者都不是硬件急停。
+* 探索模式或 Dashboard 中的 ``/abort`` 会停止任务，但已下发的动作仍可能返回。请等待双臂停止后再检查现场。
+
+``recover_joint_posture`` 是运动工具。它会重新下发每个夹爪当前的张开/闭合状态，将双臂关节复位到 ``workspace.joint_reset_qpos``，默认还会将两个 TCP 移回恢复前的位置附近。仅在 ``joint_health`` 报告 warning 或 critical 时使用，并在执行期间保持急停可触及。
+
+运行结束时，RPent 的双臂 Franka 环境服务不会下发待机回位指令：它只断开相机并关闭环境。关闭服务前，请先停止运行、保持急停可触及，并按机械臂控制器的停机流程操作。不要假设退出后机械臂会自动移动到安全姿态。

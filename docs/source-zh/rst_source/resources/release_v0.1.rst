@@ -34,7 +34,7 @@ Memory 设计
 
 - **积累与复用任务经验**\ ：探索模式积累经验，评测模式只读复用分层保存的通用经验、任务策略和执行记录。 :doc:`Memory </rst_source/development/memory>`
 
-- **用任务卡加快执行**\ ：Flash Mode 将成功流程整理为任务卡，根据当前视觉定位更新动作目标，减少逐步规划开销。在 LIBERO-PRO 的 800 回合评测中，成功率为 **72.63%**\ ，平均耗时 **60.19 秒**\ ，较 Codex + GPT-6 Astra（low reasoning）实现约 **6.8 倍加速**\ 。该评测使用官方公开的 GPT-5.5 探索记忆，成绩采用 seed 0–9 中的最佳评测结果。 :doc:`Flash Mode </rst_source/guides/flash>` ｜ :doc:`评测数据 </rst_source/leaderboard/time-token-costs>`
+- **用任务卡加快执行**\ ：Flash Mode 将成功流程整理为任务卡，根据当前视觉定位更新动作目标，减少逐步规划开销。在 LIBERO-PRO 的 800 回合评测中，成功率为 **72.63%**\ ，平均耗时 **60.19 秒**\ ，较 Codex + GPT-6 Astra（low reasoning）实现约 **6.8 倍加速**\ 。该评测使用官方公开的 GPT-5.5 探索记忆。800 回合的聚合结果计入每个套件全部 10 个任务的 seed 0 至 9，不做事后挑选。 :doc:`Flash Mode </rst_source/guides/flash>` ｜ :doc:`评测数据 </rst_source/leaderboard/time-token-costs>`
 
 论文
 ~~~~~~~~~~~~
@@ -60,14 +60,14 @@ Memory 设计
 
 - **RoboTwin**\ ：接入双臂仿真，支持 ``demo_clean``、``demo_randomized`` 场景、多相机观测和 50 个任务的评测配置。 :doc:`文档 </rst_source/simulators/robotwin>`
 
-- **RoboDojo**\ ：仿真器基于 Isaac Sim / IsaacLab，采用 ARX-X5 双机械臂平台。当前支持安装。 :doc:`文档 </rst_source/simulators/robodojo>`
+- **RoboDojo**\ ：仿真器基于 Isaac Sim / IsaacLab，采用 ARX-X5 双机械臂平台，策略动作可选 VPP2 或 Awomo05。发布验证完成了环境安装与 ``put_bottles_into_dustbin`` 单次任务运行检查，验证范围为安装与运行流程，不包含任务成功率评测。 :doc:`文档 </rst_source/simulators/robodojo>`
 
 模型
 ~~~~~~~~~~~~
 
 - **规划器与模型**\ ：支持 Codex、Claude Code 和 RPent 内置规划器，可接入 Claude、GPT、Qwen 等模型，并按规划器配置推理强度、规划轮数上限和超时时间。在 LIBERO、RoboCasa365 和 RoboTwin 中，规划器还可直接输出动作控制数值，由环境执行。 :doc:`配置指南 </rst_source/guides/configure_planner>`
 
-- **VLA 模型**\ ：支持 Pi0.5（LIBERO、RoboDojo、双臂 Franka、YAM）、RLDX-1（RoboCasa365）和 LingBot-VLA（RoboTwin）。 :doc:`Pi0.5 </rst_source/simulators/libero>` ｜ :doc:`RLDX-1 </rst_source/simulators/robocasa>` ｜ :doc:`LingBot-VLA </rst_source/simulators/robotwin>`
+- **VLA 与动作模型**\ ：Pi0.5 用于 LIBERO、单臂与双臂 Franka 和 YAM；RoboDojo 使用 VPP2 或 Awomo05；RoboCasa365 使用 RLDX-1；RoboTwin 使用 LingBot-VLA 或 Fast-WAM。 :doc:`Pi0.5 </rst_source/simulators/libero>` ｜ :doc:`RLDX-1 </rst_source/simulators/robocasa>` ｜ :doc:`LingBot-VLA </rst_source/simulators/robotwin>`
 
 - **感知模型**\ ：支持 SAM3 目标分割和 Molmo2-8B 视觉定位，结合深度与相机信息确定目标位置。 :doc:`视觉定位指南 </rst_source/guides/flash>`
 
@@ -82,7 +82,7 @@ Memory 设计
 
 - **Memory**\ ：提供公开的任务经验与任务卡数据集，支持本地记忆校验、合并和索引更新，方便不同智能体复用已有经验。 :doc:`使用指南 </rst_source/guides/memory>` ｜ `数据集 <https://huggingface.co/datasets/RLinf/RPent-memory>`__
 
-Contributors
+贡献者
 ------------------------
 
 感谢所有贡献者，排名不分先后。
@@ -104,7 +104,7 @@ RPent 评测结果
 
 - **真机部署**\ ：按平台指南安装机器人控制软件、配置相机、完成手眼标定，并获取和配置所需模型权重。 :doc:`Franka </rst_source/real_world_robots/franka>` ｜ :doc:`双臂 Franka </rst_source/real_world_robots/dual_franka>` ｜ :doc:`YAM </rst_source/real_world_robots/yam>`
 
-RPent v0.1 Test Results
+RPent v0.1 测试结果
 ----------------------------------------------
 
 RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布版本测试、180 回合论文配置抽样复现及 15 回合 Memory 复用测试，并在双臂 Franka 和 YAM 上完成三项真机任务验证。
@@ -811,7 +811,7 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
      - 14,163,904
      - 24,159
    * - YAM · demo02：饮料标签识别与分拣
-     - GPT-6 Sol (medium)
+     - GPT-5.6 Sol (medium)
      - 已完成
      - 1,886.85
      - 12,026,547

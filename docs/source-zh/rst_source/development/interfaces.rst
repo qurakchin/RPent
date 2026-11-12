@@ -31,9 +31,8 @@
    * - ``prompts``
      - ``PromptBundle``：``system`` 与 ``user`` 两套 prompt 工厂（见
        ``robots/<robot>/prompt_bundle.py``）。
-   * - ``dashboard``
-     - 可选的 Dashboard 描述。设为 ``None`` 时，该机器人不支持 Dashboard 控制；
-       否则由该配置定义任务命令与字段、运行组件和图像通道。
+   * - ``resolve_dashboard``
+     - 可选的钩子：从会话参数解析出 ``DashboardSpec``。设为 ``None`` 时，该机器人不支持 Dashboard 控制；否则由返回的配置定义任务命令与字段、运行组件和动作原语控件。
    * - ``add_cli_args``
      - 注册本机器人的 CLI 参数（如 ``--suite``、``--env-endpoint``）。
    * - ``parse_config``

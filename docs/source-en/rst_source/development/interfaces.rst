@@ -33,10 +33,11 @@ functions implemented in ``robot_spec.py`` for ``main.py`` to call:
    * - ``prompts``
      - A ``PromptBundle`` with ``system`` and ``user`` prompt factories (see
        ``robots/<robot>/prompt_bundle.py``).
-   * - ``dashboard``
-     - Optional Dashboard description. ``None`` disables Dashboard control for
-       the robot. Otherwise, the spec defines its task command and
-       fields, runtime components, and frame channels.
+   * - ``resolve_dashboard``
+     - Optional hook that maps session arguments to a ``DashboardSpec``.
+       ``None`` disables Dashboard control for the robot. The returned spec
+       defines the task command and fields, runtime components, and primitive
+       controls.
    * - ``add_cli_args``
      - Register this robot's CLI flags (e.g. ``--suite``, ``--env-endpoint``).
    * - ``parse_config``

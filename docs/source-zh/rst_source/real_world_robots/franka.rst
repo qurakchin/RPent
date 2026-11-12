@@ -15,17 +15,17 @@ RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械�
 安装
 ----
 
-请先按照 `libfranka 官方快速安装指南 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_ 安装 libfranka 0.19.0。
+仓库中的配置使用 ``franky`` 后端，无需另外安装 libfranka；安装 ``franka`` extra 即可。该 extra 会安装 ``franky-control`` 1.1.3（内置 libfranka 0.19.0），以及 RLinf ``release/v0.4``、``rpent-openpi`` 和 Franka 的相机、夹爪与遥操作依赖。
 
-克隆 RPent 并安装 Python 依赖。若已有仓库，进入仓库后执行 ``uv sync``：
+``franky-control`` wheel 仅提供 Linux x86_64 的 Python 3.10、3.11、3.12 版本；RPent 要求 Python ``>=3.10,<3.13``。在其他平台或 Python 版本上不会安装该 wheel，Franka 控制器无法启动。请参考 `libfranka 官方安装指南 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_，核对内置 libfranka 0.19.0 与机器人固件是否兼容。
+
+克隆 RPent 并安装 Python 依赖。若已有仓库，进入仓库后执行同一条命令：
 
 .. code-block:: bash
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
    uv sync --extra franka
-
-该命令将 RLinf ``release/v0.4``、``rpent-openpi`` 以及 Franka 的相机、夹爪和遥操作依赖安装到 ``.venv``。其中的 ``franky-control`` wheel 已包含 libfranka 0.19.0。
 
 标定（Calibration）
 ----------------------
@@ -48,7 +48,7 @@ RPent 会直接加载这些 YAML 文件：在机器人配置的 ``perception.cal
 
 仓库中给出的值是开发默认值，在启用机械臂运动前必须逐项核对：
 
-* ``robots/franka/config/example.yaml``，包含机器人身份（机器人 IP、相机序列号、夹爪）、工作空间几何（目标/复位位姿、安全边界）和 easy_handeye YAML 映射（见上方标定说明）。示例设置 ``backend: franky`` 和 ``realtime_config: ignore``。如果需要强制 RPent 在 PREEMPT_RT 内核上运行，可将 ``realtime_config`` 改为 ``enforce``，此时若 RPent 无法获得实时保证，将拒绝启动。
+* ``robots/franka/config/example.yaml``，包含机器人身份（机器人 IP、相机序列号、夹爪）、工作空间几何（目标/复位位姿、安全边界）和 easy_handeye YAML 映射（见上方标定说明）。示例设置 ``backend: franky`` 和 ``realtime_config: ignore``。在 PREEMPT_RT 内核上可将 ``realtime_config`` 改为 ``enforce``；此时若 RPent 无法获得实时保证，将拒绝启动。
 
 RPent 会把这份机器人配置转换成内部的 RLinf cluster 和环境对象。如需改用其他文件，请传入 ``--robot-config /path/to/robot_config.yaml``。
 
@@ -96,7 +96,7 @@ RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vl
 工具与状态产物
 --------------
 
-Franka 扩展提供 ``view_env_state``、``view_camera_meta``、``move_delta``、 ``rotate_delta``、``open_gripper``、``close_gripper`` 和 ``vla_grasp``。所有会改变环境状态的工具都会把机器人状态、腕部与外部 RGB 图像、可选的对齐深度数组和相机元数据保存到 RPent 统一的 ``EnvState`` 中。
+Franka 扩展提供 ``view_env_state``、``view_camera_meta``、``view_perception_setup``、``back_project``、``back_project_correspondence``、``move_delta``、``rotate_delta``、``open_gripper``、``close_gripper`` 和 ``vla_grasp``。``view_perception_setup`` 读取已加载的标定和投影约定；``back_project`` 将一个腕部或外部相机像素转换为基座坐标；``back_project_correspondence`` 将成对的腕部与外部相机像素融合为一个基座坐标系点。所有会改变环境状态的工具都会把机器人状态、腕部与外部 RGB 图像、可选的对齐深度数组和相机元数据保存到 RPent 统一的 ``EnvState`` 中。
 
 安全要求
 --------
@@ -127,7 +127,7 @@ Franka Flash 任务卡
 每次平移都需要语义锚点；每次旋转都需要意图及 ``relative`` 或 ``fixed`` 模式。
 单臂可使用 ``third_person``、``wrist``；双臂可使用 ``base``、``d455``、
 ``left_wrist``、``right_wrist``。所选视角必须具有深度和有效标定。
-单步平移限制为 0.20 m，单步旋转限制为 0.35 rad。
+回放时，从当前 TCP 到定位目标的移动量不得超过 0.20 m，旋转量不得超过 0.35 rad；更大的动作应拆成记录中的中间步骤。
 
 从审阅后的记录生成任务卡；此操作不连接机器人，但需要可访问的 Molmo 服务::
 

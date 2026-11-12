@@ -111,8 +111,9 @@ Set the following fields in ``robots/yam/config/example.yaml`` for your physical
   per arm.
 
 After configuring both poses, enable ``reset.enabled`` and ``park_on_close.enabled``.
-ENV cannot start without a configured home pose. Do not copy another robot's joint
-positions.
+ENV cannot start unless ``park_on_close.enabled`` is true. Every enabled pose
+must give 14 joint positions for both arms and stay within the configured joint
+limits. Do not copy another robot's joint positions.
 
 To use another file, pass ``--robot-config /path/to/robot_config.yaml``. Specify the
 task ID, task instruction, seed and step limit through CLI arguments.
@@ -300,8 +301,8 @@ command above with the current episode ID.
      --env-endpoint socket://127.0.0.1:8110 --max-episode-steps 1000
 
 Enter one JSON command per line, such as ``{"tool":"status"}``. Supported tools are
-``move_to``, ``rotate_wrist``, ``set_gripper`` and ``release``, with parameters passed
-through ``arguments``.
+``status``, ``stop``, ``move_to``, ``rotate_wrist``, ``set_gripper`` and ``release``.
+Pass motion parameters through ``arguments``; ``status`` and ``stop`` take none.
 
 **VLA prediction and execution checks**
 
@@ -391,10 +392,20 @@ After confirming task completion on site, use ``status`` to read the current
      --event success --note 'Task completion confirmed on site for this episode'
 
 For failure or abort, use ``--event failure`` or ``--event abort``, respectively, and
-provide a note.
+provide the current ``--episode-id`` and a note.
 
 ``eval_success=True`` means the on-site operator has confirmed success for the current
 episode.
+
+Verification Status
+-------------------
+
+The v0.1 release notes and :doc:`YAM demo page <../real_world_demos/yam>` record
+demos in which YAM reads bottle and bag labels to sort drinks, checks a grasp
+with a small test lift, adjusts its wrist when a path is obstructed, and moves
+bowls to reach a hidden spoon. These are demonstration records, not a
+success-rate evaluation. This page reports no episode count or success rate,
+and a successful demo does not establish performance on a different rig.
 
 .. _yam-tools:
 
@@ -455,6 +466,31 @@ by default. Use ``--no-auto-merge-memory`` to disable automatic merging. See
 
 Stop and Shutdown
 -----------------
+
+.. warning::
+
+   Keep an on-site operator at the hardware emergency stop during motion. The software
+   stops below hold the current posture or end the episode; they do not cut motor power
+   and are not a substitute for the emergency stop.
+
+To stop an active task, send an abort receipt with the current episode ID:
+
+.. code-block:: bash
+
+   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
+     --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
+     --event abort --note 'Stopping the task and holding the arms'
+
+``--event abort`` writes the abort receipt and sends ``env.request_stop``. The request
+sets a stop latch and holds the measured joint positions at the next safe writer
+boundary; the call returns before the hold is confirmed (``hold_confirmed: false``).
+Keep clear of the arms and keep the emergency stop accessible until they stop. ``abort``
+does not run the ``park_on_close`` home motion.
+
+In the manual diagnostic console, ``{"tool":"stop"}`` sends the same stop request, and
+``quit`` sends a stop request before exiting. Neither homes nor releases the grippers.
+If the console reports an uncertain operation, inspect the physical setup and restart
+the console instead of repeating the command.
 
 After stopping the task, set down or remove any objects held in the grippers. Confirm
 that the path to the home pose is clear, then run in the operator terminal:

@@ -3,7 +3,7 @@
 Planner Configuration
 =====================
 
-Select the Agentic Planner backend with one CLI flag:
+This page explains how to choose a planner, connect it to a model service, and verify that connection before running tasks. Select the Agentic Planner backend with one CLI flag:
 
 .. code-block:: text
 
@@ -94,7 +94,7 @@ Relevant ``api`` planner knobs:
   text-only models. The agent then reasons from textual state alone,
   so task performance may not be satisfactory.
 
-For ``--tui`` usage, see :ref:`Terminal interaction <quickstart-interactive>`.
+For ``--tui`` usage, see :ref:`Terminal interaction <terminal-interaction>`.
 
 .. _planner-claude-code:
 
@@ -294,11 +294,14 @@ robot runtime:
 
 It exits ``0`` on success and ``1`` on any failure, and classifies the
 failure as one of ``missing_config``, ``unsupported_provider``,
-``missing_api_key``, ``auth_failed``, ``network_error``,
+``missing_api_key``, ``auth_failed``, ``invalid_model``, ``network_error``,
 ``provider_error``, or ``sdk_error``. Use ``--json`` for scripting and
-CI. ``--base-url`` overrides the backend's endpoint, and ``--timeout-s``
-overrides the diagnostic timeout (30 s for ``api``, 90 s for the two SDK
-backends; the ``1200`` s run default is never reused).
+CI. ``--base-url`` applies to ``api`` only; the SDK planners read
+``ANTHROPIC_BASE_URL`` or ``CODEX_BASE_URL``, and passing the flag with either
+is an error. ``--timeout-s`` overrides the diagnostic timeout (30 s for
+``api``, 90 s for the two SDK backends, or 25 s when an SDK backend runs on a
+CLI login without its credential variable; the ``1200`` s run default is never
+reused).
 
 Before using the Dashboard, run the same check in a terminal with the
 planner and model settings you intend to use for the task. The Dashboard

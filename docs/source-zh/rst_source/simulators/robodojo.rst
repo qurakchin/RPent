@@ -69,6 +69,12 @@ RoboDojo
    * - 任务指令
      - 来自当前场景的 RoboDojo 任务描述，通过 ``view_env_state`` 读取。
 
+验证状态
+--------
+
+- 已验证（单次）：v0.1 发布说明检查了安装与 ``put_bottles_into_dustbin`` 的一次执行。这验证安装与执行流程，不是任务成功率评测；见 :doc:`发布说明 <../resources/release_v0.1>`。
+- 仅 CPU：离线单测覆盖配置、工具与结果契约。
+
 安装与资源准备
 --------------
 
@@ -293,7 +299,7 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 ``agent_error_present=false``，再看 ``success`` 是否为 ``true``。该字段记录 RoboDojo 的原生任务判定，\
 ``finish`` 用于结束规划循环。
 
-未指定输出目录时，结果保存在 ``logs/<timestamp>_robodojo_<task>_s<seed>_l<layout>/``。并发运行应使用不同目录。\
+未指定输出目录时，结果保存在 ``logs/<timestamp>_robodojo_<task>_s<seed>_l<layout>/``；使用 ``--random`` 时后缀为 ``<task>_random``，不包含 seed 和 layout。并发运行应使用不同目录。\
 实时查看方式见 :doc:`../guides/dashboard`。
 
 ``score`` 记录原生任务进度分数，范围为 0–100。成功回合记为 100；失败回合

@@ -78,6 +78,15 @@ The table distinguishes planner tools, model inputs, and the environment’s suc
    * - Task prompt
      - Use the current environment’s complete ``task_language``; historical memory does not replace it.
 
+Validation Status
+-----------------
+
+- Verified (multiple runs): the v0.1 release report covers the Target50
+  protocol; see :doc:`../resources/release_v0.1` for the task/seed matrix and
+  the :doc:`leaderboard <../leaderboard/index>` for published scores.
+- CPU only: offline unit tests cover configuration, tools, and evaluation
+  result contracts.
+
 Installation and Resources
 --------------------------
 
@@ -93,10 +102,18 @@ at the third line:
    uv venv --python 3.10 .venv-robocasa
    source .venv-robocasa/bin/activate
 
-First install a matching CUDA-enabled Torch and torchvision pair for your driver
-using the `PyTorch instructions <https://pytorch.org/get-started/locally/>`_
-(replace ``pip`` with ``uv pip``). RLDX requires Torch >= 2.7 and
-torchvision >= 0.22, with mutually compatible versions. Then install RoboCasa:
+First install a matching CUDA-enabled Torch and torchvision pair for your driver.
+RLDX requires Torch >= 2.7 and torchvision >= 0.22, with mutually compatible
+versions. The CUDA 12.8 build is:
+
+.. code-block:: bash
+
+   uv pip install "torch>=2.7" "torchvision>=0.22" \
+     --index-url https://download.pytorch.org/whl/cu128
+
+For another CUDA version, replace ``cu128`` with the matching index from the
+`PyTorch previous-versions page
+<https://pytorch.org/get-started/previous-versions/>`_. Then install RoboCasa:
 
 .. list-table::
    :header-rows: 1
@@ -109,8 +126,9 @@ torchvision >= 0.22, with mutually compatible versions. Then install RoboCasa:
      - ``robocasa-download-assets`` (command below)
 
 Dependencies come from ``pyproject.toml``, including the ``rpent`` source branches
-of RoboCasa, RLDX and Robosuite. Do not also install ``rlinf-robocasa365``, which
-provides the same import package.
+of RoboCasa, RLDX and Robosuite; this extra installs ``rpent-robocasa365``. Do not
+also install upstream ``robocasa`` or another RoboCasa365 package, which provide
+the same ``robocasa`` import package.
 
 Check dependencies, download the kitchen assets (~10 GB) outside the Python
 package directory, and set their path in the shell used to launch RPent:

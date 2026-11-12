@@ -75,6 +75,12 @@ C2R 使用干净场景中的成功轨迹作为经验，在随机场景中评测�
    * - 任务指令
      - 评测表中的任务与 seed 组合在重置后使用对应的 ``task_language``；自定义 seed 使用原生环境生成的指令。
 
+验证状态
+--------
+
+- 已验证（多次）：v0.1 发布版测试与论文配置抽样复现覆盖 ``demo_randomized`` 中的 10 个 RoboTwin 任务；任务与 seed 列表见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
+- 仅 CPU：离线单测覆盖配置、工具与结果契约。
+
 安装
 ----
 
@@ -175,7 +181,7 @@ Fast-WAM 配置
 查看结果
 --------
 
-终端会显示服务启动信息、规划器输出和工具调用。默认情况下，运行结果保存在 ``logs/<timestamp>_robotwin_<task-name>_s<seed>/``。排查或复核运行结果时，可以先查看以下文件：
+终端会显示服务启动信息、规划器输出和工具调用。默认情况下，运行结果保存在 ``logs/<timestamp>_robotwin_<task-name>_<task-config>_s<seed>/``，其中 ``<task-config>`` 是 ``--task-config`` 的值（默认 ``demo_randomized``）。排查或复核运行结果时，可以先查看以下文件：
 
 - ``run.log``：RPent 主进程日志。
 - ``robotwin_env_server.log`` 和 ``lingbot_vla_server.log``：仿真环境与模型服务的启动和报错信息。

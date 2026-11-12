@@ -6,6 +6,8 @@ Memory-Guided Agents*
 
 **资源：** `论文 <https://arxiv.org/abs/2607.08448>`_ | `项目主页 <https://harnessvla.github.io/>`_ | `代码 <https://github.com/RLinf/RPent>`_
 
+本页概述 Harness VLA 论文及其支撑 RPent 记忆引导规划的评测结果；安装与运行命令见文末链接的各平台教程。
+
 概述
 ----
 
@@ -63,10 +65,10 @@ Harness VLA 的评估覆盖标准和扰动后的桌面操作、家庭厨房长�
 
 Harness VLA / Opus-4.7 在标准 LIBERO 上取得 96.0% 的成功率，与 π\ :sub:`RLinf` 的 95.3% 相当；在 LIBERO-PRO 上达到 82.4%，超过 π\ :sub:`RLinf` 的 50.0%。Cap-X 和 RATS 仅报告六项评测，其有效分项成绩在排行榜的完整结果表中单独列出。在 RoboCasa365 上，Harness VLA / GPT-5.5 将任务加权总体成功率从 RLDX-1 的 30.0% 提升至 57.1%。在 RoboTwin C2R 上，Harness VLA / Opus-4.7 达到 58.4%，超过 LingBot-VLA 的 50.4%。这些提升来自三种相互配合的机制：Planner 完成语义重新定位，在重新预置位后对 VLA 进行稀疏且有针对性的重试，以及使用 Analytic Primitives 隔离非接触执行。
 
-快速开始
+复现分支
 --------
 
-以下链接给出各环境已有文档中的代码入口。安装配置和运行命令见对应教程；历史复现应保留当时配套的代码与数据。
+以下复现分支和 Memory 记录给出历史复现使用的代码与数据入口。安装配置和运行命令见对应教程；历史复现应保留当时配套的代码与数据。
 
 * **LIBERO：** :doc:`教程 <../simulators/libero>` — `reproduce/libero <https://github.com/RLinf/RPent/tree/reproduce/libero>`_
 * **RoboCasa：** :doc:`教程 <../simulators/robocasa>` — ``main`` 上的 task-specific + global memory 评测流程

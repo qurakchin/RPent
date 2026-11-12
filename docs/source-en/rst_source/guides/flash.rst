@@ -1,10 +1,11 @@
 Flash Mode
 ==========
 
-A **Flash plan** stores the action sequence for a LIBERO task and marks the key
-objects or locations needed by those actions. During replay, RPent finds their
-current coordinates in the camera images, updates the action coordinates, and
-executes the recorded actions in order.
+This page explains how Flash Mode replays a recorded plan on a new layout and
+how to generate plans. A **Flash plan** stores the action sequence for a LIBERO
+task and marks the key objects or locations needed by those actions. During
+replay, RPent finds their current coordinates in the camera images, updates the
+action coordinates, and executes the recorded actions in order.
 
 This keeps planning and perception separate:
 
@@ -28,9 +29,7 @@ on Hugging Face rather than tracked in Git. Flash defaults to
 ``--memory-version GPT_5.5_xhigh`` and uses that version's isolated cache.
 The published ``GPT_5.5_xhigh/flash/`` directory contains 78 plan/anchor pairs:
 20 Spatial, 20 Object, 19 Goal and 19 Long tasks. ``goal_swap_t0`` and
-``10_swap_t9`` have no successful source plan and remain absent. These files
-come unchanged from the merged Hugging Face Flash release; publishing them in
-the versioned directory does not constitute a new simulator evaluation.
+``10_swap_t9`` have no successful source plan and remain absent.
 
 With ``--memory-profile local --memory-dir /path/to/memory/libero/GPT_5.5_xhigh``,
 replay reads ``flash/`` plans under that selected root without downloading.
@@ -197,8 +196,9 @@ refer to evaluation-stage output only.
 
 RPent Flash Mode uses directly downloaded, officially released GPT-5.5
 exploration memory, Molmo2-8B for visual localization, and the same VLA as
-pi_RLinf for action execution. The displayed scores are the best evaluation
-results from s0-s9.
+pi_RLinf for action execution. Each leaderboard component includes all 100
+expected cases (tasks 0–9 and seeds 0–9), and cases without a Flash plan
+remain in the denominator.
 
 Historical Comparison
 ~~~~~~~~~~~~~~~~~~~~~
@@ -207,11 +207,9 @@ The following chart records the earlier Flash/Codex comparison. Its timing
 uses the successful source episode for each Flash plan, so it has a different
 measurement scope from the evaluation-episode mean above.
 
-Across the complete 800-case LIBERO-PRO matrix (Spatial, Object, Goal, and Long;
-task/swap; 10 seeds per task), Flash Mode solved 581 episodes (72.63%). Codex
-without reasoning solved 500 (62.50%), while Codex with high reasoning solved
-628 (78.50%). The two tasks without a successful source trace and therefore no
-Flash plan are conservatively counted as 0/10.
+The chart compares Flash Mode with Codex without reasoning (500/800, 62.50%)
+and Codex with high reasoning (628/800, 78.50%). It uses the same 800-case
+matrix as the results above.
 
 .. image:: https://raw.githubusercontent.com/RLinf/misc/main/rpent/flash/flash_libero_pro_performance_time.png
    :alt: Per-task success rate and execution-time comparison between Flash Mode and Codex on all LIBERO-PRO suites

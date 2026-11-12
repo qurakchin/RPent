@@ -11,7 +11,7 @@ Requirements
 - Linux, an NVIDIA GPU, and a driver compatible with the selected PyTorch CUDA build.
 - ``git``, ``bash``, and a C/C++ toolchain.
 - `uv <https://docs.astral.sh/uv/getting-started/installation/>`_ to create an isolated Python environment. These commands use Python 3.11.
-- An Anthropic API key with access to the example model, and network access to download assets and weights. Model calls incur API charges.
+- Credentials for the Claude Code planner: either an ``ANTHROPIC_API_KEY`` with access to the example model, or a Claude Code login created with ``claude auth login``. You also need network access to download assets and weights; model calls incur API charges.
 
 1. Install RPent
 ----------------
@@ -25,16 +25,18 @@ Create and activate an isolated Python environment:
    uv venv --python 3.11
    source .venv/bin/activate
 
-Install ``torch==2.7.1`` and ``torchvision==0.22.1`` as required by OpenPI.
-Choose a build compatible with your GPU and NVIDIA driver from the
-`PyTorch installation instructions <https://pytorch.org/get-started/previous-versions/>`_,
-replacing ``pip install`` with ``uv pip install``. Then install LIBERO-PRO:
+Install the PyTorch build required by OpenPI. This command uses the CUDA 12.8
+index; replace ``cu128`` with the index for your GPU and NVIDIA driver from the
+`PyTorch previous-versions page <https://pytorch.org/get-started/previous-versions/>`_.
+Then install LIBERO-PRO:
 
 .. code-block:: bash
 
+   uv pip install "torch==2.7.1" "torchvision==0.22.1" \
+     --index-url https://download.pytorch.org/whl/cu128
    uv pip install -e ".[libero-pro]"
 
-Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv`` and set the checkpoint paths and API key again.
+Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv`` and set the checkpoint paths again, and export the API key if you use one.
 
 2. Download Assets and Models
 -----------------------------
@@ -64,14 +66,14 @@ Pi0.5 executes robot actions; SAM3 locates objects in images. SAM3 is also avail
 3. Configure and Check the Planner
 ----------------------------------
 
-Replace ``YOUR_API_KEY`` with your key:
+Export an API key if you use one. A ``claude auth login`` session is also accepted, in which case skip the ``export`` line. Then check the planner:
 
 .. code-block:: bash
 
    export ANTHROPIC_API_KEY="YOUR_API_KEY"
    rpent-check-llm --planner claude_code --model claude-opus-4-8
 
-The official Anthropic endpoint needs no ``ANTHROPIC_BASE_URL`` setting. See :doc:`../guides/configure_planner` for custom endpoints and other planners. Proceed after the check passes; it verifies model-service authentication and connectivity.
+The official Anthropic endpoint needs no ``ANTHROPIC_BASE_URL`` setting. See :doc:`../guides/configure_planner` for custom endpoints and other planners. Proceed after the check passes; it verifies model-service authentication and connectivity. The check reports a missing key only when it detects neither an API key nor a Claude Code login.
 
 4. Run Your First Task
 ----------------------
@@ -118,7 +120,11 @@ If a Step Fails
    * - Model connection fails
      - Check the key, model access, and endpoint; rerun ``rpent-check-llm``.
    * - Asset download fails
-     - Rerun the download. If Hugging Face is slow, optionally set ``HF_ENDPOINT=https://hf-mirror.com`` for that command.
+     - Rerun the download. ``--skip-existing`` is an option of the LIBERO-PRO package's ``liberopro-download-assets`` helper, not of ``rpent``. If Hugging Face is slow, optionally set ``HF_ENDPOINT=https://hf-mirror.com`` for that command.
+   * - Model download fails on Hugging Face
+     - For gated weights, request access on the model page and run ``hf auth login``; then retry. If the service is slow, set ``HF_ENDPOINT`` as above, or use the ModelScope command on this page for SAM3.
+   * - Model download fails on ModelScope
+     - Rerun the command. If ModelScope keeps failing, use the Hugging Face alternative in :doc:`../simulators/libero` and point ``SAM3_CHECKPOINT_PATH`` at the downloaded file.
    * - Environment or model fails to start
      - Check both checkpoint paths, then inspect ``env_server.log``, ``vla_server.log``, or ``sam3_server.log``. For out-of-memory errors, check other GPU processes.
    * - Task runs but does not succeed

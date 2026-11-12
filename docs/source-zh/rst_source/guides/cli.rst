@@ -1,7 +1,7 @@
 命令行参考
 ==========
 
-使用 ``rpent --robot <name> --help`` 查看所选环境的完整参数。共享参数由 RPent 提供，任务选择、资源路径和服务参数由各环境补充。
+本页汇总所有机器人共用的参数，以及选择和连接模型服务的动作模型参数。使用 ``rpent --robot <name> --help`` 查看所选环境的完整参数；任务选择、资源路径和服务参数由各环境补充。
 
 .. code-block:: bash
 
@@ -59,10 +59,10 @@
      - ``false``
      - 使用 ``api``、``claude_code`` 或 ``codex`` 时，记录任务、模型请求与回复，以及工具调用。评测模式下，支持动作采集的环境还会记录实际执行的动作及其观测。采集和导出方法见 :doc:`flywheel`。
    * - ``--memory-profile``
-     - ``—``
-     - 通常评测默认为 ``hf``；探索和 WAM 评测使用 ``local``。
+     - ``hf`` / ``local``
+     - 评测默认 ``hf``；探索、WAM 评测和 YAM 默认 ``local``。
    * - ``--memory-dir``
-     - ``—``
+     - 环境默认目录
      - 本地记忆目录；与本地模式或探索一起使用。
    * - ``--memory-repo``
      - ``—``
@@ -92,11 +92,11 @@
 环境参数
 ------------
 
-LIBERO 使用 ``--suite``、``--task``、``--seed`` 和 ``--libero-type`` 选择任务；默认类型为 ``LIBERO_TYPE`` 或 ``pro``。RoboCasa365 和 RoboTwin 使用 ``--task-name``。Franka 使用 ``--task-id`` 和 ``--robot-config``。具体选项见 :doc:`../simulators/libero`、:doc:`../simulators/robocasa`、:doc:`../simulators/robotwin`、:doc:`../real_world_robots/franka` 和 :doc:`../real_world_robots/dual_franka`。
+LIBERO 使用 ``--suite``、``--task``、``--seed`` 和 ``--libero-type`` 选择任务；类型由套件名推断（基础套件为 ``standard``，扰动套件为 ``pro``），``--libero-type`` 或 ``LIBERO_TYPE`` 可覆盖推断结果，扰动套件必须使用 ``pro``。RoboCasa365 和 RoboTwin 使用 ``--task-name``。Franka 使用 ``--task-id`` 和 ``--robot-config``。具体选项见 :doc:`../simulators/libero`、:doc:`../simulators/robocasa`、:doc:`../simulators/robotwin`、:doc:`../real_world_robots/franka` 和 :doc:`../real_world_robots/dual_franka`。
 
 ``--env-endpoint``、``--am-endpoint`` 和 LIBERO 的 ``--sam3-endpoint`` 分别连接已有的环境、动作模型（VLA 或 WAM）和 SAM3 服务。RPent RPC 地址格式为 ``[protocol://]host:port``，默认协议为 ``http``；LingBot 使用原生 WebSocket，见 :doc:`../simulators/robotwin`。GPU 分配和远程服务见 :doc:`advanced_deployment`。
 
-``--am-backend`` 选择当前平台支持的一个动作模型；LIBERO 和 RoboTwin 默认分别为 ``pi05`` 和 ``lingbot``。VLA 和 WAM 共用 ``--am-endpoint`` 连接已有服务，共用 ``--am-checkpoint``、``--am-python``、``--am-root`` 和 ``--am-cuda-device`` 配置本地部署。使用 endpoint 时，显式传入本地部署参数会报错。
+``--am-backend`` 选择当前平台支持的一个动作模型。LIBERO、Franka、dual-Franka 和 YAM 默认使用 ``pi05``，RoboTwin 默认 ``lingbot``，RoboCasa 默认 ``rldx``，RoboDojo 默认 ``vpp2``。VLA 和 WAM 共用 ``--am-endpoint`` 连接已有服务，共用 ``--am-checkpoint``、``--am-python``、``--am-root`` 和 ``--am-cuda-device`` 配置本地部署。使用 endpoint 时，显式传入本地部署参数会报错。
 
 WAM 采用 ``local`` 记忆模式并注册记忆文件工具，默认目录按后端区分，可通过 ``--memory-dir`` 指定目录；目前不支持 HF 记忆、Flash 和探索模式。模型启动参数及支持的组合见 :doc:`../development/add_action_model`。
 

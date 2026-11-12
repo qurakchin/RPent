@@ -75,6 +75,16 @@ The table distinguishes planner tools, model inputs, and the environment’s suc
    * - Task prompt
      - Listed evaluation task/seed pairs use their verified ``task_language`` after reset; custom seeds use language from the native environment.
 
+Validation Status
+-----------------
+
+- Verified (multiple runs): the v0.1 release tests and sampled paper
+  reproduction cover ten RoboTwin tasks in ``demo_randomized``; see
+  :doc:`../resources/release_v0.1` for task and seed lists, and the
+  :doc:`leaderboard <../leaderboard/index>` for published scores.
+- CPU only: offline unit tests cover configuration, tools, and result
+  contracts.
+
 Installation
 ------------
 
@@ -202,8 +212,9 @@ View Results
 
 The terminal shows server startup, planner output, and tool calls. By default,
 the run is saved under
-``logs/<timestamp>_robotwin_<task-name>_s<seed>/``. Start with these files when
-checking a run:
+``logs/<timestamp>_robotwin_<task-name>_<task-config>_s<seed>/``, where
+``<task-config>`` is the ``--task-config`` value (``demo_randomized`` by
+default). Start with these files when checking a run:
 
 - ``run.log`` contains the RPent process log.
 - ``robotwin_env_server.log`` and ``lingbot_vla_server.log`` contain simulator

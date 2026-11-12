@@ -78,6 +78,12 @@ Target50 包含以下任务类别，完整任务、seed 和运行限制见本页
    * - 任务指令
      - 使用当前环境的完整 ``task_language``，历史记忆中的指令不能替代当前任务指令。
 
+验证状态
+--------
+
+- 已验证（多次）：v0.1 发布说明覆盖 Target50 协议；任务与 seed 矩阵见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
+- 仅 CPU：离线单测覆盖配置、工具与评测结果契约。
+
 安装与资源准备
 ---------------------
 
@@ -90,14 +96,14 @@ Target50 包含以下任务类别，完整任务、seed 和运行限制见本页
    uv venv --python 3.10 .venv-robocasa
    source .venv-robocasa/bin/activate
 
-先按 `PyTorch 安装说明 <https://pytorch.org/get-started/locally/>`_ 选择与 GPU 和驱动兼容的 CUDA 构建。RLDX 要求 Torch >= 2.7、torchvision >= 0.22，且两者版本匹配。国内可使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_；将下方 ``<CUDA_TAG>`` 替换为所选构建（如 ``cu126`` 或 ``cu128``）：
+先安装与 GPU 和驱动匹配的 CUDA 版 Torch 和 torchvision。RLDX 要求 Torch >= 2.7、torchvision >= 0.22，且两者版本匹配。CUDA 12.8 构建为：
 
 .. code-block:: bash
 
    uv pip install "torch>=2.7" "torchvision>=0.22" \
-     --index-url "https://mirror.sjtu.edu.cn/pytorch-wheels/<CUDA_TAG>/"
+     --index-url https://download.pytorch.org/whl/cu128
 
-PyTorch 安装完成后，再安装 RoboCasa：
+其他 CUDA 版本请参考 `PyTorch previous-versions 页面 <https://pytorch.org/get-started/previous-versions/>`_，把 ``cu128`` 换成对应的索引。安装完成后，再安装 RoboCasa：
 
 .. list-table::
    :header-rows: 1
@@ -109,7 +115,7 @@ PyTorch 安装完成后，再安装 RoboCasa：
      - ``uv pip install -e ".[robocasa]"``
      - ``robocasa-download-assets`` （见下方命令）
 
-依赖以 ``pyproject.toml`` 为准，包含 RoboCasa、RLDX 和 Robosuite 的 ``rpent`` 分支源码。不要另装提供同一导入包的 ``rlinf-robocasa365``。
+依赖以 ``pyproject.toml`` 为准，包含 RoboCasa、RLDX 和 Robosuite 的 ``rpent`` 分支源码；该 extra 安装的是 ``rpent-robocasa365``。不要在同一环境中另装上游 ``robocasa`` 或其他 RoboCasa365 包，它们提供相同的 ``robocasa`` 导入包。
 
 检查依赖后，将约 10 GB 的厨房资源放到 Python 包目录之外，并在启动 RPent 的终端设置资源路径：
 

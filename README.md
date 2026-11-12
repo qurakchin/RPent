@@ -88,8 +88,8 @@ RPent is built for four kinds of users:
           <li><b>WAM</b></li>
           <ul>
             <li>DreamZero</li>
-            <li><a href="docs/source-en/rst_source/development/add_action_model.rst">Cosmos Policy</a> (LIBERO / LIBERO-Pro)</li>
-            <li><a href="docs/source-en/rst_source/development/add_action_model.rst">Fast-WAM</a> (LIBERO / LIBERO-Pro / RoboTwin)</li>
+            <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/development/add_action_model.html#add-a-wam">Cosmos Policy</a> (LIBERO / LIBERO-Pro)</li>
+            <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/development/add_action_model.html#add-a-wam">Fast-WAM</a> (LIBERO / LIBERO-Pro / RoboTwin)</li>
           </ul>
         </ul>
       </td>
@@ -106,7 +106,7 @@ RPent is built for four kinds of users:
           <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/real_world_robots/franka.html">Franka</a> ✅</li>
           <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/real_world_robots/dual_franka.html">Dual Franka</a> ✅</li>
           <li>SO-101</li>
-          <li>YAM</li>
+          <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/real_world_robots/yam.html">YAM</a></li>
         </ul>
       </td>
     </tr>
@@ -119,15 +119,22 @@ RPent is built for four kinds of users:
 
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
-pip install -e ".[libero-pro]"  # Recommended default (LIBERO-PRO)
+uv venv --python 3.11
+source .venv/bin/activate
+
+# PyTorch build required by OpenPI; replace cu128 with the index for your driver.
+uv pip install "torch==2.7.1" "torchvision==0.22.1" \
+  --index-url https://download.pytorch.org/whl/cu128
+
+uv pip install -e ".[libero-pro]"  # Recommended default (LIBERO-PRO)
 
 # Other environment configurations:
-pip install -e ".[robocasa]"    # RoboCasa
-pip install -e ".[robotwin]"    # RoboTwin
-pip install -e ".[franka]"      # Franka and dual Franka
+uv pip install -e ".[robocasa]"    # RoboCasa
+uv pip install -e ".[robotwin]"    # RoboTwin
+uv pip install -e ".[franka]"      # Franka and dual Franka
 ```
 
-`.[libero-pro]` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/quickstart.html) for other environments.
+`.[libero-pro]` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/quickstart.html) for other environments and requirements.
 
 For RoboCasa setup, task memory, and the Target50 protocol, see the
 [RoboCasa guide](https://rpent.readthedocs.io/en/latest/rst_source/simulators/robocasa.html).
@@ -136,8 +143,8 @@ RoboCasa uses current-task files in `robocasa/task-specific/` together with
 `robocasa/global/GLOBAL_MEMORY.md` from
 [RPent-memory](https://huggingface.co/datasets/RLinf/RPent-memory/tree/main/robocasa).
 The CLI and Dashboard provide both layers for on-demand reading, with no
-full-read requirement before actions. HF memory follows the current branch
-without a fixed data revision.
+full-read requirement before actions. HF evaluation reads the dataset's `main`
+revision by default; append `@<commit>` to `--memory-repo` to pin one.
 
 The example below continues with LIBERO-PRO.
 
@@ -154,8 +161,12 @@ See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/ge
 **3. Configure keys and checkpoints, then run.**
 
 ```bash
-# Anthropic key; no need to export the base url if you use the official endpoint.
+# Anthropic key (or a Claude Code login from `claude auth login`); the official
+# endpoint needs no base URL.
 export ANTHROPIC_API_KEY=sk-xxx
+
+# Download tools.
+uv pip install "huggingface_hub>=0.34,<1.0" modelscope
 
 # VLA checkpoint — download from
 # https://huggingface.co/RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT
@@ -163,27 +174,24 @@ hf download RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT \
   --exclude optimizer.pt \
   --local-dir ./checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT
 
-export PI05_CHECKPOINT_PATH=$PWD/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT
+export PI05_CHECKPOINT_PATH="$PWD/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT"
 
 # SAM 3.0 checkpoint — download from
 # https://modelscope.cn/models/facebook/sam3
-pip install -U modelscope
+modelscope download --model facebook/sam3 sam3.pt \
+  --local_dir ./checkpoints/sam3
 
-modelscope download facebook/sam3 \
-  --local-dir ./checkpoints/sam3
-
-export SAM3_CHECKPOINT_PATH=$PWD/checkpoints/sam3/sam3.pt
-export LIBERO_TYPE=pro
+export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
 
 # Run one task: libero_object_swap, task 2, seed 0, using Claude Code
 # with Claude Opus 4.8.
-rpent --robot libero --suite libero_object_swap --task 2 --seed 0 \
+rpent --robot libero --libero-type pro --suite libero_object_swap --task 2 --seed 0 \
   --env-cuda-device 0 --am-cuda-device 0 --sam3-cuda-device 0 \
   --planner claude_code --model claude-opus-4-8
 ```
 
 See the [planner docs](https://rpent.readthedocs.io/en/latest/rst_source/guides/configure_planner.html) to configure other planners (`api`, `codex`) and model providers.
-For the exploration workflow and local-memory evaluation, see [LIBERO exploration mode](https://rpent.readthedocs.io/en/latest/rst_source/simulators/libero.html#exploration-and-local-memory-evaluation).
+For the exploration workflow and local-memory evaluation, see [LIBERO exploration mode](https://rpent.readthedocs.io/en/latest/rst_source/simulators/libero.html#libero-exploration).
 
 ### Interactive CLI mode
 
@@ -210,7 +218,8 @@ For more detailed documentation, see the [RPent documentation](https://rpent.rea
 ## Contributing
 
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
-development setup, required checks, testing policy, and integration checklists.
+development setup, required checks, testing policy, and pull request
+expectations.
 
 ## Citation and Acknowledgement
 

@@ -73,6 +73,16 @@ Observation and Action
    * - Task prompt
      - The current scene's RoboDojo task description, read through ``view_env_state``.
 
+Validation Status
+-----------------
+
+- Verified (single run): the v0.1 release checked installation and one
+  ``put_bottles_into_dustbin`` execution. This validates the installation and
+  execution workflow, not a task success rate; see :doc:`release notes
+  <../resources/release_v0.1>`.
+- CPU only: offline unit tests cover configuration, tools, and result
+  contracts.
+
 Installation and Resources
 --------------------------
 
@@ -356,8 +366,10 @@ collected; a read failure also records ``score_error``. Score is unavailable
 in ``eval-fair`` mode, which blocks access to evaluator results.
 
 Without ``--output-dir``, results go to
-``logs/<timestamp>_robodojo_<task>_s<seed>_l<layout>/``. Use different directories for
-concurrent runs. For live monitoring, see :doc:`../guides/dashboard`.
+``logs/<timestamp>_robodojo_<task>_s<seed>_l<layout>/``; with ``--random``, the
+suffix is ``<task>_random`` and no seed or layout is included. Use different
+directories for concurrent runs. For live monitoring, see
+:doc:`../guides/dashboard`.
 
 Task Memory and Exploration Mode
 --------------------------------

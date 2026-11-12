@@ -90,6 +90,12 @@ LIBERO
    * - 任务指令
      - 任务指令来自所选套件、任务及当前环境。
 
+验证状态
+--------
+
+- 已验证（多次）：v0.1 发布版测试与论文配置抽样复现覆盖 LIBERO-PRO 任务；配置、seed 与回合数见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
+- 仅 CPU：离线单测覆盖任务选择、工具与结果契约。
+
 安装与资源准备
 --------------
 
@@ -113,7 +119,7 @@ LIBERO
      - ``uv pip install -e ".[libero-plus]"``
      - ``liberoplus-download-assets --skip-existing``
 
-以上各组依赖均包含 Pi0.5（``rpent-openpi``）、SAM3 和 RLinf 运行时（``rpent-rlinf``）。模型权重需按下文单独下载。
+以上各组依赖均包含 Pi0.5（``rpent-openpi``）、SAM3 和 RLinf 运行时（``rlinf``）。模型权重需按下文单独下载。
 
 运行时通过 ``--libero-type`` 选择与安装包一致的版本。
 
@@ -207,7 +213,7 @@ Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-Pro 需�
 
 本节的 HF 记忆与探索流程适用于 VLA；WAM 使用上文说明的本地记忆。
 
-评测只运行一次尝试，读取记忆但不更新。默认的 ``hf`` 模式使用 ``--memory-version auto`` 按模型选择记忆版本。显式版本、离线准备和发布来源见 :doc:`../guides/memory`。
+评测只运行一次尝试，读取记忆但不更新。默认的 ``hf`` 模式使用 ``--memory-version auto`` 按模型选择记忆版本。显式版本、离线准备和分版本目录结构见 :doc:`../guides/memory`。
 
 使用 ``--explore`` 生成本地记忆，或通过 ``--memory-profile local`` 读取已有记忆。完整的 LIBERO 命令与操作步骤见 :doc:`../guides/memory`。LIBERO 以环境成功判定决定是否发布成功任务记录。
 

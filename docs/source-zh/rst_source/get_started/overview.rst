@@ -1,6 +1,8 @@
 RPent 简介
 ============
 
+本页介绍框架的定位、评测覆盖和已支持的平台；安装与首次运行见 :doc:`quickstart`。
+
 RPent（Recursive Physical Agent）是一个开源框架，用于构建能够在与物理世界的递归交互中持续演进的具身智能体。RPent 不限定基础模型的选择，而是提供一套递归的智能体框架，将感知、推理、记忆、执行和自我演进等不同类型的智能能力整合到统一的物理智能体中。物理智能体在持续交互中不断反思和调整，从而获得新能力，逐步突破初始设计的能力边界。
 
 Pent 这个名字源自五芒星（Pentagram），其五个顶点象征多模态智能融合为一个统一的具身智能体。中心的无穷符号（∞）代表感知、推理、执行和自我演进的递归循环，让智能持续向物理世界扩展。
@@ -38,20 +40,20 @@ RPent 的三条核心设计原则是服务化、标准化和可组合（service-
    * - :doc:`RoboCasa365 <../simulators/robocasa>`
      - RLDX-1、厨房任务和 Target50 复现。
    * - :doc:`RoboTwin <../simulators/robotwin>`
-     - LingBot-VLA、双臂仿真任务和 C2R 复现。
+     - LingBot-VLA 或 Fast-WAM、双臂仿真任务和 C2R 复现。
    * - :doc:`RoboDojo <../simulators/robodojo>`
-     - Isaac Sim 双臂 ARX-X5 操作，使用 RLinf Pi0.5 策略。
+     - Isaac Sim 双臂 ARX-X5 操作，策略动作可选 VPP2 或 Awomo05。
    * - :doc:`单臂 Franka <../real_world_robots/franka>`
      - 硬件准备、标定、自检和运行。
    * - :doc:`双臂 Franka <../real_world_robots/dual_franka>`
      - 双节点部署、操作与人工参与的探索。
    * - :doc:`YAM <../real_world_robots/yam>`
-     - 已有任务演示；安装使用文档即将推出。
+     - 双臂部署、Pi0.5 动作、标定、探索与任务演示。
    * - :doc:`SO-101 <../real_world_robots/so101>`
-     - 内容即将推出。
+     - 尚未集成，仓库中没有对应机器人适配器。
 
 规划器可选择 ``api``、``claude_code`` 或 ``codex``；LIBERO 还提供用于执行已有计划的 :doc:`Flash Mode <../guides/flash>`。模型服务配置见 :doc:`../guides/configure_planner`。
 
 从 :doc:`quickstart` 开始运行第一个任务。评测成绩和资源开销见 :doc:`../leaderboard/index`，研究背景见 :doc:`../resources/harnessvla`。
 
-DreamZero、Cosmos Policy 和 RoboDojo 也列在项目的规划中，相关使用文档待补充。
+DreamZero 是计划中的 WAM 后端，尚未集成，暂无使用文档。

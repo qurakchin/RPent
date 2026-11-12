@@ -1,7 +1,9 @@
 Remote Services and Parallel Runs
 =================================
 
-The examples below use LIBERO with Pi0.5 VLA and SAM3. By default, RPent starts
+This page covers running the environment and model services on separate hosts,
+or reusing them across tasks and processes. The examples below use LIBERO with
+Pi0.5 VLA and SAM3. By default, RPent starts
 and stops these services and the environment with each run. Configure external
 endpoints when services live on different hosts or are reused across tasks.
 For WAM worker deployment, see :ref:`action-model-deployment`.
@@ -11,9 +13,7 @@ environment, ``--am-endpoint`` for the selected action model, and ``--sam3-endpo
 for SAM3. Each takes ``[protocol://]HOST:PORT`` — HTTP when the protocol is
 omitted, or ``socket://`` for socket RPC.
 
-Dashboard Sessions do not support ``--env-endpoint`` because every TaskRun
-uses a fresh environment service. ``--am-endpoint`` and ``--sam3-endpoint``
-remain available in Dashboard mode.
+See :doc:`dashboard` for the endpoint rules that apply to Dashboard sessions.
 
 LIBERO Environment Service
 --------------------------
@@ -75,13 +75,13 @@ Start the service with that environment's Python:
      --precision bf16 \
      --transport http --host 127.0.0.1 --port 8220
 
-Add ``--vla-endpoint http://127.0.0.1:8220`` to the LIBERO command. For remote
+Add ``--am-endpoint http://127.0.0.1:8220`` to the LIBERO command. For remote
 access, bind to a reachable interface and use the server's address. Stop this
 external service yourself when finished. Omitting the endpoint starts OpenPI.
 APXInf-robo's native OpenPI WebSocket server is not an RPent RPC endpoint;
 use the adapter above.
 
-The adapter supports eval mode with these checkpoint configurations:
+The adapter accepts only eval-mode requests and declares presets for these checkpoint configurations:
 
 - ``libero``: two views, five flow steps, ten predicted actions; returns the
   first five as float32 in environment units.

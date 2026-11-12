@@ -93,6 +93,16 @@ The table distinguishes planner tools, model inputs, and the environment’s suc
 
 .. _installation-and-variants:
 
+Validation Status
+-----------------
+
+- Verified (multiple runs): the v0.1 release tests and sampled paper
+  reproduction cover LIBERO-PRO tasks; see the :doc:`release notes
+  <../resources/release_v0.1>` for configurations, seeds, and episode counts,
+  and the :doc:`leaderboard <../leaderboard/index>` for published scores.
+- CPU only: offline unit tests cover task selection, tools, and result
+  contracts.
+
 Installation and Resources
 --------------------------
 
@@ -117,7 +127,7 @@ For another variant, install the matching extra in an isolated environment and d
      - ``liberoplus-download-assets --skip-existing``
 
 Each extra includes Pi0.5 (``rpent-openpi``), SAM3, and the RLinf runtime
-(``rpent-rlinf``). Download model weights separately as described below.
+(``rlinf``). Download model weights separately as described below.
 
 At runtime, set ``--libero-type`` to match the installed variant.
 
@@ -233,7 +243,8 @@ WAM uses local memory as described above.
 
 Evaluation is single-attempt and reads memory without updating it. The default
 ``hf`` profile uses ``--memory-version auto`` to select memory by model. See
-:doc:`../guides/memory` for explicit versions, offline preparation, and release provenance.
+:doc:`../guides/memory` for explicit versions, offline preparation, and the
+versioned layout.
 
 Use ``--explore`` to build local memory or ``--memory-profile local`` to read a prepared corpus. See :doc:`../guides/memory` for the complete LIBERO workflow and commands. LIBERO’s native success result determines whether successful task records are published.
 

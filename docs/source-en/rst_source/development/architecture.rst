@@ -94,7 +94,7 @@ Environment Discovery
 Dashboard Sessions
 ------------------
 
-The Dashboard uses a long-lived Session to manage services and creates a TaskRun for each task. ``DashboardSpec`` defines task commands, cameras, controls, and runtime components marked ``shared`` or ``unique``.
+The Dashboard uses a long-lived Session to manage services and creates a TaskRun for each task. ``DashboardSpec`` defines the task command and its fields, runtime components marked ``shared`` or ``unique``, and primitive controls.
 
 A LIBERO Session reuses Pi0.5 and SAM3, while each sequential TaskRun owns its environment, toolkit, and planner conversation. The owning session or task cleans up its components.
 

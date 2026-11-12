@@ -91,6 +91,13 @@ pytest tests/unit_tests -v
 pytest tests/unit_tests/rpent/cli/test_main_contracts.py -k xxx -x
 ```
 
+CI 在运行单测前还会安装 `flywheel` extra 和 OpenCV；缺少这两个依赖时，飞轮与标定相关测试会被跳过。要在本地运行完整套件，请把它们加入测试环境：
+
+```bash
+uv pip install -e ".[test,flywheel]" --torch-backend cpu
+uv pip install "opencv-python-headless==4.10.0.84"
+```
+
 如果检查失败或修改了文件，请检查这些变化并重新运行。
 
 用户可见行为发生变化时，请同步更新文档：
@@ -99,6 +106,14 @@ pytest tests/unit_tests/rpent/cli/test_main_contracts.py -k xxx -x
 - 中英文文档都覆盖该功能时，保持 `docs/source-en/` 和 `docs/source-zh/` 一致；
 - 公共 API 发生变化时，更新 docstring 和示例；
 - 安装、快速开始或对外展示的功能发生变化时，更新 README。
+
+创建 Pull Request 前，请以警告即错误的方式构建中英文文档：
+
+```bash
+uv pip install -r docs/requirements.txt
+sphinx-build -W --keep-going docs/source-en docs/build/html-en
+sphinx-build -W --keep-going docs/source-zh docs/build/html-zh
+```
 
 ### 第 5 步：提交并创建 Pull Request
 
@@ -133,15 +148,12 @@ docs(robotwin): clarify runtime setup
 
 Pull Request 标题使用相同格式。scope 保持小写，description 应简短且具体。
 
-将分支推送到自己的 fork，然后向 `RLinf/RPent:main` 创建 Pull Request。建议在
-Pull Request 描述中包含：
+将分支推送到自己的 fork，然后向 `RLinf/RPent:main` 创建 Pull Request。请按仓库的
+[Pull Request 模板](.github/PULL_REQUEST_TEMPLATE.md)填写：说明问题、改动内容、
+契约与迁移影响、实际完成的验证，以及已知局限。存在相关 issue 时添加链接
+（`Fixes #123` 或 `Refs #123`）。
 
-- 问题及为什么需要该改动；
-- 实现方案的简要总结；
-- 存在相关 issue 时添加链接（`Fixes #123` 或 `Refs #123`）；
-- 兼容性变化、迁移方式、新依赖和运行时影响；
-- 实际运行的自动化检查；
-- 手动完成的 GPU、模拟器、服务或真实机器人验证。
+验证层级要分开写。CPU 测试、仿真运行、模型服务运行和真机运行是不同的证据，较低层级不能替代较高层级。不要把单个任务的成功当成整个 benchmark 的验证。
 
 标记为可供 review 前，请先自行检查完整 diff。
 
@@ -149,7 +161,7 @@ Pull Request 描述中包含：
 
 - 不要仅仅为了让 CI 通过而弱化或删除失败的测试。
 - 不要提交凭据、日志、checkpoint、下载资产或生成结果。
-- 不要让必需 CI 依赖网络、模型服务、模拟器或真机。
+- 不要让必需的 CI 测试运行依赖模型服务、模拟器、真机，或安装依赖之外的网络下载。
 
 ## 3. 负责任地使用 AI
 

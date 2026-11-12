@@ -17,4 +17,4 @@ Choose a platform for installation and usage instructions.
    * - :doc:`robotwin`
      - Bimanual manipulation and RoboTwin C2R experiments.
    * - :doc:`robodojo`
-     - Dual-arm ARX-X5 manipulation with Isaac Sim and the RLinf Pi0.5 policy.
+     - Dual-arm ARX-X5 manipulation with Isaac Sim and VPP2 or Awomo05.

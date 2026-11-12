@@ -187,16 +187,20 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 2. ``prompt_bundle.py``
 -----------------------
 
-定义 ``system_prompt()`` 和 ``user_prompt()`` 两个 prompt 工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle(system=system_prompt, user=user_prompt)`` （见上面的“入口”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节； ``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
+定义 ``system_prompt(variables)`` 和 ``user_prompt(variables)`` 两个 prompt 工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle(system=system_prompt, user=user_prompt)`` （见上面的“入口”）。每个工厂接收本次运行的 prompt 变量，返回 ``PromptNode``，通常是按调用顺序排列的 ``dict[str, PromptNode]`` 分节； ``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
 
 .. code-block:: python
 
    # robots/myrobot/prompt_bundle.py
+   from typing import Mapping
+
    from robots.myrobot.prompts import system as system_parts
    from robots.myrobot.prompts import user as user_parts
    from rpent.prompt.utils import PromptNode
 
-   def system_prompt() -> PromptNode:
+   def system_prompt(
+       variables: Mapping[str, object] | None = None,
+   ) -> PromptNode:
        return {
            "INTRO": system_parts.PREAMBLE,
            "GOAL": system_parts.GOAL,
@@ -206,7 +210,9 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
            "OUTPUT": system_parts.OUTPUT,
        }
 
-   def user_prompt() -> PromptNode:
+   def user_prompt(
+       variables: Mapping[str, object] | None = None,
+   ) -> PromptNode:
        return {
            "TASK": user_parts.TASK,
            "BEGIN": user_parts.BEGIN,
@@ -227,7 +233,7 @@ toolkit 模块通常包含四部分：
 
 **工具定义和处理函数** 是使用 ``@tool`` 声明的函数或方法。参数类型注解和 Google 风格 docstring 提供 schema 与说明，包括 ``view_env_state``、``back_project`` 等读取工具。
 
-**每步状态 dump** —— ``dump_state(driver, env_state, log)`` 通过 ``env_state.record_step(...)`` 创建由 ``EnvState`` 持有的步骤，并取得分配的 step index；该 ``StepRecord`` 会被立即追加并提交。大型观测通过 ``env_state.save(...)`` 保存——在 ``record_step`` 块内可省略 ``step`` 参数（默认指向刚创建的步骤），传显式 ``step=<int>`` 可指定其它步骤，``step=None`` 用于运行级工件。每次保存成功后，``EnvState`` 会自动把基础文件名加入该 ``StepRecord`` 的扁平 ``artifacts`` 集合；读取方直接使用规范化的工件文件名。
+**每步状态 dump** —— ``dump_state(primitives, env_state, log)`` 通过 ``env_state.record_step(...)`` 创建由 ``EnvState`` 持有的步骤，并取得分配的 step index；该 ``StepRecord`` 会被立即追加并提交。大型观测通过 ``env_state.save(...)`` 保存——在 ``record_step`` 块内可省略 ``step`` 参数（默认指向刚创建的步骤），传显式 ``step=<int>`` 可指定其它步骤，``step=None`` 用于运行级工件。每次保存成功后，``EnvState`` 会自动把基础文件名加入该 ``StepRecord`` 的扁平 ``artifacts`` 集合；读取方直接使用规范化的工件文件名。
 
 **Toolkit 类** 继承 ``rpent.tools.toolkit.Toolkit``：
 
@@ -303,7 +309,7 @@ endpoint（``--env-endpoint``、``--am-endpoint``，以及 LIBERO 的 ``--sam3-e
 可选的运行结果 finalizer
 ------------------------
 
-``RobotSpec.finalize_run`` 是面向所有机器人、与具体 benchmark 无关的通用运行结束钩子。RoboCasa 是当前使用方，用它记录单 cell 评测结果，供后续结果统计和聚合。任何需要发布机器可读评测产物的机器人都可以注册该钩子。其默认值为 ``None``，不会改变 runner 行为。配置该钩子后，普通终端 runner 会在关闭 toolkit 前读取 ``toolkit.solved()``，完成运行时清理后再把结构化的 ``RunFinalizationContext`` 传给钩子。产物 schema 与文件名由钩子负责，RPent 只定义生命周期边界。
+``RobotSpec.finalize_run`` 是面向所有机器人、与具体 benchmark 无关的通用运行结束钩子。RoboCasa、RoboDojo 和 YAM 注册它来记录单 cell 评测结果，供后续结果统计和聚合。任何需要发布机器可读评测产物的机器人都可以注册该钩子。其默认值为 ``None``，不会改变 runner 行为。配置该钩子后，普通终端 runner 和 Dashboard 都会在关闭 toolkit 前读取 ``toolkit.solved()``，完成运行时清理后再把结构化的 ``RunFinalizationContext`` 传给钩子。产物 schema 与文件名由钩子负责，RPent 只定义生命周期边界。
 
 JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整结果：
 
@@ -321,7 +327,7 @@ JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整�
            },
        )
 
-通过 ``RobotSpec(..., finalize_run=_finalize_run)`` 注册回调。该钩子目前只用于普通终端运行，Dashboard 不会调用。benchmark manifest、机器人专用 runtime 字段和聚合逻辑应继续放在机器人目录中，而不是共享 CLI。
+通过 ``RobotSpec(..., finalize_run=_finalize_run)`` 注册回调。普通终端运行和 Dashboard 都会调用该钩子。benchmark manifest、机器人专用 runtime 字段和聚合逻辑应继续放在机器人目录中，而不是共享 CLI。
 
 .. _add-robot-testing:
 

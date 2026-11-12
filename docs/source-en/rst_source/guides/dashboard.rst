@@ -44,9 +44,11 @@ For physical robot setup and human confirmation, see the
 Dashboard
 ---------
 
-The Dashboard supports the ``api``, ``claude_code``, and ``codex`` planners.
-Configure ``--planner`` and ``--model`` on the command line as for a normal
-run; see :doc:`configure_planner`.
+The Dashboard supports the ``api``, ``claude_code``, ``codex``, and ``flash``
+planners. Configure ``--planner`` and ``--model`` on the command line as for a
+normal run; see :doc:`configure_planner`. Flash Mode is available for robots
+that provide a replay hook (LIBERO, Franka, and Dual-Arm Franka); it uses the
+Molmo service and does not call an LLM.
 
 Start a Session and Submit a Task
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -71,10 +73,10 @@ reused by the Session. Submit a new ``/rpent-task`` to start or switch tasks;
 during a run, normal messages steer the agent and Esc requests an interruption.
 Press Ctrl+C in the terminal to stop the Session.
 
-``--dashboard`` cannot be combined with ``--interactive`` or
-``--env-endpoint``. External ``--am-endpoint`` and ``--sam3-endpoint``
-services remain supported. Use ``--dashboard-language zh-cn`` for the
-Chinese UI.
+``--dashboard`` cannot be combined with ``--tui``. Sessions that start a fresh
+environment for each TaskRun cannot use ``--env-endpoint``; external
+``--am-endpoint`` and ``--sam3-endpoint`` services remain supported. Use
+``--dashboard-language zh-cn`` for the Chinese UI.
 
 Inspect Results and End the Session
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

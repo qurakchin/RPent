@@ -55,8 +55,8 @@ Memory
   updates action targets using current visual observations, reducing step-by-step planning overhead.
   Across 800 LIBERO-PRO episodes, it achieves a **\ 72.63%** success rate with an average runtime of
   **\ 60.19 seconds**, approximately **\ 6.8× faster** than Codex + GPT-6 Astra (low reasoning).
-  It uses the officially released GPT-5.5 exploration memory; the reported scores are the best
-  evaluation results from seeds 0–9.
+  It uses the officially released GPT-5.5 exploration memory. The 800-episode aggregate counts
+  all ten tasks and every seed from 0 to 9 in each suite; no per-seed result is selected.
   :doc:`Flash Mode </rst_source/guides/flash>` | :doc:`Evaluation data
   </rst_source/leaderboard/time-token-costs>`
 
@@ -99,8 +99,10 @@ Simulators
   observations, and evaluation configurations for 50 tasks. :doc:`Guide
   </rst_source/simulators/robotwin>`
 
-- **RoboDojo**: An Isaac Sim / IsaacLab simulator with the ARX-X5 dual-arm platform. Installation is
-  currently supported. :doc:`Guide </rst_source/simulators/robodojo>`
+- **RoboDojo**: An Isaac Sim / IsaacLab simulator with the ARX-X5 dual-arm platform, supporting
+  VPP2 and Awomo05 policy actions. The release checked installation and one
+  ``put_bottles_into_dustbin`` execution, which validates the installation and execution workflow,
+  not a task success rate. :doc:`Guide </rst_source/simulators/robodojo>`
 
 Models
 ~~~~~~~~~~~~
@@ -110,9 +112,10 @@ Models
   In LIBERO, RoboCasa365, and RoboTwin, planners can also output action control values for the
   environment to execute directly. :doc:`Configuration guide </rst_source/guides/configure_planner>`
 
-- **VLA models**: Pi0.5 for LIBERO, RoboDojo, Dual Franka, and YAM; RLDX-1 for RoboCasa365; and
-  LingBot-VLA for RoboTwin. :doc:`Pi0.5 </rst_source/simulators/libero>` | :doc:`RLDX-1
-  </rst_source/simulators/robocasa>` | :doc:`LingBot-VLA </rst_source/simulators/robotwin>`
+- **VLA and action models**: Pi0.5 for LIBERO, single-arm and dual-arm Franka, and YAM; VPP2
+  or Awomo05 for RoboDojo; RLDX-1 for RoboCasa365; and LingBot-VLA or Fast-WAM for RoboTwin.
+  :doc:`Pi0.5 </rst_source/simulators/libero>` | :doc:`RLDX-1 </rst_source/simulators/robocasa>` |
+  :doc:`LingBot-VLA </rst_source/simulators/robotwin>`
 
 - **Perception models**: SAM3 for object segmentation and Molmo2-8B for visual grounding, combined
   with depth and camera information to locate targets. :doc:`Visual grounding guide
@@ -914,7 +917,7 @@ refer to a single successful execution of each task.
      - 14,163,904
      - 24,159
    * - YAM · demo02: Drink Label Recognition and Sorting
-     - GPT-6 Sol (medium)
+     - GPT-5.6 Sol (medium)
      - Completed
      - 1,886.85
      - 12,026,547

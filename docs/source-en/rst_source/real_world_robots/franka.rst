@@ -16,21 +16,27 @@ worker.
 Install
 -------
 
-Install libfranka 0.19.0 first by following the `official quick-install guide
+The checked-in configuration uses the ``franky`` backend, which does not need a
+separate libfranka installation. Installing the ``franka`` extra is sufficient:
+it installs ``franky-control`` 1.1.3, which bundles libfranka 0.19.0, along
+with RLinf ``release/v0.4``, ``rpent-openpi``, and the Franka camera, gripper,
+and teleoperation dependencies.
+
+The ``franky-control`` wheel is available only for Linux x86_64 with Python
+3.10, 3.11, or 3.12. RPent requires Python ``>=3.10,<3.13``; on another
+platform or Python version the wheel is not installed, and the Franka
+controller cannot start. Check that the bundled libfranka 0.19.0 matches your
+robot firmware using the `official libfranka guide
 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_.
 
 Clone RPent and install its Python dependencies. If you already have the
-checkout, enter it and run ``uv sync``:
+checkout, enter it and run the same command:
 
 .. code-block:: bash
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
    uv sync --extra franka
-
-This installs RLinf ``release/v0.4``, ``rpent-openpi``, and Franka camera,
-gripper, and teleoperation dependencies into ``.venv``. The included
-``franky-control`` wheel bundles libfranka 0.19.0.
 
 Calibration
 -----------
@@ -125,10 +131,15 @@ The VLA server must be deployed separately for now. Without
 Tools and Artifacts
 -------------------
 
-The extension exposes ``view_env_state``, ``view_camera_meta``, ``move_delta``,
-``rotate_delta``, ``open_gripper``, ``close_gripper``, and ``vla_grasp``.
-Mutating tools capture robot state, wrist and external RGB images, optional
-aligned depth arrays, and camera metadata in RPent's central ``EnvState``.
+The extension exposes ``view_env_state``, ``view_camera_meta``,
+``view_perception_setup``, ``back_project``, ``back_project_correspondence``,
+``move_delta``, ``rotate_delta``, ``open_gripper``, ``close_gripper``, and
+``vla_grasp``. ``view_perception_setup`` reports the loaded calibration and
+projection conventions; ``back_project`` converts one wrist or external-camera
+pixel into base coordinates; ``back_project_correspondence`` fuses matched
+wrist and external-camera pixels into one base-frame point. Mutating tools
+capture robot state, wrist and external RGB images, optional aligned depth
+arrays, and camera metadata in RPent's central ``EnvState``.
 
 Safety
 ------
@@ -164,8 +175,10 @@ write ``annotations.json`` keyed by the source step number::
 Every translation needs a semantic anchor; every rotation needs an intent and
 ``relative`` or ``fixed`` rotation mode. Single Franka uses ``third_person`` or
 ``wrist``; dual Franka uses ``base``, ``d455``, ``left_wrist`` or ``right_wrist``.
-The selected view must have depth and valid calibration. Keep each recorded
-translation within 0.20 m and each rotation within 0.35 rad.
+The selected view must have depth and valid calibration. On replay, the move
+from the current TCP to the localized target must not exceed 0.20 m, and the
+applied rotation must not exceed 0.35 rad. Split larger motions into
+intermediate recorded steps.
 
 Generate a plan offline from the reviewed recording (Molmo must be reachable)::
 

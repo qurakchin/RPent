@@ -1,7 +1,7 @@
 规划器配置
 ==========
 
-RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
+本页说明如何选择规划器、连接模型服务，并在正式运行任务前检查连接。RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 
 .. code-block:: text
 
@@ -75,7 +75,7 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 - ``--max-tokens`` —— 单次 LLM 回复的 token 上限（默认 ``8192``）。
 - ``--no-images`` —— 不向模型发送图片字节；纯文本模型必须加此参数。此时智能体只依赖文本状态推理，任务表现可能不够理想。
 
-终端交互方式见 :ref:`终端交互 <quickstart-interactive>`。
+终端交互方式见 :ref:`终端交互 <terminal-interaction>`。
 
 .. _planner-claude-code:
 
@@ -218,7 +218,7 @@ RPent 的 ``--model`` 必须与 vLLM 的 ``--served-model-name`` 保持一致。
    rpent-check-llm --planner claude_code
    rpent-check-llm --planner codex --json
 
-成功时退出码为 ``0``，任何失败为 ``1``，并将失败归类为 ``missing_config``、``unsupported_provider``、``missing_api_key``、 ``auth_failed``、``network_error``、``provider_error``、``sdk_error`` 之一。脚本与 CI 建议使用 ``--json``。``--base-url`` 覆盖后端端点， ``--timeout-s`` 覆盖诊断超时（``api`` 为 30 秒，两个 SDK 后端为 90 秒；运行时的 ``1200`` 秒默认值不会被复用）。
+成功时退出码为 ``0``，任何失败为 ``1``，并将失败归类为 ``missing_config``、``unsupported_provider``、``missing_api_key``、``auth_failed``、``invalid_model``、``network_error``、``provider_error``、``sdk_error`` 之一。脚本与 CI 建议使用 ``--json``。``--base-url`` 仅用于 ``api``；两个 SDK 规划器分别读取 ``ANTHROPIC_BASE_URL`` 或 ``CODEX_BASE_URL``，传入该参数会报错。``--timeout-s`` 覆盖诊断超时（``api`` 为 30 秒，两个 SDK 后端为 90 秒；SDK 后端仅靠 CLI 登录、未设置凭据环境变量时为 25 秒；运行时的 ``1200`` 秒默认值不会被复用）。
 
 使用 Dashboard 时，也请先在终端运行上述检查，并使用准备运行任务的规划器与模型配置。Dashboard 从命令行接收配置，打开后直接显示运行监控页面。启动方法见 :doc:`dashboard`。
 

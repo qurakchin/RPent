@@ -17,4 +17,4 @@
    * - :doc:`robotwin`
      - 双臂操作；RoboTwin C2R 实验。
    * - :doc:`robodojo`
-     - Isaac Sim 双臂 ARX-X5 操作与 RLinf Pi0.5 策略。
+     - Isaac Sim 双臂 ARX-X5 操作；VPP2 或 Awomo05 策略。
