@@ -108,10 +108,19 @@ def test_wam_configuration_and_toolkit_use_local_memory(tmp_path, monkeypatch, b
     assert "wam" in {
         item["name"] for item in spec.resolve_dashboard(args)["runtime_components"]
     }
-    for name in ("system", "user"):
-        prompt = spec.prompts.render(
-            name, variables={**config.prompt_vars, "output_dir": str(tmp_path)}
-        )
+    from rpent.prompt.assembly import build_robot_prompt, run_modes
+
+    assembled = build_robot_prompt(
+        spec.prompts,
+        robot_name="libero",
+        variables={**config.prompt_vars, "output_dir": str(tmp_path)},
+        modes=run_modes(
+            explore=bool(getattr(args, "explore", False)),
+            dashboard=False,
+            real_robot=False,
+        ),
+    )
+    for prompt in (assembled.system, assembled.user):
         assert "wam_act" in prompt and "pi0_pick" not in prompt
     monkeypatch.setattr(
         toolkit, "LiberoToolkit", lambda **kwargs: SimpleNamespace(**kwargs)

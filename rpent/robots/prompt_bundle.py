@@ -21,20 +21,33 @@ can import it without depending on the RPC transport layer.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
+from rpent.prompt.assembly import PromptSection
 from rpent.prompt.utils import PromptNode, format_prompt
 
 PromptFactory = Callable[..., PromptNode]
+PromptSectionsFactory = Callable[
+    ..., "Sequence[PromptSection] | Mapping[str, PromptNode]"
+]
 
 
 @dataclass(frozen=True)
 class PromptBundle:
-    """Python-defined prompt factories for one robot."""
+    """Python-defined prompt factories for one robot.
+
+    ``system`` and ``user`` are the robot's domain contribution. The shared
+    assembly layer inserts base rules, run-mode contracts, tool guidance, and
+    memory pointers around them. ``prompt_sections`` contributes the guidance
+    for the tools this robot exposes; it takes the same variables and must stay
+    a pure function so ``--dump-prompt`` can render without starting a runtime.
+    """
 
     system: PromptFactory
     user: PromptFactory
+    prompt_sections: PromptSectionsFactory | None = None
+    source: str = ""
 
     def render(
         self,

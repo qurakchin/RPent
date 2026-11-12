@@ -33,6 +33,28 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
        :doc:`flash`。
      - 想在新布局上低成本地重跑一个已知可行的方案，无需 LLM 在线规划；仍需要感知和 VLA 服务。
 
+查看提示词
+----------
+
+每次会话都会把模型实际收到的输入写入该会话的 state 目录：评测运行使用输出
+目录，探索运行使用 ``sessions/session_NNN/``。``effective_prompt.md`` 包含
+渲染后的系统提示词和用户消息，``prompt_sources.json`` 记录机器人、规划器、
+运行模式、各段名称、来源，以及拼装后提示词和开场用户消息的哈希。对话记录中
+只保存 ``prompt_sha256``。
+
+在任意机器人命令后加上 ``--dump-prompt``，即可渲染提示词、写出上述两个
+文件、打印结果并退出，不启动仿真器或模型：
+
+.. code-block:: bash
+
+   rpent --robot libero --suite libero_object_task --task 0 \
+     --output-dir /tmp/libero-prompt --dump-prompt
+
+拼装顺序固定为：基础规则、运行模式契约、工具说明、机器人领域提示词和记忆
+协议。``prompt_sources.json`` 还会记录所选规划器接收两种角色的方式：
+``api`` 将二者分开，``claude_code`` 和 ``codex`` 则把系统提示词拼到第一条
+用户消息前面。
+
 .. _planner-direct-actions:
 
 直接执行动作

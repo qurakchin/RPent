@@ -16,7 +16,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 
 1. CLI 读取共享参数，按 ``--robot`` 加载环境，再注册该环境的参数并完成校验。
 2. ``parse_config`` 生成 ``RunConfig``，确定任务、输出目录和提示词变量。
-3. 运行器按记忆配置同步或使用本地数据，构造规划器并渲染提示词。
+3. 运行器按记忆配置同步或使用本地数据，构造规划器，并按共享片段、运行模式、工具说明、机器人领域和记忆的顺序拼装提示词。它把 ``effective_prompt.md`` 与 ``prompt_sources.json`` 写入该会话的 state 目录，并把 ``prompt_sha256`` 记录到对话中。
 4. ``init_runtime`` 启动或连接服务，返回运行参数和本次运行拥有的进程；``get_toolkit`` 创建工具集与记忆管理器。
 5. 规划器通过 ``list_tools`` 获取工具定义，通过 ``execute_tool`` 执行调用，再读取工具返回的文本和图像，继续规划。
 6. 动作工具调用 VLA 或程序化动作，环境执行后记录状态和观测，供下一轮规划使用。
@@ -37,6 +37,8 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      - 职责
    * - Planner
      - 选择工具、维护模型交互并返回 ``PlannerResult``。``api`` 使用 Pydantic AI 原生循环，并通过 Harness 的滑动窗口裁剪历史；``claude_code`` 和 ``codex`` 使用各自的 SDK。LIBERO Flash 执行保存的计划。
+   * - Prompt 拼装
+     - 按共享片段、运行模式契约、工具说明、机器人领域和记忆的顺序拼装，渲染两种角色，并记录每段来源与 prompt 哈希。
    * - Toolkit
      - 定义工具参数、分发调用、保存状态，并将工具返回值转换为供规划器读取的 ``ToolResult``。
    * - Environment service
@@ -58,7 +60,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
    rpent/
      cli/          # CLI, Dashboard launcher, memory commands
      planner/      # Model backends and Planner protocol
-     prompt/       # Shared prompt construction
+     prompt/       # 共享片段、固定层序拼装与运行产物
      session/      # Session and task lifecycle
      dashboard/    # Web UI and event delivery
      robots/       # Discovery, descriptors, runtime components

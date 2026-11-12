@@ -14,8 +14,13 @@ def report(result):
 def test_backend_alone_exposes_policy_primitives_geometry_and_memory(
     policy_toolkit, backend
 ):
-    from robots.robodojo.prompt_bundle import system_prompt, user_prompt
-    from rpent.prompt.utils import format_prompt
+    from robots.robodojo.prompt_bundle import (
+        prompt_sections,
+        system_prompt,
+        user_prompt,
+    )
+    from rpent.prompt.assembly import build_robot_prompt
+    from rpent.robots.prompt_bundle import PromptBundle
 
     env, policy, kit = policy_toolkit(backend=backend)
     policy_tool = "awomo05_act" if backend == "awomo05" else "vpp2_act"
@@ -31,8 +36,17 @@ def test_backend_alone_exposes_policy_primitives_geometry_and_memory(
         "reference_tag": "stack_blocks_s0_l0",
         "memory_dir": str(kit.memory.root),
     }
-    prompt = format_prompt(system_prompt(variables), variables=variables)
-    prompt += format_prompt(user_prompt(variables), variables=variables)
+    assembled = build_robot_prompt(
+        PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            prompt_sections=prompt_sections,
+        ),
+        robot_name="robodojo",
+        variables=variables,
+        modes=("evaluate",),
+    )
+    prompt = assembled.system + assembled.user
     expected = {
         "view_env_state",
         "render",
@@ -280,20 +294,34 @@ def test_environment_only_toolkit_keeps_motion_and_observation_tools(
 
 
 def test_default_prompt_preserves_vpp2_capabilities():
-    from robots.robodojo.prompt_bundle import system_prompt
-    from rpent.prompt.utils import format_prompt
+    from robots.robodojo.prompt_bundle import (
+        prompt_sections,
+        system_prompt,
+        user_prompt,
+    )
+    from rpent.prompt.assembly import build_robot_prompt
+    from rpent.robots.prompt_bundle import PromptBundle
 
-    prompt = format_prompt(
-        system_prompt(),
+    prompt = build_robot_prompt(
+        PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            prompt_sections=prompt_sections,
+        ),
+        robot_name="robodojo",
         variables={
             "output_dir": "output",
             "recipe_tag": "result",
             "reference_tag": "stack_blocks_s0_l0",
             "env_cfg_type": "arx_x5",
             "task": "stack_blocks",
+            "task_summary": "scene",
+            "layout": 0,
+            "seed": 0,
             "memory_dir": "memory",
         },
-    )
+        modes=("evaluate",),
+    ).system
     for tool in ("vpp2_act", "move_to", "segment", "back_project"):
         assert tool in prompt
     assert "awomo05_act" not in prompt

@@ -27,6 +27,7 @@ from robots.robotwin.robot_spec import (
     env_runtime_contract,
     vla_runtime_contract,
 )
+from rpent.prompt.assembly import build_robot_prompt, run_modes
 from rpent.robots import enumerate_robots, get_robot_spec
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 
@@ -149,13 +150,23 @@ def test_robot_prompts_render_from_public_spec(robot_name: str, tmp_path) -> Non
         (memory_dir / "global").mkdir(parents=True)
         (memory_dir / "global/GLOBAL_MEMORY.md").write_text("# Global memory\n")
         variables["memory_dir"] = str(memory_dir)
-    system = spec.prompts.render("system", variables=variables)
-    user = spec.prompts.render("user", variables=PROMPT_VARIABLES[robot_name])
+    assembled = build_robot_prompt(
+        spec.prompts,
+        robot_name=robot_name,
+        variables=variables,
+        modes=run_modes(
+            explore=False,
+            dashboard=False,
+            real_robot=spec.is_real_robot,
+        ),
+    )
 
-    assert system.strip()
-    assert user.strip()
-    assert "{{" not in system
-    assert "{{" not in user
+    assert assembled.system.strip()
+    assert assembled.user.strip()
+    assert "{{" not in assembled.system
+    assert "{{" not in assembled.user
+    assert assembled.prompt_sha256
+    assert {section["role"] for section in assembled.sections} == {"system", "user"}
 
 
 @pytest.mark.parametrize(
@@ -170,9 +181,15 @@ def test_libero_prompts_observe_task_before_reading_memory(
         "mode": mode,
         "memory_profile": memory_profile,
     }
-    prompts = get_robot_spec("libero").prompts
-    system = prompts.render("system", variables=variables)
-    user = prompts.render("user", variables=variables)
+    spec = get_robot_spec("libero")
+    assembled = build_robot_prompt(
+        spec.prompts,
+        robot_name="libero",
+        variables=variables,
+        modes=run_modes(explore=mode == "explore", dashboard=False, real_robot=False),
+    )
+    system = assembled.system
+    user = assembled.user
     workflow = system.split("\nWORKFLOW\n", 1)[1]
     memory_step = (
         "READ EACH AVAILABLE LOCAL MEMORY LAYER"

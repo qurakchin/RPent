@@ -38,7 +38,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
        __init__.py            # 包入口，仅重导出两个工厂
        robot_spec.py          # RobotSpec、工厂、Dashboard 描述和 runtime 钩子
        env_client.py          # MyEnvClient —— agent 侧 RPC client (§1)
-       prompt_bundle.py       # system()/user() prompt 工厂              (§2)
+       prompt_bundle.py       # 领域 prompt 工厂和工具说明               (§2)
        toolkit.py             # MyRobotToolkit + primitives + 工具定义     (§3)
        env_server.py          # 环境侧 facade + RPC 服务                 (§1)
        vla_server.py          # （可选）VLA 模型服务
@@ -56,14 +56,23 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
    from rpent.robots.robot_spec import RobotSpec, RunConfig
    from rpent.robots.prompt_bundle import PromptBundle
    from rpent.utils.config import get_memory_dir
-   from robots.myrobot.prompt_bundle import system_prompt, user_prompt
+   from robots.myrobot.prompt_bundle import (
+       prompt_sections,
+       system_prompt,
+       user_prompt,
+   )
 
    MYROBOT_DASHBOARD_SPEC = {...}
 
    def get_robot_spec() -> RobotSpec:
        return RobotSpec(
            name="myrobot",
-           prompts=PromptBundle(system=system_prompt, user=user_prompt),
+           prompts=PromptBundle(
+               system=system_prompt,
+               user=user_prompt,
+               prompt_sections=prompt_sections,
+               source="robots/myrobot/prompts",
+           ),
            add_cli_args=_add_cli_args,
            parse_config=_parse_config,
            init_runtime=_init_runtime,
@@ -187,12 +196,25 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 2. ``prompt_bundle.py``
 -----------------------
 
-定义 ``system_prompt()`` 和 ``user_prompt()`` 两个 prompt 工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle(system=system_prompt, user=user_prompt)`` （见上面的“入口”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节； ``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
+定义 ``system_prompt()`` 和 ``user_prompt()`` 两个领域 prompt 工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle`` （见上面的“入口”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节。机器人不再独占整份 prompt：RPent 的拼装层按固定顺序把共享片段、运行模式契约和机器人贡献组合起来：
+
+.. code-block:: text
+
+   base → mode → 工具说明 → 机器人领域 → memory
+
+其中 ``base`` 和 ``mode`` 来自 ``rpent/prompt/fragments``，分别提供角色、总原则、输出习惯，以及 evaluate / explore / dashboard / real_robot 的运行契约；运行带有记忆目录时，``memory`` 层由共享的记忆片段提供。机器人负责提供：
+
+- ``system`` / ``user`` —— 领域知识，包括布局、坐标约定、任务族、物体名、失败模式，以及用户任务消息。
+- ``prompt_sections`` —— 当前机器人暴露的工具的使用说明，例如动作、感知或 runtime 工具组。返回 ``Sequence[PromptSection]`` 或 ``Mapping[str, PromptNode]``，入参与 prompt 工厂相同。它必须是变量的纯函数，这样 ``--dump-prompt`` 无需启动 runtime 也能渲染。
+- ``source`` —— prompt 内容在仓库中的相对位置，例如 ``robots/myrobot/prompts``。它会和每段的名称、哈希一起写入 ``prompt_sources.json``。
+
+一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。``prompt_sources.json`` 会记录所选 planner 接收两种角色的方式：``api`` 使用独立的 system prompt，``claude_code`` 和 ``codex`` 则把 system prompt 拼到第一条 user 消息前面。
 
 .. code-block:: python
 
    # robots/myrobot/prompt_bundle.py
    from robots.myrobot.prompts import system as system_parts
+   from robots.myrobot.prompts import tools as tool_parts
    from robots.myrobot.prompts import user as user_parts
    from rpent.prompt.utils import PromptNode
 
@@ -200,10 +222,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
        return {
            "INTRO": system_parts.PREAMBLE,
            "GOAL": system_parts.GOAL,
-           "RULES": system_parts.RULES,
-           "WORKFLOW": system_parts.WORKFLOW,
            "ENVIRONMENT": system_parts.ENVIRONMENT,
-           "OUTPUT": system_parts.OUTPUT,
        }
 
    def user_prompt() -> PromptNode:
@@ -212,7 +231,22 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
            "BEGIN": user_parts.BEGIN,
        }
 
-将 prompt 内容保存在机器人包内，例如 ``robots/myrobot/prompts/system.py`` 和 ``user.py``。分节内容可以是普通字符串，也可以使用 ``BulletList`` 或 ``Numbered``。占位符 ``{{suite}}`` / ``{{task}}`` / ``{{seed}}`` / ``{{output_dir}}`` / ``{{recipe_tag}}`` 在渲染时填充。
+   def prompt_sections(variables) -> dict[str, PromptNode]:
+       return {
+           "MYROBOT TOOLS": tool_parts.TOOL_GUIDANCE,
+       }
+
+   # robots/myrobot/robot_spec.py
+   prompts=PromptBundle(
+       system=system_prompt,
+       user=user_prompt,
+       prompt_sections=prompt_sections,
+       source="robots/myrobot/prompts",
+   )
+
+将 prompt 内容保存在机器人包内，例如 ``robots/myrobot/prompts/system.py``、``user.py`` 和 ``tools.py``。分节内容可以是普通字符串，也可以使用 ``BulletList`` 或 ``Numbered``。占位符 ``{{suite}}`` / ``{{task}}`` / ``{{seed}}`` / ``{{output_dir}}`` / ``{{recipe_tag}}`` 在渲染时填充。
+
+如需在不启动仿真器或模型的情况下查看最终 prompt，可运行 ``rpent --robot myrobot ... --dump-prompt``。每次会话还会在 state 目录（输出目录，探索运行时为 ``sessions/session_NNN/``）写入 ``effective_prompt.md`` 和 ``prompt_sources.json``，并在 transcript 中记录 ``prompt_sha256``。
 
 .. _add-robot-toolkit:
 
@@ -263,7 +297,7 @@ toolkit 模块通常包含四部分：
 
 - ``recipe_tag`` —— 单次运行的机器人标签，用于 transcript 文件名和 recipe 路径（LIBERO 使用 ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``）。
 - ``output_dir`` —— 单次运行的临时目录路径。main.py 随后调用 ``init_output_dir`` 创建目录并配置日志。
-- ``prompt_vars`` —— 传给 ``PromptBundle.render`` 的字典，通常包含运行标识和 prompt 引用的其他变量。
+- ``prompt_vars`` —— 传给 prompt 工厂和拼装层的字典，通常包含运行标识和 prompt 引用的其他变量。
 - ``task_desc`` —— 机器人特定的任务标识字典，会原样写入 transcript JSON 记录（LIBERO 使用 ``{"suite": ..., "task": ..., "seed": ...}``）。
 
 .. code-block:: python

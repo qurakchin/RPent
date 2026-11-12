@@ -95,7 +95,11 @@ def get_robot_spec() -> RobotSpec:
     return RobotSpec(
         name="dual_franka",
         run_flash=_run_flash,
-        prompts=PromptBundle(system=system_prompt, user=user_prompt),
+        prompts=PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            source="robots/dual_franka/prompts",
+        ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,
         init_runtime=_init_runtime,

@@ -20,6 +20,7 @@ from collections.abc import Mapping
 
 from robots.libero.prompts import evaluate as evaluate_parts
 from robots.libero.prompts import explore as explore_parts
+from robots.libero.prompts import tools as tool_parts
 from robots.libero.prompts import user as user_parts
 from rpent.prompt.utils import PromptNode
 
@@ -52,4 +53,11 @@ def user_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
     }
 
 
-__all__ = ["system_prompt", "user_prompt"]
+def prompt_sections(
+    variables: Mapping[str, object] | None = None,
+) -> Mapping[str, PromptNode]:
+    """Return the LIBERO tool guidance for the selected policy and mode."""
+    return tool_parts.prompt_sections(variables)
+
+
+__all__ = ["system_prompt", "user_prompt", "prompt_sections"]
