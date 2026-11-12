@@ -7,8 +7,8 @@ RPent（Recursive Physical Agent）是一个开源框架，用于构建能够在
 
 Pent 这个名字源自五芒星（Pentagram），其五个顶点象征多模态智能融合为一个统一的具身智能体。中心的无穷符号（∞）代表感知、推理、执行和自我演进的递归循环，让智能持续向物理世界扩展。
 
-.. image:: https://raw.githubusercontent.com/RLinf/misc/main/pic/rpent_framework.png
-   :alt: RPent 规划、感知、记忆和执行架构
+.. image:: ../../../_static/img/architecture-zh.svg
+   :alt: RPent 分层结构：用户层、智能体层、模型与环境服务以及环境层
    :width: 100%
 
 RPent 的三条核心设计原则是服务化、标准化和可组合（service-oriented, standardized, and composable）。各种能力以可复用服务的形式部署，通过统一接口连接，并灵活组合成不同的物理智能体。这些原则使 RPent 能够超越传统机器人控制框架，成为面向物理世界的智能体基础设施，让智能在部署后继续被构建、扩展和演进。

@@ -25,7 +25,7 @@ v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划，接
 系统设计
 ~~~~~~~~~~~~
 
-- **模块化**\ ：采用开放的模块化设计，将系统划分为用户层、智能层、接口层和环境层四大层级。
+- **模块化**\ ：采用开放的模块化设计，将用户界面、规划与工具层、模型与环境服务以及环境本身分开。 :doc:`系统架构 </rst_source/development/architecture>`
 
 - **统一接口**\ ：将 VLA 模型与解析式原语封装为统一工具，通过 MCP 或原生工具调用接入规划器，通过 RPC 连接模型、机器人与仿真服务。 :doc:`核心接口 </rst_source/development/interfaces>`
 
@@ -34,7 +34,7 @@ Memory 设计
 
 - **积累与复用任务经验**\ ：探索模式积累经验，评测模式只读复用分层保存的通用经验、任务策略和执行记录。 :doc:`Memory </rst_source/development/memory>`
 
-- **用任务卡加快执行**\ ：Flash Mode 将成功流程整理为任务卡，根据当前视觉定位更新动作目标，减少逐步规划开销。在 LIBERO-PRO 的 800 回合评测中，成功率为 **72.63%**\ ，平均耗时 **60.19 秒**\ ，较 Codex + GPT-6 Astra（low reasoning）实现约 **6.8 倍加速**\ 。该评测使用官方公开的 GPT-5.5 探索记忆。800 回合的聚合结果计入每个套件全部 10 个任务的 seed 0 至 9，不做事后挑选。 :doc:`Flash Mode </rst_source/guides/flash>` ｜ :doc:`评测数据 </rst_source/leaderboard/time-token-costs>`
+- **用任务卡加快执行**\ ：Flash Mode 将成功流程整理为任务卡，根据当前视觉定位更新动作目标，减少逐步规划开销。在 LIBERO-PRO 的 800 回合评测中，成功率为 **72.63%**\ ，平均耗时 **60.19 秒**\ ，较 Codex + GPT-6 Astra（low reasoning）实现约 **6.8 倍加速**\ 。该评测使用官方公开的 GPT-5.5 探索记忆。 :doc:`Flash Mode </rst_source/guides/flash>` ｜ :doc:`评测数据 </rst_source/leaderboard/time-token-costs>`
 
 论文
 ~~~~~~~~~~~~

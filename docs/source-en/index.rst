@@ -68,6 +68,7 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    :caption: Leaderboard
 
    Performance <rst_source/leaderboard/performance>
+   Evaluation Protocol <rst_source/leaderboard/methodology>
    Time & Token Costs <rst_source/leaderboard/time-token-costs>
 
 .. toctree::
@@ -95,6 +96,7 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    Flash Mode <rst_source/guides/flash>
    Trajectory Collection and Data Flywheel <rst_source/guides/flywheel>
    Remote Services and Parallel Runs <rst_source/guides/advanced_deployment>
+   Troubleshooting <rst_source/guides/troubleshooting>
 
 .. toctree::
    :maxdepth: 2

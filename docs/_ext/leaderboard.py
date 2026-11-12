@@ -16,6 +16,7 @@
 
 import json
 import math
+import re
 import unicodedata
 from pathlib import Path
 
@@ -41,6 +42,23 @@ COPY = {
         "mean_total_tokens": "Mean input + output tokens / episode",
         "total_output_tokens": "Total output tokens",
         "scope": "Rankings apply to the methods and evaluation coverage shown.",
+        "sources": "Sources",
+        "sources_intro": (
+            "Every result cites at least one entry below. A count is shown as "
+            "successes/episodes only when the source records both; a rate "
+            "without a denominator is a published rate whose episode count the "
+            "source does not state, and no count is inferred. Where a source "
+            "identifies a repository revision, its commit is shown."
+        ),
+        "source_kinds": {
+            "paper": "Paper table",
+            "repository": "Repository record",
+            "model": "Model card",
+            "archive": "Contributor archive",
+            "contributor": "Contributor record",
+            "report": "Experiment report",
+            "record": "Record",
+        },
     },
     "zh": {
         "performance": "评测成绩",
@@ -52,6 +70,21 @@ COPY = {
         "mean_total_tokens": "平均每回合输入＋输出 token",
         "total_output_tokens": "总输出 token",
         "scope": "排名仅限图中方法及评测范围。",
+        "sources": "数据来源",
+        "sources_intro": (
+            "每条结果至少引用下方一项来源。只有当来源同时记录成功数与回合数时，"
+            "表中才显示“成功数/回合数”；没有分母的成绩是来源未给出回合数的已发布成功率，"
+            "文档不据此推算回合数。来源标明仓库提交时，列出对应 commit。"
+        ),
+        "source_kinds": {
+            "paper": "论文表格",
+            "repository": "仓库记录",
+            "model": "模型卡",
+            "archive": "贡献者归档",
+            "contributor": "贡献者记录",
+            "report": "实验报告",
+            "record": "记录",
+        },
     },
 }
 
@@ -89,6 +122,12 @@ def load_data(path: Path = ASSETS / "results.json") -> dict:
     for note in notes:
         if any(key not in configs for key in note["configuration_ids"]):
             raise ExtensionError(f"Leaderboard: unknown configuration in {note['id']}")
+    for source in data["sources"]:
+        commit = source.get("commit")
+        if commit is not None and not re.fullmatch(r"[0-9a-f]{7,40}", commit):
+            raise ExtensionError(
+                f"Leaderboard: invalid commit in {source['id']}"
+            )
     for collection, group_key, groups, source_ids in (
         (data["results"], "view_id", views, []),
         (
@@ -323,10 +362,47 @@ def context(data: dict, language: str) -> dict:
                     ],
                 }
             )
+    def source_url(source):
+        return (
+            source.get("url")
+            or source.get("protocol_url")
+            or source.get("submission_url")
+            or ""
+        )
+
+    def source_kind(source):
+        kind = source.get("kind") or source.get("type") or ""
+        url = source_url(source)
+        if "arxiv.org" in url:
+            return "paper"
+        if "github.com" in url:
+            return "repository"
+        if "huggingface.co" in url and "/datasets/" not in url:
+            return "model"
+        if "archive" in kind:
+            return "archive"
+        if "contributor" in kind:
+            return "contributor"
+        if "report" in kind:
+            return "report"
+        return "record"
+
+    sources = [
+        {
+            "id": source["id"],
+            "url": source_url(source),
+            "commit": source.get("commit", ""),
+            "kind": source_kind(source),
+            "note": translate(source.get("note", "")),
+        }
+        for source in data.get("sources", [])
+    ]
+
     return {
         "sections": sections,
         "costs": costs,
         "footer_notes": footer_notes,
+        "sources": sources,
         "language": language,
         "copy": COPY[language],
     }

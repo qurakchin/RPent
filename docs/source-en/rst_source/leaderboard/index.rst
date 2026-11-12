@@ -11,6 +11,7 @@ sections are generated from the same results data, and the notes on each page
 state coverage and protocol caveats.
 
 * :doc:`Performance <performance>`
+* :doc:`Evaluation Protocol <methodology>`
 * :doc:`Time & Token Costs <time-token-costs>`
 
 .. raw:: html

@@ -5,9 +5,11 @@
 
 RPent 将任务规划、工具执行和环境运行分开：规划器选择工具，toolkit 将调用交给感知或动作组件，环境返回执行后的状态。各环境通过 ``RobotSpec`` 接入共同的运行器。
 
-.. image:: https://raw.githubusercontent.com/RLinf/misc/main/pic/rpent_framework.png
-   :alt: RPent 系统架构
+.. figure:: ../../../_static/img/architecture-zh.svg
+   :alt: RPent 分层结构：用户层、智能体层、模型与环境服务以及环境层
    :width: 100%
+
+   RPent 分层结构：规划器选择工具，toolkit 分发调用，服务层连接智能体与仿真器或真机。
 
 一次任务的执行过程
 ---------------------------
@@ -21,6 +23,13 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 5. 规划器通过 ``list_tools`` 获取工具定义，通过 ``execute_tool`` 执行调用，再读取工具返回的文本和图像，继续规划。
 6. 动作工具调用 VLA 或程序化动作，环境执行后记录状态和观测，供下一轮规划使用。
 7. 规划器调用 ``finish``、达到运行限制或发生错误时结束。运行器保存对话，完成录像及清理；需要评测产物的环境通过结束钩子输出结果。
+
+.. figure:: ../../../_static/img/execution-flow-zh.svg
+   :alt: 一次 RPent 运行从 CLI 到保存运行产物的流程
+   :width: 85%
+   :align: center
+
+   一次运行从 CLI 初始化到保存产物。成功由环境或真机操作员判定。
 
 ``finish`` 表示规划器结束，成功标准由具体环境或真机操作员提供。对应关系见各环境页。主入口为 ``rpent/cli/main.py``。
 
@@ -69,8 +78,16 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      libero/
      robocasa/
      robotwin/
+     robodojo/
      franka/
      dual_franka/
+     yam/
+   docs/
+     source-en/    # 英文页面
+     source-zh/    # 中文页面，与英文保持相对路径一致
+     _diagrams/    # 图表源文件；make diagrams 重新生成 SVG
+     _ext/         # Sphinx 扩展，包括排行榜渲染器
+     _static/      # 图片、样式和排行榜数据
 
 环境发现与接入
 ---------------------

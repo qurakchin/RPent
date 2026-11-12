@@ -46,9 +46,9 @@ Dashboard
 
 The Dashboard supports the ``api``, ``claude_code``, ``codex``, and ``flash``
 planners. Configure ``--planner`` and ``--model`` on the command line as for a
-normal run; see :doc:`configure_planner`. Flash Mode is available for robots
-that provide a replay hook (LIBERO, Franka, and Dual-Arm Franka); it uses the
-Molmo service and does not call an LLM.
+normal run; see :doc:`configure_planner`. Flash Mode replays a stored plan
+without an LLM and is available for LIBERO, Franka, and Dual-Arm Franka (see
+:doc:`flash`).
 
 Start a Session and Submit a Task
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

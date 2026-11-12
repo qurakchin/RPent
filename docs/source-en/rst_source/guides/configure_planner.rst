@@ -37,10 +37,8 @@ loop is orchestrated, and which model SDK is used.
        Streamable HTTP MCP server that connects the toolkit to Codex.
      - Run tasks through the Codex SDK, using existing authentication or a configured API.
    * - ``flash``
-     - **Flash Mode**, for evaluation only. Replays a plan from memory,
-       recorded from an earlier
-       run, re-localizing each waypoint's anchor so the plan follows
-       objects that moved. See :doc:`flash`.
+     - **Flash Mode**, for evaluation only. Replays a stored plan without an
+       LLM. See :doc:`flash`.
      - You want to re-run a known-good plan on new layouts, without online
        LLM planning. Perception and VLA services are still required.
 

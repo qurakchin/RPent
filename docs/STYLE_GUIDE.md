@@ -44,13 +44,15 @@ version-specific changes in release or migration notes.
 Keep the same sections and ordering in both languages:
 
 1. **Get Started / 开始使用**: Introduction to RPent and Quick Start.
-2. **Leaderboard / 排行榜**: the existing performance and time/token pages.
+2. **Leaderboard / 排行榜**: performance, time and token costs, and the
+   evaluation protocol page.
 3. **Real-World Demos / 真实世界演示**: direct robot demo pages, each linking to
    the corresponding installation and usage guide.
 4. **Guides / 使用指南**: memory and exploration; action primitives and tools;
    planner configuration; command-line reference; interactive usage
    (terminal and Dashboard); Flash Mode;
-   trajectory collection and data flywheel; remote services and parallel runs.
+   trajectory collection and data flywheel; remote services and parallel runs;
+   troubleshooting.
 5. **Simulators / 仿真环境**: LIBERO, RoboCasa365, and RoboTwin. Each page owns
    its installation, first run, reproduction protocol, and troubleshooting.
 6. **Real-World Robots / 真实机器人**: Single-Arm Franka, Dual-Arm Franka, YAM,
@@ -79,8 +81,8 @@ in both `conf.py` files. Keep the same relative page paths in both languages.
 The home page is a short introduction with task-oriented links. Installation
 and the first LIBERO-PRO task form one Quick Start. Keep reproduction inside
 each environment page; logs, success criteria, and common failures belong
-next to the procedure they explain. Keep the leaderboard's published data and
-two-page organization intact when reorganizing prose.
+next to the procedure they explain. Keep the leaderboard's published data, its
+protocol page, and the two results pages intact when reorganizing prose.
 
 Preserve important commands, reported data, figures, and their experimental
 conditions when moving content. Record their destination during a restructure;

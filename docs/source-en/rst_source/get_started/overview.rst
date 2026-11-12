@@ -17,8 +17,8 @@ of multimodal intelligence into a unified embodied agent. At its center, the inf
 symbol (∞) represents the endless recursive cycle of perception, reasoning,
 execution, and self-evolution, through which intelligence continuously expands into the physical world.
 
-.. image:: https://raw.githubusercontent.com/RLinf/misc/main/pic/rpent_framework.png
-   :alt: RPent planning, perception, memory, and execution architecture
+.. image:: ../../../_static/img/architecture-en.svg
+   :alt: RPent layers: user, agent, model and environment services, and environments
    :width: 100%
 
 RPent is built upon three core design principles: **service-oriented, standardized, and composable**.

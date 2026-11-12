@@ -31,7 +31,7 @@
 Dashboard
 ---------
 
-Dashboard 支持 ``api``、``claude_code``、``codex`` 和 ``flash`` 规划器。在命令行传递 ``--planner`` 与 ``--model``，配置方式和普通运行一致，详见 :doc:`configure_planner`。Flash Mode 适用于提供重放钩子的机器人（LIBERO、单臂和双臂 Franka），使用 Molmo 服务定位，不调用 LLM。
+Dashboard 支持 ``api``、``claude_code``、``codex`` 和 ``flash`` 规划器。在命令行传递 ``--planner`` 与 ``--model``，配置方式和普通运行一致，详见 :doc:`configure_planner`。Flash Mode 不调用 LLM，直接重放已保存的计划，适用于 LIBERO、单臂和双臂 Franka（见 :doc:`flash`）。
 
 启动并提交任务
 ~~~~~~~~~~~~~~~~~~~~~

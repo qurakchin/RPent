@@ -14,7 +14,11 @@ and :doc:`RoboTwin <../simulators/robotwin>` guides.
 
 All values are rendered from ``docs/_static/leaderboard/results.json``, which
 records source and protocol identifiers for each result, and the notes below
-the tables state suite-specific caveats. Headline results include 92.63% (741/800) on
+the tables state suite-specific caveats. The `Sources` section lists every
+cited record, including a repository commit where the source identifies one.
+Counting, aggregation, and estimate conventions are defined in
+:doc:`Evaluation Protocol <methodology>`.
+Headline results include 92.63% (741/800) on
 LIBERO-PRO for RPent with GPT-6 Astra (low), 96.00% (384/400) on LIBERO for
 Opus-4.7 (max), 59.20% over 340 evaluated episodes on RoboCasa365 Target50 for
 GPT-6 Astra (high), and 62.40% (156/250) on RoboTwin C2R for GPT-5.5 (xhigh).

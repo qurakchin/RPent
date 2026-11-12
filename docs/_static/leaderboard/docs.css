@@ -43,3 +43,11 @@ html[data-theme="dark"] .rpent-static-leaderboard{--rpent-divider:#be96e0}
 .rpent-static-leaderboard .leaderboard-footer{margin-top:28px;padding-bottom:24px}
 .rpent-static-leaderboard .leaderboard-footer .scope-note{overflow-wrap:anywhere}
 .rpent-static-leaderboard .leaderboard-footer>span{display:block;font-size:17px;color:var(--pst-color-text-muted,inherit)}
+
+.rpent-sources{box-sizing:border-box;max-width:var(--rpent-content-max,1440px);margin-inline:auto;padding:0 var(--rpent-content-gutter,48px) 48px;font-size:14px;line-height:1.6}
+.rpent-sources h2{font-size:22px;font-weight:500;border-top:4px solid var(--rpent-divider,#9464bf);margin:28px 0 10px;padding-top:14px}
+.rpent-sources ol{margin:0;padding-inline-start:1.4rem}
+.rpent-sources li{margin:12px 0;overflow-wrap:anywhere}
+.rpent-sources .source-id{font-family:var(--pst-font-family-monospace,ui-monospace,monospace);font-size:13px;font-weight:600;margin-inline-end:8px}
+.rpent-sources .source-kind,.rpent-sources .source-commit{display:inline-block;font-size:12px;line-height:1.5;padding:0 6px;border-radius:4px;margin-inline-end:8px;background:var(--pst-color-surface,rgba(148,100,191,.12));color:var(--pst-color-text-muted,inherit)}
+.rpent-sources .source-note{display:block;margin-top:3px;color:var(--pst-color-text-muted,inherit);font-size:13px}

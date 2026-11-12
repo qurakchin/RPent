@@ -68,6 +68,7 @@ RPent（Recursive Physical Agent）是一个开源框架，用于构建在与物
    :caption: 排行榜
 
    评测成绩 <rst_source/leaderboard/performance>
+   评测协议 <rst_source/leaderboard/methodology>
    耗时与 Token 开销 <rst_source/leaderboard/time-token-costs>
 
 .. toctree::
@@ -95,6 +96,7 @@ RPent（Recursive Physical Agent）是一个开源框架，用于构建在与物
    使用 Flash Mode <rst_source/guides/flash>
    采集轨迹与数据飞轮 <rst_source/guides/flywheel>
    远程服务与并行运行 <rst_source/guides/advanced_deployment>
+   问题排查 <rst_source/guides/troubleshooting>
 
 .. toctree::
    :maxdepth: 2

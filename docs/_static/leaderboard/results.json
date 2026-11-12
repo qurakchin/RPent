@@ -753,11 +753,13 @@
     {
       "id": "repo-flash-mode-800",
       "url": "https://github.com/RLinf/RPent/blob/c19727c7bbdd277cd86a985aae3f2741ba01df7a/docs/source-en/rst_source/usage/task_card.rst",
+      "commit": "c19727c7bbdd277cd86a985aae3f2741ba01df7a",
       "note": "581 successes across all 800 LIBERO-PRO cases; missing source traces count as failures. Molmo is used for visual localization, not planning."
     },
     {
       "id": "repo-robotwin-20260915",
-      "url": "https://github.com/RLinf/RPent/blob/849143bf740a562367345cec0de9ef4657dafd73/docs/source-en/rst_source/usage/robotwin.rst"
+      "url": "https://github.com/RLinf/RPent/blob/849143bf740a562367345cec0de9ef4657dafd73/docs/source-en/rst_source/usage/robotwin.rst",
+      "commit": "849143bf740a562367345cec0de9ef4657dafd73"
     },
     {
       "id": "xiaomi-official-robocasa365",
@@ -886,6 +888,7 @@
       "kind": "contributor_correction",
       "checked_at": "2026-09-20",
       "protocol_url": "https://github.com/RLinf/RPent/blob/d14afccce78fb1bdbeba564fdd3ce7984c71bf2e/docs/source-en/rst_source/usage/robocasa.rst#harness-vla-target50-reproduction-protocol",
+      "commit": "d14afccce78fb1bdbeba564fdd3ce7984c71bf2e",
       "environment_split": "target",
       "tasks": 50,
       "episodes": 340,
@@ -918,6 +921,7 @@
     {
       "id": "repo-libero-long-reproduction-20260922",
       "url": "https://github.com/RLinf/RPent/blob/15420b438e3adbf82e6640799a0668a2609e3bb7/docs/source-en/rst_source/usage/libero.rst#reproducing-results",
+      "commit": "15420b438e3adbf82e6640799a0668a2609e3bb7",
       "note": "Codex / GPT-5.5 / xhigh reproduction on reproduce/libero reports Long Task 70/100 and Long Swap 55/100. The updated leaderboard combines these two results with the six unchanged Table 3 suites: (81+69+94+91+75+66+70+55)/8 = 75.125%, displayed as 75.13%. This derived Overall is not the paper's original aggregate."
     },
     {
@@ -934,6 +938,7 @@
     {
       "id": "deepseek-libero-pro-seed0-memory-20261022",
       "type": "experiment_report",
+      "commit": "d3efb4fa",
       "note": "Infini deepseek-v4.1-flash with Codex xhigh, using its own frozen published seed-0 exploration memory (343 files). RPent main d3efb4fa and RLinf c52e780f. Eight LIBERO-PRO suites, tasks 0–9 and seeds 1–10: 709/800 native simulator successes, 91 unsolved, zero final errors or timeouts. A historical HTTP 500 cell was rerun; only final episodes count. Mean planner elapsed_s and input plus output tokens use all 800 final episodes; cached input and reasoning output are included within their parent totals."
     }
   ],

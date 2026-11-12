@@ -37,8 +37,9 @@ Simulation Benchmarks
 System Design
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- **Modular architecture**: An open, modular design separates the system into user, intelligence,
-  interface, and environment layers.
+- **Modular architecture**: An open, modular design separates the user interface, the planning and
+  tool layer, model and environment services, and the environments themselves. :doc:`Architecture
+  </rst_source/development/architecture>`
 
 - **Unified interfaces**: VLA models and analytical primitives are exposed as tools through MCP or
   native tool calling. RPC connects model, robot, and simulator services. :doc:`Core interfaces
@@ -55,8 +56,7 @@ Memory
   updates action targets using current visual observations, reducing step-by-step planning overhead.
   Across 800 LIBERO-PRO episodes, it achieves a **\ 72.63%** success rate with an average runtime of
   **\ 60.19 seconds**, approximately **\ 6.8× faster** than Codex + GPT-6 Astra (low reasoning).
-  It uses the officially released GPT-5.5 exploration memory. The 800-episode aggregate counts
-  all ten tasks and every seed from 0 to 9 in each suite; no per-seed result is selected.
+  It uses the officially released GPT-5.5 exploration memory.
   :doc:`Flash Mode </rst_source/guides/flash>` | :doc:`Evaluation data
   </rst_source/leaderboard/time-token-costs>`
 

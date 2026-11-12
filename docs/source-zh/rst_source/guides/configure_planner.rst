@@ -28,8 +28,7 @@
        Streamable HTTP MCP 服务，把 toolkit 接入 Codex。
      - 通过 Codex SDK 运行任务，复用已有的 Codex 认证或配置独立 API。
    * - ``flash``
-     - **Flash Mode**，仅用于评测。重放 memory 中保存的成功执行计划，并对每个路点
-       的锚点重新定位，使方案能跟随移动过的物体。参见
+     - **Flash Mode**，仅用于评测。不调用 LLM，直接重放已保存的计划。参见
        :doc:`flash`。
      - 想在新布局上低成本地重跑一个已知可行的方案，无需 LLM 在线规划；仍需要感知和 VLA 服务。
 

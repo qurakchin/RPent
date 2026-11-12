@@ -5,9 +5,12 @@ Architecture and Execution
 
 RPent separates task planning, tool execution, and environment operation. The planner chooses tools, the toolkit dispatches them to perception or action components, and the environment returns updated state. Environments connect to the shared runner through ``RobotSpec``.
 
-.. image:: https://raw.githubusercontent.com/RLinf/misc/main/pic/rpent_framework.png
-   :alt: RPent system architecture
+.. figure:: ../../../_static/img/architecture-en.svg
+   :alt: RPent layers: user, agent, model and environment services, and environments
    :width: 100%
+
+   RPent layers. The planner selects tools, the toolkit dispatches them, and
+   the service layer connects the agent to simulators and real robots.
 
 Task Execution
 --------------
@@ -23,6 +26,14 @@ the next decision. The sequence below follows one run from CLI setup to cleanup.
 5. The planner obtains schemas through ``list_tools``, dispatches calls through ``execute_tool``, and consumes text and image results.
 6. Action tools call a VLA or scripted motion. The environment records updated state and observations for the next planning turn.
 7. ``finish``, a run limit, or an error ends planning. The runner saves the transcript, finalizes recordings, and cleans up. Environments that publish evaluation artifacts use their finalization hook.
+
+.. figure:: ../../../_static/img/execution-flow-en.svg
+   :alt: One RPent run from the CLI to saved run artifacts
+   :width: 85%
+   :align: center
+
+   One run from CLI setup to saved artifacts. Success is decided by the
+   environment or the robot operator.
 
 ``finish`` marks the end of planning; success comes from the environment or a real-robot operator. See each environment guide for its criterion. The main entry point is ``rpent/cli/main.py``.
 
@@ -75,8 +86,16 @@ Shared execution and interfaces live under ``rpent/``. Each package under
      libero/
      robocasa/
      robotwin/
+     robodojo/
      franka/
      dual_franka/
+     yam/
+   docs/
+     source-en/    # English pages
+     source-zh/    # Chinese pages at matching paths
+     _diagrams/    # Diagram sources; make diagrams regenerates the SVGs
+     _ext/         # Sphinx extensions, including the leaderboard renderer
+     _static/      # Images, styles, and leaderboard data
 
 Environment Discovery
 ---------------------

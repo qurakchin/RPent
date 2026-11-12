@@ -134,7 +134,7 @@ LIBERO-PRO 评测结果
 
 在 LIBERO-PRO 完整的 800 次运行中（Spatial、Object、Goal 和 Long；task/swap；每个任务 10 个 seed），Flash Mode 成功 581 次（72.63%）。两个没有成功源轨迹、因而没有计划的任务按 0/10 保守计入。八项评测成绩见 :doc:`评测成绩 <../leaderboard/performance>`。
 
-:doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>` 报告 Flash Mode 每个评测回合平均耗时 60.19 秒，输出 token 为 0。均值包含成功、失败和超时的评测回合；token 仅统计评测阶段的输出。
+:doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>` 报告 Flash Mode 的平均每回合耗时和输出 token。均值包含成功、失败和超时的评测回合；token 仅统计评测阶段的输出。
 
 RPent Flash Mode 直接使用官方发布的 GPT-5.5 探索记忆，Molmo2-8B 用于视觉定位，动作执行使用与 π_RLinf 相同的 VLA。排行榜的每个分项都包含全部 100 个预期回合（task 0–9、seed 0–9），没有 Flash 计划的回合仍计入分母。
 

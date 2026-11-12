@@ -190,9 +190,9 @@ are conservatively counted as 0/10. The eight suite scores are listed in
 :doc:`Performance <../leaderboard/performance>`.
 
 The :doc:`Time & Token Costs <../leaderboard/time-token-costs>` table reports
-60.19 seconds per evaluation episode and 0 output tokens for Flash Mode.
-The mean covers successful, failed, and timed-out evaluation episodes; tokens
-refer to evaluation-stage output only.
+Flash Mode's per-episode runtime and output tokens. The mean covers successful,
+failed, and timed-out evaluation episodes; tokens refer to evaluation-stage
+output only.
 
 RPent Flash Mode uses directly downloaded, officially released GPT-5.5
 exploration memory, Molmo2-8B for visual localization, and the same VLA as
