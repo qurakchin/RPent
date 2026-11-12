@@ -29,16 +29,21 @@ import pytest
 from robots.robocasa.env_client import RoboCasaEnvClient
 from robots.robocasa.env_server import DEFAULT_CAMS, RoboCasaEnvFacade
 from robots.robocasa.primitives import RoboCasaPrimitives
-from robots.robocasa.prompt_bundle import system_prompt
+from robots.robocasa.prompt_bundle import (
+    prompt_sections,
+    system_prompt,
+    user_prompt,
+)
 from robots.robocasa.toolkit import _capture_robocasa_call
 from robots.robocasa.vla_server import _normalize_legacy_processor_geometry
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.flywheel.flywheel import select_vla_segments
 from rpent.flywheel.reader import iter_trajectories, read_array
 from rpent.memory import MemoryManager
-from rpent.prompt.utils import format_prompt
+from rpent.prompt.assembly import build_robot_prompt
 from rpent.robots.components.action_spec import box_action_spec
 from rpent.robots.components.env_facade_base import BaseEnvFacade
+from rpent.robots.prompt_bundle import PromptBundle
 from rpent.session import EnvState, Payload
 from rpent.session.env_capture import CapturingEnvClient, ToolCallCapture
 from rpent.tools import Toolkit, ToolResult, iter_tools
@@ -83,15 +88,28 @@ def _fake_primitives(task_language: str) -> tuple[RoboCasaPrimitives, _Recording
 
 
 def test_prompt_requires_live_task_language_and_fresh_geometry(tmp_path: Path) -> None:
-    rendered = format_prompt(
-        system_prompt(),
+    global_dir = tmp_path / "results" / "global"
+    global_dir.mkdir(parents=True)
+    (global_dir / "GLOBAL_MEMORY.md").write_text("# Global memory\n")
+    rendered = build_robot_prompt(
+        PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            prompt_sections=prompt_sections,
+        ),
+        robot_name="robocasa",
         variables={
             "task_name": "OpenDrawer",
             "reference_tag": "OpenDrawer_s0",
+            "split": "target",
+            "seed": 0,
+            "recipe_tag": "OpenDrawer_s0",
+            "output_dir": str(tmp_path),
             "memory_profile": "hf",
             "memory_dir": str(tmp_path / "results"),
         },
-    )
+        modes=("evaluate",),
+    ).system
 
     assert "complete live task_language" in rendered
     assert "Never shorten, paraphrase" in rendered

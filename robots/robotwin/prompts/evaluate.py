@@ -85,32 +85,6 @@ observed goal match it:
   after the object body crosses the opening and is internally supported. Do not
   apply containment rules to a pad, plate, scale, skillet, or stand."""
 
-CONTROL = """Every lingbot_act uses the exact complete current task_language and
-use_length=50. Use one chunk near contact, near success, instability, or for a
-small correction; two for ordinary stable progress; three only for a
-recipe-supported continuity-sensitive phase already moving correctly. When VLA
-has correct contact and visible progress, avoid interrupting it with speculative
-primitives. Repeated VLA calls are allowed; after an unproductive chunk, use
-fresh evidence to choose whether to continue, shorten the next chunk, or improve
-binding, visibility, or physical staging first.
-
-Prefer VLA for grasp/re-grasp, receiving-arm grasp, bimanual coordination,
-insertion, hanging, tool use, and contact-rich motion. Use primitives after
-verified state for measured free-space transport, staging, retreat, release, or
-one small geometric correction. Never transport because a gripper merely looks
-closed: also require visible target motion, elevation, or an emptied source.
-Never call a primitive just to test whether it helps. For planner residuals,
-guarded low approaches, physical state shaping, and wrist-sweep safety, follow
-robots/robotwin/guides/GUIDE_RPENT.md and re-observe after every primitive."""
-
-PERCEPTION = """Use the head view as semantic authority for identity,
-distractors, destinations, language relations, and global progress. Use the
-matching current wrist view to refine geometry for that same chosen candidate;
-do not let it silently switch to a look-alike. Pair RGB and world maps from the
-same step, view, and resolution. World maps are [row,col] -> [x,y,z] metres and
-may contain NaN; visible surface points are not automatically object centers.
-Relocalize after occlusion, contact, or substantial arm/object motion."""
-
 RUNTIME = """The registered RoboTwin Toolkit is the only control surface. Do
 not use shell, Python, network clients, legacy command files, plan mode, user
 questions, or unrelated built-in tools. Never inspect task source, evaluator
@@ -160,8 +134,6 @@ def system_prompt(
         "CLEAN-TO-RANDOMIZED TRANSFER": TRANSFER,
         "ACCURACY-FIRST LOOP": ACCURACY_LOOP,
         "CONDITIONAL TASK-FAMILY PLAYBOOKS": TASK_FAMILIES,
-        "VLA AND PRIMITIVE CONTROL": CONTROL,
-        "PERCEPTION": PERCEPTION,
         "RUNTIME": RUNTIME,
         "BUDGET AND SUCCESS": BUDGET_AND_SUCCESS,
         "MODE": USER_MODE,

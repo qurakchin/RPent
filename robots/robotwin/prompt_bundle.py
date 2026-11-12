@@ -20,6 +20,7 @@ from collections.abc import Mapping
 
 from robots.robotwin.prompts import evaluate as evaluate_parts
 from robots.robotwin.prompts import explore as explore_parts
+from robots.robotwin.prompts import tools as tool_parts
 from robots.robotwin.prompts import user as user_parts
 from rpent.prompt.utils import PromptNode
 
@@ -54,4 +55,11 @@ def user_prompt(
     return prompt
 
 
-__all__ = ["system_prompt", "user_prompt"]
+__all__ = ["system_prompt", "user_prompt", "prompt_sections"]
+
+
+def prompt_sections(
+    variables: Mapping[str, object] | None = None,
+) -> Mapping[str, PromptNode]:
+    """Return the RoboTwin tool guidance for the selected policy."""
+    return tool_parts.prompt_sections(variables)

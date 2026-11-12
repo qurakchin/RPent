@@ -61,6 +61,11 @@ from rpent.planner.base import (
     is_recoverable_agent_error,
 )
 from rpent.planner.check import BASE_URL_ENV_BY_PLANNER
+from rpent.prompt.artifacts import (
+    effective_prompt_markdown,
+    write_prompt_artifacts,
+)
+from rpent.prompt.assembly import build_robot_prompt, run_modes
 from rpent.robots import enumerate_robots, get_robot_spec, get_toolkit
 from rpent.session.planner_capture import end_planner_task, start_planner_task
 from rpent.utils.logging import get_logger, init_output_dir
@@ -196,6 +201,13 @@ def _build_argparser() -> argparse.ArgumentParser:
     # other config
     ap.add_argument("--output-dir", default=None)
     ap.add_argument(
+        "--dump-prompt",
+        action="store_true",
+        help="Render the robot's final prompt, write effective_prompt.md and "
+        "prompt_sources.json, print the prompt, and exit without starting a "
+        "runtime.",
+    )
+    ap.add_argument(
         "--record-trajectory",
         action="store_true",
         help="Record task, planner, and tool trajectories with api, claude_code, or codex. "
@@ -309,6 +321,29 @@ def _handoff_message(
     )
 
 
+def _assemble_robot_prompt(
+    robot_spec,
+    *,
+    robot_name: str,
+    variables,
+    explore: bool,
+    dashboard: bool = False,
+):
+    """Assemble this run's prompt and return it with the modes that shaped it."""
+    modes = run_modes(
+        explore=explore,
+        dashboard=dashboard,
+        real_robot=bool(robot_spec.is_real_robot),
+    )
+    assembled = build_robot_prompt(
+        robot_spec.prompts,
+        robot_name=robot_name,
+        variables=variables,
+        modes=modes,
+    )
+    return assembled, modes
+
+
 def _start_continuation_session(
     args,
     *,
@@ -319,6 +354,8 @@ def _start_continuation_session(
     prompt_vars,
     session_number: int,
     session_max: int,
+    modes=(),
+    state_output_dir=None,
 ):
     """Build a fresh planner and prompts for an exploration handoff."""
     logger.info("=== handing off to agent %d/%d ===", session_number, session_max)
@@ -337,13 +374,16 @@ def _start_continuation_session(
         no_images=args.no_images,
         interactive=args.tui,
     )
-    system_prompt = prompt_bundle.render(
-        "system",
-        variables={
-            **prompt_vars,
-            "session_number": session_number,
-            "session_max": session_max,
-        },
+    variables = {
+        **prompt_vars,
+        "session_number": session_number,
+        "session_max": session_max,
+    }
+    assembled = build_robot_prompt(
+        prompt_bundle,
+        robot_name=args.robot_name,
+        variables=variables,
+        modes=modes,
     )
     session_message = _handoff_message(
         output_dir,
@@ -355,7 +395,15 @@ def _start_continuation_session(
         session_message += "\n\nOriginal operator task instruction:\n" + str(
             prompt_vars["initial_user_message"]
         )
-    return planner, system_prompt, session_message
+    write_prompt_artifacts(
+        state_output_dir or output_dir,
+        assembled=assembled,
+        robot_name=args.robot_name,
+        planner=args.planner,
+        modes=modes,
+        user_message=session_message,
+    )
+    return planner, assembled, session_message
 
 
 def main() -> int:
@@ -488,8 +536,37 @@ def main() -> int:
 
     prepare_run_memory(args, robot_spec, run_config)
 
-    dashboard_events = NullDashboardEventSink()
+    prompt_bundle = robot_spec.prompts
+    prompt_vars = {**prompt_vars, "output_dir": output_dir}
+    assembled, modes = _assemble_robot_prompt(
+        robot_spec,
+        robot_name=robot_name,
+        variables=prompt_vars,
+        explore=bool(getattr(args, "explore", False)),
+        dashboard=bool(getattr(args, "dashboard", False)),
+    )
+    system_prompt, user_msg = assembled.system, assembled.user
+    if getattr(args, "dump_prompt", False):
+        write_prompt_artifacts(
+            Path(output_dir),
+            assembled=assembled,
+            robot_name=robot_name,
+            planner=args.planner,
+            modes=modes,
+            user_message=user_msg,
+        )
+        print(
+            effective_prompt_markdown(
+                assembled,
+                robot_name=robot_name,
+                planner=args.planner,
+                modes=modes,
+                user_message=user_msg,
+            )
+        )
+        return 0
 
+    dashboard_events = NullDashboardEventSink()
     planner = build_planner(
         args.planner,
         output_dir=output_dir,
@@ -506,17 +583,6 @@ def main() -> int:
         no_images=args.no_images,
         interactive=args.tui,
     )
-    prompt_bundle = robot_spec.prompts
-    prompt_vars = {**prompt_vars, "output_dir": output_dir}
-    system_prompt = prompt_bundle.render(
-        "system",
-        variables=prompt_vars,
-    )
-    user_msg = prompt_bundle.render(
-        "user",
-        variables=prompt_vars,
-    )
-
     operator_input = None
     if human_interactive_exploration:
         from rpent.tools.human_in_the_loop import HumanInTheLoopInput
@@ -589,8 +655,13 @@ def main() -> int:
             if session_msg is None:
                 break
             environment_success, environment_metrics = None, {}
+            state_output_dir = output_dir
+            if getattr(args, "explore", False):
+                state_output_dir = (
+                    output_dir / "sessions" / f"session_{session_number:03d}"
+                )
             if session_number > 1:
-                planner, system_prompt, session_msg = _start_continuation_session(
+                planner, assembled, session_msg = _start_continuation_session(
                     args,
                     output_dir=output_dir,
                     recipe_tag=recipe_tag,
@@ -599,11 +670,18 @@ def main() -> int:
                     prompt_vars=prompt_vars,
                     session_number=session_number,
                     session_max=sessions,
+                    modes=modes,
+                    state_output_dir=state_output_dir,
                 )
-            state_output_dir = output_dir
-            if getattr(args, "explore", False):
-                state_output_dir = (
-                    output_dir / "sessions" / f"session_{session_number:03d}"
+                system_prompt = assembled.system
+            else:
+                write_prompt_artifacts(
+                    state_output_dir,
+                    assembled=assembled,
+                    robot_name=robot_name,
+                    planner=args.planner,
+                    modes=modes,
+                    user_message=session_msg,
                 )
             if getattr(robot_spec, "supports_exploration", False):
                 toolkit = get_toolkit(
@@ -751,6 +829,7 @@ def main() -> int:
         "error": agent_error,
         "environment_success": environment_success,
         "stats": stats,
+        "prompt_sha256": assembled.prompt_sha256,
         "messages": _serialize_messages(messages),
     }
     with open(transcript_path, "a") as f:

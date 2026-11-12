@@ -20,6 +20,7 @@ from collections.abc import Mapping
 
 from robots.robodojo.prompts import evaluate as evaluate_parts
 from robots.robodojo.prompts import explore as explore_parts
+from robots.robodojo.prompts import tools as tool_parts
 from robots.robodojo.prompts import user as user_parts
 from robots.robodojo.prompts.policy import POLICY_PROMPTS
 from rpent.prompt.utils import PromptNode
@@ -50,4 +51,11 @@ def user_prompt(
     return sections
 
 
-__all__ = ["system_prompt", "user_prompt"]
+__all__ = ["system_prompt", "user_prompt", "prompt_sections"]
+
+
+def prompt_sections(
+    variables: Mapping[str, object] | None = None,
+) -> Mapping[str, PromptNode]:
+    """Return the RoboDojo tool guidance for the selected VLA backend."""
+    return tool_parts.prompt_sections(variables)

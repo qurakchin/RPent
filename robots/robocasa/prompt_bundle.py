@@ -20,6 +20,7 @@ from collections.abc import Mapping
 
 from robots.robocasa.prompts import evaluate as evaluate_parts
 from robots.robocasa.prompts import explore as explore_parts
+from robots.robocasa.prompts import tools as tool_parts
 from rpent.prompt.utils import PromptNode
 
 
@@ -30,6 +31,13 @@ def system_prompt(
     if (variables or {}).get("mode", "eval") == "explore":
         return explore_parts.system_prompt()
     return evaluate_parts.system_prompt(variables)
+
+
+def prompt_sections(
+    variables: Mapping[str, object] | None = None,
+) -> Mapping[str, PromptNode]:
+    """Return the RoboCasa tool guidance for this run."""
+    return tool_parts.prompt_sections(variables)
 
 
 def user_prompt(

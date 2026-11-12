@@ -26,7 +26,11 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from robots.robodojo.prompt_bundle import system_prompt, user_prompt
+from robots.robodojo.prompt_bundle import (
+    prompt_sections,
+    system_prompt,
+    user_prompt,
+)
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
 from rpent.evaluation import RunFinalizationContext, write_json_atomic
@@ -191,7 +195,12 @@ def get_robot_spec() -> RobotSpec:
     """Return the RoboDojo robot identity, prompt bundle, and runner hooks."""
     return RobotSpec(
         name="robodojo",
-        prompts=PromptBundle(system=system_prompt, user=user_prompt),
+        prompts=PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            prompt_sections=prompt_sections,
+            source="robots/robodojo/prompts",
+        ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,
         init_runtime=_init_runtime,

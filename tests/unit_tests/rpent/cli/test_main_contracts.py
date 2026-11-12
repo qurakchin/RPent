@@ -815,13 +815,32 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
         assert len([m for m in transcript["messages"] if m["role"] == "user"]) == 2
         return
 
-    assert calls["solve"] == {
-        "system_prompt": "simulated system prompt\n",
-        "user_message": "simulated user task\n",
-        "max_turns": 4,
-        "input_queue": None,
-        "dashboard_interaction": None,
-    }
+    system_prompt = calls["solve"]["system_prompt"]
+    assert "simulated system prompt" in system_prompt
+    assert "OPERATING RULES" in system_prompt
+    assert "RUN MODE — EXPLORATION" in system_prompt
+    assert system_prompt.index("OPERATING RULES") < system_prompt.index(
+        "simulated system prompt"
+    )
+    assert system_prompt.index("simulated system prompt") < system_prompt.index(
+        "MEMORY — HOW TO READ"
+    )
+    assert calls["solve"]["user_message"] == "simulated user task\n"
+    assert calls["solve"]["max_turns"] == 4
+    assert calls["solve"]["input_queue"] is None
+    assert calls["solve"]["dashboard_interaction"] is None
+    assert len(transcript["prompt_sha256"]) == 64
+    sources = json.loads(
+        (tmp_path / "sessions" / "session_001" / "prompt_sources.json").read_text()
+    )
+    assert sources["modes"] == ["explore"]
+    assert sources["prompt_sha256"] == transcript["prompt_sha256"]
+    system_sections = [
+        section for section in sources["sections"] if section["role"] == "system"
+    ]
+    assert system_sections[-1]["source"] == (
+        "rpent/prompt/fragments/memory_proposals.md"
+    )
     assert toolkit.calls == [
         ("finish", {"status": "success", "summary": "simulated task complete"})
     ]

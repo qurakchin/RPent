@@ -13,6 +13,7 @@ from robots.robodojo.primitives import RoboDojoPrimitives
 from robots.robodojo.toolkit import RoboDojoToolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
+from rpent.prompt.assembly import build_robot_prompt, run_modes
 from rpent.tools.toolkit import ToolCancelled
 
 
@@ -656,7 +657,13 @@ def test_policy_prompts_match_configured_backend(tmp_path, mode, backend, backen
     config = robot_spec._parse_config(args)
     variables = {**config.prompt_vars, "output_dir": str(tmp_path)}
     prompts = robot_spec.get_robot_spec().prompts
-    prompt = " ".join(prompts.render("system", variables=variables).split())
+    system = build_robot_prompt(
+        prompts,
+        robot_name="robodojo",
+        variables=variables,
+        modes=run_modes(explore=args.explore, dashboard=False, real_robot=False),
+    ).system
+    prompt = " ".join(system.split())
     assert f"{backend}_act(" in prompt
     other = "vpp2" if backend == "awomo05" else "awomo05"
     assert f"{other}_act(" not in prompt

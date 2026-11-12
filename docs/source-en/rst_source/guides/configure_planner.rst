@@ -44,6 +44,30 @@ loop is orchestrated, and which model SDK is used.
      - You want to re-run a known-good plan on new layouts, without online
        LLM planning. Perception and VLA services are still required.
 
+Inspect the Prompt
+------------------
+
+Every session writes the exact model input to its state directory — the output
+directory for evaluation runs, or ``sessions/session_NNN/`` for exploration
+sessions. ``effective_prompt.md`` contains the rendered system prompt and user
+message, and ``prompt_sources.json`` records the robot, planner, modes, section
+names, sources, and hashes of the assembled prompt and the opening user message.
+The transcript stores only ``prompt_sha256``.
+
+Add ``--dump-prompt`` to any robot command to render the prompt, write both
+files, print the result, and exit without starting simulators or models:
+
+.. code-block:: bash
+
+   rpent --robot libero --suite libero_object_task --task 0 \
+     --output-dir /tmp/libero-prompt --dump-prompt
+
+The assembly order is fixed: base rules, run-mode contract, tool guidance, the
+robot's domain prompt, and the memory protocol. ``prompt_sources.json`` also
+records how the selected planner receives the two roles; ``api`` keeps them
+separate, while ``claude_code`` and ``codex`` prefix the system prompt to the
+first user message.
+
 .. _planner-direct-actions:
 
 Direct actions

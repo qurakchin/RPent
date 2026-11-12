@@ -35,6 +35,7 @@ from robots.libero.memory import (
 )
 from robots.libero.robot_spec import get_robot_spec
 from rpent.memory import loading
+from rpent.prompt.assembly import build_robot_prompt, run_modes
 
 
 @pytest.mark.parametrize(
@@ -325,11 +326,17 @@ def test_task_model_changes_resolve_root_again_without_changing_effort(
         root = config.prompt_vars["memory_dir"]
         assert root.name == version
         assert args.reasoning_effort == "low"
-        prompt = spec.prompts.render(
-            "system", variables={**config.prompt_vars, "output_dir": config.output_dir}
-        )
+        prompt = build_robot_prompt(
+            spec.prompts,
+            robot_name="libero",
+            variables={
+                **config.prompt_vars,
+                "output_dir": config.output_dir,
+            },
+            modes=run_modes(explore=False, dashboard=False, real_robot=False),
+        ).system
         assert str(root / "MEMORY.md") in prompt
-        assert "MULTI-ATTEMPT EXPLORE MODE" not in prompt
+        assert "RUN MODE — EXPLORATION" not in prompt
         bound = robot_spec.get_toolkit(
             runtime_kwargs={},
             dashboard_events=NullDashboardEventSink(),
@@ -346,11 +353,17 @@ def test_task_model_changes_resolve_root_again_without_changing_effort(
         config = spec.parse_config(args)
         loading.prepare_run_memory(args, spec, config)
         assert config.prompt_vars["memory_dir"] == str(root)
-        prompt = spec.prompts.render(
-            "system", variables={**config.prompt_vars, "output_dir": config.output_dir}
-        )
+        prompt = build_robot_prompt(
+            spec.prompts,
+            robot_name="libero",
+            variables={
+                **config.prompt_vars,
+                "output_dir": config.output_dir,
+            },
+            modes=run_modes(explore=explore, dashboard=False, real_robot=False),
+        ).system
         assert str(root / "MEMORY.md") in prompt
-        assert ("MULTI-ATTEMPT EXPLORE MODE" in prompt) is explore
+        assert ("RUN MODE — EXPLORATION" in prompt) is explore
     assert len(hub.calls) == downloaded
 
 
