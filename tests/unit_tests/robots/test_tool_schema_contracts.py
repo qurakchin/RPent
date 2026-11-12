@@ -29,8 +29,6 @@ from robots.robocasa.primitives import RoboCasaPrimitives
 from robots.robodojo import tools as robodojo_tools
 from robots.robodojo.primitives import RoboDojoPrimitives
 from robots.robodojo.toolkit import RoboDojoToolkit
-from robots.robotwin import tools as robotwin_tools
-from robots.robotwin.primitives import RoboTwinPrimitives
 from robots.robotwin.toolkit import RoboTwinToolkit
 from robots.yam import tools as yam_tools
 from robots.yam.toolkit import YamToolkit
@@ -49,7 +47,7 @@ TOOL_DECLARATIONS = {
     ),
     "robocasa": list(iter_tools(robocasa_tools, RoboCasaPrimitives)),
     "robodojo": list(iter_tools(robodojo_tools, RoboDojoPrimitives, RoboDojoToolkit)),
-    "robotwin": list(iter_tools(robotwin_tools, RoboTwinPrimitives, RoboTwinToolkit)),
+    "robotwin": RoboTwinToolkit.declared_tools(),
 }
 
 
@@ -61,6 +59,16 @@ def test_tool_declarations_match_pre_refactor_contracts(group: str) -> None:
     )
     path = "rpent/tools/common.py" if group == "common" else f"robots/{group}/tools.py"
     expected = {item["name"]: item for item in baseline["tools"][path]}
+    if group == "robotwin":
+        # RoboTwin moved to shared scene/motion/policy/memory families; keep a
+        # fixed snapshot of the new declarations rather than the old module.
+        expected = json.loads(
+            (
+                Path(__file__).parent
+                / "fixtures"
+                / "robotwin_tool_schemas.json"
+            ).read_text()
+        )
     if group == "robodojo":
         # Full-pose motion and saved-frame queries intentionally replace the
         # older tool API; keep a separate fixed snapshot of the new contract.
@@ -82,16 +90,33 @@ def test_tool_declarations_match_pre_refactor_contracts(group: str) -> None:
             "description": "Positive finite yaw tolerance, rad (default 0.02)",
         }
     declarations = TOOL_DECLARATIONS[group]
-    actual = {
-        item.name: {
+
+    def snapshot(item) -> dict:
+        schema = item.input_schema
+        # The root object is explicitly closed; the pre-refactor baseline did
+        # not record it, so compare the remaining schema and assert the closure
+        # separately.
+        schema.pop("additionalProperties", None)
+        return {
             "name": item.name,
             "description": item.description,
-            "input_schema": item.input_schema,
+            "input_schema": schema,
         }
-        for item in declarations
+
+    actual = {item.name: snapshot(item) for item in declarations}
+    expected = {
+        name: {
+            **item,
+            "input_schema": {
+                key: value
+                for key, value in item["input_schema"].items()
+                if key != "additionalProperties"
+            },
+        }
+        for name, item in expected.items()
     }
     assert len(actual) == len(declarations)
-    added = {"wam_act"} if group in {"libero", "robotwin"} else set()
+    added = {"wam_act"} if group == "libero" else set()
     assert actual.keys() == expected.keys() | added
     for name in expected:
         assert actual[name] == expected[name], f"{group}/{name}"
@@ -104,6 +129,7 @@ def test_robot_tool_schemas_have_valid_object_inputs(robot_name: str) -> None:
 
         input_schema = spec.input_schema
         assert input_schema["type"] == "object"
+        assert input_schema.get("additionalProperties") is False
         properties = input_schema.get("properties", {})
         required = input_schema.get("required", [])
         assert isinstance(properties, dict)
@@ -119,13 +145,13 @@ def test_robot_action_schemas_keep_bounded_vector_shapes() -> None:
         assert xyz["minItems"] == xyz["maxItems"] == 3
 
 
-def test_robotwin_perception_schemas_use_the_same_view_coordinate_space() -> None:
+def test_robotwin_spatial_tools_share_row_col_image_coordinates() -> None:
     by_name = {spec.name: spec for spec in TOOL_DECLARATIONS["robotwin"]}
 
-    for tool_name, coordinate_name in (
-        ("sample_world_xyz", "pixels"),
-        ("query_world_map", "bbox"),
-    ):
-        schema = by_name[tool_name].input_schema
-        assert schema["required"] == ["view", coordinate_name]
-        assert schema["properties"]["view"]["type"] == "string"
+    world_map = by_name["query_world_map"].input_schema
+    assert world_map["required"] == ["view", "bbox"]
+    assert world_map["properties"]["view"]["type"] == "string"
+    geometry = by_name["geometry"].input_schema
+    pixel = geometry["properties"]["pixel"]
+    assert pixel["minItems"] == pixel["maxItems"] == 2
+    assert pixel["items"]["type"] == "integer"

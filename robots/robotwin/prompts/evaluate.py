@@ -30,7 +30,8 @@ READ_ORDER = """Before the first robot mutation:
 2. Inspect view_env_state(step=0) and its head image.
 3. Read {{memory_dir}}/task-specific/{{reference_tag}}.json and
    {{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl when present.
-4. Read {{memory_dir}}/MEMORY.md and at most one to three relevant leaves.
+4. Call recall with the task name and objects to find at most one to three
+   relevant published memory notes.
 
 The current task_language and fresh observation override historical memory.
 Use the semantic JSON as the phase plan and the JSONL as evidence for action
@@ -47,7 +48,9 @@ ACCURACY_LOOP = """Issue one registered action, inspect fresh before/after
 evidence, then decide again. Maintain a compact internal ledger: current phase,
 achieved/protected relations, held object and arm, first unmet postcondition,
 blocker, and next observable gate. Advance only when the current gate is visibly
-satisfied. Primitive success is not task success.
+satisfied. call_ok only means the call was valid; judge motion by completed,
+stop_reason, pose_error, and the fresh observation. Primitive success is not
+task success.
 
 If an action makes useful progress but stops mid-phase, continue the same phase
 with the shortest suitable action. LingBot-VLA may be called repeatedly as the
@@ -106,10 +109,13 @@ robots/robotwin/guides/GUIDE_RPENT.md and re-observe after every primitive."""
 PERCEPTION = """Use the head view as semantic authority for identity,
 distractors, destinations, language relations, and global progress. Use the
 matching current wrist view to refine geometry for that same chosen candidate;
-do not let it silently switch to a look-alike. Pair RGB and world maps from the
-same step, view, and resolution. World maps are [row,col] -> [x,y,z] metres and
-may contain NaN; visible surface points are not automatically object centers.
-Relocalize after occlusion, contact, or substantial arm/object motion."""
+do not let it silently switch to a look-alike. Call geometry with a described
+target and the quantities you need, or with a [row,col] pixel measured on the
+named view. It returns a world-frame center, extent, pixel_rc, fit_accepted, and
+warnings; inspect status and warnings instead of reading a rejected fit as
+usable. Use query_world_map for deterministic samples from a known world map.
+Pair RGB, depth, and world maps from the same step and view. Relocalize after
+occlusion, contact, or substantial arm/object motion."""
 
 RUNTIME = """The registered RoboTwin Toolkit is the only control surface. Do
 not use shell, Python, network clients, legacy command files, plan mode, user

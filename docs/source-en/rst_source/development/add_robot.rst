@@ -321,8 +321,11 @@ filenames rather than maintaining a parallel observation index.
   helper (named ``init_primitives`` in LIBERO; it calls
   ``EnvState.reset()``, constructs the primitives, and dumps step 0),
 - register bound tools with ``self.add_tools(iter_tools(self._primitives))``
-  or ``self.add_tool(definition)``. Use ``definition.with_handler(...)`` to
-  bind internal resources or execution guards; Toolkit captures post-action state,
+  or ``self.add_tool(definition)``. A toolkit can also pass shared families
+  (``SceneTools``, ``MotionTools``, ``MemoryTools``, ``PolicyTools``) to
+  ``add_tools`` with a ``capabilities`` snapshot, so each family publishes only
+  the tools the connected host supports. Use ``definition.with_handler(...)``
+  to bind internal resources or execution guards; Toolkit captures post-action state,
 - override ``close()`` to save remaining agent-side artifacts through
   ``EnvState`` (for example ``state.save("episode.mp4", frames, step=None)``).
 
@@ -353,7 +356,7 @@ Conventions Worth Keeping
 Robot-specific CLI arguments enter ``rpent/cli/main.py`` through two
 hooks and participate in the final argparse pass:
 
-**``_add_cli_args(parser, use_dashboard) -> None``.** Register the
+**Signature:** ``_add_cli_args(parser, use_dashboard) -> None``. Register the
 robot's arguments on the shared parser created by main.py.
 ``use_dashboard`` determines whether normally required arguments remain
 optional. For each Dashboard TaskRun, the robot's Dashboard task command
@@ -361,7 +364,7 @@ supplies the fields declared by its spec before ``parse_config`` runs. main.py
 calls this hook before ``parser.parse_args()``, so argparse's usage and error
 output includes the robot arguments.
 
-**``_parse_config(args) -> RunConfig``.** In normal CLI mode, this is called
+**Signature:** ``_parse_config(args) -> RunConfig``. In normal CLI mode, this is called
 after ``parser.parse_args()``. In Dashboard mode, it is called for each
 TaskRun after the requested fields have been copied to the task arguments. It
 validates those fields and returns a

@@ -120,7 +120,11 @@ def test_gripper_error_preserves_environment_payload(monkeypatch):
     result = _primitives(env).close_gripper()
 
     assert result.is_error
-    assert result.to_dict() == {"ok": False, "error": "gripper blocked"}
+    assert result.to_dict() == {
+        "ok": False,
+        "error": "gripper blocked",
+        "call_ok": True,
+    }
     assert payload == {"ok": False, "error": "gripper blocked"}
 
 

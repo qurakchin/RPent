@@ -54,8 +54,9 @@ functions implemented in ``robot_spec.py`` for ``main.py`` to call:
 construct a :class:`~rpent.memory.MemoryManager` (rooted at the configured
 ``config.prompt_vars["memory_dir"]``, falling back to
 ``get_memory_dir(robot_name)`` when unset) and pass it to the toolkit.
-The manager is required; the toolkit always registers memory file tools and ``finish``.
-Memory access permissions are configured on the manager. Robots that need
+The manager is required; the toolkit always registers the common file tools,
+``recall`` / ``remember`` / ``corroborate``, and ``finish``. Memory access
+permissions are configured on the manager. Robots that need
 extra toolkit arguments may declare them as keyword-only parameters; LIBERO
 additionally uses ``mode``, ``attempts_per_session``, and ``state_output_dir``.
 
@@ -98,12 +99,34 @@ Subclass ``Toolkit`` in ``robots/<robot>/toolkit.py`` and register robot tools w
 Declare functions or methods with ``@tool``. Type annotations and Google-style
 docstrings provide parameter schemas and descriptions; ``@tool(readonly=True)``
 allows concurrent readonly calls and skips post-action state capture. Handlers return ``ToolResult(data=..., images=...)``:
-``data`` holds the JSON payload, including ``error`` or ``_finish`` when needed,
+``data`` holds the domain payload, including ``error`` or ``_finish`` when needed,
 and ``images`` holds PNG bytes.
 
-The base class registers common file tools when a memory manager is provided; call ``super().__init__()`` then
-``add_tool`` for robot tools. Per-step state and ``view_env_state`` are in
-:doc:`add_primitive`.
+``ToolResult`` also separates the call from its physical effects. ``call_ok``
+reports whether the arguments reached the handler; ``error.code`` distinguishes
+``validation``, ``unknown_tool``, ``refused``, ``execution_failed``,
+``execution_uncertain``, and ``cancelled``. ``no_execution`` marks a request that
+definitely did not touch the environment, while ``execution_uncertain`` marks a
+state-changing request that may have outlived the call. ``execution_status``
+records ``completed``, ``partial``, ``not_started``, or ``unknown``. A successful
+call does not imply that the requested task succeeded. Domain handlers normally
+set only ``data``; use ``tool_error`` when a request is rejected before any
+environment write. ``ToolResult.to_text()`` includes these layers.
+
+The base class registers common file and memory tools; call ``super().__init__()`` then
+``add_tool`` for robot tools. Shared tool families in ``rpent/tools``
+(``SceneTools``, ``MotionTools``, ``MemoryTools``, ``PolicyTools``) expose
+``tools(capabilities, config)``. Register them with
+``add_tools(family, ..., capabilities=services, config=...)`` so each family
+publishes only the declarations the connected host supports. Per-step state and
+``view_env_state`` are in :doc:`add_primitive`.
+
+Shared tools used by more than one robot live under ``toolkits/<name>/`` and do
+not import ``robots/``. ``toolkits/geometry`` provides the ``geometry`` tool and
+a CPU-only evaluation: ``geometry-eval --output-dir <dir>`` replays a frozen
+synthetic corpus and writes a manifest, raw results, and a report. The synthetic
+reference checks pipeline consistency; it is not a real-sensor accuracy
+baseline.
 
 Tools without ``readonly=True`` run exclusively, in admission order. Waiting
 exclusive calls take priority over new readonly calls. Exclusive execution

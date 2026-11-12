@@ -38,7 +38,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
    * - Planner
      - 选择工具、维护模型交互并返回 ``PlannerResult``。``api`` 使用 Pydantic AI 原生循环，并通过 Harness 的滑动窗口裁剪历史；``claude_code`` 和 ``codex`` 使用各自的 SDK。LIBERO Flash 执行保存的计划。
    * - Toolkit
-     - 定义工具参数、分发调用、保存状态，并将工具返回值转换为供规划器读取的 ``ToolResult``。
+     - 定义工具参数、分发调用、保存状态，并将领域数据以及调用和执行状态转换为供规划器读取的 ``ToolResult``。
    * - Environment service
      - 拥有仿真器或真机连接，执行动作并提供原生状态与成功判定。
    * - VLA / perception services
@@ -62,9 +62,11 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      session/      # Session and task lifecycle
      dashboard/    # Web UI and event delivery
      robots/       # Discovery, descriptors, runtime components
-     tools/        # Toolkit and shared tool behavior
+     tools/        # Toolkit, tool families, and execution layers
      memory/       # Memory permissions, merge, and indexing
      evaluation/   # Evaluation result support
+   toolkits/
+     geometry/     # Shared geometry tool and its evaluation
    robots/
      libero/
      robocasa/

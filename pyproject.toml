@@ -57,6 +57,7 @@ rpent = "rpent.cli.main:main"
 rpent-memory = "rpent.cli.memory:main"
 rpent-check-llm = "rpent.cli.check_llm:main"
 rpent-flywheel = "rpent.flywheel.cli:main"
+geometry-eval = "toolkits.geometry.evaluation.experiment:main"
 
 [project.urls]
 Homepage = "https://github.com/RLinf/RPent"
@@ -267,16 +268,17 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-# robots is a top-level package; without it, non-editable installations
-# leave the CLI unable to import any backend. The globs also cover every
-# per-robot subpackage (robots.yam.*, robots.robodojo.*, ...).
-include = ["rpent*", "robots", "robots.*"]
-exclude = ["tests*", "docs*", "examples*", "docker*", "toolkits*"]
+# robots and toolkits are top-level packages; without them, non-editable
+# installations leave the CLI unable to import a backend or a shared tool
+# family. The globs also cover every subpackage.
+include = ["rpent*", "robots", "robots.*", "toolkits", "toolkits.*"]
+exclude = ["tests*", "docs*", "examples*", "docker*"]
 
 [tool.setuptools.package-data]
 "robots.robodojo" = ["guides/*.md"]
 "rpent.dashboard" = ["*.html", "static/*.css", "static/*.js"]
 "robots.yam" = ["config/*.yaml", "config/*.json", "guides/*.md"]
+"toolkits.geometry.evaluation" = ["*.md"]
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]

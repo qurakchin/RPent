@@ -31,6 +31,7 @@ import pytest
 
 from robots.robotwin import toolkit
 from robots.robotwin.env_client import RoboTwinEnvClient
+from robots.robotwin.policy import RoboTwinPolicyBinding
 from robots.robotwin.primitives import RoboTwinPrimitives
 from robots.robotwin.robot_spec import env_runtime_contract
 from robots.robotwin.toolkit import _capture_robotwin_call
@@ -40,37 +41,41 @@ from rpent.flywheel.reader import iter_trajectories, read_array
 from rpent.memory import MemoryManager
 from rpent.session import EnvState, Payload
 from rpent.session.env_capture import CapturingEnvClient, ToolCallCapture
-from rpent.tools import Tool, Toolkit, ToolResult
+from rpent.tools import Toolkit, ToolResult, tool
 from rpent.tools.direct_action import direct_action_tool
+from rpent.tools.policy_tools import PolicyConfig, PolicyTools
 from rpent.utils import templates
 from rpent.utils.rpc import RpcError
 
 COMMON_TOOLS = {"read_text_file", "write_text_file", "list_dir", "finish"}
 
-EXPECTED_TOOLS = COMMON_TOOLS | {
+FAMILY_TOOLS = {
     "view_env_state",
-    "render",
-    "sample_world_xyz",
+    "geometry",
     "query_world_map",
     "lingbot_act",
     "move_to",
     "rotate_wrist",
     "set_gripper",
     "release",
+    "recall",
+    "remember",
+    "corroborate",
 }
+
+EXPECTED_TOOLS = COMMON_TOOLS | FAMILY_TOOLS | {"render"}
 
 PRIMITIVE_METHODS = {
     "start_recording",
     "recorded_frame_count",
     "frame_slice",
     "stop_recording",
+    "recording_frames",
     "status",
     "finish",
-    "lingbot_act",
-    "move_to",
-    "rotate_wrist",
-    "set_gripper",
-    "release",
+    "check_cancelled",
+    "reset",
+    "apply_qpos_updates",
 }
 
 
@@ -80,10 +85,24 @@ class FakeRoboTwinPrimitives:
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
         self.model = kwargs["model"]
+        self.policy_kind = kwargs.get("policy_kind", "vla")
         self.status_calls = 0
         self.recording_started = False
-        self.env = SimpleNamespace(last_reset_info={"actual_seed": 7})
+        self.policy_actions = 0
+        self.native_actions = 0
+        self.env = SimpleNamespace(
+            last_reset_info={"actual_seed": 7},
+            server_meta={"task_name": "offline"},
+            execution_capabilities={},
+            last_info={"robot_state": {}, "episode_status": {}},
+        )
         type(self).instances.append(self)
+
+    def check_cancelled(self) -> None:
+        return None
+
+    def recording_frames(self) -> bool:
+        return False
 
     def start_recording(self) -> None:
         self.recording_started = True
@@ -98,6 +117,12 @@ class FakeRoboTwinPrimitives:
     def stop_recording(self) -> list[Any]:
         return []
 
+    def reset(self) -> dict[str, Any]:
+        return {"actual_seed": 7, "success": True}
+
+    def apply_qpos_updates(self, updates: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"executed_actions": len(updates), "episode_status": self.status()}
+
     def status(self) -> dict[str, Any]:
         self.status_calls += 1
         return {
@@ -107,39 +132,10 @@ class FakeRoboTwinPrimitives:
             "actual_seed": 7,
         }
 
-    def finish(self, *, status: str, summary: str) -> dict[str, Any]:
+    @tool(readonly=True)
+    def finish(self, *, status: str, summary: str) -> ToolResult:
+        """Stop the fake run."""
         return ToolResult(data={"_finish": True, "status": status, "summary": summary})
-
-    @staticmethod
-    def _operation(name: str, **kwargs: Any) -> dict[str, Any]:
-        return ToolResult(data={"operation": name, "arguments": kwargs})
-
-    def lingbot_act(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("lingbot_act", **kwargs)
-
-    def wam_act(self, **kwargs: Any) -> ToolResult:
-        return self._operation("wam_act", **kwargs)
-
-    def move_to(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("move_to", **kwargs)
-
-    def rotate_wrist(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("rotate_wrist", **kwargs)
-
-    def set_gripper(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("set_gripper", **kwargs)
-
-    def release(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("release", **kwargs)
-
-
-for _attribute, _definition in vars(RoboTwinPrimitives).items():
-    if isinstance(_definition, Tool):
-        setattr(
-            FakeRoboTwinPrimitives,
-            _attribute,
-            _definition.with_handler(getattr(FakeRoboTwinPrimitives, _attribute)),
-        )
 
 
 def _record(step_idx: int = 0) -> SimpleNamespace:
@@ -189,7 +185,7 @@ def test_toolkit_constructs_and_captures_an_initial_observation(
         lambda self: {"views": {}, "robot_state": {}, "task_language": "offline"},
     )
     monkeypatch.setattr(
-        toolkit.tools,
+        toolkit,
         "dump_observation",
         lambda observation, env_state, status, log: (
             dumped.append({"observation": observation, "status": status, "log": log})
@@ -197,9 +193,9 @@ def test_toolkit_constructs_and_captures_an_initial_observation(
         ),
     )
     monkeypatch.setattr(
-        toolkit.tools,
+        toolkit,
         "view_env_state",
-        toolkit.tools.view_env_state.with_handler(
+        toolkit.view_env_state.with_handler(
             lambda step=-1, *, state: ToolResult(data={"step": step})
         ),
     )
@@ -227,8 +223,11 @@ def test_toolkit_constructs_and_captures_an_initial_observation(
     assert _tool_names(robot_toolkit) == expected
     assert _readonly_names(robot_toolkit) == common | {
         "view_env_state",
-        "sample_world_xyz",
+        "geometry",
         "query_world_map",
+        "recall",
+        "remember",
+        "corroborate",
     }
     assert len(dumped) == 1
     assert dumped[0]["log"] == {
@@ -551,8 +550,11 @@ def test_policy_capture_exports_only_executed_actions_with_their_inputs(
             memory=MemoryManager(tmp_path / "memory"),
         )
         toolkit.get_env_state = lambda **kw: ToolResult(data={})
-        name = "lingbot_act" if policy == "vla" else "wam_act"
-        toolkit.add_tool(getattr(primitives, name))
+        binding = RoboTwinPolicyBinding(primitives)
+        name = binding.tool_name
+        toolkit.add_tools(
+            PolicyTools(binding, config=PolicyConfig(use_length=binding.use_length))
+        )
         toolkit.add_tool(
             direct_action_tool(env.action_specs, primitives.execute_action)
         )
@@ -653,8 +655,9 @@ def test_wam_executes_selected_control_and_refreshes_observation(action_type, di
     )
     primitive.reset()
     model.reset.assert_called_once()
-    assert primitive.wam_act("subtask").data["executed_steps"] == 3
-    assert primitive.wam_act().data["executed_steps"] == 3
+    policy = PolicyTools(RoboTwinPolicyBinding(primitive))
+    assert policy.wam_act("subtask").data["executed_steps"] == 3
+    assert policy.wam_act().data["executed_steps"] == 3
     calls = model.predict.call_args_list
     assert [call.args[0]["task_language"] for call in calls] == [
         "subtask",
