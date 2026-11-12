@@ -135,8 +135,8 @@ Astra has no replay assets, so selecting it for Flash reports an error.
 
 The Astra release merges the Long and Spatial/Object/Goal exploration batches;
 three conflicting global notes keep both versions with source suffixes. The
-published 92.63% LIBERO-PRO result was measured on the two frozen snapshots
-separately, not on the merged release. The snapshots are pinned at dataset
+published LIBERO-PRO result (:doc:`Performance <../leaderboard/performance>`)
+was measured on the two frozen snapshots separately, not on the merged release. The snapshots are pinned at dataset
 revisions ``cf5d14ce9b3ec6c72de5477ec0fea806a3884efa`` (Long) and
 ``984c57f7c6caf48b572f5926851dd9134ae041d8`` (Spatial/Object/Goal).
 

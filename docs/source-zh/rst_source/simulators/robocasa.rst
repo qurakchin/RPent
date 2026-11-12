@@ -36,54 +36,6 @@ RoboCasa365
 
       Linux、NVIDIA GPU；Python 3.10；CUDA 与 EGL。
 
-任务
-~~~~~~~~~~~~
-
-Target50 包含以下任务类别，完整任务、seed 和运行限制见本页实验复现部分。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 类别
-     - 任务数
-     - 内容
-   * - Atomic
-     - 18
-     - 单项厨房操作。
-   * - Composite-Seen
-     - 16
-     - 已见类别的组合任务。
-   * - Composite-Unseen
-     - 16
-     - 未见类别的组合任务。
-
-.. _robocasa-observation-action:
-
-观测与动作
-~~~~~~~~~~~~
-
-下表区分规划器使用的工具、模型输入及环境的成功判定。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 项目
-     - 说明
-   * - 观测
-     - 相机图像、深度／世界坐标及底盘、末端、夹爪状态。RLDX-1 接收三路相机的历史帧、状态和任务文字。
-   * - 动作
-     - 规划器调用 ``rldx_skill`` 和动作原语；RLDX-1 预测末端、夹爪、底盘运动和控制模式指令。
-   * - 奖励与成功判定
-     - 任务成功以环境 ``_check_success()`` 返回的结果为准，该结果通过 ``state.success`` 提供。
-   * - 任务指令
-     - 使用当前环境的完整 ``task_language``，历史记忆中的指令不能替代当前任务指令。
-
-验证状态
---------
-
-- 已验证（多次）：v0.1 发布说明覆盖 Target50 协议；任务与 seed 矩阵见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
-- 仅 CPU：离线单测覆盖配置、工具与评测结果契约。
-
 安装与资源准备
 ---------------------
 
@@ -195,6 +147,54 @@ RLDX-1 需要微调权重和基础模型的支持文件，两项都要下载。�
 任务是否成功由环境的 ``_check_success()`` 判定，其布尔结果记录在 ``state.success`` 中。规划器调用 ``finish`` 会结束对话，但其中声明的状态不作为评测结果。查看输出目录中的 ``result.json``、``transcript_*.json`` 和 ``run.log``；服务启动问题分别记录在 ``env_server.log``、``vla_server.log``。
 
 可使用 ``--dashboard`` 观察相机和规划器输出，通用操作见 :doc:`../guides/dashboard`。
+
+任务
+----~~~~~~~~
+
+Target50 包含以下任务类别，完整任务、seed 和运行限制见本页实验复现部分。
+
+.. list-table::
+   :header-rows: 1
+
+   * - 类别
+     - 任务数
+     - 内容
+   * - Atomic
+     - 18
+     - 单项厨房操作。
+   * - Composite-Seen
+     - 16
+     - 已见类别的组合任务。
+   * - Composite-Unseen
+     - 16
+     - 未见类别的组合任务。
+
+.. _robocasa-observation-action:
+
+观测与动作
+----------~~
+
+下表区分规划器使用的工具、模型输入及环境的成功判定。
+
+.. list-table::
+   :header-rows: 1
+
+   * - 项目
+     - 说明
+   * - 观测
+     - 相机图像、深度／世界坐标及底盘、末端、夹爪状态。RLDX-1 接收三路相机的历史帧、状态和任务文字。
+   * - 动作
+     - 规划器调用 ``rldx_skill`` 和动作原语；RLDX-1 预测末端、夹爪、底盘运动和控制模式指令。
+   * - 奖励与成功判定
+     - 任务成功以环境 ``_check_success()`` 返回的结果为准，该结果通过 ``state.success`` 提供。
+   * - 任务指令
+     - 使用当前环境的完整 ``task_language``，历史记忆中的指令不能替代当前任务指令。
+
+验证状态
+--------
+
+- 已验证（多次）：v0.1 发布说明覆盖 Target50 协议；任务与 seed 矩阵见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
+- 仅 CPU：离线单测覆盖配置、工具与评测结果契约。
 
 任务记忆
 ------------

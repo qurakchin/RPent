@@ -217,8 +217,8 @@ parts:
 Add a WAM
 ---------
 
-Cosmos Policy and Cosmos3 support LIBERO and LIBERO-Pro; Fast-WAM supports LIBERO,
-LIBERO-Pro and RoboTwin. Each model/platform pair requires a matching checkpoint.
+Cosmos Policy and Cosmos3 support LIBERO and LIBERO-PRO; Fast-WAM supports LIBERO,
+LIBERO-PRO and RoboTwin. Each model/platform pair requires a matching checkpoint.
 
 ``cosmos-policy`` uses NVIDIA's released ``Cosmos-Policy-LIBERO-Predict2-2B``
 checkpoint and official LIBERO inference API. ``cosmos3`` connects to a

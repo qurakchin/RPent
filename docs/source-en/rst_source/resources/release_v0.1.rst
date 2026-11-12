@@ -29,10 +29,10 @@ Real-World Demos
 Simulation Benchmarks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- **Multi-environment evaluation and a public leaderboard**: RPent with GPT-6 Astra achieves success
-  rates of 92.63% on LIBERO-PRO (low reasoning) and 59.20% on RoboCasa365 Target50 (high reasoning).
-  RPent with GPT-5.5 achieves 62.4% on RoboTwin C2R. The leaderboard includes evaluation configurations, success rates, runtime,
-  and token usage. :doc:`Leaderboard </rst_source/leaderboard/index>`
+- **Multi-environment evaluation and a public leaderboard**: RPent reports success rates on
+  LIBERO-PRO (GPT-6 Astra, low reasoning), RoboCasa365 Target50 (GPT-6 Astra, high reasoning),
+  and RoboTwin C2R (GPT-5.5). The :doc:`Leaderboard </rst_source/leaderboard/index>` records the
+  values, evaluation configurations, runtime, token usage, and sources.
 
 System Design
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

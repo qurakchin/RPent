@@ -13,6 +13,26 @@
 - `uv <https://docs.astral.sh/uv/getting-started/installation/>`_，用于创建独立的 Python 环境。以下命令使用 Python 3.11。
 - Claude Code 规划器的凭据：可访问示例模型的 ``ANTHROPIC_API_KEY``，或已通过 ``claude auth login`` 完成的 Claude Code 登录。还需要能下载仿真资源和模型权重的网络；模型调用会产生 API 费用。
 
+资源估算
+~~~~~~~~
+
+以下数值针对本页的 LIBERO-PRO 配置，属于估算值，不是硬件认证结果。
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - 资源
+     - 估算
+   * - 显存
+     - 在单张 GPU 上同时运行 Pi0.5 和 SAM3 时，建议至少 16 GB。Pi0.5 推理需要 8 GB 以上，SAM3 加载 3.4 GB 的 checkpoint；显存紧张时可用 ``--am-cuda-device`` 和 ``--sam3-cuda-device`` 拆分服务。
+   * - 磁盘
+     - 约 60 GB 可用空间：LIBERO 数据集约 34 GB、场景资源约 0.6 GB、模型权重约 11 GB，以及 Python 环境。
+   * - 模型下载
+     - Pi0.5 的 ``model.safetensors`` 为 7.5 GB；下方命令会跳过 13.5 GB 的 ``optimizer.pt``。``sam3.pt`` 为 3.4 GB。
+   * - 运行耗时
+     - 使用在线规划器时，每个回合通常需要 5 至 15 分钟；规划器、模型和推理强度是主要变量。实测均值见 :doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>`。
+
 1. 安装 RPent
 ---------------
 

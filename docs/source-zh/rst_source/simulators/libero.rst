@@ -10,6 +10,8 @@ LIBERO
 
 使用 RPent 在 `LIBERO <https://libero-project.github.io/>`_ 中运行桌面操作任务，并复现 LIBERO-PRO 实验。仿真器基于 MuJoCo/robosuite，RPent 支持 ``standard``、``pro`` 和 ``plus`` 三种版本，默认动作模型为 Pi0.5。
 
+首次运行请按 :doc:`../get_started/quickstart` 操作；本页介绍版本选择、任务选择、结果查看与实验复现。
+
 .. _libero-overview:
 
 概览
@@ -36,70 +38,12 @@ LIBERO
 
       Linux、NVIDIA GPU；Python 3.11；CUDA 与 EGL。
 
-.. _libero-pro:
-
-.. _libero-pro-core-suites:
-
-任务
-~~~~~~~~~~~~
-
-下表完整列出 RPent 的四个 LIBERO-PRO 核心任务族及其全部扰动套件。
-
-.. list-table::
-   :header-rows: 1
-   :widths: 15 20 65
-
-   * - 任务族
-     - 基础套件
-     - 扰动套件
-   * - 物体
-     - ``libero_object``
-     - ``libero_object_task``、``libero_object_swap``、
-       ``libero_object_lan``、``libero_object_object``
-   * - 目标
-     - ``libero_goal``
-     - ``libero_goal_task``、``libero_goal_swap``、
-       ``libero_goal_lan``、``libero_goal_object``
-   * - 空间
-     - ``libero_spatial``
-     - ``libero_spatial_task``、``libero_spatial_swap``、
-       ``libero_spatial_lan``、``libero_spatial_object``
-   * - LIBERO-10
-     - ``libero_10``
-     - ``libero_10_task``、``libero_10_swap``、``libero_10_lan``、
-       ``libero_10_object``
-
-.. _libero-observation-action:
-
-观测与动作
-~~~~~~~~~~~~
-
-下表区分规划器使用的工具、模型输入及环境的成功判定。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 项目
-     - 说明
-   * - 观测
-     - 相机 RGB／深度图像及末端、夹爪状态。Pi0.5 使用场景图像、腕部图像和机器人状态。
-   * - 动作
-     - 规划器调用 Pi0.5 工具，或 ``move_to``、``set_gripper`` 等动作原语，由工具执行环境动作。
-   * - 奖励与成功判定
-     - 任务成功以最终状态的顶层 ``terminated`` 为准。达到步数上限或规划器调用 ``finish`` 均不代表成功。
-   * - 任务指令
-     - 任务指令来自所选套件、任务及当前环境。
-
-验证状态
---------
-
-- 已验证（多次）：v0.1 发布版测试与论文配置抽样复现覆盖 LIBERO-PRO 任务；配置、seed 与回合数见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
-- 仅 CPU：离线单测覆盖任务选择、工具与结果契约。
+.. _installation-and-variants:
 
 安装与资源准备
 --------------
 
-首次使用 LIBERO-PRO，请先完成 :doc:`../get_started/quickstart` 的安装、资源下载和模型配置。本页用于选择更多任务与复现实验。
+首次运行 LIBERO-PRO 时，请先完成 :doc:`../get_started/quickstart` 的安装、资源下载和模型配置；该页同时给出显存、磁盘和运行耗时的估算。
 
 其他 LIBERO 版本请在独立环境中安装对应 extra，再下载资源；每个 Python 环境只安装一种 LIBERO 版本：
 
@@ -151,6 +95,30 @@ SAM3 配置
 
    export SAM3_CHECKPOINT_PATH=/path/to/sam3/sam3.pt
 
+.. _minimal-command:
+
+运行一个任务
+------------
+
+完成上面的模型配置，并按 :doc:`../guides/configure_planner` 配置规划器。以下命令运行 ``libero_object_swap`` 的任务 2，seed 为 0。
+
+.. code-block:: bash
+
+   export PI05_CHECKPOINT_PATH=/path/to/rlinf-pi05-libero-130-fullshot-sft
+
+   rpent --robot libero \
+     --suite libero_object_swap --task 2 --seed 0 \
+     --planner claude_code --model claude-opus-4-8
+
+套件决定任务族；对扰动套件而言，它还决定扰动类型。其他套件、任务、seed 或版本见下文「任务选择」；切换 planner 的方法见 :doc:`../guides/configure_planner`。
+
+查看结果
+--------
+
+终端会显示服务器启动、规划器对话和工具调用。结束后查看输出目录中的 ``episode.mp4``、``transcript_*.json`` 和 ``run.log``；默认目录与逐步观测文件见 :ref:`run-output-files`。
+
+通过 ``view_env_state(step=-1)`` 查看最终状态，顶层 ``terminated`` 表示环境是否判定成功。规划器调用 ``finish`` 只表示结束规划。实时观察方法见 :doc:`../guides/dashboard`。
+
 任务选择
 --------
 
@@ -170,23 +138,8 @@ SAM3 配置
    * - ``--libero-type``
      - 已安装的 LIBERO 版本：``standard`` | ``pro`` | ``plus``。
 
-运行一个任务
-------------
-
-完成上面的模型配置，并按 :doc:`../guides/configure_planner` 配置规划器。以下命令运行 ``libero_object_swap`` 的任务 2，seed 为 0。
-
-.. code-block:: bash
-
-   export PI05_CHECKPOINT_PATH=/path/to/rlinf-pi05-libero-130-fullshot-sft
-
-   rpent --robot libero \
-     --suite libero_object_swap --task 2 --seed 0 \
-     --planner claude_code --model claude-opus-4-8
-
-如需切换 planner，请参阅 :doc:`../guides/configure_planner`。
-
 WAM 评测
-~~~~~~~~
+--------
 
 按 :doc:`../development/add_action_model` 准备 worker，保留上面的仿真器和 SAM3 配置。WAM 不需要 Pi0.5 权重。Cosmos 在端口 8116 启动后：
 
@@ -197,16 +150,71 @@ WAM 评测
      --am-endpoint http://127.0.0.1:8116 --memory-profile local \
      --planner api --model <planner-model>
 
-Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-Pro 需在 Pro 环境中选择 Pro suite 并指定 ``--libero-type pro``。WAM 不支持 LIBERO-Plus、Flash 和探索。WAM 必须启用本地记忆管理器和文件工具，默认目录按后端区分，语料允许为空；可通过 ``--memory-dir`` 指定兼容的本地语料，目前不支持 HF 记忆。``wam_act(prompt=None, max_chunks=1)`` 替换 Pi0.5 工具，每次执行 1 至 4 个 chunk，每个 chunk 前重新获取观测。每个 chunk 的动作数由 worker 的 ``chunk_size`` 元数据声明。prompt 仅覆盖本次调用，chunk 预算不指定在 chunk 内的哪一步停止。
+Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-PRO 需在 Pro 环境中选择 Pro suite 并指定 ``--libero-type pro``。WAM 不支持 LIBERO-Plus、Flash 和探索。WAM 必须启用本地记忆管理器和文件工具，默认目录按后端区分，语料允许为空；可通过 ``--memory-dir`` 指定兼容的本地语料，目前不支持 HF 记忆。``wam_act(prompt=None, max_chunks=1)`` 替换 Pi0.5 工具，每次执行 1 至 4 个 chunk，每个 chunk 前重新获取观测。每个 chunk 的动作数由 worker 的 ``chunk_size`` 元数据声明。prompt 仅覆盖本次调用，chunk 预算不指定在 chunk 内的哪一步停止。
 
-查看结果
-------------
+.. _libero-pro:
 
-终端会显示服务器启动、规划器对话和工具调用。结束后查看输出目录中的 ``episode.mp4``、``transcript_*.json`` 和 ``run.log``；默认目录与逐步观测文件见 :ref:`run-output-files`。
+.. _libero-pro-core-suites:
 
-通过 ``view_env_state(step=-1)`` 查看最终状态，顶层 ``terminated`` 表示环境是否判定成功。规划器调用 ``finish`` 只表示结束规划。实时观察方法见 :doc:`../guides/dashboard`。
+任务
+----
+
+下表完整列出 RPent 的四个 LIBERO-PRO 核心任务族及其全部扰动套件。
+
+.. list-table::
+   :header-rows: 1
+   :widths: 15 20 65
+
+   * - 任务族
+     - 基础套件
+     - 扰动套件
+   * - 物体
+     - ``libero_object``
+     - ``libero_object_task``、``libero_object_swap``、
+       ``libero_object_lan``、``libero_object_object``
+   * - 目标
+     - ``libero_goal``
+     - ``libero_goal_task``、``libero_goal_swap``、
+       ``libero_goal_lan``、``libero_goal_object``
+   * - 空间
+     - ``libero_spatial``
+     - ``libero_spatial_task``、``libero_spatial_swap``、
+       ``libero_spatial_lan``、``libero_spatial_object``
+   * - LIBERO-10
+     - ``libero_10``
+     - ``libero_10_task``、``libero_10_swap``、``libero_10_lan``、
+       ``libero_10_object``
+
+.. _libero-observation-action:
+
+观测与动作
+----------
+
+下表区分规划器使用的工具、模型输入及环境的成功判定。
+
+.. list-table::
+   :header-rows: 1
+
+   * - 项目
+     - 说明
+   * - 观测
+     - 相机 RGB／深度图像及末端、夹爪状态。Pi0.5 使用场景图像、腕部图像和机器人状态。
+   * - 动作
+     - 规划器调用 Pi0.5 工具，或 ``move_to``、``set_gripper`` 等动作原语，由工具执行环境动作。
+   * - 奖励与成功判定
+     - 任务成功以最终状态的顶层 ``terminated`` 为准。达到步数上限或规划器调用 ``finish`` 均不代表成功。
+   * - 任务指令
+     - 任务指令来自所选套件、任务及当前环境。
+
+验证状态
+--------
+
+- 已验证（多次）：v0.1 发布版测试与论文配置抽样复现覆盖 LIBERO-PRO 任务；配置、seed 与回合数见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
+- 仅 CPU：离线单测覆盖任务选择、工具与结果契约。
 
 .. _libero-exploration:
+
+.. _exploration-and-memory:
 
 任务记忆与探索模式
 ------------------
@@ -220,21 +228,9 @@ Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-Pro 需�
 实验复现
 --------
 
-RPent 在 LIBERO-PRO Task/Swap 上的统一模型对比及对应配置见 :doc:`../leaderboard/index`。
+:doc:`排行榜 <../leaderboard/performance>` 记录已发布的 LIBERO-PRO 成绩。其中 ``GPT-5.5 (xhigh)`` 一行是由六个论文套件与两个 Long 套件复现结果合成的派生汇总；这两个 Long 套件在 `reproduce/libero <https://github.com/RLinf/RPent/tree/reproduce/libero>`_ 分支上使用 ``gpt-5.5`` 和 ``xhigh`` 推理强度重新评测。套件级数值以该行为准，汇总规则见排行榜的 :doc:`评测协议 <../leaderboard/methodology>`。
 
-:doc:`GPT-6 Astra 套件汇总 <../leaderboard/index>`
-记录全部八个完整套件及 800 个已核验回合：741 成功、59 失败，Overall 92.63%，配置为 Codex / GPT-6 Astra / low / reasoning。
-
-Long 结果使用 `reproduce/libero <https://github.com/RLinf/RPent/tree/reproduce/libero>`_ 分支、``gpt-5.5`` 模型和 ``xhigh`` 推理强度：
-
-- ``libero_10_task``：70%（70/100）
-- ``libero_10_swap``：55%（55/100）
-
-结合 Spatial/Object/Goal 六项论文成绩（81%、69%、94%、91%、75%、66%）和这两项 Long 复现结果，八项评测的 **Overall 为 75.13%**。:doc:`排行榜 <../leaderboard/performance>` 使用这一汇总口径。
-
-先使用上述复现分支，并完成本页资源配置。下面以任务 0、seed 0 为例；完整成绩需要覆盖该任务集中的全部任务和约定的 seed。示例服务端口需按 :doc:`../guides/advanced_deployment` 预先启动。
-
-复现命令如下：
+下面命令只复现 ``libero_10_task`` 的任务 0、seed 0。要复现已发布的那一行，需要覆盖全部八个套件的完整任务与 seed 矩阵。请先完成本页的资源配置，并按 :doc:`../guides/advanced_deployment` 启动示例中的服务。
 
 .. code-block:: bash
 
@@ -293,7 +289,7 @@ Dashboard
 实时监控、提交任务和停止会话的方法见 :doc:`../guides/dashboard`。
 
 接入自定义 VLA
-----------------
+---------------
 
 如果你有一个与 LIBERO 兼容、但并非 Pi0.5 的 VLA，可以在不修改机器人实现的情况下替换 model client：
 

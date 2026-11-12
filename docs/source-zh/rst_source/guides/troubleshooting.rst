@@ -6,51 +6,67 @@
 常见问题
 --------
 
+每一行给出检查方法、修复或确认原因的命令，以及需要重跑的步骤。重跑时请换用新的 ``--output-dir``，保留失败运行的日志和产物。
+
 .. list-table::
    :header-rows: 1
-   :widths: 28 44 28
+   :widths: 18 22 45 15
 
    * - 现象
      - 检查
+     - 修复与恢复
      - 详见
-   * - ``rpent: command not found``
-     - 激活安装 RPent 的 Python 环境，例如 ``source .venv/bin/activate``。
+   * - 找不到 ``rpent`` 命令
+     - 当前 Python 环境没有安装 RPent。
+     - 执行 ``source .venv/bin/activate``，用 ``which rpent`` 确认后重跑原命令。
      - :doc:`../get_started/quickstart`
    * - 启动时仿真器或模型导入失败
-     - 安装对应 extra（``.[libero]``、``.[libero-pro]``、``.[robocasa]`` 等）。同一环境只装一个 LIBERO 变体。
+     - 当前环境缺少对应 extra。
+     - 安装对应 extra，例如 ``uv pip install -e ".[libero-pro]"``；同一环境只装一个 LIBERO 变体，然后重跑。
      - :doc:`../simulators/index`
    * - 服务启动时报 CUDA 或驱动错误
-     - 安装与驱动匹配的 PyTorch 版本，再运行该环境的检查命令。
+     - PyTorch 与驱动或 GPU 不匹配。
+     - 用 ``python -c "import torch; print(torch.version.cuda, torch.cuda.is_available())"`` 检查；重装匹配的 PyTorch，然后重跑。
      - :doc:`../simulators/libero`、:doc:`../simulators/robocasa`
    * - 显存不足
-     - 检查 GPU 上的其他进程；支持的平台可用 ``--env-cuda-device`` 和 ``--am-cuda-device`` 分开分配设备。
-     - :doc:`../simulators/robotwin`
+     - 其他进程占用显存，或两个服务共用一张卡。
+     - 用 ``nvidia-smi`` 检查并停止其他任务，再拆分设备：``--env-cuda-device 0 --am-cuda-device 1 --sam3-cuda-device 0``。
+     - :doc:`cli`
    * - 服务在第一次工具调用前退出
-     - 查看输出目录中的 ``env_server.log``、``vla_server.log`` 或 ``sam3_server.log``，其中记录失败组件。
+     - 失败的服务已记录错误。
+     - 查看 ``tail -n 50 <输出目录>/env_server.log``（以及 ``vla_server.log``、``sam3_server.log``）；修掉首个错误，换新输出目录重跑。
      - :ref:`run-output-files`
    * - 模型或资源下载失败
-     - 需要授权的权重先申请访问并执行 ``hf auth login``；可设置 ``HF_ENDPOINT`` 使用镜像，或按页面给出的 ModelScope 命令下载。
+     - 认证、镜像或磁盘空间。
+     - 受限权重先执行 ``hf auth login``；镜像前缀为 ``HF_ENDPOINT=https://hf-mirror.com liberopro-download-assets --skip-existing``。重跑失败的步骤，``--skip-existing`` 会保留已完成文件。
      - :doc:`../get_started/quickstart`
    * - 规划器检查失败
-     - 用相同的 ``--planner`` 和 ``--model`` 运行 ``rpent-check-llm``；错误类别可区分配置、认证、模型和网络问题。
+     - 配置、认证、模型或网络错误。
+     - 重跑 ``rpent-check-llm --planner claude_code --model claude-opus-4-8``；按报告的类别修复后重跑完整任务。
      - :ref:`planner-check`
    * - 规划器能连接，但任务全部失败
-     - 先确认 checkpoint 路径和原生成功判定，查看录像和最终状态，再调整规划器设置。
+     - checkpoint 路径或原生成功判定。
+     - 查看 ``view_env_state(step=-1)``，只有顶层 ``terminated`` 表示成功；修正 checkpoint 路径后重跑。
      - :ref:`leaderboard-protocol`
    * - 外部服务连接不上
-     - 传入 ``host:port`` 形式的端点，而不是只写端口；服务需在另一终端或节点保持运行。
+     - 端点格式错误，或服务未运行。
+     - 用 ``curl -s -X POST http://HOST:PORT/call -H 'Content-Type: application/json' -d '{"method":"healthz"}'`` 检查，应返回 ``{"status": "ok"}``；启动或转发服务后重跑。
      - :doc:`advanced_deployment`
    * - 记忆缓存被拒绝使用
-     - 删除版本缓存中的多余文件，或联网重新同步。``HF_HUB_OFFLINE=1`` 要求缓存完整且未改动。
+     - 缓存有多余文件或不完整。
+     - 删除多余文件，或联网重建：``python -m robots.libero.memory sync --memory-version GPT_6_astra_low``。``HF_HUB_OFFLINE=1`` 时缓存必须完整且未改动。
      - :doc:`memory`
    * - Flash 找不到计划
-     - 该任务可能没有成功的源计划；Astra memory 也没有重放资源。Flash 应使用 GPT-5.5 memory。
+     - 所选记忆没有成功的源计划或重放资源。
+     - 使用 ``--memory-version GPT_5.5_xhigh``，或包含 ``flash/`` 资源的本地 ``--memory-dir``，然后重跑。
      - :doc:`flash`
    * - 其他机器打不开 Dashboard
-     - 默认只监听 ``127.0.0.1``，请使用 SSH 端口转发。
+     - 默认只监听 ``127.0.0.1``。
+     - 转发启动时打印的端口：``ssh -N -L 8000:127.0.0.1:8000 USER@HOST``，再打开 ``http://127.0.0.1:8000``。
      - :doc:`advanced_deployment`
    * - 真机运行无法启动
-     - 按对应机器人页面检查标定和姿态前提；环境服务会在启动前校验。
+     - 标定、姿态前提或急停状态。
+     - 完成机器人标定与姿态检查，松开急停，确认机械臂和夹爪状态后重跑。
      - :doc:`../real_world_robots/index`
 
 提供排查信息

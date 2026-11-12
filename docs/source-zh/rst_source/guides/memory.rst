@@ -104,7 +104,7 @@ Dashboard 后续任务也使用这些参数。``main`` 等分支可能在任务�
 GPT-5.5 在 ``flash/`` 下还包含计划与锚点文件；Astra 没有重放资产，\
 显式选用它执行 Flash 时会报错。
 
-Astra 发布版合并了 Long 与 Spatial/Object/Goal 两批探索记忆；三个重名但内容不同的 global 文件保留两份并加来源后缀。已发布的 LIBERO-PRO 92.63% 成绩是在两份冻结快照上分别评测得到的，不是在合并发布版上重新评测的结果。Long 快照固定为数据集 revision ``cf5d14ce9b3ec6c72de5477ec0fea806a3884efa``，Spatial/Object/Goal 快照固定为 ``984c57f7c6caf48b572f5926851dd9134ae041d8``。
+Astra 发布版合并了 Long 与 Spatial/Object/Goal 两批探索记忆；三个重名但内容不同的 global 文件保留两份并加来源后缀。已发布的 LIBERO-PRO 成绩（见 :doc:`排行榜 <../leaderboard/performance>`）是在两份冻结快照上分别评测得到的，不是在合并发布版上重新评测的结果。Long 快照固定为数据集 revision ``cf5d14ce9b3ec6c72de5477ec0fea806a3884efa``，Spatial/Object/Goal 快照固定为 ``984c57f7c6caf48b572f5926851dd9134ae041d8``。
 
 加载器要求 Hub 数据按版本存放，不转换也不回退到无版本语料。\
 代码与数据需配套更新。数据集 ``main`` 持续更新，\

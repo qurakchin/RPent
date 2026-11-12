@@ -36,57 +36,6 @@ Check the model, task, and runtime requirements before following the installatio
 
       Linux, NVIDIA GPU; Python 3.10; CUDA and EGL.
 
-Tasks
-~~~~~~~~~~~~
-
-Target50 covers the following categories. The reproduction section lists the complete task/seed matrix and run limits.
-
-.. list-table::
-   :header-rows: 1
-
-   * - Category
-     - Tasks
-     - Scope
-   * - Atomic
-     - 18
-     - Individual kitchen operations.
-   * - Composite-Seen
-     - 16
-     - Composite tasks in seen categories.
-   * - Composite-Unseen
-     - 16
-     - Composite tasks in unseen categories.
-
-.. _robocasa-observation-action:
-
-Observation and Action
-~~~~~~~~~~~~~~~~~~~~~~
-
-The table distinguishes planner tools, model inputs, and the environment’s success criterion.
-
-.. list-table::
-   :header-rows: 1
-
-   * - Item
-     - Description
-   * - Observation
-     - Camera views, depth/world coordinates, and mobile-base, end-effector, and gripper state. RLDX-1 receives three camera histories plus state and task text.
-   * - Action
-     - The planner calls ``rldx_skill`` and motion primitives. RLDX-1 predicts end-effector, gripper, base-motion, and control-mode commands.
-   * - Reward / success
-     - Evaluate success using the environment’s ``_check_success()`` result exposed as ``state.success``.
-   * - Task prompt
-     - Use the current environment’s complete ``task_language``; historical memory does not replace it.
-
-Validation Status
------------------
-
-- Verified (multiple runs): the v0.1 release report covers the Target50
-  protocol; see :doc:`../resources/release_v0.1` for the task/seed matrix and
-  the :doc:`leaderboard <../leaderboard/index>` for published scores.
-- CPU only: offline unit tests cover configuration, tools, and evaluation
-  result contracts.
-
 Installation and Resources
 --------------------------
 
@@ -226,6 +175,57 @@ View Results
 Task success comes from the environment’s ``_check_success()`` result, exposed as ``state.success``. The planner’s ``finish`` status ends its conversation and is not an evaluation label. Inspect ``result.json``, ``transcript_*.json``, and ``run.log`` in the output directory; service startup errors are in ``env_server.log`` and ``vla_server.log``.
 
 Use ``--dashboard`` to watch cameras and planner output; see :doc:`../guides/dashboard` for the shared workflow.
+
+Tasks
+-----
+
+Target50 covers the following categories. The reproduction section lists the complete task/seed matrix and run limits.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Category
+     - Tasks
+     - Scope
+   * - Atomic
+     - 18
+     - Individual kitchen operations.
+   * - Composite-Seen
+     - 16
+     - Composite tasks in seen categories.
+   * - Composite-Unseen
+     - 16
+     - Composite tasks in unseen categories.
+
+.. _robocasa-observation-action:
+
+Observation and Action
+----------------------
+
+The table distinguishes planner tools, model inputs, and the environment’s success criterion.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Item
+     - Description
+   * - Observation
+     - Camera views, depth/world coordinates, and mobile-base, end-effector, and gripper state. RLDX-1 receives three camera histories plus state and task text.
+   * - Action
+     - The planner calls ``rldx_skill`` and motion primitives. RLDX-1 predicts end-effector, gripper, base-motion, and control-mode commands.
+   * - Reward / success
+     - Evaluate success using the environment’s ``_check_success()`` result exposed as ``state.success``.
+   * - Task prompt
+     - Use the current environment’s complete ``task_language``; historical memory does not replace it.
+
+Validation Status
+-----------------
+
+- Verified (multiple runs): the v0.1 release report covers the Target50
+  protocol; see :doc:`../resources/release_v0.1` for the task/seed matrix and
+  the :doc:`leaderboard <../leaderboard/index>` for published scores.
+- CPU only: offline unit tests cover configuration, tools, and evaluation
+  result contracts.
 
 Task Memory
 -----------

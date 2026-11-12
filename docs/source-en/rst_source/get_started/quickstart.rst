@@ -13,6 +13,26 @@ Requirements
 - `uv <https://docs.astral.sh/uv/getting-started/installation/>`_ to create an isolated Python environment. These commands use Python 3.11.
 - Credentials for the Claude Code planner: either an ``ANTHROPIC_API_KEY`` with access to the example model, or a Claude Code login created with ``claude auth login``. You also need network access to download assets and weights; model calls incur API charges.
 
+Resource estimates
+~~~~~~~~~~~~~~~~~~
+
+These estimates cover this LIBERO-PRO setup; they are not a hardware certification.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - Resource
+     - Estimate
+   * - GPU memory
+     - Allow at least 16 GB to run Pi0.5 and SAM3 on one GPU. Pi0.5 inference needs more than 8 GB, and SAM3 loads a 3.4 GB checkpoint; split the services with ``--am-cuda-device`` and ``--sam3-cuda-device`` when memory is tight.
+   * - Disk
+     - About 60 GB free: LIBERO datasets (~34 GB), scene assets (~0.6 GB), model weights (~11 GB), and the Python environment.
+   * - Model downloads
+     - Pi0.5 ``model.safetensors`` is 7.5 GB; the command below skips the 13.5 GB ``optimizer.pt``. ``sam3.pt`` is 3.4 GB.
+   * - Run time
+     - Typically 5–15 minutes per episode with an online planner; planner, model, and reasoning effort dominate. Reported means are on :doc:`Time & Token Costs <../leaderboard/time-token-costs>`.
+
 1. Install RPent
 ----------------
 

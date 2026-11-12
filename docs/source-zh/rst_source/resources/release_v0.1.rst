@@ -20,7 +20,7 @@ v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划，接
 仿真评测
 ~~~~~~~~~~~~
 
-- **多仿真环境评测与公开榜单**\ ：使用 GPT-6 Astra 的 RPent 在 LIBERO-PRO（low reasoning）、RoboCasa365 Target50（high reasoning）上分别达到 92.63%、59.20% 成功率；使用 GPT-5.5 的 RPent 在 RoboTwin C2R 上达到 62.4%。公开榜单提供评测配置、成功率、耗时与 Token 开销数据。 :doc:`Leaderboard </rst_source/leaderboard/index>`
+- **多仿真环境评测与公开榜单**\ ：RPent 在 LIBERO-PRO（GPT-6 Astra，low reasoning）、RoboCasa365 Target50（GPT-6 Astra，high reasoning）和 RoboTwin C2R（GPT-5.5）上报告了成功率。:doc:`排行榜 </rst_source/leaderboard/index>` 记录具体数值、评测配置、耗时、Token 开销与数据来源。
 
 系统设计
 ~~~~~~~~~~~~

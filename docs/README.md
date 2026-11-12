@@ -99,11 +99,18 @@ check the pages that link to it.
 | Flash plan format and replay | `source-{en,zh}/rst_source/guides/flash.rst` |
 | Success signals and reproduction commands | Each page under `source-{en,zh}/rst_source/simulators/` and `real_world_robots/` |
 | Reported results, sources, and denominators | `_static/leaderboard/results.json` |
+| Published benchmark rates and counts | `source-{en,zh}/rst_source/leaderboard/performance.rst` |
 | Counting and reporting conventions | `source-{en,zh}/rst_source/leaderboard/methodology.rst` |
 | Execution flow and component boundaries | `source-{en,zh}/rst_source/development/architecture.rst` |
+| Command entry points and their owners | `source-{en,zh}/rst_source/development/architecture.rst` |
 
 Do not restate a full explanation on a second page. Use a one-sentence summary
-and a `:doc:` or `:ref:` link instead.
+and a `:doc:` or `:ref:` link instead. In particular, keep headline success
+rates, episode counts, and aggregates on the leaderboard pages; other pages
+name the configuration and link to them.
+
+Write **LIBERO-PRO** in prose and keep `libero-pro` for code identifiers such
+as the extra name and suite names.
 
 ## Architecture diagrams
 

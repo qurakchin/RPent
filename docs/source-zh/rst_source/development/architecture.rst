@@ -89,6 +89,40 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      _ext/         # Sphinx 扩展，包括排行榜渲染器
      _static/      # 图片、样式和排行榜数据
 
+命令入口
+--------
+
+``pyproject.toml`` 声明四个 RPent 命令。仿真资源下载命令由各 extra 引入的依赖包安装，不在本仓库中定义。
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 34 32
+
+   * - 命令
+     - 定义位置
+     - 用途
+   * - ``rpent``
+     - ``pyproject.toml``（``rpent.cli.main:main``）
+     - 运行任务或启动 Dashboard。
+   * - ``rpent-memory``
+     - ``pyproject.toml``（``rpent.cli.memory:main``）
+     - 校验、建立索引和合并记忆目录。
+   * - ``rpent-check-llm``
+     - ``pyproject.toml``（``rpent.cli.check_llm:main``）
+     - 检查规划器凭据与连通性。
+   * - ``rpent-flywheel``
+     - ``pyproject.toml``（``rpent.flywheel.cli:main``）
+     - 将录制的轨迹导出为 VLA 训练数据。
+   * - ``libero-download-assets``、``liberopro-download-assets``、``liberoplus-download-assets``
+     - ``rpent-libero``、``rpent-liberopro``、``rlinf-liberoplus``
+     - 下载对应 LIBERO 版本的场景资源。
+   * - ``robocasa-download-assets``
+     - ``rpent-robocasa365``
+     - 下载厨房场景资源。
+   * - ``robotwin-download-assets``
+     - ``rlinf-robotwin-runtime``
+     - 下载 RoboTwin 资源。
+
 环境发现与接入
 ---------------------
 

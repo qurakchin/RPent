@@ -8,66 +8,90 @@ run's output directory, and planner messages are in ``transcript_*.json``.
 Common Problems
 ---------------
 
+Each row gives a check, a command that fixes or confirms the cause, and the
+step to repeat. Rerun with a new ``--output-dir`` so the failed run keeps its
+logs and artifacts.
+
 .. list-table::
    :header-rows: 1
-   :widths: 28 44 28
+   :widths: 18 22 45 15
 
    * - Symptom
      - Check
+     - Fix and recovery
      - Details
    * - ``rpent: command not found``
-     - Activate the environment that installed RPent, for example
-       ``source .venv/bin/activate``.
+     - The active Python environment does not contain RPent.
+     - ``source .venv/bin/activate``, confirm with ``which rpent``, then rerun
+       the original command.
      - :doc:`../get_started/quickstart`
    * - Import error for a simulator or model at startup
-     - Install the matching extra (``.[libero]``, ``.[libero-pro]``,
-       ``.[robocasa]``, …). Install only one LIBERO variant per environment.
+     - The matching extra is missing from this environment.
+     - Install it, for example ``uv pip install -e ".[libero-pro]"``. Keep one
+       LIBERO variant per environment, then rerun.
      - :doc:`../simulators/index`
    * - CUDA or driver error when a service starts
-     - Use the PyTorch build that matches the driver, then rerun the
-       environment's check command.
+     - PyTorch does not match the driver or GPU.
+     - Check with ``python -c "import torch; print(torch.version.cuda,
+       torch.cuda.is_available())"``; reinstall the matching PyTorch wheel,
+       then rerun.
      - :doc:`../simulators/libero`,
        :doc:`../simulators/robocasa`
    * - Out-of-memory error
-     - Check other processes on the GPU. Where supported, assign separate
-       devices with ``--env-cuda-device`` and ``--am-cuda-device``.
-     - :doc:`../simulators/robotwin`
+     - Another process holds GPU memory, or both services share one device.
+     - Check ``nvidia-smi``, stop other jobs, then split devices:
+       ``--env-cuda-device 0 --am-cuda-device 1 --sam3-cuda-device 0``.
+     - :doc:`cli`
    * - A service exits before the first tool call
-     - Read ``env_server.log``, ``vla_server.log``, or ``sam3_server.log`` in
-       the output directory; they record the failing component.
+     - The failing service recorded its error.
+     - Read ``tail -n 50 <output-dir>/env_server.log`` (also
+       ``vla_server.log`` and ``sam3_server.log``); fix the first error, then
+       rerun with a new output directory.
      - :ref:`run-output-files`
    * - Model or asset download fails
-     - For gated weights, request access and run ``hf auth login``. Set
-       ``HF_ENDPOINT`` for a mirror, or use the ModelScope command when the
-       page provides one.
+     - Authentication, mirror, or disk space.
+     - Run ``hf auth login`` for gated weights. For a mirror, prefix the
+       download: ``HF_ENDPOINT=https://hf-mirror.com
+       liberopro-download-assets --skip-existing``. Rerun the failed step;
+       ``--skip-existing`` keeps completed files.
      - :doc:`../get_started/quickstart`
    * - Planner check fails
-     - Run ``rpent-check-llm`` with the same ``--planner`` and ``--model``; its
-       error class separates configuration, authentication, model, and network
-       failures.
+     - Configuration, authentication, model, or network error.
+     - Rerun ``rpent-check-llm --planner claude_code --model
+       claude-opus-4-8``; fix the reported class, then rerun the full task.
      - :ref:`planner-check`
    * - The planner connects but every task fails
-     - Verify the checkpoint paths and the native success signal; inspect the
-       recorded video and final state before changing planner settings.
+     - Checkpoint paths or the native success signal.
+     - Inspect ``view_env_state(step=-1)``; only the top-level ``terminated``
+       value is success. Correct the checkpoint path, then rerun.
      - :ref:`leaderboard-protocol`
    * - External service is unreachable
-     - Pass ``host:port`` endpoints, not a bare port. Keep the service running
-       in another terminal or node.
+     - Endpoint format or a stopped service.
+     - Check the RPC endpoint with ``curl -s -X POST
+       http://HOST:PORT/call -H 'Content-Type: application/json' -d
+       '{"method":"healthz"}'``; it should return ``{"status": "ok"}``. Start
+       or forward the service, then rerun.
      - :doc:`advanced_deployment`
    * - Memory cache is rejected
-     - Remove extra files from the versioned cache, or let an online sync
-       rebuild it. ``HF_HUB_OFFLINE=1`` requires a complete, unmodified cache.
+     - Extra files or an incomplete cache.
+     - Remove the extra files, or rebuild online with ``python -m
+       robots.libero.memory sync --memory-version GPT_6_astra_low``. With
+       ``HF_HUB_OFFLINE=1`` the cache must be complete and unchanged.
      - :doc:`memory`
    * - Flash cannot find a plan
-     - The task may have no successful source plan, and Astra memory has no
-       replay assets. Use GPT-5.5 memory for Flash.
+     - The selected memory has no successful source plan or replay assets.
+     - Use ``--memory-version GPT_5.5_xhigh`` or a local ``--memory-dir`` that
+       contains ``flash/`` assets, then rerun.
      - :doc:`flash`
    * - Dashboard does not open from another machine
-     - The default bind address is ``127.0.0.1``; use SSH port forwarding.
+     - The server binds ``127.0.0.1`` by default.
+     - Forward the port printed at startup: ``ssh -N -L
+       8000:127.0.0.1:8000 USER@HOST``, then open ``http://127.0.0.1:8000``.
      - :doc:`advanced_deployment`
    * - A real-robot run refuses to start
-     - Check the robot's calibration and pose prerequisites on its page; the
-       environment service validates poses before starting.
+     - Calibration, pose prerequisites, or an emergency stop.
+     - Complete the robot's calibration and pose check, release the emergency
+       stop, and confirm the arm and gripper state before rerunning.
      - :doc:`../real_world_robots/index`
 
 Collecting Evidence

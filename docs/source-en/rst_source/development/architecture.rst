@@ -97,6 +97,43 @@ Shared execution and interfaces live under ``rpent/``. Each package under
      _ext/         # Sphinx extensions, including the leaderboard renderer
      _static/      # Images, styles, and leaderboard data
 
+Command Entry Points
+--------------------
+
+``pyproject.toml`` declares four RPent commands. Simulator and asset commands
+are installed by the dependency packages that each extra pulls in; they are not
+defined in this repository.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 34 32
+
+   * - Command
+     - Defined by
+     - Purpose
+   * - ``rpent``
+     - ``pyproject.toml`` (``rpent.cli.main:main``)
+     - Run a task or start the Dashboard.
+   * - ``rpent-memory``
+     - ``pyproject.toml`` (``rpent.cli.memory:main``)
+     - Validate, index, and merge a memory directory.
+   * - ``rpent-check-llm``
+     - ``pyproject.toml`` (``rpent.cli.check_llm:main``)
+     - Check planner credentials and connectivity.
+   * - ``rpent-flywheel``
+     - ``pyproject.toml`` (``rpent.flywheel.cli:main``)
+     - Export recorded trajectories for VLA training.
+   * - ``libero-download-assets``, ``liberopro-download-assets``,
+       ``liberoplus-download-assets``
+     - ``rpent-libero``, ``rpent-liberopro``, ``rlinf-liberoplus``
+     - Download scene assets for the selected LIBERO variant.
+   * - ``robocasa-download-assets``
+     - ``rpent-robocasa365``
+     - Download kitchen assets.
+   * - ``robotwin-download-assets``
+     - ``rlinf-robotwin-runtime``
+     - Download RoboTwin assets.
+
 Environment Discovery
 ---------------------
 

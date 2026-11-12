@@ -201,7 +201,7 @@ independently of the model environment. Set `RPENT_COSMOS_ENDPOINT` instead to
 run the same cases against Cosmos Policy, or `RPENT_COSMOS3_ENDPOINT` for
 Cosmos3's RPent RPC worker. Set `RPENT_WAM_SUITE=libero_10` when using a
 LIBERO-10 checkpoint. Missing endpoints skip their cases.
-Set `RPENT_WAM_SUITE=libero_spatial_task` and configure LIBERO-Pro assets to
+Set `RPENT_WAM_SUITE=libero_spatial_task` and configure LIBERO-PRO assets to
 exercise Pro instead of the default `libero_spatial`, task 0, seed 0.
 
 RoboTwin uses its own Fast-WAM checkpoint and three-camera configuration. From

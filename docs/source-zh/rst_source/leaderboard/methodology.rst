@@ -40,8 +40,8 @@
 汇总方式
 --------
 
-- LIBERO 和 LIBERO-PRO 的 Overall 分别是 4 个和 8 个套件成功率的算术平均。LIBERO-PRO 各套件分母相同，因此代表性成绩的 Overall 也等于 741/800。
-- RoboCasa365 Target50 的 Overall 是 50 个任务成功率的平均，不是成功回合占全部回合的比例：201/340 为 59.12%，而公布的 Overall 为 59.20%。
+- LIBERO 和 LIBERO-PRO 的 Overall 分别是 4 个和 8 个套件成功率的算术平均。LIBERO-PRO 各套件分母相同，因此 Overall 也等于成功回合总数除以回合总数。
+- RoboCasa365 Target50 的 Overall 是 50 个任务成功率的平均，不是成功回合占全部回合的比例，因此两者可能不同。
 - RoboTwin C2R 在 250 个回合上给出一个汇总成绩。
 
 ``status: derived`` 的行由分项结果计算得到，不是独立评测；计算方式记录在 ``results.json`` 中。

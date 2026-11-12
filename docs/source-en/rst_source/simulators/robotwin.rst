@@ -36,55 +36,6 @@ Check the model, task, and runtime requirements before following the installatio
 
       Linux, NVIDIA GPU; Python 3.11; CUDA and GL/EGL/Vulkan.
 
-Tasks
-~~~~~~~~~~~~
-
-C2R uses successful clean-scene trajectories as prior experience and evaluates in randomized scenes. The two task configurations serve these roles.
-
-.. list-table::
-   :header-rows: 1
-
-   * - Configuration
-     - Scene
-     - Use
-   * - ``demo_clean``
-     - Clean scenes.
-     - Collect task experience.
-   * - ``demo_randomized``
-     - Random backgrounds, clutter, lighting, and table height.
-     - C2R evaluation: 50 tasks, each with five verified seeds.
-
-.. _robotwin-observation-action:
-
-Observation and Action
-~~~~~~~~~~~~~~~~~~~~~~
-
-The table distinguishes planner tools, model inputs, and the environment’s success criterion.
-
-.. list-table::
-   :header-rows: 1
-
-   * - Item
-     - Description
-   * - Observation
-     - Head and left/right wrist RGB views, depth/world coordinates for localization, and robot state. LingBot-VLA uses RGB views, robot state, and task text.
-   * - Action
-     - The planner calls ``lingbot_act`` or motion primitives. The environment accepts 16-value end-effector actions (``ee``) or 14-value joint/gripper actions (``qpos``).
-   * - Reward / success
-     - Evaluate success using native ``TASK_ENV.eval_success``. Planner completion and episode timeouts are separate outcomes.
-   * - Task prompt
-     - Listed evaluation task/seed pairs use their verified ``task_language`` after reset; custom seeds use language from the native environment.
-
-Validation Status
------------------
-
-- Verified (multiple runs): the v0.1 release tests and sampled paper
-  reproduction cover ten RoboTwin tasks in ``demo_randomized``; see
-  :doc:`../resources/release_v0.1` for task and seed lists, and the
-  :doc:`leaderboard <../leaderboard/index>` for published scores.
-- CPU only: offline unit tests cover configuration, tools, and result
-  contracts.
-
 Installation
 ------------
 
@@ -250,6 +201,55 @@ references from the public `RLinf/RPent-memory
 <https://huggingface.co/datasets/RLinf/RPent-memory/tree/main/robotwin>`_
 dataset. These references can improve planning by providing previously verified
 techniques; the run still starts if they are unavailable.
+
+Tasks
+-----
+
+C2R uses successful clean-scene trajectories as prior experience and evaluates in randomized scenes. The two task configurations serve these roles.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Configuration
+     - Scene
+     - Use
+   * - ``demo_clean``
+     - Clean scenes.
+     - Collect task experience.
+   * - ``demo_randomized``
+     - Random backgrounds, clutter, lighting, and table height.
+     - C2R evaluation: 50 tasks, each with five verified seeds.
+
+.. _robotwin-observation-action:
+
+Observation and Action
+----------------------
+
+The table distinguishes planner tools, model inputs, and the environment’s success criterion.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Item
+     - Description
+   * - Observation
+     - Head and left/right wrist RGB views, depth/world coordinates for localization, and robot state. LingBot-VLA uses RGB views, robot state, and task text.
+   * - Action
+     - The planner calls ``lingbot_act`` or motion primitives. The environment accepts 16-value end-effector actions (``ee``) or 14-value joint/gripper actions (``qpos``).
+   * - Reward / success
+     - Evaluate success using native ``TASK_ENV.eval_success``. Planner completion and episode timeouts are separate outcomes.
+   * - Task prompt
+     - Listed evaluation task/seed pairs use their verified ``task_language`` after reset; custom seeds use language from the native environment.
+
+Validation Status
+-----------------
+
+- Verified (multiple runs): the v0.1 release tests and sampled paper
+  reproduction cover ten RoboTwin tasks in ``demo_randomized``; see
+  :doc:`../resources/release_v0.1` for task and seed lists, and the
+  :doc:`leaderboard <../leaderboard/index>` for published scores.
+- CPU only: offline unit tests cover configuration, tools, and result
+  contracts.
 
 .. _planner-memory-and-recipes:
 

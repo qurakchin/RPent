@@ -1,6 +1,6 @@
-# LIBERO-Pro Hybrid (Pi0.5 + LLM-in-the-loop) — Perception-Isolated Guide
+# LIBERO-PRO Hybrid (Pi0.5 + LLM-in-the-loop) — Perception-Isolated Guide
 
-You are picking up the **LIBERO-Pro** evaluation track in **perception-isolated**
+You are picking up the **LIBERO-PRO** evaluation track in **perception-isolated**
 mode — the only mode in this repository (the legacy oracle-state mode is not
 included here).
 
@@ -17,7 +17,7 @@ This document layers on the base playbook. Read it first:
   `agentview_metadata.json`),
   the primitive vocabulary, the Rules (0/1/2/4/5), and the `strict_perception`
   audit format. **This is the source of truth for *how you localize*.**
-- **This file** — LIBERO-Pro–specific setup, the four perturbation axes, the Pi0
+- **This file** — LIBERO-PRO–specific setup, the four perturbation axes, the Pi0
   fullshot baseline, the frame split, and how perception isolation changes the
   P2-swap story.
 
@@ -63,9 +63,9 @@ mode there are no coordinates to read — so the hybrid's P2 win now comes from
 mode: P1 (Task) is still won by reading the *language*; P2 (Position) is now won by
 *perception*, not by an oracle.
 
-## 1. Why LIBERO-Pro
+## 1. Why LIBERO-PRO
 
-LIBERO-Pro
+LIBERO-PRO
 ([paper](https://arxiv.org/pdf/2510.03827), [repo](https://github.com/Zxy-MLlab/LIBERO-PRO))
 perturbs each base task along five axes; all end-to-end VLAs (OpenVLA / Pi0 /
 Pi0.5 / UniVLA) collapse on the two strongest:

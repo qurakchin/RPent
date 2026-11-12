@@ -36,51 +36,6 @@ RoboTwin
 
       Linux、NVIDIA GPU；Python 3.11；CUDA 与 GL/EGL/Vulkan。
 
-任务
-~~~~~~~~~~~~
-
-C2R 使用干净场景中的成功轨迹作为经验，在随机场景中评测。两种任务配置的用途如下。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 配置
-     - 场景
-     - 用途
-   * - ``demo_clean``
-     - 干净场景。
-     - 采集任务经验。
-   * - ``demo_randomized``
-     - 随机背景、杂物、光照和桌面高度。
-     - C2R 评测：50 个任务，每个任务 5 个已验证 seed。
-
-.. _robotwin-observation-action:
-
-观测与动作
-~~~~~~~~~~~~
-
-下表区分规划器使用的工具、模型输入及环境的成功判定。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 项目
-     - 说明
-   * - 观测
-     - 头部与左右腕部的 RGB 图像、用于定位的深度／世界坐标及机器人状态。LingBot-VLA 使用 RGB 图像、机器人状态和任务文字。
-   * - 动作
-     - 规划器调用 ``lingbot_act`` 或动作原语。环境支持 16 维末端动作（``ee``）和 14 维关节／夹爪动作（``qpos``）。
-   * - 奖励与成功判定
-     - 任务成功以原生 ``TASK_ENV.eval_success`` 为准，规划器结束与任务超时需分别判断。
-   * - 任务指令
-     - 评测表中的任务与 seed 组合在重置后使用对应的 ``task_language``；自定义 seed 使用原生环境生成的指令。
-
-验证状态
---------
-
-- 已验证（多次）：v0.1 发布版测试与论文配置抽样复现覆盖 ``demo_randomized`` 中的 10 个 RoboTwin 任务；任务与 seed 列表见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
-- 仅 CPU：离线单测覆盖配置、工具与结果契约。
-
 安装
 ----
 
@@ -203,6 +158,51 @@ RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带�
 规划器配置、外部服务和离线参考资料的说明分别见 :doc:`../guides/configure_planner`、 :doc:`../guides/advanced_deployment` 和 :doc:`../guides/memory`。
 
 使用 HF 记忆模式评测时，RPent 会在运行前从公开数据集 `RLinf/RPent-memory <https://huggingface.co/datasets/RLinf/RPent-memory/tree/main/robotwin>`_ 同步可选的 RoboTwin 经验和任务参考。这些内容包含经过验证的操作方法，可以帮助规划器提高任务表现；即使无法下载，任务仍可正常启动。
+
+任务
+----
+
+C2R 使用干净场景中的成功轨迹作为经验，在随机场景中评测。两种任务配置的用途如下。
+
+.. list-table::
+   :header-rows: 1
+
+   * - 配置
+     - 场景
+     - 用途
+   * - ``demo_clean``
+     - 干净场景。
+     - 采集任务经验。
+   * - ``demo_randomized``
+     - 随机背景、杂物、光照和桌面高度。
+     - C2R 评测：50 个任务，每个任务 5 个已验证 seed。
+
+.. _robotwin-observation-action:
+
+观测与动作
+----------
+
+下表区分规划器使用的工具、模型输入及环境的成功判定。
+
+.. list-table::
+   :header-rows: 1
+
+   * - 项目
+     - 说明
+   * - 观测
+     - 头部与左右腕部的 RGB 图像、用于定位的深度／世界坐标及机器人状态。LingBot-VLA 使用 RGB 图像、机器人状态和任务文字。
+   * - 动作
+     - 规划器调用 ``lingbot_act`` 或动作原语。环境支持 16 维末端动作（``ee``）和 14 维关节／夹爪动作（``qpos``）。
+   * - 奖励与成功判定
+     - 任务成功以原生 ``TASK_ENV.eval_success`` 为准，规划器结束与任务超时需分别判断。
+   * - 任务指令
+     - 评测表中的任务与 seed 组合在重置后使用对应的 ``task_language``；自定义 seed 使用原生环境生成的指令。
+
+验证状态
+--------
+
+- 已验证（多次）：v0.1 发布版测试与论文配置抽样复现覆盖 ``demo_randomized`` 中的 10 个 RoboTwin 任务；任务与 seed 列表见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
+- 仅 CPU：离线单测覆盖配置、工具与结果契约。
 
 任务记忆
 --------

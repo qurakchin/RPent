@@ -9,14 +9,18 @@ Welcome to RPent
 
 RPent (Recursive Physical Agent) is an open-source framework for building embodied agents that continually evolve through recursive interaction with the physical world. It supports different foundation models and integrates perception, reasoning, memory, execution, and self-evolution in a unified agent framework. Through ongoing interaction, agents reflect on and adjust their behavior, accumulate experience, and develop new capabilities beyond their initial design.
 
+RPent is for robotics and embodied-AI researchers and engineers who want to compare foundation models, planners, and memory strategies under one evaluation harness, or run the same agent loop in simulation and on a real robot.
+
+.. button-ref:: rst_source/get_started/quickstart
+   :ref-type: doc
+   :color: primary
+   :shadow:
+   :expand:
+
+   Install RPent and run your first task
+
 .. grid:: 1 1 2 2
    :gutter: 3
-
-   .. grid-item-card:: Quick Start
-      :link: rst_source/get_started/quickstart
-      :link-type: doc
-
-      Install RPent, run a LIBERO-PRO task, and inspect the result.
 
    .. grid-item-card:: Introduction to RPent
       :link: rst_source/get_started/overview

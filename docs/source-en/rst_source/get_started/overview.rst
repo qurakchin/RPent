@@ -6,11 +6,11 @@ platforms. Installation and a first run are in :doc:`quickstart`.
 
 **RPent (Recursive Physical Agent)** is an open framework for building embodied
 agents that continuously evolve through recursive interaction with the physical world.
-Rather than prescribing a single foundation model, RPent provides a recursive agent
-framework that harnesses heterogeneous intelligence, including perception, reasoning,
-memory, execution, and self-evolution, into a unified physical agent.
-Through continuous interaction, reflection, and adaptation, RPent enables physical agents
-to acquire new capabilities and evolve beyond their initial design.
+Rather than prescribing a single foundation model, RPent puts perception, reasoning,
+memory, execution, and self-evolution in one agent loop behind shared interfaces.
+Models, planners, and robot services can be replaced or combined without rewriting
+the workflow. Through continuous interaction, reflection, and adaptation, an RPent
+agent acquires new capabilities and evolves beyond its initial design.
 
 The name Pent is inspired by the Pentagram, whose five points symbolize the integration
 of multimodal intelligence into a unified embodied agent. At its center, the infinity

@@ -88,8 +88,8 @@ RPent is built for four kinds of users:
           <li><b>WAM</b></li>
           <ul>
             <li>DreamZero</li>
-            <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/development/add_action_model.html#add-a-wam">Cosmos Policy</a> (LIBERO / LIBERO-Pro)</li>
-            <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/development/add_action_model.html#add-a-wam">Fast-WAM</a> (LIBERO / LIBERO-Pro / RoboTwin)</li>
+            <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/development/add_action_model.html#add-a-wam">Cosmos Policy</a> (LIBERO / LIBERO-PRO)</li>
+            <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/development/add_action_model.html#add-a-wam">Fast-WAM</a> (LIBERO / LIBERO-PRO / RoboTwin)</li>
           </ul>
         </ul>
       </td>

@@ -88,8 +88,8 @@ RPent 面向以下四类用户：
           <li><b>WAM</b></li>
           <ul>
             <li>DreamZero</li>
-            <li><a href="https://rpent.readthedocs.io/zh-cn/latest/rst_source/development/add_action_model.html#wam">Cosmos Policy</a>（LIBERO / LIBERO-Pro）</li>
-            <li><a href="https://rpent.readthedocs.io/zh-cn/latest/rst_source/development/add_action_model.html#wam">Fast-WAM</a>（LIBERO / LIBERO-Pro / RoboTwin）</li>
+            <li><a href="https://rpent.readthedocs.io/zh-cn/latest/rst_source/development/add_action_model.html#wam">Cosmos Policy</a>（LIBERO / LIBERO-PRO）</li>
+            <li><a href="https://rpent.readthedocs.io/zh-cn/latest/rst_source/development/add_action_model.html#wam">Fast-WAM</a>（LIBERO / LIBERO-PRO / RoboTwin）</li>
           </ul>
         </ul>
       </td>

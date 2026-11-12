@@ -45,7 +45,7 @@ These options control the planner, memory, output directory, and Dashboard.
      - Reasoning effort for ``api``, ``claude_code``, and ``codex``:
        ``none``, ``low``, ``medium``, ``high``, or ``xhigh``. Disabling
        reasoning reduced the average runtime from approximately 13.2 to
-       7.9 minutes (about 40%) in our LIBERO Pro Long evaluations.
+       7.9 minutes (about 40%) in our LIBERO-PRO Long evaluations.
        Higher effort may improve task success rate. Supported levels
        ultimately depend on the selected model.
    * - ``--planner-timeout-s``

@@ -53,10 +53,9 @@ Aggregation
 
 - LIBERO Overall and LIBERO-PRO Overall are unweighted means of the four and
   eight suite rates. Every LIBERO-PRO suite has the same denominator, so the
-  Overall also equals 741/800 for the headline result.
+  Overall also equals the pooled successes divided by episodes.
 - RoboCasa365 Target50 Overall is the mean of the 50 task success rates. It is
-  not the fraction of successful cells: 201/340 is 59.12%, while the reported
-  Overall is 59.20%.
+  not the pooled fraction of successful episodes, so the two values can differ.
 - RoboTwin C2R reports one aggregate over 250 episodes.
 
 A row with ``status: derived`` is computed from component rows and is not an

@@ -9,14 +9,18 @@
 
 RPent（Recursive Physical Agent）是一个开源框架，用于构建在与物理世界的递归交互中持续演进的具身智能体。它不限定基础模型，将感知（perception）、推理（reasoning）、记忆（memory）、执行（execution）和自我演进（self-evolution）整合到统一的智能体框架中。智能体通过持续交互反思和调整行为，积累经验、获得新能力，并逐步拓展初始设计的能力边界。
 
+RPent 面向机器人学与具身智能的研究者和工程师：用同一套评测流程比较基础模型、规划器和记忆策略，或在仿真与真机上运行同一个智能体循环。
+
+.. button-ref:: rst_source/get_started/quickstart
+   :ref-type: doc
+   :color: primary
+   :shadow:
+   :expand:
+
+   安装 RPent 并运行第一个任务
+
 .. grid:: 1 1 2 2
    :gutter: 3
-
-   .. grid-item-card:: 快速开始
-      :link: rst_source/get_started/quickstart
-      :link-type: doc
-
-      安装 RPent，运行一个 LIBERO-PRO 任务，查看执行结果。
 
    .. grid-item-card:: RPent 简介
       :link: rst_source/get_started/overview

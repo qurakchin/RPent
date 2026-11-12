@@ -94,6 +94,28 @@ URLs where practical. If content moves, preserve useful anchors and provide a
 clear route from the old page. Do not delete an integration or placeholder
 solely because it is incomplete.
 
+## Terms and single sources
+
+Write **LIBERO-PRO** in prose, headings, and table labels. Keep lowercase
+`libero-pro` only in code identifiers: the `.[libero-pro]` extra, suite names,
+and `--libero-type pro`. Do not use “LIBERO Pro” or “LIBERO-Pro” in prose;
+preserve an upstream repository or dataset name that is genuinely spelled that
+way.
+
+Keep each published benchmark number in one place: `results.json` and the
+leaderboard pages that render it. Other pages state the configuration and link
+to **Performance** or **Evaluation Protocol** instead of repeating rates,
+counts, or aggregates. When a page must explain an aggregate, describe the
+rule (mean of suite rates, pooled episodes) rather than restating the headline
+value. The same rule applies to model, branch, and reasoning settings: keep the
+complete reproduction configuration on the simulator page and let the
+leaderboard own the resulting numbers.
+
+Declare new command-line entry points in the **Command Entry Points** table on
+the architecture page, including the distribution that defines them. Keep
+dependency-package scripts (asset downloaders and simulator helpers) distinct
+from the four `pyproject.toml` commands.
+
 ## Page structure
 
 ### Home and directory pages
@@ -141,11 +163,14 @@ List supported configurations, and link special modes to their prerequisites.
 RPent coordinates task execution, so these cards describe planners rather
 than RL training algorithms.
 
-Under Overview, add **Tasks / 任务** and **Observation and Action / 观测与动作**
-as H3 sections. Show these subsections in the right-hand table of contents.
-Use tables for both. The task table identifies suites or task
-categories and their scope; keep detailed task/seed matrices with reproduction.
-The interface table uses the same rows: **Observation / 观测**, **Action / 动作**,
+After Overview, put the first-run path first: installation and resources,
+model and planner configuration, **Run a Task / 运行一个任务**, and
+**View Results / 查看结果**. Place reference sections — **Tasks / 任务** and
+**Observation and Action / 观测与动作** — after that path, so task and option
+tables do not push installation and the first command below the fold. Use
+tables for both. The task table identifies suites or task categories and their
+scope; keep detailed task/seed matrices with reproduction. The interface table
+uses the same rows: **Observation / 观测**, **Action / 动作**,
 **Reward / success / 奖励与成功判定**, and **Task prompt / 任务指令**. Distinguish
 what the planner sees from model inputs or native control commands where it
 matters. State the native success signal without inventing a training reward
@@ -156,10 +181,12 @@ After Overview, cover:
 1. System and Python requirements, installation, and resource downloads.
 2. Model and planner configuration, with one concrete runnable task.
 3. Result files and the environment's native success criterion.
-4. Environment-specific options, memory, and exploration.
-5. Reproduction: code version, resource revisions, task/seed matrix, model
+4. Task selection and other environment-specific options, then the Tasks and
+   Observation and Action reference tables.
+5. Memory and exploration.
+6. Reproduction: code version, resource revisions, task/seed matrix, model
    settings, limits, retry policy, and aggregation method where available.
-6. Common failures and relevant diagnostics.
+7. Common failures and relevant diagnostics.
 
 Use the same headings and levels for sections with the same purpose.
 Required sections apply to each supported simulator; include conditional
@@ -168,9 +195,9 @@ sections when the stated feature is supported or results are published.
 | English | Chinese | Level | Requirement |
 | --- | --- | --- | --- |
 | Overview | 概览 | H2 | Required |
-| Tasks | 任务 | H3 under Overview | Required |
-| Observation and Action | 观测与动作 | H3 under Overview | Required |
 | Installation and Resources | 安装与资源准备 | H2 | Required |
+| Tasks | 任务 | H2 reference section after the first-run path | Required |
+| Observation and Action | 观测与动作 | H2 reference section after the first-run path | Required |
 | Run a Task | 运行一个任务 | H2 | Required |
 | View Results | 查看结果 | H2 | Required |
 | Task Memory | 任务记忆 | H2 | Conditional: memory is supported |

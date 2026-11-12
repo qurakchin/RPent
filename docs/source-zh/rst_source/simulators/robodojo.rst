@@ -25,56 +25,6 @@ RoboDojo
 
       Linux、NVIDIA GPU；Python 3.11；Isaac Sim 5.1。
 
-任务
-~~~~
-
-`RoboDojo 仿真任务目录 <https://robodojo-benchmark.com/doc/sim-tasks/>`_ 将 42 个基准任务分为五类能力：
-
-.. list-table::
-   :header-rows: 1
-
-   * - 类别
-     - 任务数
-     - 考察内容
-   * - 泛化
-     - 12
-     - 不同物体和布局，包括随机变体。
-   * - 记忆
-     - 6
-     - 状态追踪和顺序记忆。
-   * - 精细操作
-     - 8
-     - 空间约束严格的操作。
-   * - 长程任务
-     - 8
-     - 需要完成多个子目标的多步骤任务。
-   * - 开放任务
-     - 8
-     - 开放式或依赖语言、图像指令的任务。
-
-观测与动作
-~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - 项目
-     - 说明
-   * - 观测
-     - 头部和左右腕部相机的 RGB-D 图像、相机标定，以及双臂关节状态、末端执行器位姿和夹爪开合状态。
-   * - 动作
-     - ``move_to``、``rotate_wrist``、``set_gripper``、``release`` 和 ``vpp2_act``、``awomo05_act``。``finish`` 不能覆盖原生任务判定。
-   * - 奖励与成功判定
-     - 任务是否成功由 RoboDojo 原生环境判定，结果记录在 ``result.json`` 的 ``success`` 字段中。
-   * - 任务指令
-     - 来自当前场景的 RoboDojo 任务描述，通过 ``view_env_state`` 读取。
-
-验证状态
---------
-
-- 已验证（单次）：v0.1 发布说明检查了安装与 ``put_bottles_into_dustbin`` 的一次执行。这验证安装与执行流程，不是任务成功率评测；见 :doc:`发布说明 <../resources/release_v0.1>`。
-- 仅 CPU：离线单测覆盖配置、工具与结果契约。
-
 安装与资源准备
 --------------
 
@@ -307,6 +257,56 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 环境关闭前采集分数，不将其加入规划器反馈。``score_available=false`` 且
 ``score=null`` 表示未取得分数；读取失败时还会记录 ``score_error``。
 ``eval-fair`` 模式禁止访问评测结果，因此不提供 Score。
+
+任务
+----
+
+`RoboDojo 仿真任务目录 <https://robodojo-benchmark.com/doc/sim-tasks/>`_ 将 42 个基准任务分为五类能力：
+
+.. list-table::
+   :header-rows: 1
+
+   * - 类别
+     - 任务数
+     - 考察内容
+   * - 泛化
+     - 12
+     - 不同物体和布局，包括随机变体。
+   * - 记忆
+     - 6
+     - 状态追踪和顺序记忆。
+   * - 精细操作
+     - 8
+     - 空间约束严格的操作。
+   * - 长程任务
+     - 8
+     - 需要完成多个子目标的多步骤任务。
+   * - 开放任务
+     - 8
+     - 开放式或依赖语言、图像指令的任务。
+
+观测与动作
+----------
+
+.. list-table::
+   :header-rows: 1
+
+   * - 项目
+     - 说明
+   * - 观测
+     - 头部和左右腕部相机的 RGB-D 图像、相机标定，以及双臂关节状态、末端执行器位姿和夹爪开合状态。
+   * - 动作
+     - ``move_to``、``rotate_wrist``、``set_gripper``、``release`` 和 ``vpp2_act``、``awomo05_act``。``finish`` 不能覆盖原生任务判定。
+   * - 奖励与成功判定
+     - 任务是否成功由 RoboDojo 原生环境判定，结果记录在 ``result.json`` 的 ``success`` 字段中。
+   * - 任务指令
+     - 来自当前场景的 RoboDojo 任务描述，通过 ``view_env_state`` 读取。
+
+验证状态
+--------
+
+- 已验证（单次）：v0.1 发布说明检查了安装与 ``put_bottles_into_dustbin`` 的一次执行。这验证安装与执行流程，不是任务成功率评测；见 :doc:`发布说明 <../resources/release_v0.1>`。
+- 仅 CPU：离线单测覆盖配置、工具与结果契约。
 
 任务记忆与探索模式
 ------------------

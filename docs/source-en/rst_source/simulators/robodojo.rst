@@ -28,61 +28,6 @@ Overview
 
       Linux, NVIDIA GPU; Python 3.11; Isaac Sim 5.1.
 
-Tasks
-~~~~~
-
-The `RoboDojo simulation task catalog <https://robodojo-benchmark.com/doc/sim-tasks/>`_
-groups 42 benchmark tasks into five capability categories:
-
-.. list-table::
-   :header-rows: 1
-
-   * - Category
-     - Tasks
-     - Focus
-   * - Generalization
-     - 12
-     - Varied objects and layouts, including random variants.
-   * - Memory
-     - 6
-     - State tracking and sequence recall.
-   * - Precision
-     - 8
-     - Manipulation with tight spatial constraints.
-   * - Long-Horizon
-     - 8
-     - Multi-step tasks with several subgoals.
-   * - Open
-     - 8
-     - Open-ended or language- and image-conditioned tasks.
-
-Observation and Action
-~~~~~~~~~~~~~~~~~~~~~~
-
-.. list-table::
-   :header-rows: 1
-
-   * - Item
-     - Description
-   * - Observation
-     - Head and left/right wrist RGB-D images, camera calibration, and joint states, end-effector poses, and gripper states for both arms.
-   * - Action
-     - ``move_to``, ``rotate_wrist``, ``set_gripper``, ``release``, ``vpp2_act``, and ``awomo05_act``. ``finish`` cannot override the native task verdict.
-   * - Reward / success
-     - RoboDojo's native environment determines task success, recorded in the ``success`` field of ``result.json``.
-   * - Task prompt
-     - The current scene's RoboDojo task description, read through ``view_env_state``.
-
-Validation Status
------------------
-
-- Verified (single run): the v0.1 release checked installation and one
-  ``put_bottles_into_dustbin`` execution. This validates the installation and
-  execution workflow, not a task success rate; see :doc:`release notes
-  <../resources/release_v0.1>`.
-- CPU only: offline unit tests cover configuration, tools, and result
-  contracts.
-
 Installation and Resources
 --------------------------
 
@@ -370,6 +315,61 @@ Without ``--output-dir``, results go to
 suffix is ``<task>_random`` and no seed or layout is included. Use different
 directories for concurrent runs. For live monitoring, see
 :doc:`../guides/dashboard`.
+
+Tasks
+-----
+
+The `RoboDojo simulation task catalog <https://robodojo-benchmark.com/doc/sim-tasks/>`_
+groups 42 benchmark tasks into five capability categories:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Category
+     - Tasks
+     - Focus
+   * - Generalization
+     - 12
+     - Varied objects and layouts, including random variants.
+   * - Memory
+     - 6
+     - State tracking and sequence recall.
+   * - Precision
+     - 8
+     - Manipulation with tight spatial constraints.
+   * - Long-Horizon
+     - 8
+     - Multi-step tasks with several subgoals.
+   * - Open
+     - 8
+     - Open-ended or language- and image-conditioned tasks.
+
+Observation and Action
+----------------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Item
+     - Description
+   * - Observation
+     - Head and left/right wrist RGB-D images, camera calibration, and joint states, end-effector poses, and gripper states for both arms.
+   * - Action
+     - ``move_to``, ``rotate_wrist``, ``set_gripper``, ``release``, ``vpp2_act``, and ``awomo05_act``. ``finish`` cannot override the native task verdict.
+   * - Reward / success
+     - RoboDojo's native environment determines task success, recorded in the ``success`` field of ``result.json``.
+   * - Task prompt
+     - The current scene's RoboDojo task description, read through ``view_env_state``.
+
+Validation Status
+-----------------
+
+- Verified (single run): the v0.1 release checked installation and one
+  ``put_bottles_into_dustbin`` execution. This validates the installation and
+  execution workflow, not a task success rate; see :doc:`release notes
+  <../resources/release_v0.1>`.
+- CPU only: offline unit tests cover configuration, tools, and result
+  contracts.
 
 Task Memory and Exploration Mode
 --------------------------------
