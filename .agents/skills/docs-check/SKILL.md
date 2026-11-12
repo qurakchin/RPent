@@ -46,8 +46,20 @@ HTML; a warning-free build does not establish correct rendering.
 
 ## Use existing validation
 
-Use [docs/Makefile](../../../docs/Makefile) for local targets. See the
-[English](../../../docs/source-en/.readthedocs.yaml) and
+Use [docs/Makefile](../../../docs/Makefile) for local targets. Run the
+repository check for links, references, and documented commands from the
+repository root:
+
+```bash
+python scripts/check_docs.py
+```
+
+It covers repository-relative Markdown links and headings, RST directive paths,
+Sphinx `:doc:` and `:ref:` targets, repository paths named in code-block
+commands, and optional-dependency names. The `docs-check` pre-commit hook runs
+the same script. External URLs still need a manual availability check.
+
+See the [English](../../../docs/source-en/.readthedocs.yaml) and
 [Chinese](../../../docs/source-zh/.readthedocs.yaml) Read the Docs configurations
 for CI build settings. From the repository root, with
 [documentation dependencies](../../../docs/requirements.txt) installed:
@@ -59,9 +71,13 @@ sphinx-build -W --keep-going docs/source-zh docs/build/html-zh
 
 Run these when the change affects Sphinx pages or their build inputs. Standalone
 Markdown instructions and source comments need path/link and semantic checks;
-the Sphinx build does not validate them. Reuse relevant prompt/rendering tests
-when model-visible behavior changes, following
-[verify-change](../verify-change/SKILL.md).
+the Sphinx build does not validate them. Check that simulator and robot pages
+end with a **Validation Status** section whose status words match
+[docs/STYLE_GUIDE.md](../../../docs/STYLE_GUIDE.md#validation-status) and whose
+evidence supports the claim. Check design documents under
+[docs/design/](../../../docs/design/README.md) for an up-to-date status line
+when a phase lands. Reuse relevant prompt/rendering tests when model-visible
+behavior changes, following [verify-change](../verify-change/SKILL.md).
 
 ## Report
 

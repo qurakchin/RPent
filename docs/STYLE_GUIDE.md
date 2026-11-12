@@ -174,6 +174,7 @@ sections when the stated feature is supported or results are published.
 | Task Memory | 任务记忆 | H2 | Conditional: memory is supported |
 | Exploration Mode | 探索模式 | H2 | Conditional: exploration is supported |
 | Experiment Reproduction | 实验复现 | H2 | Conditional: benchmark results are published |
+| Validation Status | 验证状态 | H2 | Required: last section on simulator and robot pages |
 
 An introductory figure is optional. Configuration and diagnostic sections
 depend on the environment's setup; include instructions needed to run it.
@@ -327,12 +328,82 @@ Retain useful page URLs and section anchors when renaming or moving content.
 Check their destinations in generated HTML, including cross-language links.
 Preserve coming-soon integrations and clearly state their documented status.
 
+## Validation status
+
+Every simulator and real-world robot page ends with **Validation Status /
+验证状态**. The section records what the repository has actually exercised, so a
+reader can tell an installation guide that has run from one that has not. Keep
+the same conclusion in the English and Chinese pages; the evidence commands and
+artifact paths may differ only when the platforms differ.
+
+Use these status words and do not strengthen them:
+
+| Status | Meaning | Allowed wording |
+| --- | --- | --- |
+| Verified (multiple) | Several seeds, episodes, or devices | "Supported" |
+| Verified (single) | One end-to-end run completed | "Completed once on X" |
+| CPU only | Contracts, configuration, or build checks passed | "Offline checks passed" |
+| Unverified | Implementation exists but no run is recorded | "Not verified yet" |
+| Experimental | The interface may change | "Experimental" |
+| Not applicable | The tier does not exist for this integration | "Not applicable" |
+
+Any "supported", "available", or "compatible" claim must map to one of these
+rows. If it does not, downgrade the claim to **Unverified**. A link to a CI
+workflow describes how a check can run; it is not evidence that the check
+passed. Record a date, commit, hardware, seed, or artifact path only when it is
+known.
+
+Use the matching Chinese status words in Chinese pages: 已验证（多次）、
+已验证（单次）、仅 CPU、未验证、实验性、不适用. Do not write 支持 or 可用 unless
+the page records evidence for the corresponding status.
+
+Use a small table so the tiers stay distinct:
+
+```rst
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/<robot>``
+   * - Simulation
+     - Unverified
+     - GPU suite entry point; no result recorded in the repository
+   * - Benchmark success
+     - Unverified
+     - No multi-seed result recorded
+   * - Real robot
+     - Not applicable
+     - Simulator integration
+```
+
+The section reports evidence, not a roadmap. Put planned work in the relevant
+guide or release note, and put experiment methodology in **Experiment
+Reproduction**.
+
 ## Verify before handing off
 
 Read every changed paragraph in both languages. Check commands, paths,
 defaults, support claims, and result definitions against their code consumers.
 Check that required content and existing placeholders remain reachable, that
 reproduction data is unchanged, and that demo links reach the right robot.
+
+Run the repository check for links and documented commands:
+
+```bash
+python scripts/check_docs.py
+```
+
+It verifies repository-relative links, Sphinx `:doc:` and `:ref:` targets,
+repository paths named in documented commands, and optional-dependency names.
+The `docs-check` pre-commit hook runs the same check and fails on a broken
+reference. External URLs still need a manual availability check.
 
 Build both languages with warnings treated as errors:
 

@@ -380,3 +380,22 @@ YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``r
      --endpoint socket://127.0.0.1:8110 --event shutdown
 
 ENV 返回 ``park_on_close`` 配置的待机姿态，确认到位后关闭电机输出。未能到位时，保留进程并检查现场，不要强行结束。ENV 正常退出后，再关闭 VLA 服务和 SSH 转发。
+
+验证状态
+--------
+
+.. list-table::
+   :header-rows: 1
+
+   * - 层级
+     - 状态
+     - 证据
+   * - 离线检查
+     - 仅 CPU
+     - ``pytest tests/unit_tests/robots/yam`` 在 ``unittest`` workflow 中运行。
+   * - 仿真
+     - 不适用
+     - 真实机械臂集成。
+   * - 真机
+     - 未验证
+     - 本页记录操作流程；仓库没有该配置的硬件运行、伺服检查或任务结果记录。

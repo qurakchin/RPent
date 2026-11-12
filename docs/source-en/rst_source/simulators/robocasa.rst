@@ -685,3 +685,25 @@ observation and session details are below.
      base use, ``task_progress``, RLDX continuity and failure notes. ``reset`` uses
      the native episode reset; only the winning commands after the final reset
      are exported.
+
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/robocasa`` runs in the ``unittest`` workflow.
+   * - Simulator integration
+     - Verified (multiple)
+     - The Target50 protocol covers 50 tasks and 340 runs; Environment Checks cover the simulator and VLA component paths.
+   * - Benchmark success
+     - Verified (multiple)
+     - Published Target50 scores are linked from Experiment Reproduction and the performance leaderboard.
+   * - Real robot
+     - Not applicable
+     - Simulator-only integration.

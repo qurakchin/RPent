@@ -2,3 +2,9 @@ SO-101
 ======
 
 Content coming soon.
+
+Validation Status
+-----------------
+
+No implementation, installation guide, or run result is published in this
+repository. This page is a placeholder and makes no support claim.

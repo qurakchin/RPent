@@ -296,3 +296,25 @@ Dashboard
 3. 如果可用工具需要调整（比如将 ``pi0_pick`` 改成 ``mymodel_pick``），相应更新 ``robots/libero/toolkit.py``。
 
 完整流程见 :doc:`../development/add_primitive`。
+
+验证状态
+--------
+
+.. list-table::
+   :header-rows: 1
+
+   * - 层级
+     - 状态
+     - 证据
+   * - 离线检查
+     - 仅 CPU
+     - ``pytest tests/unit_tests/robots/libero`` 在 ``unittest`` workflow 中运行。
+   * - 仿真集成
+     - 已验证（多次）
+     - 「实验复现」中的运行覆盖全部八个 suite 和 800 次 episode。
+   * - Benchmark 成功率
+     - 已验证（多次）
+     - Codex / GPT-6 Astra / low / reasoning 下为 741/800（Overall 92.63%）。各 suite 明细见「实验复现」。
+   * - 真机
+     - 不适用
+     - 仅仿真集成。

@@ -359,3 +359,25 @@ Use ``--memory-repo owner/dataset@revision`` to select another dataset or revisi
 For offline evaluation, download the subtree first and use
 ``--memory-profile local --memory-dir <downloaded-corpus>`` without
 ``--memory-version``. The selected directory must retain the RoboTwin memory layout.
+
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/robotwin`` runs in the ``unittest`` workflow.
+   * - Simulator integration
+     - Verified (multiple)
+     - The Experiment Reproduction run drives the CLI, LingBot-VLA, and RoboTwin across 50 tasks and 250 randomized episodes.
+   * - Benchmark success
+     - Verified (multiple)
+     - 62.4% (156/250) on ``demo_randomized``. See Experiment Reproduction for run conditions, failures, and timeout accounting.
+   * - Real robot
+     - Not applicable
+     - Simulator-only integration.

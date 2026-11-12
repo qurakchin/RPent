@@ -357,3 +357,25 @@ client without touching the robot by:
    surface (e.g. ``pi0_pick`` → ``mymodel_pick``) needs to change.
 
 See :doc:`../development/add_primitive` for the full walkthrough.
+
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/libero`` runs in the ``unittest`` workflow.
+   * - Simulator integration
+     - Verified (multiple)
+     - The Experiment Reproduction run covers all eight suites and 800 episodes.
+   * - Benchmark success
+     - Verified (multiple)
+     - 741/800 (92.63% Overall) with Codex / GPT-6 Astra / low / reasoning. See Experiment Reproduction for the suite breakdown.
+   * - Real robot
+     - Not applicable
+     - Simulator-only integration.

@@ -15,3 +15,13 @@ repos:
     hooks:
       - id: check-message
         stages: [commit-msg]
+
+  - repo: local
+    hooks:
+      - id: docs-check
+        name: Check documentation links, references, and commands
+        entry: python scripts/check_docs.py --quiet
+        language: system
+        pass_filenames: false
+        files: '\.(md|rst)$|^scripts/check_docs\.py$'
+        stages: [pre-commit]

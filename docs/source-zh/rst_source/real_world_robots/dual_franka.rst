@@ -418,3 +418,22 @@ Flash 回放
 平移标注使用具有深度和有效标定的 ``base``、``d455``、``left_wrist`` 或
 ``right_wrist`` 相机。移动原语通过 ``arm: left`` 或 ``arm: right`` 指定机械臂；
 左臂工作空间检查会把共享的右基座目标坐标转换到左基座坐标系。
+
+验证状态
+--------
+
+.. list-table::
+   :header-rows: 1
+
+   * - 层级
+     - 状态
+     - 证据
+   * - 离线检查
+     - 仅 CPU
+     - ``pytest tests/unit_tests/robots/dual_franka`` 在 ``unittest`` workflow 中运行。
+   * - 仿真
+     - 不适用
+     - 真实机械臂集成。
+   * - 真机
+     - 未验证
+     - 本页记录工作区与 VLA 诊断终端；仓库没有硬件运行、标定结果或任务结果记录。

@@ -573,3 +573,22 @@ robot configuration. Translation annotations name ``base``, ``d455``,
 ``left_wrist`` or ``right_wrist`` with depth and valid calibration.
 Primitive moves specify ``arm: left`` or ``arm: right``; left-arm workspace
 checks convert the shared right-base target into the left-base frame.
+
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/dual_franka`` runs in the ``unittest`` workflow.
+   * - Simulation
+     - Not applicable
+     - Real-arm integration.
+   * - Real robot
+     - Unverified
+     - The workspace and the VLA diagnostic console are documented. The repository records no hardware run, calibration result, or task outcome.

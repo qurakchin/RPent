@@ -254,3 +254,22 @@ Stop the Run
 ------------
 
 Press Ctrl+C in the terminal to request RPent shutdown; use the hardware emergency stop for an emergency. Check the arm and gripper before shutting down services through the controller’s shutdown procedure.
+
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/franka`` runs in the ``unittest`` workflow.
+   * - Simulation
+     - Not applicable
+     - Real-arm integration.
+   * - Real robot
+     - Unverified
+     - This page documents the operator procedure. The repository records no hardware run, calibration result, or task outcome for this configuration.

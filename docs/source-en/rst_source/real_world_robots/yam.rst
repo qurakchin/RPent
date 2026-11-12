@@ -468,3 +468,22 @@ ENV returns to the home pose configured in ``park_on_close``, verifies arrival, 
 disables motor output. If it cannot reach the pose, keep the process running and inspect
 the physical setup; do not force it to exit. After ENV exits normally, close the VLA
 service and SSH forwarding.
+
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/yam`` runs in the ``unittest`` workflow.
+   * - Simulation
+     - Not applicable
+     - Real-arm integration.
+   * - Real robot
+     - Unverified
+     - This page documents the operator procedure. The repository records no hardware run, servo check, or task outcome for this setup.

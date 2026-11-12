@@ -19,7 +19,9 @@ their current commands and prerequisites; reuse existing runners and fixtures.
   implementation details or creating a parallel test framework.
 - Documentation changes use [docs-check](../docs-check/SKILL.md). Dependency,
   optional-import, CLI, or robot-discovery changes also need the relevant
-  installation and startup checks in the affected environment.
+  installation and startup checks in the affected environment. Documentation
+  edits also run `python scripts/check_docs.py` and the Sphinx builds for both
+  languages when a Sphinx page or its inputs changed.
 - Env/VLA or runtime changes may need the real component and policy-chain
   tests documented in the test guide. Check GPU, assets, checkpoint, and
   platform prerequisites before launching them.
@@ -59,6 +61,21 @@ than treating them as ordinary automated checks.
 Record the revision or working diff, exact commands, relevant environment,
 results, artifact locations, and checks not run with reasons. Distinguish a
 failed check from unavailable prerequisites and from an untested path.
+
+Use the three tiers in the
+[pull request template](../../../.github/PULL_REQUEST_TEMPLATE.md) and
+[CONTRIBUTING.md](../../../CONTRIBUTING.md): CPU, simulation, and real robot.
+Write the command or artifact path with each result, and write "Not run" with a
+reason when a tier does not apply. End with the limitations: what the
+validation does not prove. A single run is not a success rate, and a CI link is
+not evidence that the workflow passed.
+
+Behavior-preserving refactors report the affected schema, prompt, feedback,
+defaults, or artifact layout on both sides instead of relying on "tests pass".
+A shared tool, perception, or prompt change reports a before/after comparison
+on the same frozen corpus and names the corpus version. Dependency or install
+changes report the platform, Python version, dependency group, and install
+result.
 
 An import or health check establishes less than a real component request.
 A bounded policy-chain check verifies action execution, recorded `finish`,

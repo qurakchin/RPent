@@ -84,3 +84,29 @@ the other language.
 - English: `source-en/rst_source/`
 - Chinese: `source-zh/rst_source/`
 - RST syntax reference: <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html>
+
+## Design documents
+
+The refactor design series lives in [design/](design/README.md) as plain
+Markdown outside the Sphinx trees. It explains why a change is needed and how
+it will be accepted; the pages under `source-en/` and `source-zh/` describe
+current behavior. Each design document starts with a status line, and
+implemented phases are rewritten to match the repository in the pull request
+that lands them.
+
+## Check links and commands
+
+[`scripts/check_docs.py`](../scripts/check_docs.py) verifies repository-relative
+links, Sphinx `:doc:` and `:ref:` targets, paths named in documented commands,
+and optional-dependency names. It runs as the `docs-check` pre-commit hook and
+fails on the first broken reference:
+
+```bash
+python scripts/check_docs.py
+```
+
+## Release
+
+The release checklist is [releasing.md](releasing.md). It covers version and
+tag alignment, build artifacts, installation checks, explicit publishing, and
+post-release verification.
