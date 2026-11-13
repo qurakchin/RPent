@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Wire contracts shared by robot integrations and action-model capabilities.
+"""Model-side copies of the wire contracts a robot integration defines.
 
-These values describe a robot's native action layout and camera roles. They
-live beside the components layer rather than in ``robots/`` because model
-adapters consume them too; a capability may not import a robot integration.
-Robot modules re-export the values they own so existing call sites keep a
-single import path.
+These values describe the native action layout and camera roles a model
+adapter expects. The operational definitions belong to the robot slice
+(``robots/libero/control.py``, ``robots/robotwin/control.py``, and
+``robots/yam/contracts.py``); a capability may not import a robot integration,
+so it keeps its own copy. The two sides must stay equal, which the platform
+contract test enforces.
 """
 
 from __future__ import annotations

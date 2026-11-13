@@ -24,7 +24,7 @@ SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "check_layout.py"
 def _component(write_toml, root, name, kind, *, requires=(), imports=()):
     required = ", ".join(f'"{item}"' for item in requires)
     imported = ", ".join(f'"{item}"' for item in imports)
-    write_toml(
+    manifest = write_toml(
         f"{root}/{name}/component.toml",
         f"""
         schema = 1
@@ -35,6 +35,33 @@ def _component(write_toml, root, name, kind, *, requires=(), imports=()):
         imports = [{imported}]
         """,
     )
+    _skeleton(manifest.parent, kind)
+
+
+#: Files a new component of each kind needs for K2 to pass.
+SKELETON = {
+    "robot": (
+        "__init__.py",
+        "spec.py",
+        "config.py",
+        "adapter.py",
+        "prompts/__init__.py",
+        "prompts/domain.py",
+        "prompts/tools.py",
+    ),
+    "toolkit": ("__init__.py", "tool.py", "core.py", "observation.py"),
+    "capability": ("__init__.py", "server.py", "config.py", "README.md"),
+}
+
+
+def _skeleton(directory, kind):
+    for relative in SKELETON[kind]:
+        path = directory / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.write_text("", encoding="utf-8")
+    if kind == "toolkit":
+        (directory / "evaluation").mkdir(exist_ok=True)
 
 
 def _write(path, text):
@@ -152,6 +179,49 @@ def test_role_file_over_limit_is_a_warning(tmp_path, write_toml):
     assert result.returncode == 0
     assert "layout ok" in result.stdout
     assert "warning: spec.py has 81 lines" in result.stdout
+
+
+def test_new_component_missing_skeleton_files_is_an_error(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    (tmp_path / "robots" / "alpha" / "adapter.py").unlink()
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "robot 'alpha' is missing its skeleton files: adapter.py" in result.stdout
+
+
+def test_legacy_component_missing_skeleton_files_only_warns(tmp_path, write_toml):
+    _component(write_toml, "robots", "libero", "robot")
+    (tmp_path / "robots" / "libero" / "adapter.py").unlink()
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0
+    assert "layout ok" in result.stdout
+    assert "robot 'libero' is missing its skeleton files: adapter.py" in result.stdout
+
+
+def test_new_slice_may_not_add_retired_names(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _write(tmp_path / "robots" / "alpha" / "robot_spec.py", "")
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "slice 'alpha' added retired names robot_spec.py" in result.stdout
+
+
+def test_pre_migration_slice_names_only_warn(tmp_path, write_toml):
+    _component(write_toml, "robots", "libero", "robot")
+    _write(tmp_path / "robots" / "libero" / "robot_spec.py", "")
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0
+    assert "layout ok" in result.stdout
+    assert "slice 'libero' still has 1 pre-migration names" in result.stdout
+    assert "robot_spec.py" in result.stdout
 
 
 def test_capability_toolkit_and_core_imports_are_rejected(tmp_path, write_toml):

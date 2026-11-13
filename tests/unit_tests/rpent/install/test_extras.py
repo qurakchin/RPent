@@ -14,6 +14,9 @@
 
 """Compatibility extras mirror profiles, component closures, and conflicts."""
 
+import tomllib
+from pathlib import Path
+
 import pytest
 
 from rpent.install.discovery import discover
@@ -97,6 +100,30 @@ def test_repository_extras_keep_only_the_real_molmo_conflict():
     # OpenPI resolve transformers 4.57.6, which satisfies Molmo.
     assert ("molmo", "robotwin") in generated.conflicts
     assert ("libero", "molmo") not in generated.conflicts
+
+
+def test_alias_shares_the_target_extra(catalog):
+    generated = generate(catalog, aliases={"old-alpha": "alpha"})
+
+    assert generated.extras["old-alpha"] == generated.extras["alpha"]
+    assert generated.components["old-alpha"] == generated.components["alpha"]
+
+
+def test_alias_without_target_is_ignored(catalog):
+    generated = generate(catalog, aliases={"old-missing": "missing"})
+
+    assert "old-missing" not in generated.extras
+
+
+def test_repository_pyproject_keeps_the_renamed_extra_name():
+    pyproject = Path(__file__).resolve().parents[4] / "pyproject.toml"
+    extras = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"][
+        "optional-dependencies"
+    ]
+
+    # `pip install -e ".[robodojo-sim]"` predates the component rename.
+    assert "robodojo-sim" in extras
+    assert extras["robodojo-sim"] == extras["robodojo"]
 
 
 def test_replace_block_requires_markers_and_is_idempotent(catalog):

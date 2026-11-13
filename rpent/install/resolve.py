@@ -94,11 +94,15 @@ class Resolution:
         return {name: self.components[name] for name in names}
 
     def external_components(self) -> dict[str, ResolvedComponent]:
-        """Return components installed into named external environments."""
+        """Return components installed into named external environments.
+
+        A deps component installs with its consumers, so it is not a service
+        with an endpoint of its own even when a consumer is external.
+        """
         return {
             name: resolved
             for name, resolved in self.components.items()
-            if resolved.placement == "external-env"
+            if resolved.placement == "external-env" and not resolved.component.is_deps
         }
 
     def dependencies_for(self, environment: str) -> tuple[str, ...]:
@@ -408,12 +412,20 @@ def resolve(
                         "environment of the component that requires them"
                     )
                     continue
-                resolution.environment_deps.setdefault(env, []).append(required)
-                resolution.components[required] = ResolvedComponent(
-                    component=catalog.components[required],
-                    placement=placement,
-                    variant=None,
-                    env=env,
+                names = resolution.environment_deps.setdefault(env, [])
+                if required not in names:
+                    names.append(required)
+                # A deps component can live in several environments, but the
+                # map above records each membership. Keep the first resolved
+                # record so the placement does not depend on consumer order.
+                resolution.components.setdefault(
+                    required,
+                    ResolvedComponent(
+                        component=catalog.components[required],
+                        placement=placement,
+                        variant=None,
+                        env=env,
+                    ),
                 )
                 continue
             if required not in selections:

@@ -13,7 +13,19 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from capabilities._base.platforms import YAM_VLA_CONTRACT
+#: Identity a YAM Pi0.5 VLA server must report back to the control station.
+#: The capability-side copies in ``capabilities/_base/platforms.py`` state what
+#: each model server expects; keep them equal.
+YAM_VLA_CONTRACT = {
+    "runtime": "yam_vla",
+    "policy_name": "pi05_yam_joint",
+    "camera_order": ["top", "left", "right"],
+    "state_layout": "qpos14",
+    "action_layout": "qpos14",
+    "action_dim": 14,
+    "action_horizon": 30,
+    "use_length": 5,
+}
 
 YAM_CAMERA_NAMES = ("top", "left", "right")
 YAM_STATUS_KEYS = (

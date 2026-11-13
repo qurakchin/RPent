@@ -28,8 +28,8 @@ from rpent.install.discovery import Catalog, discover
 from rpent.install.doctor import FAIL, check_installation, inspect_installation
 from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.fingerprint import current_venv
-from rpent.install.installer import install, resolve_install_target
-from rpent.install.lock import lock_profiles
+from rpent.install.installer import find_uv, install, resolve_install_target
+from rpent.install.lock import lock_profiles, resolve_profile
 from rpent.install.lock_coverage import lock_problems
 from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import Resolution, resolve
@@ -66,6 +66,7 @@ def command_check(args: argparse.Namespace) -> int:
     if not names:
         print("pass a profile name or --all", file=sys.stderr)
         return 2
+    uv = find_uv() if args.resolve else None
     failed = False
     for name in names:
         try:
@@ -84,7 +85,22 @@ def command_check(args: argparse.Namespace) -> int:
             for error in [*resolution.errors, *problems]:
                 print(f"  {error}")
             continue
-        print(f"profile {name}: ok")
+        if uv is not None:
+            try:
+                lock_text = resolve_profile(profile, catalog, root=args.root, uv=uv)
+            except InstallError as exc:
+                failed = True
+                print(f"profile {name}: FAIL")
+                print(f"  {exc}")
+                continue
+            pinned = sum(
+                1
+                for line in lock_text.splitlines()
+                if line and not line.startswith((" ", "#"))
+            )
+            print(f"profile {name}: ok, uv resolved {pinned} requirements")
+        else:
+            print(f"profile {name}: ok")
         for environment in sorted(resolution.nonempty_environments()):
             print(f"  {_describe_environment(resolution, environment)}")
     return 1 if failed else 0
@@ -188,6 +204,11 @@ def build_parser() -> argparse.ArgumentParser:
     check = subcommands.add_parser("check", help="validate profiles without installing")
     check.add_argument("profiles", nargs="*")
     check.add_argument("--all", action="store_true", help="check every profile")
+    check.add_argument(
+        "--resolve",
+        action="store_true",
+        help="also compile each profile with uv to prove it resolves",
+    )
     check.set_defaults(handler=command_check)
 
     installer = subcommands.add_parser(

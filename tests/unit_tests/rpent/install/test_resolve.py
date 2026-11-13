@@ -73,6 +73,61 @@ def test_required_variant_must_be_selected(make_component, make_profile, make_ca
     assert any("requires a variant" in error for error in resolution.errors)
 
 
+def test_deps_component_is_listed_once_per_environment(
+    make_component, make_profile, make_catalog
+):
+    rlinf = make_component("rlinf", kind="deps")
+    alpha = make_component("alpha", requires=["rlinf"])
+    beta = make_component("beta", requires=["rlinf"])
+    profile = make_profile("sim", {"alpha": Selection(), "beta": Selection()})
+    catalog = _catalog(make_catalog, rlinf, alpha, beta)
+
+    resolution = resolve(profile, catalog)
+
+    assert resolution.ok
+    assert resolution.environment_deps == {"sim": ["rlinf"]}
+    assert resolution.environments() == {"sim": ("alpha", "beta", "rlinf")}
+
+
+def test_deps_component_joins_every_consuming_environment(
+    make_component, make_profile, make_catalog
+):
+    rlinf = make_component("rlinf", kind="deps")
+    robot = make_component("alpha", requires=["rlinf"])
+    model = make_component(
+        "molmo",
+        kind="capability",
+        placements=("in-env", "external-env"),
+        requires=["rlinf"],
+    )
+    profile = make_profile(
+        "flash",
+        {
+            "alpha": Selection(),
+            "molmo": Selection(placement="external-env", profile="molmo"),
+        },
+    )
+    external = make_profile("molmo", {"molmo": Selection()})
+    catalog = make_catalog(
+        components=[rlinf, robot, model], profiles={"molmo": external}
+    )
+
+    resolution = resolve(profile, catalog)
+
+    assert resolution.ok
+    assert resolution.environment_deps == {
+        "flash": ["rlinf"],
+        "molmo": ["rlinf"],
+    }
+    assert resolution.nonempty_environments() == {
+        "flash": ("alpha", "rlinf"),
+        "molmo": ("molmo", "rlinf"),
+    }
+    # A deps component installs with its consumers; it is not a service with
+    # an endpoint of its own.
+    assert set(resolution.external_components()) == {"molmo"}
+
+
 def test_external_placement_uses_named_environment(
     make_component, make_profile, make_catalog
 ):

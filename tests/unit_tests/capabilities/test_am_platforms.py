@@ -12,20 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Robots and action-model capabilities share one copy of each wire contract."""
+"""Robots own the wire contracts; capabilities keep matching copies."""
 
 from capabilities._base import platforms as am_platforms
 from robots.libero import control as libero_control
 from robots.robotwin import control as robotwin_control
 from robots.robotwin import observation as robotwin_observation
+from robots.yam import contracts as yam_contracts
 
 
-def test_robot_modules_reexport_shared_contracts():
-    assert libero_control.LIBERO_OSC is am_platforms.LIBERO_OSC
-    assert robotwin_control.ROBOTWIN_QPOS is am_platforms.ROBOTWIN_QPOS
-    assert robotwin_control.ROBOTWIN_EEF is am_platforms.ROBOTWIN_EEF
-    assert robotwin_control.ROBOTWIN_CONTROLLERS is am_platforms.ROBOTWIN_CONTROLLERS
-    assert robotwin_observation.ROBOTWIN_CAMERAS is am_platforms.ROBOTWIN_CAMERAS
+def test_robot_and_capability_copies_agree():
+    assert libero_control.LIBERO_OSC == am_platforms.LIBERO_OSC
+    assert robotwin_control.ROBOTWIN_QPOS == am_platforms.ROBOTWIN_QPOS
+    assert robotwin_control.ROBOTWIN_EEF == am_platforms.ROBOTWIN_EEF
+    assert robotwin_control.ROBOTWIN_CONTROLLERS == am_platforms.ROBOTWIN_CONTROLLERS
+    assert robotwin_observation.ROBOTWIN_CAMERAS == am_platforms.ROBOTWIN_CAMERAS
+    assert yam_contracts.YAM_VLA_CONTRACT == am_platforms.YAM_VLA_CONTRACT
+
+
+def test_capability_copies_are_independent_of_the_robot_modules():
+    # A capability may not import a robot integration, so the two sides are
+    # separate objects that the drift test above keeps equal.
+    assert libero_control.LIBERO_OSC is not am_platforms.LIBERO_OSC
+    assert robotwin_control.ROBOTWIN_QPOS is not am_platforms.ROBOTWIN_QPOS
+    assert robotwin_observation.ROBOTWIN_CAMERAS is not am_platforms.ROBOTWIN_CAMERAS
 
 
 def test_controllers_are_indexed_by_action_space():
@@ -39,11 +49,9 @@ def test_controllers_are_indexed_by_action_space():
     )
 
 
-def test_yam_robot_contract_is_a_copy_of_the_shared_contract():
-    from robots.yam.contracts import vla_runtime_contract
-
-    assert vla_runtime_contract() == am_platforms.YAM_VLA_CONTRACT
-    assert vla_runtime_contract() is not am_platforms.YAM_VLA_CONTRACT
+def test_yam_robot_contract_is_a_copy_of_the_capability_contract():
+    assert yam_contracts.vla_runtime_contract() == am_platforms.YAM_VLA_CONTRACT
+    assert yam_contracts.vla_runtime_contract() is not am_platforms.YAM_VLA_CONTRACT
     assert am_platforms.YAM_VLA_CONTRACT["camera_order"] == ["top", "left", "right"]
     assert am_platforms.YAM_VLA_CONTRACT["state_layout"] == "qpos14"
     assert am_platforms.YAM_VLA_CONTRACT["action_layout"] == "qpos14"

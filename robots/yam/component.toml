@@ -1,7 +1,7 @@
 schema = 1
 name = "yam"
 kind = "robot"
-probe = "robots.yam.robot_spec"
+probe = "robots.yam"
 python = ">=3.11,<3.12"
 platforms = ["linux-x86_64"]
 placement = ["in-env"]

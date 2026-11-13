@@ -1,7 +1,7 @@
 schema = 1
 name = "robodojo"
 kind = "robot"
-probe = "robots.robodojo.robot_spec"
+probe = "robots.robodojo"
 python = ">=3.11,<3.12"
 platforms = ["linux-x86_64"]
 requires = ["sam3", "openpi"]

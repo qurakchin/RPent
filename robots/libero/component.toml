@@ -1,7 +1,7 @@
 schema = 1
 name = "libero"
 kind = "robot"
-probe = "robots.libero.robot_spec"
+probe = "robots.libero"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
 requires = ["rlinf", "openpi", "sam3"]

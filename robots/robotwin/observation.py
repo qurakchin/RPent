@@ -19,7 +19,11 @@ from typing import Any
 import numpy as np
 
 from capabilities._base.contracts import AMObservation
-from capabilities._base.platforms import ROBOTWIN_CAMERAS
+
+#: Camera roles RoboTwin exposes, in the order model adapters expect. The
+#: capability-side copy lives in ``capabilities/_base/platforms.py``; keep the
+#: two equal.
+ROBOTWIN_CAMERAS = ("head", "left_wrist", "right_wrist")
 
 __all__ = ["ROBOTWIN_CAMERAS", "physical_observation"]
 

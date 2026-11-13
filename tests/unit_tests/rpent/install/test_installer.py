@@ -259,6 +259,46 @@ def test_install_refuses_a_venv_belonging_to_another_profile(
         install("alpha", root=repo, venv=venv, verbose=False)
 
 
+def test_component_install_marks_its_fingerprint(repo, tmp_path, monkeypatch):
+    _fake_uv(tmp_path, monkeypatch)
+
+    fingerprint = install("beta", root=repo, venv=tmp_path / "venv", verbose=False)
+
+    assert fingerprint["install_kind"] == "component"
+    assert fingerprint["component"] == "beta"
+    assert fingerprint["profile"] is None
+    assert fingerprint["reproducible"] is False
+
+
+def test_profile_install_is_reproducible_when_it_uses_the_lock(
+    repo, tmp_path, monkeypatch
+):
+    lock = repo / "envs/locks/alpha.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
+    _fake_uv(tmp_path, monkeypatch)
+
+    fingerprint = install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+
+    assert fingerprint["install_kind"] == "profile"
+    assert fingerprint["profile"] == "alpha"
+    assert fingerprint["component"] is None
+    assert fingerprint["reproducible"] is True
+
+
+def test_component_install_refuses_a_profile_venv(repo, tmp_path, monkeypatch):
+    lock = repo / "envs/locks/alpha.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+
+    install("beta", root=repo, venv=venv, verbose=False)
+
+    with pytest.raises(InstallError, match="already installed for component 'beta'"):
+        install("alpha", root=repo, venv=venv, verbose=False)
+
+
 def test_install_with_dev_resolves_instead_of_using_the_lock(
     repo, tmp_path, monkeypatch
 ):

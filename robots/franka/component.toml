@@ -1,7 +1,7 @@
 schema = 1
 name = "franka"
 kind = "robot"
-probe = "robots.franka.robot_spec"
+probe = "robots.franka"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
 requires = ["rlinf", "openpi"]

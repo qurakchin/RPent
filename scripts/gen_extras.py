@@ -37,6 +37,49 @@ if str(REPO_ROOT) not in sys.path:
 from rpent.install.discovery import discover  # noqa: E402
 from rpent.install.extras import generate, replace_block  # noqa: E402
 
+#: Pre-migration extras whose component or profile now has a different name.
+#: They keep working for the compatibility release.
+EXTRA_ALIASES = {"robodojo-sim": "robodojo"}
+#: Extras published before the component split. A rename may add an alias but
+#: must not drop a name users already install.
+LEGACY_EXTRAS = (
+    "cosmos3",
+    "cosmos_policy",
+    "dual-franka",
+    "fast_wam",
+    "flywheel",
+    "franka",
+    "geometry-eval",
+    "libero",
+    "libero-openpi-external",
+    "libero-plus",
+    "libero-pro",
+    "libero-pro-flywheel",
+    "libero-pro-molmo",
+    "molmo",
+    "openpi",
+    "rlinf",
+    "robocasa",
+    "robodojo",
+    "robodojo-sim",
+    "robotwin",
+    "sam3",
+    "test",
+    "yam",
+)
+
+
+def repository_extras(catalog):
+    """Return generated extras with the repository's compatibility aliases."""
+    generated = generate(catalog, aliases=EXTRA_ALIASES)
+    missing = [name for name in LEGACY_EXTRAS if name not in generated.extras]
+    if missing:
+        raise SystemExit(
+            "compatibility extras disappeared from the generated block: "
+            + ", ".join(missing)
+        )
+    return generated
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(prog="gen_extras.py")
@@ -59,7 +102,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     catalog = discover(REPO_ROOT)
-    generated = generate(catalog)
+    generated = repository_extras(catalog)
     current = args.pyproject.read_text(encoding="utf-8")
     updated = replace_block(current, generated)
     if args.write:

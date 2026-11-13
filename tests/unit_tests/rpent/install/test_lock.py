@@ -18,9 +18,15 @@ import stat
 
 import pytest
 
+from rpent.cli.env import main as env_main
 from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
-from rpent.install.lock import compile_profile, lock_path, lock_profiles
+from rpent.install.lock import (
+    compile_profile,
+    lock_path,
+    lock_profiles,
+    resolve_profile,
+)
 from rpent.install.manifest import Selection
 
 
@@ -186,6 +192,39 @@ def test_compile_rejects_an_unknown_platform(
         compile_profile(
             profile, catalog, root=tmp_path, uv=str(fake_uv), output=tmp_path / "x"
         )
+
+
+def test_resolve_profile_compiles_without_writing_a_lock(repo, fake_uv):
+    catalog = discover(repo)
+    text = resolve_profile(
+        catalog.profiles["alpha"], catalog, root=repo, uv=str(fake_uv)
+    )
+
+    assert "numpy>=2" in text
+    assert not (repo / "envs/locks/alpha.lock").exists()
+
+
+def test_check_resolve_reports_the_uv_solution(repo, fake_uv, write_toml, capsys):
+    write_toml("envs/locks/alpha.lock", "packaging==24.0\nnumpy==2.0.0")
+
+    assert env_main(["--root", str(repo), "check", "alpha", "--resolve"]) == 0
+    assert "profile alpha: ok, uv resolved 2 requirements" in capsys.readouterr().out
+
+
+def test_check_resolve_reports_a_uv_failure(
+    repo, fake_uv, write_toml, monkeypatch, capsys
+):
+    write_toml("envs/locks/alpha.lock", "packaging==24.0\nnumpy==2.0.0")
+
+    def fail(*args, **kwargs):
+        raise InstallError("no solution for numpy>=9")
+
+    monkeypatch.setattr("rpent.cli.env.resolve_profile", fail)
+
+    assert env_main(["--root", str(repo), "check", "alpha", "--resolve"]) == 1
+    output = capsys.readouterr().out
+    assert "profile alpha: FAIL" in output
+    assert "no solution for numpy>=9" in output
 
 
 def test_lock_uses_the_profile_manylinux_baseline(repo, fake_uv):

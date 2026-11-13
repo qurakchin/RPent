@@ -32,8 +32,9 @@ from rpent.install.fingerprint import (
     runtime_platform,
     write_fingerprint,
 )
-from rpent.install.installer import resolve_install_target
+from rpent.install.installer import component_profile, resolve_install_target
 from rpent.install.requirements import requirements_sha256
+from rpent.install.resolve import resolve
 
 
 def _profile(write_toml, *, core=False):
@@ -129,6 +130,61 @@ def test_dev_installation_is_not_reported_as_stale(tmp_path, write_toml, monkeyp
 
     checks = check_installation(venv, root=tmp_path)
 
+    assert any(
+        check.status == OK and "manifests unchanged" in check.message
+        for check in checks
+    )
+    assert not any("out of date" in check.message for check in checks)
+
+
+def test_component_installation_uses_the_recorded_interpreter(
+    tmp_path, write_toml, monkeypatch
+):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
+        """,
+    )
+    _profile(write_toml)
+    write_toml(
+        "robots/beta/component.toml",
+        """
+        schema = 1
+        name = "beta"
+        kind = "robot"
+        probe = "json"
+        python = ">=3.10,<3.12"
+        """,
+    )
+    catalog = discover(tmp_path)
+    resolution = resolve(
+        component_profile("beta", catalog, root=tmp_path, python="3.10"),
+        catalog,
+    )
+    venv = _venv(tmp_path)
+    write_fingerprint(
+        venv,
+        {
+            "install_kind": "component",
+            "profile": None,
+            "component": "beta",
+            "python": "3.10.8",
+            "include_dev": False,
+            "requirements_sha256": requirements_sha256(resolution),
+        },
+    )
+
+    def _missing_uv():
+        raise InstallError("uv missing")
+
+    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
+
+    checks = check_installation(venv, root=tmp_path)
+
+    assert "component: beta" in {check.message for check in checks}
     assert any(
         check.status == OK and "manifests unchanged" in check.message
         for check in checks
