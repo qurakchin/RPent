@@ -34,7 +34,15 @@ logger = get_logger("tools.motion")
 
 
 class MotionBackend(Protocol):
-    """Platform operations the shared motion executor depends on."""
+    """Platform operations the shared motion executor depends on.
+
+    This is the tool-layer seam, not the a_5 adapter contract: a slice may
+    satisfy it with env primitives or a native controller as long as each call
+    has the same failure semantics. a_5 replaces this protocol with
+    ``adapter.step_pose`` / ``adapter.step_joints``; until that migration
+    lands, the adapter contract stays limited to semantic commands and
+    receipts.
+    """
 
     def check_cancelled(self) -> None:
         """Raise at a safe cancellation boundary."""

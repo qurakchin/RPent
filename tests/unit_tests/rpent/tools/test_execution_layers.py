@@ -25,7 +25,6 @@ from rpent.session.base import EnvState
 from rpent.session.env_capture import ToolCallCapture
 from rpent.tools import Toolkit, ToolResult, tool
 from rpent.tools.execution import (
-    WriteRequest,
     mark_write_issued,
     track_execution,
     writes_issued,
@@ -306,17 +305,12 @@ def test_successful_call_reports_completed_without_extra_layers(
     }
 
 
-def test_write_requests_keep_issue_order_and_transport_identity() -> None:
-    with track_execution("episode-1") as trace:
-        mark_write_issued("reset", request_id="req-1")
+def test_write_requests_keep_issue_order() -> None:
+    with track_execution() as trace:
+        mark_write_issued("reset")
         mark_write_issued("step")
         assert writes_issued() is True
 
-    assert trace.episode_id == "episode-1"
-    assert trace.requests == [
-        WriteRequest(kind="reset", sequence=0, request_id="req-1"),
-        WriteRequest(kind="step", sequence=1, request_id=None),
-    ]
     assert trace.writes == ["reset", "step"]
     assert writes_issued() is False
 
@@ -346,10 +340,9 @@ def test_write_ledger_follows_the_capture_into_a_worker_thread(
 ) -> None:
     capture = ToolCallCapture(EnvState(tmp_path / "state"), "T1")
 
-    with capture.bind(), track_execution("episode-1") as trace:
+    with capture.bind(), track_execution() as trace:
         # ``asyncio.to_thread`` copies the calling context, which carries the
         # capture and therefore the write ledger.
-        asyncio.run(asyncio.to_thread(mark_write_issued, "step", request_id="req-1"))
+        asyncio.run(asyncio.to_thread(mark_write_issued, "step"))
 
     assert trace.writes == ["step"]
-    assert trace.requests[0].request_id == "req-1"

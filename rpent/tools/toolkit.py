@@ -165,6 +165,20 @@ def _framework_error_layers(
     return True, False, "not_started"
 
 
+_MEMORY_FILE_INSTRUCTIONS = (
+    "Use for past recipe JSONLs, audit JSONs, and memory files.",
+    "Published memory is read-only; draft findings with the memory tools instead of editing memory files. Memory for other robots is unavailable.",
+    "Published memory is read-only; draft findings with the memory tools instead of editing memory files.",
+)
+
+
+def _without_memory_instructions(description: str) -> str:
+    """Remove file-tool prose that no longer matches a memory-owning host."""
+    for phrase in _MEMORY_FILE_INSTRUCTIONS:
+        description = description.replace(phrase, "")
+    return " ".join(description.split())
+
+
 class Toolkit:
     """Base toolkit: registers common tools and dispatches tool calls.
 
@@ -175,6 +189,11 @@ class Toolkit:
     base class only contributes the common file/IO tools. Override
     :meth:`close` to release robot-side primitives / servers at the end of the run.
     """
+
+    # Hosts that register ``MemoryTools`` set this to True. The base file tools
+    # then stop reading or writing the memory corpus, leaving ``recall``,
+    # ``remember``, and ``corroborate`` as the only model-facing access path.
+    owns_memory_tools = False
 
     def __init__(
         self,
@@ -213,13 +232,27 @@ class Toolkit:
         *owners: Any,
         capabilities: Any = None,
         config: Any = None,
+        caps: Any = None,
+        cfg: Any = None,
     ) -> None:
         """Register declarations from tool families and explicit tool iterables.
 
         A family exposes ``tools(capabilities, config)`` and trims its
         declarations to the capabilities the host actually connected. Passing
         a plain iterable of declarations keeps the older registration path.
+
+        ``caps`` and ``cfg`` are aliases for ``capabilities`` and ``config``
+        used by the design documents. Supplying both names for one value is an
+        error rather than a silent precedence rule.
         """
+        if caps is not None:
+            if capabilities is not None:
+                raise TypeError("pass either capabilities or caps, not both")
+            capabilities = caps
+        if cfg is not None:
+            if config is not None:
+                raise TypeError("pass either config or cfg, not both")
+            config = cfg
         if capabilities is not None:
             snapshot = getattr(capabilities, "as_dict", None)
             logger.info(
@@ -243,15 +276,20 @@ class Toolkit:
     def _register_common_tools(self) -> None:
         from rpent.tools.file_tools import FileTools
 
-        files = FileTools(memory=self._memory)
+        files = FileTools(
+            memory=self._memory,
+            allow_memory=not self.owns_memory_tools,
+        )
         self._memory.check_layout()
         for declaration in iter_tools(files):
+            description = declaration.description
+            if self.owns_memory_tools:
+                # The Memory family owns this surface; do not advertise file
+                # access that the handler now refuses.
+                description = _without_memory_instructions(description)
             if declaration.name in {"read_text_file", "list_dir"}:
-                declaration = replace(
-                    declaration,
-                    description=declaration.description
-                    + self._memory.file_tool_description,
-                )
+                description += self._memory.file_tool_description
+            declaration = replace(declaration, description=description)
             self.add_tool(declaration)
         self.add_tool(self.finish)
 

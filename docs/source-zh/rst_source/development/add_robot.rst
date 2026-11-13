@@ -235,7 +235,7 @@ toolkit 模块通常包含四部分：
   必需的 :class:`~rpent.memory.MemoryManager`）和 ``state``。``memory_access`` 和
   ``inbox_cell_tag`` 在构造 ``MemoryManager`` 时配置；eval 默认只读。
 - 在 ``__init__`` 中通过自定义的初始化辅助方法构建 primitives（LIBERO 中的方法名为 ``init_primitives``；它会调用 ``EnvState.reset()``、构造原语并 dump 第 0 步）,
-- 用 ``self.add_tools(iter_tools(self._primitives))`` 或 ``self.add_tool(definition)`` 注册绑定后的工具；也可以把共享工具族（``SceneTools``、``MotionTools``、``MemoryTools``、``PolicyTools``）连同 ``capabilities`` 快照传给 ``add_tools``，让各族只发布当前主机已连接的工具。通过 ``definition.with_handler(...)`` 绑定内部资源或执行检查，由 Toolkit 采集动作后的状态；
+- 用 ``self.add_tools(iter_tools(self._primitives))`` 或 ``self.add_tool(definition)`` 注册绑定后的工具；也可以把共享工具族（``SceneTools``、``MotionTools``、``MemoryTools``、``SkillTools``）连同 ``capabilities`` 快照传给 ``add_tools``，让各族只发布当前主机已连接的工具。通过 ``definition.with_handler(...)`` 绑定内部资源或执行检查，由 Toolkit 采集动作后的状态；
 - 重写 ``close()``，通过 ``EnvState`` 保存 agent 侧剩余工件（例如 ``state.save("episode.mp4", frames, step=None)``）。
 
 ``runtime_kwargs`` 由 ``robot_spec.py:get_toolkit`` 转发给 toolkit，再原样传入 primitives 的 ``__init__``。其中通常包含 ``{"env": MyEnvClient(...), "model": VLAClient(...), ...}``。

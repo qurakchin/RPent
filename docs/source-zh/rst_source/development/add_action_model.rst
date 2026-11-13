@@ -25,7 +25,7 @@ VLA 和 WAM 通过公共 AM 基类复用 RPC 注册与推理转发。VLA 保留�
      -> <model>/adapter/encode.py -> predict_native -> adapter/decode.py
      -> action chunk -> platform env_client.chunk_step -> simulator
 
-LIBERO 在 ``tools.py`` 中声明 ``wam_act``；RoboTwin 注册共享的 ``PolicyTools`` 工具族，并通过 ``policy.py`` 绑定平台实现。两者都用 ``@tool`` 声明工具并返回 ``ToolResult(data=...)``。平台已有 toolkit 负责工具注册、取消、状态采集和录制。
+LIBERO 在 ``tools.py`` 中声明 ``wam_act``；RoboTwin 注册共享的 ``SkillTools`` 工具族，并通过 ``skills/policy.py`` 绑定平台实现。两者都用 ``@tool`` 声明工具并返回 ``ToolResult(data=...)``。平台已有 toolkit 负责工具注册、取消、状态采集和录制。
 
 .. list-table:: 文件职责
    :header-rows: 1

@@ -709,3 +709,42 @@ def test_capture_exception_preserves_original_error(
         action_error or "failed to capture state after move: camera offline"
     )
     assert result.data["state_capture_error"] == "camera offline"
+
+
+def test_file_tools_leave_the_memory_corpus_to_the_memory_family(tmp_path) -> None:
+    memory = MemoryManager(
+        tmp_path / "memory",
+        memory_access="inbox_write",
+        inbox_cell_tag="cell",
+    )
+    published = memory.root / "global" / "note.md"
+    published.parent.mkdir(parents=True)
+    published.write_text("published")
+    inbox = memory.root / "_internal" / "inbox" / "cell" / "draft.md"
+    inbox.parent.mkdir(parents=True)
+    tools = common.CommonTools(
+        memory=memory,
+        output_dir=tmp_path / "out",
+        allow_memory=False,
+    )
+
+    with pytest.raises(PermissionError, match="recall"):
+        tools.read_text_file(str(published))
+    with pytest.raises(PermissionError, match="recall"):
+        tools.write_text_file(str(inbox), "draft")
+    with pytest.raises(PermissionError, match="recall"):
+        tools.list_dir(str(memory.root))
+    assert not inbox.exists()
+
+
+class _MemoryFamilyToolkit(_ContractToolkit):
+    owns_memory_tools = True
+
+
+def test_memory_owning_toolkit_hides_memory_from_file_tool_descriptions(
+    tmp_path,
+) -> None:
+    toolkit = _MemoryFamilyToolkit(tmp_path)
+
+    for name in ("read_text_file", "write_text_file", "list_dir"):
+        assert "memory" not in toolkit._tools[name].description.lower()

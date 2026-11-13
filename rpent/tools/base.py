@@ -34,6 +34,10 @@ from pydantic_core import core_schema
 ParamsT = ParamSpec("ParamsT")
 MAX_TOOL_TEXT_BYTES = 60000
 
+#: Mirror of ``EnvReceipt.status`` that the framework copies into a result.
+#: ``completed`` and ``partial`` mean the environment received the request;
+#: ``rejected`` and ``not_started`` mean no physical action occurred;
+#: ``unknown`` means the request may have outlived the call.
 ExecutionStatus = Literal["completed", "partial", "rejected", "not_started", "unknown"]
 EXECUTION_STATUSES: tuple[ExecutionStatus, ...] = (
     "completed",
@@ -49,10 +53,21 @@ class ToolResult:
     """Domain payload, images, and the framework's call/execution layers.
 
     ``data`` holds the domain result. The remaining fields describe the call:
-    whether the framework could deliver it (``call_ok``), whether a physical
-    action was definitely not attempted (``no_execution``), and whether a
-    state-changing request may have outlived the call (``execution_uncertain``).
-    ``call_ok`` never means that the requested action succeeded.
+
+    - ``call_ok``: the framework delivered and validated the call. It never
+      means that the requested action succeeded.
+    - ``error``: a structured framework error whose ``code`` separates
+      validation, refusal, execution failure, and uncertainty.
+    - ``no_execution``: shorthand for "no physical action was attempted".
+      It is set for validation failures, refusals, ``rejected`` receipts, and
+      ``not_started`` receipts.
+    - ``execution_uncertain``: a state-changing request may have outlived the
+      call. It mirrors the episode's latch in a_6.
+    - ``execution_status``: the original ``EnvReceipt.status``. Tools leave it
+      as ``None``; :class:`~rpent.tools.toolkit.Toolkit` fills it after
+      dispatch. When result encoding fails, the toolkit keeps the would-be
+      receipt status under ``data["reported_execution_status"]`` so the
+      diagnostic survives the failure.
     """
 
     data: dict[str, Any] = field(default_factory=dict)

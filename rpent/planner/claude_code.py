@@ -1079,6 +1079,11 @@ def _memory_write_hooks(sdk: Any, toolkit: Toolkit) -> dict[str, list[Any]] | No
     which run the inbox and confidence rules. Letting Bash or Write edit the
     files directly would skip those rules, so the planner denies such calls
     before the tool runs.
+
+    The shell check is a best-effort path heuristic, not a sandbox: it reads
+    the command text and resolves the paths it can recognize. It is defense in
+    depth alongside the file tools' own boundary and Codex's read-only sandbox,
+    not a claim that every obfuscated command is detected.
     """
     root = getattr(getattr(toolkit, "memory", None), "root", None)
     if root is None:

@@ -42,17 +42,18 @@
           ]
         },
         "quantities": {
-          "description": "Requested measurements; defaults to center and extent.",
+          "description": "Requested measurements; defaults to center and extent. Use \"points\" for a bounded world-frame point set.",
           "items": {
             "enum": [
               "center",
               "extent",
               "z_range",
-              "orientation"
+              "orientation",
+              "points"
             ],
             "type": "string"
           },
-          "maxItems": 4,
+          "maxItems": 5,
           "minItems": 1,
           "type": [
             "array",

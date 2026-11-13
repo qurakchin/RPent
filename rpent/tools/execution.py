@@ -29,36 +29,22 @@ from dataclasses import dataclass, field
 from rpent.session.env_capture import current_tool_call
 
 
-@dataclass(frozen=True)
-class WriteRequest:
-    """One state-changing request issued during a tool call.
-
-    ``sequence`` orders requests within the call. ``request_id`` is reserved
-    for the execution receipt (a_6); the client supplies it when the transport
-    exposes one.
-    """
-
-    kind: str
-    sequence: int
-    request_id: str | None = None
-
-
 @dataclass
 class ExecutionTrace:
-    """State-changing requests issued by one tool call."""
+    """State-changing request kinds issued by one tool call.
 
-    episode_id: str | None = None
-    requests: list[WriteRequest] = field(default_factory=list)
+    The toolkit only needs to know whether a write was issued before a
+    framework failure. Request identity and the episode-scoped sequence belong
+    to the execution receipt (a_6); keeping them here before the client can
+    supply them would add fields with no producer or consumer.
+    """
 
-    @property
-    def writes(self) -> list[str]:
-        """Operation names in issue order, for logs and legacy callers."""
-        return [request.kind for request in self.requests]
+    writes: list[str] = field(default_factory=list)
 
     @property
     def issued(self) -> bool:
         """Whether any environment write has been issued."""
-        return bool(self.requests)
+        return bool(self.writes)
 
 
 _current_trace: ContextVar[ExecutionTrace | None] = ContextVar(
@@ -81,9 +67,9 @@ def _active_trace() -> ExecutionTrace | None:
 
 
 @contextmanager
-def track_execution(episode_id: str | None = None) -> Iterator[ExecutionTrace]:
+def track_execution() -> Iterator[ExecutionTrace]:
     """Collect the writes issued while executing one tool call."""
-    trace = ExecutionTrace(episode_id=episode_id)
+    trace = ExecutionTrace()
     capture = current_tool_call.get()
     if capture is not None:
         capture.execution_trace = trace
@@ -96,22 +82,15 @@ def track_execution(episode_id: str | None = None) -> Iterator[ExecutionTrace]:
         _current_trace.reset(token)
 
 
-def mark_write_issued(kind: str, *, request_id: str | None = None) -> None:
+def mark_write_issued(kind: str) -> None:
     """Record a write request before it is sent to the environment.
 
     Args:
         kind: Operation name, such as ``step`` or ``reset``.
-        request_id: Transport request identity when the client has one.
     """
     trace = _active_trace()
     if trace is not None:
-        trace.requests.append(
-            WriteRequest(
-                kind=kind,
-                sequence=len(trace.requests),
-                request_id=request_id,
-            )
-        )
+        trace.writes.append(kind)
 
 
 def writes_issued() -> bool:
@@ -122,7 +101,6 @@ def writes_issued() -> bool:
 
 __all__ = [
     "ExecutionTrace",
-    "WriteRequest",
     "mark_write_issued",
     "track_execution",
     "writes_issued",

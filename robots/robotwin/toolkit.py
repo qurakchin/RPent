@@ -22,24 +22,30 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
+from robots.robotwin.config import (
+    build_capabilities,
+    connected_policy_backend as _connected_policy_backend,
+    declared_capabilities,
+)
+from robots.robotwin.grounding import MolmoGrounder, Sam3Segmenter
 from robots.robotwin.motion import RoboTwinMotionBackend
 from robots.robotwin.observation import dump_observation, world_from_depth
-from robots.robotwin.policy import RoboTwinPolicyBinding
 from robots.robotwin.primitives import RoboTwinPrimitives
 from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES, env_runtime_contract
+from robots.robotwin.skills.policy import (
+    RoboTwinSkillBinding,
+    skill_declarations,
+)
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
 from rpent.session.env_capture import CapturingEnvClient
 from rpent.tools import Tool, ToolResult, iter_tools, tool
-from rpent.tools.capabilities import Capabilities
 from rpent.tools.direct_action import direct_action_tool
 from rpent.tools.memory_tools import MemoryTools
+from rpent.tools.motion.vla_act import SkillTools
 from rpent.tools.motion_tools import MotionTools
-from rpent.tools.policy_tools import PolicyConfig, PolicyTools
 from rpent.tools.scene_tools import (
     EnvStateObservationProvider,
-    MolmoGrounder,
-    Sam3Segmenter,
     SceneTools,
     view_env_state,
 )
@@ -65,40 +71,18 @@ _RECIPE_ACTIONS = {
 }
 
 
-def _connected_policy_backend(model: Any, declared: str) -> str:
-    """Return the backend of the connected client, not the requested one.
-
-    ``policy_kind`` travels with the runtime arguments, so a mismatched
-    declaration could otherwise make the policy capability self-certify. The
-    concrete client is the runtime evidence; unknown test doubles keep the
-    declaration.
-    """
-    from robots.robotwin.vla_client import LingBotVLAClient
-    from robots.robotwin.wam_client import RoboTwinWAMClient
-
-    if isinstance(model, RoboTwinWAMClient):
-        return "wam"
-    if isinstance(model, LingBotVLAClient):
-        return "lingbot"
-    return declared
-
-
-def _declared_views(
-    server_meta: dict[str, Any],
-) -> tuple[tuple[str, ...], tuple[str, ...]]:
-    """Return the depth and calibrated camera views advertised by the server."""
-    extensions = server_meta.get("extensions")
-    extensions = extensions if isinstance(extensions, dict) else {}
-    render_camera = extensions.get("render_camera")
-    render_camera = render_camera if isinstance(render_camera, dict) else {}
-    names = tuple(render_camera.get("camera_names") or ())
-    depth_views = names if render_camera.get("metric_depth") is True else ()
-    calibrated_views = names if extensions.get("get_camera_meta") is True else ()
-    return depth_views, calibrated_views
-
-
 class RoboTwinToolkit(Toolkit):
-    """Common RPent tools plus RoboTwin primitives."""
+    """Common RPent tools plus RoboTwin primitives.
+
+    This slice still assembles its tools imperatively. a_1 S1–S2 replaces this
+    module with a declarative ``config.py`` and the core ``Toolkit``; until
+    that migration lands, this class is the single place that builds
+    capabilities, binds services, and registers families for RoboTwin.
+    """
+
+    # RoboTwin registers the Memory family, so file tools must not expose the
+    # corpus directly.
+    owns_memory_tools = True
 
     def __init__(
         self,
@@ -178,29 +162,24 @@ class RoboTwinToolkit(Toolkit):
         sam3 = runtime_kwargs.get("sam3_client")
         grounder = MolmoGrounder(molmo) if molmo is not None else None
         segmenter = Sam3Segmenter(sam3) if sam3 is not None else None
-        binding = RoboTwinPolicyBinding(self._primitives)
+        binding = RoboTwinSkillBinding(self._primitives)
         server_meta = dict(getattr(self._primitives.env, "server_meta", {}) or {})
-        views, calibrated_views = _declared_views(server_meta)
         policy_backend = _connected_policy_backend(
             getattr(self._primitives, "model", None), binding.backend
         )
-        self._capabilities = Capabilities(
-            env=server_meta,
-            execution=dict(
-                getattr(self._primitives.env, "execution_capabilities", {}) or {}
+        self._capabilities = build_capabilities(
+            server_meta=server_meta,
+            execution=getattr(
+                self._primitives.env, "execution_capabilities", {}
             ),
             segmentation=segmenter is not None,
             grounding=grounder is not None,
             policy_backends=(policy_backend,),
-            real_robot=False,
-            depth_views=views,
-            calibrated_views=calibrated_views,
-            native_tools=("execute_action", "finish", "render", "reset"),
         )
         provider = EnvStateObservationProvider(
             self._state,
             default_view="head",
-            camera_conventions=dict.fromkeys(views, "opengl"),
+            camera_conventions=dict.fromkeys(self._capabilities.depth_views, "opengl"),
         )
         self.add_tools(
             SceneTools(state=self._state),
@@ -211,46 +190,58 @@ class RoboTwinToolkit(Toolkit):
                 config=GeometryToolConfig(),
             ),
             MotionTools(RoboTwinMotionBackend(self._primitives)),
-            PolicyTools(
-                binding,
-                config=PolicyConfig(use_length=binding.use_length),
-            ),
+            SkillTools(binding),
             MemoryTools(self._memory),
             capabilities=self._capabilities,
             config={"mode": self._mode},
         )
 
     @classmethod
-    def declared_tools(cls, *, policy_kind: str = "vla") -> list[Tool]:
+    def declared_tools(
+        cls,
+        *,
+        policy_kind: str = "vla",
+        grounding: bool = False,
+        depth: bool = True,
+    ) -> list[Tool]:
         """Collect declarations without constructing an environment.
 
-        The registration path binds handlers to one instance; this snapshot is
-        used by offline schema checks and documentation tooling. It runs the
-        same family ``tools(capabilities)`` path as registration so declared
-        and registered surfaces cannot drift when a family gains a new gate.
+        ``Toolkit.list_tools`` describes one constructed instance; this
+        snapshot serves offline schema checks and documentation tooling where
+        no environment exists. It runs the same capability builder and family
+        ``tools(capabilities)`` path as registration so declared and
+        registered surfaces cannot drift.
+
+        Args:
+            policy_kind: ``"vla"`` or ``"wam"``; selects the skill tool.
+            grounding: Whether a grounder is connected. Without one, the
+                geometry tool requires an explicit pixel.
+            depth: Whether the declared server advertises depth and
+                calibration. Disable it to check the capability-trimmed
+                surface.
         """
         from types import SimpleNamespace
 
-        views, calibrated_views = _declared_views(
-            env_runtime_contract(
+        capabilities = declared_capabilities(
+            server_meta=env_runtime_contract(
                 task_name="declared", task_config="declared", seed=0
-            )
+            ),
+            policy_kind=policy_kind,
+            grounding=grounding,
+            depth=depth,
         )
         backend = "wam" if policy_kind == "wam" else "lingbot"
         tool_name = "wam_act" if policy_kind == "wam" else "lingbot_act"
-        capabilities = Capabilities(
-            execution={"reset": True, "step": True, "chunk_step": True},
-            depth_views=views,
-            calibrated_views=calibrated_views,
-            grounding=False,
-            policy_backends=(backend,),
+        binding = SimpleNamespace(
+            backend=backend,
+            tool_name=tool_name,
+            tools=skill_declarations,
         )
-        binding = SimpleNamespace(backend=backend, tool_name=tool_name)
         return [
             *SceneTools(state=object()).tools(capabilities),
             *GeometryTools(provider=object()).tools(capabilities),
             *MotionTools(object()).tools(capabilities),
-            *PolicyTools(binding).tools(capabilities),
+            *SkillTools(binding).tools(capabilities),
             *MemoryTools(object()).tools(capabilities),
             *iter_tools(RoboTwinPrimitives),
             cls.render,

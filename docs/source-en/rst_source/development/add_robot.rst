@@ -322,7 +322,7 @@ filenames rather than maintaining a parallel observation index.
   ``EnvState.reset()``, constructs the primitives, and dumps step 0),
 - register bound tools with ``self.add_tools(iter_tools(self._primitives))``
   or ``self.add_tool(definition)``. A toolkit can also pass shared families
-  (``SceneTools``, ``MotionTools``, ``MemoryTools``, ``PolicyTools``) to
+  (``SceneTools``, ``MotionTools``, ``MemoryTools``, ``SkillTools``) to
   ``add_tools`` with a ``capabilities`` snapshot, so each family publishes only
   the tools the connected host supports. Use ``definition.with_handler(...)``
   to bind internal resources or execution guards; Toolkit captures post-action state,

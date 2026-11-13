@@ -33,7 +33,7 @@ The WAM execution path illustrates the platform/model boundary:
      -> action chunk -> platform env_client.chunk_step -> simulator
 
 LIBERO declares ``wam_act`` in ``tools.py``. RoboTwin registers the shared
-``PolicyTools`` family and binds it to the platform through ``policy.py``.
+``SkillTools`` family and binds it to the platform through ``skills/policy.py``.
 Both declare tools with ``@tool`` and return ``ToolResult(data=...)``. The
 existing platform toolkit owns registration, cancellation, state capture and
 recording.
