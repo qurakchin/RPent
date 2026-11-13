@@ -215,8 +215,9 @@ def test_agent_uploads_memory_and_forwards_exploration(tmp_path, monkeypatch):
     environment = UploadEnvironment()
     execute = AsyncMock()
     execute.return_value = SimpleNamespace(stdout="")
+    agent_execute = AsyncMock(return_value=SimpleNamespace(stdout="1000\n1000\n"))
     monkeypatch.setattr(agent, "exec_as_root", execute)
-    monkeypatch.setattr(agent, "exec_as_agent", AsyncMock())
+    monkeypatch.setattr(agent, "exec_as_agent", agent_execute)
 
     asyncio.run(agent.install(environment))
     asyncio.run(agent.run("Task", environment, AgentContext()))
@@ -227,7 +228,17 @@ def test_agent_uploads_memory_and_forwards_exploration(tmp_path, monkeypatch):
     assert archive_path in environment.uploads
     with tarfile.open(fileobj=io.BytesIO(environment.uploads[archive_path])) as archive:
         assert "./global/lesson.md" in archive.getnames()
-    command = shlex.split(agent.exec_as_agent.call_args.kwargs["command"])
+    # ``docker cp`` needs the destination directory, and the agent must own the
+    # tree so it can extract the archive and remove it even when the task runs
+    # the agent as a non-root user.
+    root_commands = [call.kwargs["command"] for call in execute.call_args_list]
+    staging = [
+        command for command in root_commands if "mkdir -p /logs/agent/rpent" in command
+    ]
+    assert staging == [
+        "mkdir -p /logs/agent/rpent && chown -R 1000:1000 /logs/agent/rpent"
+    ]
+    command = shlex.split(agent_execute.call_args.kwargs["command"])
     assert command[command.index("--explore-sessions") + 1] == "2"
     assert command[command.index("--memory-dir") + 1] == "/logs/agent/rpent/memory"
 

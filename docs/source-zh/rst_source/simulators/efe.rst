@@ -21,7 +21,7 @@ EFE（Embodied First Exam）是一组机器人任务，提供预先确定的场�
 
    .. grid-item-card:: 任务
 
-      EFE 的 standard 和 standard-realtime 任务。
+      EFE 的 standard 模式任务。
 
    .. grid-item-card:: 硬件
 
@@ -42,15 +42,15 @@ Harbor 把 RPent 和仿真器放在不同容器中运行。RPent 通过 EFE 提�
      - 行为
    * - ``standard``
      - 1066
-     - 支持。仿真器收到动作后推进仿真。
+     - 当服务协议为 ``eai-standard/2.2`` 或 ``2.4`` 时支持。仿真器收到动作后推进仿真。
    * - ``standard-realtime``
      - 84
-     - 支持。模型思考期间，仿真器仍持续运行。
+     - 暂不支持。这类任务使用 ``eai-standard/2.3`` 或 ``eai-standard-realtime/1.0``，本集成只处理 ``2.2`` 和 ``2.4``。
    * - ``privileged``
      - 959
      - 暂不支持。Agent 提交完整轨迹或策略，由评分程序评测。
 
-在 ``standard-realtime`` 中，等待新动作时，机器人继续执行最近一次指令指定的关节位置或其他控制目标。场景在等待期间仍会变化，因此模型响应时间会影响任务结果。
+本集成处理服务协议为 ``eai-standard/2.2`` 或 ``2.4`` 的 standard 模式任务。选择 benchmark 前先查看任务 ``task.toml`` 中的 ``metadata.protocol``；使用其他协议的任务会在连接时直接给出明确报错。
 
 观测与动作
 ~~~~~~~~~~
@@ -167,7 +167,7 @@ RPent 提供两种控制方式。默认使用 **Skills**：模型通过 ``move_t
 批量运行 benchmark
 ------------------
 
-要批量运行 benchmark，请将下方 ``<benchmark>`` 替换为所选 benchmark 的名称。先确认目录中只有受支持的 standard 或 standard-realtime 任务，不要混入 privileged 任务。
+要批量运行 benchmark，请将下方 ``<benchmark>`` 替换为所选 benchmark 的名称。先确认目录中只有受支持的 standard 模式任务，不要混入 realtime 或 privileged 任务。
 
 ``--path`` 指向 benchmark 目录，其中每个子目录是一项任务，合起来就是要运行的任务集。``-d embodied-first-exam@all`` 表示 EFE 注册的全部任务。例如，EFE 文档中的 ``harbor run -d embodied-first-exam@all -p tasks/roboarc`` 只运行 RoboARC 任务集。
 

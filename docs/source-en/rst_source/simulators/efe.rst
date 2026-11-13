@@ -27,7 +27,7 @@ Harbor calls one task run a **trial**.
 
    .. grid-item-card:: Tasks
 
-      EFE's standard and standard-realtime tasks.
+      EFE's standard-mode tasks.
 
    .. grid-item-card:: Hardware
 
@@ -55,18 +55,18 @@ they are not counts of tasks evaluated with RPent, and upstream may add tasks.
      - Behavior
    * - ``standard``
      - 1066
-     - Supported. The simulator advances when the agent sends actions.
+     - Supported when the service speaks ``eai-standard/2.2`` or ``2.4``. The simulator advances when the agent sends actions.
    * - ``standard-realtime``
      - 84
-     - Supported. The simulator keeps running while the model thinks.
+     - Not supported. These tasks use ``eai-standard/2.3`` or ``eai-standard-realtime/1.0``; this integration handles ``2.2`` and ``2.4``.
    * - ``privileged``
      - 959
      - Not supported. The agent delivers a complete trajectory or policy for evaluation.
 
-In ``standard-realtime``, the robot continues following the most recently
-commanded joint positions or other control targets while waiting for a new
-action. The scene keeps changing during this wait, so model response time
-can affect the outcome.
+This integration handles standard-mode tasks whose service speaks
+``eai-standard/2.2`` or ``2.4``. Check ``metadata.protocol`` in the task's
+``task.toml`` before selecting a benchmark; a task with another protocol fails
+at connection time with an explicit error.
 
 Observation and Action
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -235,8 +235,8 @@ Run a Benchmark
 ---------------
 
 To run a benchmark, replace ``<benchmark>`` below with its name. Check its
-task modes first: use a directory containing
-supported standard or standard-realtime tasks only, not privileged tasks.
+task modes first: use a directory containing only supported standard-mode
+tasks, not realtime or privileged tasks.
 
 ``--path`` points at a benchmark directory. Each child directory is one task;
 together, they form the task set to run. ``-d embodied-first-exam@all`` is
