@@ -36,7 +36,6 @@ def system_prompt(
         system_parts.__file__,
         {
             "ROLE": system_parts.ROLE,
-            "RUNTIME": system_parts.RUNTIME,
             "SAFETY RULES": Numbered(system_parts.RULES),
             "WORKFLOW": Numbered(system_parts.WORKFLOW),
         },

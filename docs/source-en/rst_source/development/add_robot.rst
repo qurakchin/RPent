@@ -263,9 +263,11 @@ contribution in a fixed order:
    base → mode → tool guidance → robot domain → memory
 
 ``base`` and ``mode`` come from ``rpent/prompt/fragments`` (role, general
-rules, output habits, and the evaluate / explore / dashboard / real-robot
-contracts); ``memory`` comes from the shared memory fragment whenever the run
-has a memory directory. The robot contributes:
+rules, output habits, the evaluate / explore / dashboard / real-robot
+contracts, and the runner-ownership rule for physical hardware); ``memory``
+comes from the shared memory fragments whenever the run has a memory directory:
+how to read the corpus, how to use a stored recipe without replaying it, and,
+in exploration, how to propose a merge. The robot contributes:
 
 - ``system`` / ``user`` — its domain knowledge: layout, coordinate conventions,
   task families, object names, failure modes, and the user task message.
@@ -344,7 +346,8 @@ placeholders filled at render time.
 To inspect the exact prompt without starting a simulator or model, run
 ``rpent --robot myrobot ... --dump-prompt``. The dump renders, writes the two
 files, and exits before memory preparation, so it neither creates nor syncs
-memory, and it skips the operator TTY gates of real-robot commands. It cannot be
+memory, and it skips the operator TTY gates of real-robot commands. Its
+artifacts record ``memory prepared: no``. It cannot be
 combined with ``--dashboard``, which assembles prompts per claimed task in its
 own session loop. Each session also writes
 ``effective_prompt.md`` and ``prompt_sources.json`` to its state directory (the

@@ -8,10 +8,12 @@
 
 """Tool guidance contributed by the LIBERO tool surface.
 
-Perception mechanics, runtime facts, VLA usage, and the manipulation workflow
-belong to the tools the model can call. Keeping them here leaves the evaluation
-and exploration domain prompts about the benchmark, and gives the shared
-Motion/Scene families one place to replace this text.
+Every section here tells the model how to use an exposed tool: the runtime it
+calls into, localization with ``back_project`` and ``segment``, the mandatory
+perception pass, and the workflow that orders those calls. Task techniques,
+per-task recipes, and geometry notes are domain knowledge and live in the
+domain prompt; the shared Motion/Scene families will eventually replace this
+module's text.
 """
 
 from __future__ import annotations
@@ -21,112 +23,6 @@ from collections.abc import Mapping
 from robots.libero.prompts import workflow
 from rpent.prompt.assembly import PromptSection, section_source, sections
 from rpent.prompt.utils import Numbered
-
-PROVEN_LEVERS = """These techniques and per-task target zones transfer across seeds; the
-coordinates do not. The solved seed-0 reference is
-`{{memory_dir}}/task-specific/{{reference_tag}}.json` plus
-`{{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl`.
-
-CRITICAL MECHANICS (cost many wasted attempts before they were nailed):
-- **GRIPPER SIGN**: in `move_to` / `set_gripper`, `gripper:+1` = CLOSE/hold,
-  `gripper:-1` = OPEN. To CARRY a grasped object, hold `gripper:+1` the whole way
-  (carrying with `-1` silently OPENS and drops it — the #1 early bug). `set_gripper +1`
-  (steps 8-12) firms the grip after a pick; for a laterally-weak CAN use steps<=5.
-- **`move_pose` defaults gripper to OPEN (-1) if you omit it** — always pass
-  `"gripper":1` in `move_pose` while holding an object.
-- **`move_pose` threads the OSC IK singularity that `move_to` walls at** — for
-  cabinet-front / microwave-cavity / deep reaches, when `move_to` stalls
-  (final_dist stays high, eef retreats), switch to `move_pose` (co-vary
-  xyz+pitch+yaw). It reaches several cm deeper.
-
-GRASPING:
-- **MUGS / BOWLS / CUPS grasp at the RIM, not the center**: SAM3/back-projection
-  give the object CENTER; closing the gripper there grabs air. Aim
-  `eef_y = object_y + 0.045` so Pi0 rim-hooks. (Mugs do NOT hang 4.5cm in -y like
-  bowls — you can wrist-segment the grasped object to measure the true held offset.)
-- Some objects grasp best with `pi0_pick` from the **DEFAULT HOME pose** (no
-  pre-position) — Pi0 has its own approach trajectory; pre-positioning can hurt.
-- **`pi0_pick` is reusable and repurposable**:
-  a HIGH `lift_thresh` (e.g. 999) + `gripper_closed_thresh:0` turns it into a
-  generic closed-loop CONTACT skill (used to turn the stove knob).
-- **`pi0_doubled`** = Pi0 closed-loop CONTACT skill (success :=
-  `terminated`). Use it for drawer/door open-close AND insertions; call it
-  repeatedly.
-
-DISAMBIGUATION / TARGETING:
-- **SWAP-PERTURBED scenes (suite `*_swap`)**: the seed-0 reference's COORDINATES
-  are STALE (swap re-randomizes object positions per seed), and some s0 swap
-  recipes contain a literal reset — that was the old multi-attempt era UNDOING A
-  WRONG-OBJECT FIRST GRAB. You cannot reset. Use the s0 ref ONLY for: WHAT the
-  targets are (task_language nouns), what they LOOK like, and which Pi0 prompt
-  finally worked — never for positions, never replay its command list.
-  IDENTIFY-then-GRASP: before ANY pick, identify the target SEMANTICALLY in the
-  global agentview, then use the wrist only for geometry. The wrist camera is a
-  near-vertical close-up: it is excellent for precise depth/xy refinement, but
-  weak at reading side labels or distinguishing similar grocery items
-  (ketchup/BBQ/tomato sauce, soup cans, cream cheese/butter). Do NOT let the
-  wrist freely re-identify a non-basket target; it often locks onto a look-alike.
-  Instead: choose the target from `agentview_high.png`, compute its agentview
-  xyz, move over that candidate, project/track that SAME candidate in wrist, and
-  refine only its surface/center coordinates. SAM3 scores ~0.02-0.06 on brand
-  nouns ("alphabet soup", "tomato sauce") — prompt by colour+shape ("the short
-  red-label can") or pick pixels manually in the agentview hi-res. Pi0's own
-  prompt grounding is ALSO unreliable on brand nouns (s0's first grab took a milk
-  carton instead), so pre-position the eef directly OVER the agentview-identified
-  + wrist-refined target before pi0_pick. A wrong first grab usually
-  tips/displaces the grabbed object AND the target zone — identification errors
-  are unrecoverable; spend commands on agentview ID, not on recovery.
-- **"left"/"right" in libero_10 is EGOCENTRIC (robot frame): +y = robot-LEFT =
-  image-RIGHT.** A geometrically-perfect placement of the WRONG target never fires
-  the predicate — when a clean placement won't terminate, SUSPECT WRONG-TARGET
-  before wrong-physics (this turned a "physically impossible" verdict into a solve).
-- Containers can be MOVABLE (e.g. a basket slides when bumped) — descend into the
-  interior CENTER from straight above, not against the rim; SAM3's centroid of a
-  frame-clipped/reflective container is rim-biased, so derive the true cavity
-  center from the woven-rim pixels.
-
-PER-TASK RECIPES THAT WORKED AT SEED 0 (adapt coords to your seed):
-- 2-items→basket (t0,t1,t7): place the BOX first into the EMPTY basket interior
-  (descend deep, release), then drop/`pi0_pick`-lift the CAN in beside it; a
-  rim-perched item can be seated with a closed-gripper downward push.
-- mugs→plates (t4) / mug→plate (t6): rim-grasp, +1-hold carry, descend until the
-  mug rests on the plate before release (high release → topples off).
-  ⚠ t4 SINGLE-ATTEMPT LEVERS (READ — the seed-0 "win" quietly used 2 resets; you
-  have NONE. 8/9 multiseed cells died to the SAME chain: Pi0 rogue-place →
-  tipped mug → unrecoverable cascade. Prevent it up front):
-    1. GRASP-ONLY pi0_pick: short prompt ("grasp the yellow mug" — NEVER the full
-       task_language) AND `max_chunks<=8`. With 20-25 chunks Pi0 keeps driving its
-       trained pick-AND-PLACE and dumps the held mug at its own trained "left"
-       (+y) or at the workspace IK edge (|y|>0.27 walls z>=0.56 — unreachable
-       forever). Stop Pi0 at lift; if lift isn't reached within 8 chunks,
-       RE-ISSUE pi0_pick rather than raising max_chunks.
-    2. The instant lift is detected: `set_gripper +1` (steps 8-12) to lock the
-       grip, then YOU script the entire carry + place (Rule 1 — Pi0 never places).
-    3. Measure the held-mug offset PER PICK by wrist-segmenting the HELD mug
-       (offsets differ pick-to-pick: dy=-0.055 on one grasp, -0.013 on the next —
-       measure each, never reuse). Place eef = plate_center − offset; descend to
-       z~0.46 until the mug RESTS on the plate (OSC stalls ~0.51), then release
-       and retreat STRAIGHT UP (step_clip 0.012).
-    4. ORDER/PATH: after placing mug #1, plan mug #2's pick pre-position AND
-       carry path so they NEVER pass over the placed mug (a graze re-tips it). A
-       tipped mug is UNRECOVERABLE (no side-grasp primitive; Pi0 won't engage
-       side-lying cylinders) — prevention is everything.
-    5. Plates MOVE per seed (y=±0.21 at s0, ±0.30 at s8): re-localize each plate
-       rim with the wrist cam and use the x_range/y_range MIDPOINTS as the true
-       center (the visible-fragment median is edge-biased).
-- stove (t2): turn the knob with `pi0_pick "turn on the stove", lift_thresh:999,
-  gripper_closed_thresh:0`; then grasp the pan by its HANDLE, re-segment mid-carry
-  to converge on the burner.
-- moka→stove (t8): grasp body, carry LOW (~4cm lift) in tiny hops (step_clip
-  0.006-0.01), re-clamp `set_gripper +1` between hops; "LEFT" = +y pot.
-- bottle→bottom drawer + close (t3): the drawer In-region is SHALLOW
-  (y≈0.075-0.227) — place at the MOUTH (y≈0.13), NOT the deep recess; `pi0_pick`
-  the bottle from home pose, `rotate_pitch` it flat ALONG X (the wide footprint),
-  release at the mouth, ONE short +y push seats it AND closes the drawer.
-- mug→microwave + close (t9): the only UNSOLVED seed-0 cell — the round mug-in-hand
-  walls ~3cm short of the In() threshold (deep narrow cavity). Try every lever
-  (`pi0_doubled`, `move_pose`, push) and if it still walls, write an honest
-  `terminated:false` with the max eef-y reached."""
 
 RUNTIME = """A server process (`env_server.py`) is already running. It has Pi0.5 loaded and a
 single-env LIBERO sim. The runner manages the server and exposes structured
@@ -254,13 +150,6 @@ ALGORITHM (run this BEFORE manipulating):
 directly comparable. Do NOT blindly average them — accept wrist coords only when
 consistent with the agentview anchor, or for basket/cavity geometry.)"""
 
-KEY_HYPERPARAMETERS = """- Single-step xy within ±0.30 or OSC flips IK; split long traversals.
-- lift_thresh 0.05 (flat) / 0.08 (slippery tall bottles).
-- step_clip 0.025 (empty/box) / 0.015 (cans) / 0.012 (tall bottles).
-- Frame: state.robot0_eef_pos[2] ≈ 0.68 LIVING_ROOM / 1.17 KITCHEN / 0.26 object.
-- TALL BOTTLES: carry z=0.30, drop without descending.
-- Approach high-then-vertical; recover by re-pick, not hover."""
-
 WAM_ROLE = (
     "You control a LIBERO robot using a WAM and scripted tools. "
     "Tool names may appear as mcp__rpent__<name> in SDK planners."
@@ -311,11 +200,9 @@ def prompt_sections(
     own = sections(
         __file__,
         {
-            "PROVEN LEVERS": PROVEN_LEVERS,
             "RUNTIME": RUNTIME,
             "LOCALIZATION": LOCALIZATION,
             "PERCEPTION ALGORITHM": PERCEPTION_ALGORITHM,
-            "KEY HYPERPARAMETERS": KEY_HYPERPARAMETERS,
         },
     )
     steps_section = PromptSection(
@@ -323,4 +210,4 @@ def prompt_sections(
         {"WORKFLOW": Numbered(workflow.workflow_steps(steps, enabled))},
         source=section_source(workflow.__file__),
     )
-    return (*own[:4], steps_section, own[4])
+    return (*own, steps_section)

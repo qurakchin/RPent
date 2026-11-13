@@ -71,6 +71,22 @@ def test_assemble_prompt_renders_fixed_layer_order() -> None:
     assert assembled.prompt_sha256 == prompt_sha256(assembled.system, assembled.user)
 
 
+def test_sections_that_render_empty_are_not_recorded_as_sources() -> None:
+    """A conditional contribution the model never saw is not provenance."""
+    assembled = assemble_prompt(
+        PromptLayers(
+            domain=(
+                PromptSection("PRESENT", "text", "robot/domain.py"),
+                PromptSection("ABSENT", "", "robot/domain.py"),
+            )
+        ),
+        variables={},
+    )
+
+    assert [section["name"] for section in assembled.sections] == ["PRESENT"]
+    assert assembled.system == "text\n"
+
+
 def test_section_digest_covers_the_bytes_the_section_contributes() -> None:
     section = PromptSection("ONLY", "line one\nline two\n", "robot/domain.py")
     assembled = assemble_prompt(PromptLayers(domain=(section,)), variables={})
@@ -120,6 +136,7 @@ def test_fragments_do_not_depend_on_robot_variables() -> None:
         "mode_real_robot",
         "memory_protocol",
         "memory_proposals",
+        "memory_transfer",
     ):
         assert "{{" not in format_prompt(fragment(stem, stem).node)
 
@@ -240,6 +257,7 @@ def test_bundle_assembly_keeps_the_declared_layer_order(tmp_path: Path) -> None:
         "TOOL",
         "DOMAIN",
         "MEMORY — HOW TO READ",
+        "MEMORY — USING STORED EVIDENCE",
         "MEMORY — PROPOSALS AND MERGING",
         "TASK",
     ]

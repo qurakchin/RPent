@@ -563,7 +563,20 @@ def main() -> int:
             planner=args.planner,
             modes=modes,
             user_message=assembled.user,
+            memory_prepared=False,
         )
+        if not any(
+            section["source"] == "rpent/prompt/fragments/memory_protocol.md"
+            for section in assembled.sections
+        ):
+            # A run prepares memory before assembly; the dump deliberately does
+            # not. Say so where the difference is visible.
+            print(
+                "warning: --dump-prompt skips memory preparation, so the memory "
+                "sections describe only the local corpus; effective_prompt.md "
+                "from a run is authoritative.",
+                file=sys.stderr,
+            )
         print(
             effective_prompt_markdown(
                 assembled,
@@ -571,6 +584,7 @@ def main() -> int:
                 planner=args.planner,
                 modes=modes,
                 user_message=assembled.user,
+                memory_prepared=False,
             )
         )
         return 0

@@ -1,6 +1,9 @@
 This session drives physical hardware. A wrong command can damage equipment or
 injure someone.
 
+- The runner owns the robot and model processes. Do not start, stop, or restart
+  robot, Ray, ROS, camera, or VLA services; use only the structured tools the
+  runtime exposes.
 - Keep every motion inside the limits stated by the task and the runtime.
   Prefer short, bounded moves over long trajectories.
 - Confirm destructive or unexpectedly large motions with the operator before

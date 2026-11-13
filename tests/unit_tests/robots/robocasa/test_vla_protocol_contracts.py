@@ -118,7 +118,7 @@ def test_prompt_requires_live_task_language_and_fresh_geometry(tmp_path: Path) -
         "consecutive calls with no contact and no visible semantic progress" in rendered
     )
     assert "Historical entries may name vla_act" in rendered
-    assert "Never replay stored xyz, xy, pixels, base poses" in rendered
+    assert "Historical pixels, coordinates, and offsets are not targets" in rendered
     assert "{{" not in rendered
 
 

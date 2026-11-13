@@ -211,6 +211,7 @@ def memory_sections(
     sections = []
     if has_corpus:
         sections.append(fragment("memory_protocol", "MEMORY — HOW TO READ"))
+        sections.append(fragment("memory_transfer", "MEMORY — USING STORED EVIDENCE"))
     if explore:
         sections.append(fragment("memory_proposals", "MEMORY — PROPOSALS AND MERGING"))
     return tuple(sections)
@@ -255,7 +256,11 @@ def assemble_prompt(
     user: Sequence[PromptSection] = (),
     variables: Mapping[str, object] | None = None,
 ) -> AssembledPrompt:
-    """Render the fixed layers and record the source of every section.
+    """Render the fixed layers and record the source of every rendered section.
+
+    Sections that render to an empty string are dropped from both the prompt and
+    the provenance list: a conditional contribution the model never saw must not
+    appear in ``prompt_sources.json``.
 
     Args:
         layers: System-prompt contributions grouped by layer.
@@ -290,6 +295,11 @@ def assemble_prompt(
                 )
             seen.add(section.name)
             text = format_prompt(section.node, variables=variables).rstrip("\n")
+            if not text.strip():
+                # A conditional contribution that rendered to nothing is not
+                # part of the prompt; recording it would claim a section the
+                # model never saw.
+                continue
             parts.append(text)
             sources.append(
                 {
@@ -299,7 +309,7 @@ def assemble_prompt(
                     "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
                 }
             )
-        rendered[role] = "\n\n\n".join(part for part in parts if part)
+        rendered[role] = "\n\n\n".join(parts)
         if rendered[role]:
             rendered[role] += "\n"
 

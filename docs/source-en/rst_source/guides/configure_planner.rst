@@ -65,9 +65,11 @@ covers RPent's contribution, not the model's complete final context.
 Add ``--dump-prompt`` to any robot command to render the prompt, write both
 files, print the result, and exit without starting simulators or models. The
 dump runs before the run's memory preparation, so it neither creates nor syncs
-memory, and it bypasses the operator TTY gates of real-robot commands. It cannot
-be combined with ``--dashboard``, which assembles prompts per claimed task in
-its own session loop:
+memory, and it bypasses the operator TTY gates of real-robot commands. Its
+artifacts record ``memory prepared: no``, and RPent warns on stderr when the
+memory sections are absent; a run's own ``effective_prompt.md`` is authoritative
+for what the model received. The dump cannot be combined with ``--dashboard``,
+which assembles prompts per claimed task in its own session loop:
 
 .. code-block:: bash
 

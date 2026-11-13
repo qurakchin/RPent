@@ -50,7 +50,9 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 
 在任意机器人命令后加上 ``--dump-prompt``，即可渲染提示词、写出上述两个
 文件、打印结果并退出，不启动仿真器或模型。dump 在本次运行的记忆准备之前执行，
-因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁。它不能与
+因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁。它的产物标记
+``memory prepared: no``，记忆段缺失时 RPent 会在 stderr 给出提示；模型实际收到
+的提示词以运行时写出的 ``effective_prompt.md`` 为准。dump 不能与
 ``--dashboard`` 同时使用，后者在自身的会话循环中按认领的任务拼装提示词：
 
 .. code-block:: bash

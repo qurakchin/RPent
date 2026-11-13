@@ -102,7 +102,6 @@ def system_prompt() -> tuple[PromptSection, ...]:
         {
             "ROLE": base.ROLE,
             "EXPLORATION MODE": MODE,
-            "RUNTIME": base.RUNTIME,
             "SAFETY RULES": Numbered(base.RULES),
             "EXPLORATION WORKFLOW": Numbered(RULES),
             "LAYERED MEMORY": MEMORY,

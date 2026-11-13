@@ -45,8 +45,7 @@ Strategy references live under:
   `<tag>.json` + `<tag>_recipe.jsonl`)
 Use these for strategy_notes, prompt ladders, primitive ordering, gotchas, and
 qualitative target zones. They were built on different scenes and sometimes
-with older/oracle assumptions; do NOT copy coordinates and do NOT replay stale
-command lists. Re-derive every coordinate from THIS scene.
+with older/oracle assumptions.
 """,
     """RUN THE MANDATORY PRE-TASK PERCEPTION PASS (FIRST-STEP ALGORITHM above) —
 localize EVERYTHING first, THEN act. Before any pick/place build the
@@ -102,7 +101,7 @@ two-camera relation protocol for disambiguating identical objects.
 """,
     """RECOVERY (in-place ONLY — no reset): re-localize (objects may have moved),
 re-pre-position + re-pi0_pick on the next prompt-ladder rung; split long
-traversals into <0.30 xy waypoints; for a door/drawer/knob use a SHORT capped
+traversals into short xy waypoints; for a door/drawer/knob use a SHORT capped
 OSC push or `pi0_doubled`, never one long push — it NaNs MuJoCo. If the task is
 unrecoverable within this one episode, do NOT reset — write an honest
 stuck-audit (`terminated:false`) and call `finish`. Never warp.
@@ -209,7 +208,7 @@ FORBIDDEN: `exit`, `set_object_pose`, `articulate_to`, `js_move_to`,
 
 EXPLORE_STEP_RECOVERY = """RECOVERY (in-place FIRST, then reset): re-localize (objects may have moved);
 re-pre-position and re-`pi0_pick` on the next prompt-ladder rung; split long
-traversals into <0.30 xy waypoints; for a door/drawer/knob use a SHORT capped
+traversals into short xy waypoints; for a door/drawer/knob use a SHORT capped
 OSC push or `pi0_doubled`, never one long push — it NaNs MuJoCo. If the episode
 is unrecoverable, close out the attempt, `reset`, and try a changed plan.
 Never warp.
@@ -234,8 +233,8 @@ b. NOTE WHAT YOU LEARNED, NOW — as WORKING NOTES, not as corpus entries. Appen
    because this is when the mechanism is clearest in your mind.
 
    ⚠ These are NOTES, not conclusions. Phrase walls as observations bounded by
-   what you actually varied — "scripted -y pushes with step_clip 0.025 stall at
-   eef y≈-0.118", never "the drawer is kinematically unreachable". Name the
+   what you actually varied — "scripted -y pushes in small per-step increments
+   stall at eef y≈-0.118", never "the drawer is kinematically unreachable". Name the
    method the wall was measured under; you do not yet know which walls are
    properties of the task and which are properties of your approach.
 
@@ -307,8 +306,8 @@ b. TASK-FAMILY LAYER -> `{{memory_inbox}}/task-family_{{recipe_tag}}_draft.md`. 
                                     `## Best known approach (UNVALIDATED)` — a
                                     recipe that never worked must never read
                                     like one that did.>
-     ## Magic numbers              <defaults AND usable ranges: `max_chunks=30
-                                    (band 28-32)`, never a bare number. Each
+     ## Magic numbers              <default AND usable band, e.g.
+                                    `chunks 30 (band 28-32)`, never a bare number. Each
                                     NEVER-do-this constraint on its own line.>
      ## Failure modes              <table, one row per failed attempt:
                                     | symptom | root cause (A<N>) | fix |

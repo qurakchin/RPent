@@ -37,11 +37,9 @@ READ_ORDER = """Before the first robot action:
 4. Read {{memory_inbox}}/wip/notes.md when present.
 
 Use a successful JSON audit for its phase plan and reasoning, and its JSONL
-recipe for action order, parameters and {{policy_name}} cadence. Transfer
-supported phase order, observable gates, controller division and recovery
-ideas. Preserve arm roles required by the current instruction; reconsider roles
-chosen only for a previous layout. If memory is absent, proceed from
-observation."""
+recipe for action order, parameters and {{policy_name}} cadence. Preserve arm
+roles required by the current instruction; reconsider roles chosen only for a
+previous layout. If memory is absent, proceed from observation."""
 
 RULES = """This session allows {{explore_attempts_per_session}} attempts including the
 initial episode (0 means no attempt-count limit; other run limits still apply).
@@ -70,8 +68,7 @@ call with actual parameters, trace step, phase, observed result and the reason
 for any {{policy_name}}/primitive switch. Do not invent, omit or reorder calls.
 The runner exports {{recipe_tag}}_recipe.jsonl from recorded motion commands
 and SAM3 calls that found a mask without an error, in invocation order.
-Finding a mask does not establish correct identity. Historical pixels, steps
-and coordinates are evidence, not targets to replay on a new layout.
+Finding a mask does not establish correct identity.
 The audit/recipe pair is published only when native success is confirmed."""
 
 MEMORY = """Only after success, consolidate working notes and the successful

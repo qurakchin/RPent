@@ -33,7 +33,6 @@ def system_prompt(
         system_parts.__file__,
         {
             "ROLE": system_parts.ROLE,
-            "RUNTIME": system_parts.RUNTIME,
             "WORKFLOW": Numbered(system_parts.WORKFLOW),
         },
     )

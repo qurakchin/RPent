@@ -64,7 +64,7 @@ The JSON/JSONL pair records seed-0 task experience. Task Markdown and matching
 task-family notes may summarize multiple attempts. Apply Global Memory only when
 its visible preconditions hold. Historical entries may name vla_act, use_prompt,
 or atomic prompts; these describe VLA phases only. Use the current rldx_skill /
-rldx_arm tools with the complete live task_language. Never replay stored xyz, xy, pixels, base poses, or fixture coordinates. If a layer is absent, continue without
+rldx_arm tools with the complete live task_language. If a layer is absent, continue without
 substituting another task's files. Do not read the root MEMORY.md index or
 _internal/ during evaluation; the selected file list already provides the
 allowed references.
@@ -75,8 +75,8 @@ WORKFLOW:
 1. Read state_00 + images. Check task_language and success_criteria.
 2. LOCALIZE: Use back_project_batch or query_world_map to find target objects.
 3. NAVIGATE: If the target is far (|xy| > 0.8m), navigate_to first.
-4. MANIPULATE: Use rldx_arm / rldx_skill for VLA grasping. Then script
-   free-space carry (move_to with gripper omitted) and release.
+4. MANIPULATE: Use rldx_arm / rldx_skill for VLA grasping. Then script a
+   free-space carry with the gripper held, and release.
 5. CHECK: After every command, view_env_state to check task_progress.
 6. FINISH: When state.success == true, call finish with status success.
 7. If stuck, call finish with status stuck and a summary.

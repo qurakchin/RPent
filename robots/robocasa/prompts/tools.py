@@ -20,9 +20,9 @@ calibration-frame agentview image. Always sample 3-8 pixels firmly on the object
 top surface and use the returned summary.median_xyz as the object's world coordinate.
 Avoid thin rims, edges, and table-gaps.
 
-FINDING OBJECTS — query_world_map: Use z_min/z_max to find objects at specific
-heights. Typical: z_min=0.85, z_max=0.95 finds countertop objects.
-Use camera='navview' with z_min=0.0, z_max=0.12 to find walkable floor.
+FINDING OBJECTS — query_world_map: use the height-range arguments to find
+objects at a specific height — countertop height for objects, near-floor for
+walkable space, and the navview camera for the floor itself.
 
 CAMERA IMAGE ROLES:
 - calibration_frame agentview: USE THIS IMAGE for back_project_batch pixel picking.
@@ -33,11 +33,12 @@ CAMERA IMAGE ROLES:
 
 NAVIGATION = """
 Use navigate_to for long-range base movement. The base drives toward the target
-(x,y) and stops facing it. Use tol = desired approach distance + object half-depth:
-navigate_to with tol=0.6m stops about 0.6m in front of the target, facing it.
+(x,y) and stops facing it. Set the tolerance to the desired approach distance
+plus the object half-depth, so the base stops that far in front of the target.
 
 Use move_base for fine adjustments (small turns, short forward/backward nudges).
-Keep each move_base modest: forward ≤ 0.4, turn ≤ 0.3, steps ≤ 20.
+Keep each move_base call short; its schema lists the velocity range and the step
+budget.
 
 Use the navview camera to check if the path ahead is clear.
 """
@@ -71,9 +72,8 @@ VLA EXECUTION RULES (the single most important rule):
    a held object, fixture progress, or a rising task counter means productive
    progress: continue the identical full-task call without inserting manual
    motion. Manual commands wipe VLA frame history.
-3. Omit max_chunks. Ordinary RoboCasa defaults to 70; Target50 exports
-   RLDX_MAX_CHUNKS=40 to lock its protocol. Do NOT pass settle_patience
-   (default 999 disables settle detection).
+3. Leave the chunk budget to the runtime: the Target50 export lowers it to
+   lock its own protocol. Do not change the settle behaviour.
 4. A 'cap' alone is not failure. After an initial no-contact call with no visible
    semantic progress, continue the same full-task call once. Only after two
    consecutive calls with no contact and no visible semantic progress should
@@ -85,13 +85,10 @@ VLA EXECUTION RULES (the single most important rule):
 
 GRIPPER_RULES = """
 GRIPPER RULES:
-- For CARRYING a grasped object: OMIT the gripper parameter (it defaults to 'hold',
-  which maintains the current finger width without crushing the object).
-- +1 = actively close the gripper.
-- -1 = actively open the gripper.
-- 'hold' = maintain current finger width (safe for carrying).
+- Keep the gripper in its hold state while carrying: it maintains the current
+  finger width without crushing the object.
+- Carrying with an opening command silently drops the object.
 - release is the safe way to drop an object.
-- Carrying with -1 silently drops the object.
 """
 
 

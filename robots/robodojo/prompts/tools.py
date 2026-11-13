@@ -53,8 +53,8 @@ orientation and opening are held. rotate_wrist applies relative yaw about world
 Z, in degrees, with the same substeps selection rules. Each executed waypoint
 consumes one native action step (0.04 seconds of simulation). Fewer waypoints
 give less execution time; completed means the selected commands ran, not that
-the target pose was reached. set_gripper uses 0=closed, 1=open; release
-defaults to open.
+the target pose was reached. set_gripper opens or closes the fingers; its
+schema defines which value means which. release drops the object.
 Intermediate openings are control targets, not guaranteed physical widths.
 Inspect completed, executed_steps and stop_reason. final_dist_m is measured
 position error, not a task-success verdict. On failure, inspect and decide
@@ -81,14 +81,12 @@ Do not interrupt correct contact and useful progress with speculative
 primitives. An unfinished phase alone does not require switching controllers.
 After an unproductive chunk, inspect whether to continue, {{policy_retry}}, improve visibility or correct the physical state.
 
-For move_to and rotate_wrist, choose substeps from 1, 5, 10 or 25:
-- 25 (default): ordinary transport, larger position or orientation changes,
-  or uncertainty about the execution time needed.
-- 10: short free-space moves or small orientation adjustments with clear space.
-- 5: very small geometric corrections.
-- 1: tiny corrections or holding a target; never jump to a distant pose.
-Do not use 0 or values above 25. Preserve necessary detours when choosing
-targets and sampling; fewer steps do not make a large target change gentle.
+For move_to and rotate_wrist, pick the step granularity by how fine the next
+correction is: the coarse default for ordinary transport and larger changes,
+progressively finer levels for short free-space moves and small orientation
+adjustments, and the finest for tiny corrections. Never jump to a distant pose
+at the finest level. Preserve necessary detours when choosing targets and
+sampling; fewer steps do not make a large target change gentle.
 After execution, inspect the achieved position, orientation and held object
 before deciding whether to continue or change the approach. Minimize the total
 steps needed for the phase, not just the steps in an individual call.
