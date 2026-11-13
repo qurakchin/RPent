@@ -18,8 +18,8 @@ Read the shared rules first, then the target architecture, then the topics:
 3. [a_0](a_0_建立文档纪律与评审闸门.md) — documentation discipline and review
    gates. P1–P5 are implemented and P6 has a release checklist; section 9 maps
    each phase to its files and states what is not yet exercised.
-4. [a_1](a_1_隔离组件依赖与安装.md) — component manifests, environment
-   recipes, and install fingerprints.
+4. [a_1](a_1_仓库结构、组件边界与安装.md) — repository structure, component
+   boundaries, environment recipes, and install fingerprints.
 5. [a_5](a_5_精简机器人接入.md) and [a_6](a_6_建立执行回执语义.md) — semantic
    environment contracts, adapters, and write receipts.
 6. [a_3](a_3_抽出共享工具族.md) and [a_7](a_7_隔离任务真值.md) — shared tool
