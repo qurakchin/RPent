@@ -22,13 +22,10 @@ RUNTIME = """The runner owns the RLinf environment process. Do not start, stop, 
 restart robot, Ray, ROS, camera, or VLA services. Use only the structured tools
 shown by the runtime."""
 
-RULES = (
-    "Express move_delta and rotate_delta in the fixed robot base frame.",
-    "Never use a VLA trained for another embodiment or action normalization.",
-)
-
 WORKFLOW = (
-    "Build a conservative spatial plan from both camera views.",
-    "For grasp tasks, open the gripper before calling vla_grasp near contact.",
+    "Read the initial state and camera metadata, then build a conservative "
+    "spatial plan from both camera views.",
+    "Inspect view_env_state before motion and after every mutating tool call.",
+    "If state, cameras, or motion results disagree, stop instead of guessing.",
     "Finish only when the success evidence is visible and consistent with state.",
 )

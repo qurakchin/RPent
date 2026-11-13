@@ -49,11 +49,18 @@ def _normalize(text: str, memory: Path) -> str:
     )
 
 
+VARIANTS = (
+    ("eval", False, False),
+    ("explore", True, False),
+    ("dashboard", False, True),
+)
+
+
 def _rendered_snapshot(memory: Path) -> dict[str, dict[str, object]]:
     actual: dict[str, dict[str, object]] = {}
     for robot_name, base in PROMPT_VARIABLES.items():
         spec = get_robot_spec(robot_name)
-        for explore in (False, True):
+        for label, explore, dashboard in VARIANTS:
             variables = {
                 **base,
                 "mode": "explore" if explore else "eval",
@@ -71,13 +78,13 @@ def _rendered_snapshot(memory: Path) -> dict[str, dict[str, object]]:
                 variables=variables,
                 modes=run_modes(
                     explore=explore,
-                    dashboard=False,
+                    dashboard=dashboard,
                     real_robot=spec.is_real_robot,
                 ),
             )
             system = _normalize(assembled.system, memory)
             user = _normalize(assembled.user, memory)
-            key = f"{robot_name}:{'explore' if explore else 'eval'}"
+            key = f"{robot_name}:{label}"
             actual[key] = {
                 "sections": [section["name"] for section in assembled.sections],
                 "prompt_sha256": prompt_sha256(system, user),

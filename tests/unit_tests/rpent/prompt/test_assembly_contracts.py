@@ -71,6 +71,17 @@ def test_assemble_prompt_renders_fixed_layer_order() -> None:
     assert assembled.prompt_sha256 == prompt_sha256(assembled.system, assembled.user)
 
 
+def test_section_digest_covers_the_bytes_the_section_contributes() -> None:
+    section = PromptSection("ONLY", "line one\nline two\n", "robot/domain.py")
+    assembled = assemble_prompt(PromptLayers(domain=(section,)), variables={})
+
+    assert assembled.system == "line one\nline two\n"
+    assert (
+        assembled.sections[0]["sha256"]
+        == hashlib.sha256(b"line one\nline two").hexdigest()
+    )
+
+
 def test_assemble_prompt_is_deterministic_and_rejects_duplicates() -> None:
     first = assemble_prompt(_layers(), variables={})
     second = assemble_prompt(_layers(), variables={})

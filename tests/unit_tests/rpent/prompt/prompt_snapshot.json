@@ -4,38 +4,57 @@
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
       "RUN MODE \u2014 REAL ROBOT",
-      "ROLE",
-      "READ ORDER",
-      "RUNTIME",
       "PERCEPTION",
       "CONTROL",
       "POLICY AVAILABILITY",
+      "ROLE",
+      "READ ORDER",
+      "RUNTIME",
       "SUCCESS",
       "MEMORY \u2014 HOW TO READ",
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "48d80a29f8424c8dd7a9f1e0624c90d8a6da6c7f945c908ae5419360affcda1c"
+    "prompt_sha256": "d285a67e23c643ed2d94caec242a9ce081e298aeef5ef81ee2f49717fac37905"
   },
   "yam:explore": {
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EXPLORATION",
       "RUN MODE \u2014 REAL ROBOT",
+      "PERCEPTION",
+      "CONTROL",
+      "POLICY AVAILABILITY",
       "ROLE",
       "READ ORDER",
       "REAL-ROBOT EXPLORE",
       "RUNTIME",
-      "PERCEPTION",
-      "CONTROL",
-      "POLICY AVAILABILITY",
       "SUCCESS",
       "MEMORY \u2014 HOW TO READ",
       "MEMORY \u2014 PROPOSALS AND MERGING",
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "2da6a10d6f00452c6e50a3073561b0cc112667a4cd572b4a2dbde02b5292f486"
+    "prompt_sha256": "82b11019ae184465b36cf290829da15d02cbdb51c29e588b711e91e62486101e"
+  },
+  "yam:dashboard": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 DASHBOARD",
+      "RUN MODE \u2014 REAL ROBOT",
+      "PERCEPTION",
+      "CONTROL",
+      "POLICY AVAILABILITY",
+      "ROLE",
+      "READ ORDER",
+      "RUNTIME",
+      "SUCCESS",
+      "MEMORY \u2014 HOW TO READ",
+      "CELL",
+      "BEGIN"
+    ],
+    "prompt_sha256": "b12d202a7237073af8a0f47c4a2e0c1a3c5a12ca1cd1d895d6b638891b568479"
   },
   "libero:eval": {
     "sections": [
@@ -76,7 +95,28 @@
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "3a046c12b30ba11dff96cfdfd564aab80d41dd5abcd3828662bf2db30a9ae89d"
+    "prompt_sha256": "237427391038f06420ede3c9b2c520e3325d8ed36f1227c07f3b6feb2552e3de"
+  },
+  "libero:dashboard": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 DASHBOARD",
+      "PROVEN LEVERS",
+      "RUNTIME",
+      "LOCALIZATION",
+      "PERCEPTION ALGORITHM",
+      "WORKFLOW",
+      "KEY HYPERPARAMETERS",
+      "ROLE AND EVALUATION",
+      "YOUR GOAL",
+      "RULES (NON-NEGOTIABLE)",
+      "MEMORY \u2014 HOW TO READ",
+      "CELL",
+      "MODE",
+      "BEGIN"
+    ],
+    "prompt_sha256": "c6334b3783ad26fe932a6a2347a065d9a754fe407eabb31a4eb5490bed0947e8"
   },
   "robocasa:eval": {
     "sections": [
@@ -121,7 +161,30 @@
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "0924b6dd69193c1aa0ed437a0be4499ef0263c52d052e9d0bb1976abc844308e"
+    "prompt_sha256": "331dee2da74f2e991006ff7feb81fe6c19d7a050bd628f29c64493c66602226a"
+  },
+  "robocasa:dashboard": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 DASHBOARD",
+      "LOCALIZATION",
+      "NAVIGATION",
+      "PRIMITIVES",
+      "VLA RULES",
+      "GRIPPER RULES",
+      "Intro",
+      "Goal",
+      "Rules",
+      "Memory",
+      "Workflow",
+      "Environment",
+      "Next",
+      "MEMORY \u2014 HOW TO READ",
+      "Task",
+      "Mode"
+    ],
+    "prompt_sha256": "04b9083f4bdfb542f014af94dd190ab0d778dbb6541847941b2251902b6a6673"
   },
   "robodojo:eval": {
     "sections": [
@@ -166,7 +229,29 @@
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "ab2677a5ff0efd21b13a873d7978436cc1e913f9d350771a41bc112b293f3f4d"
+    "prompt_sha256": "18108ba6e263d55b5f67fb8765baefdb8607edb2128fcb9fccea7738485d761c"
+  },
+  "robodojo:dashboard": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 DASHBOARD",
+      "TOOL ACCESS",
+      "PERCEPTION",
+      "AVAILABLE OPERATIONS",
+      "VLA AND PRIMITIVE CONTROL",
+      "ROLE AND RULES",
+      "READ ORDER",
+      "MEMORY",
+      "PHASE CHECKS AND COMPLETION",
+      "SAFETY",
+      "REWARD AND SCORE",
+      "OUTPUT DISCIPLINE",
+      "MEMORY \u2014 HOW TO READ",
+      "TASK",
+      "BEGIN"
+    ],
+    "prompt_sha256": "d61e1a9f2ef234fe81c8c742dec7f4bac4a2084b99269c793ea3470625778f29"
   },
   "robotwin:eval": {
     "sections": [
@@ -210,32 +295,53 @@
       "BEGIN",
       "EXPLORE MODE"
     ],
-    "prompt_sha256": "33c08db9eb7bdb2cd9530e59f34dec0589c369a5634f6a9bef2a47923c798ddf"
+    "prompt_sha256": "52bf47e5d163eb1665865ccec2291d67055c809f3a333c1b3aa3394603a9b238"
+  },
+  "robotwin:dashboard": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 DASHBOARD",
+      "VLA AND PRIMITIVE CONTROL",
+      "PERCEPTION",
+      "ROLE",
+      "READ ORDER",
+      "CLEAN-TO-RANDOMIZED TRANSFER",
+      "ACCURACY-FIRST LOOP",
+      "CONDITIONAL TASK-FAMILY PLAYBOOKS",
+      "RUNTIME",
+      "BUDGET AND SUCCESS",
+      "MODE",
+      "MEMORY \u2014 HOW TO READ",
+      "CELL",
+      "BEGIN"
+    ],
+    "prompt_sha256": "408e8070602d9e9196f99ec36b39d30920fa4875855b8830aa2f8a694c2875c4"
   },
   "franka:eval": {
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
       "RUN MODE \u2014 REAL ROBOT",
+      "PRIMITIVE CONVENTIONS",
       "ROLE",
       "RUNTIME",
-      "SAFETY RULES",
       "WORKFLOW",
       "MEMORY \u2014 HOW TO READ",
       "TASK",
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "6239e0fdfe0c90ba67f4697259c845edf0fe8952b70a4e186ad1eb75dcb188a2"
+    "prompt_sha256": "a7341829310f787bd76cb0af27093d4fa8eaf5e554eb7bc407aa87b08d47f6e1"
   },
   "franka:explore": {
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EXPLORATION",
       "RUN MODE \u2014 REAL ROBOT",
+      "PRIMITIVE CONVENTIONS",
       "ROLE",
       "RUNTIME",
-      "SAFETY RULES",
       "WORKFLOW",
       "MEMORY \u2014 HOW TO READ",
       "MEMORY \u2014 PROPOSALS AND MERGING",
@@ -243,37 +349,54 @@
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "76cdb4ea515e379e9b354b65306d9e0d4154e1011fbf9a0b226f110c39d12e3c"
+    "prompt_sha256": "1873186f18a1d5f0eeb8c3d8594f04e18277d9ffceb04089417c945913468845"
   },
-  "dual_franka:eval": {
+  "franka:dashboard": {
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 DASHBOARD",
       "RUN MODE \u2014 REAL ROBOT",
+      "PRIMITIVE CONVENTIONS",
       "ROLE",
       "RUNTIME",
-      "SAFETY RULES",
-      "CAMERA AND PROJECTION RULES",
-      "VLA SEGMENT GATES",
       "WORKFLOW",
       "MEMORY \u2014 HOW TO READ",
       "TASK",
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "1cecb8365f8ed362b1a8a6c9a1ca515142de11900e68826f21dde736f5802997"
+    "prompt_sha256": "ba1bc1b53d18668349be0a5bc1f7ff3a6e52ece28bbb7179ebf2e64f09b5db92"
+  },
+  "dual_franka:eval": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 REAL ROBOT",
+      "CAMERA AND PROJECTION RULES",
+      "VLA SEGMENT GATES",
+      "ROLE",
+      "RUNTIME",
+      "SAFETY RULES",
+      "WORKFLOW",
+      "MEMORY \u2014 HOW TO READ",
+      "TASK",
+      "TASK CONSTRAINTS",
+      "BEGIN"
+    ],
+    "prompt_sha256": "59f4ce97c55728ec6b38580ab315ef5c37b96f6289678ba27eb9e2d139a45fd1"
   },
   "dual_franka:explore": {
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EXPLORATION",
       "RUN MODE \u2014 REAL ROBOT",
+      "CAMERA AND PROJECTION RULES",
+      "VLA SEGMENT GATES",
       "ROLE",
       "EXPLORATION MODE",
       "RUNTIME",
       "SAFETY RULES",
-      "CAMERA AND PROJECTION RULES",
-      "VLA SEGMENT GATES",
       "EXPLORATION WORKFLOW",
       "LAYERED MEMORY",
       "MEMORY \u2014 HOW TO READ",
@@ -283,6 +406,25 @@
       "BEGIN",
       "EXPLORATION OUTPUT"
     ],
-    "prompt_sha256": "95d31e8331cb356df96aac5a9053d37d2a27c6dcf7f1bdfb36048975e1f3e97b"
+    "prompt_sha256": "c5da201d9b6dbcc925f7b74eeb093cbce4822919e763d80d1ad47c1fe048679b"
+  },
+  "dual_franka:dashboard": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 DASHBOARD",
+      "RUN MODE \u2014 REAL ROBOT",
+      "CAMERA AND PROJECTION RULES",
+      "VLA SEGMENT GATES",
+      "ROLE",
+      "RUNTIME",
+      "SAFETY RULES",
+      "WORKFLOW",
+      "MEMORY \u2014 HOW TO READ",
+      "TASK",
+      "TASK CONSTRAINTS",
+      "BEGIN"
+    ],
+    "prompt_sha256": "b8a12a9c69863594418973eb1ba294ce82770726731dffa5f84dce86953e3166"
   }
 }

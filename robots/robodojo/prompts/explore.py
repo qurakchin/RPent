@@ -98,17 +98,18 @@ Keep scene coordinates in the audit, not reusable guidance. One seed/layout
 supports single-shot confidence, even after several attempts; it does not
 establish robustness across scenes. Use the recorded evidence after success,
 not additional robot motion, to prepare memory.
-Use the shared task-family frontmatter with `suite: robodojo`,
+Use the shared task-family frontmatter with a bare `id`, `suite: robodojo`,
 `regime: {{env_cfg_type}}`, `task_id: {{task}}`, the observed native
 instruction, `evidence.cells: [{{recipe_tag}}]`, and the attempt count.
 
 When evidence supports a cross-task lesson, write a separate
-{{memory_inbox}}/new_global_<lesson-id>.md in the shared global shape, with its
-limits and what would falsify it. A
-single layout warrants single-shot confidence only. Read existing relevant
-leaves before proposing a lesson; avoid duplicates and record contradicting
-evidence explicitly. If no new global lesson is supported, say so rather than
-inventing one.
+{{memory_inbox}}/<bare-id>.md in the shared global shape, with its limits and
+what would falsify it. A single layout warrants single-shot confidence only.
+Read existing relevant leaves before proposing a lesson. If an entry already
+covers the lesson, propose the same `id` with the new cell in `evidence.cells`;
+a contradiction is a separate proposal citing both observations, never an edit
+of the published entry. If no new global lesson is supported, say so rather
+than inventing one.
 
 During failed attempts, write lessons only in wip/. The shared finalizer merges
 valid inbox proposals and updates MEMORY.md after the run; do not claim

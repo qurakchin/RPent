@@ -265,11 +265,9 @@ STEP_DISTIL = """DISTIL — consolidate this cell into memory. Budget ~25 tool c
 proposal shape for field names, the bare `id`, and YAML quoting; in frontmatter
 `related:` is a plain list of bare ids and `[[...]]` is BODY-only syntax.
 
-⚠ THIS PASS RUNS ONLY WHEN THE CELL IS SOLVED. If it is not, you write the
-unsolved audit (WORKFLOW), leave `wip/notes.md` and the attempt archives as they
-are, and stop. Nothing is promoted from `wip/`. A conclusion drawn only from
-failures is the one kind of memory that actively misleads the next agent —
-`wip/` is where it belongs until a success confirms or refutes it.
+⚠ THIS PASS RUNS ONLY WHEN THE CELL IS SOLVED. If it is not, write the unsolved
+audit (WORKFLOW), leave `wip/notes.md` and the attempt archives as they are, and
+stop. Nothing is promoted from `wip/`.
 
 When the cell IS solved, consolidate in one pass: re-read `wip/notes.md` and
 every `attempts/*.json`, then write the three layers below. Each wall you noted
@@ -284,9 +282,9 @@ a. TASK LAYER — **ONLY IF SOLVED.** The audit JSON and the recipe JSONL must b
    worked. The automatic finalizer publishes the pair only when both files
    exist and the environment reported `libero_terminated:true`.
      - `strategy_notes` states the winning sequence step by step, in the same
-       order as the successful state trace, with the parameters actually used. How you
-       localized belongs in one opening sentence; the failure history belongs in
-       the task-family write-up and the attempt archives, not here.
+       order as the successful state trace, with the parameters actually used.
+       How you localized belongs in one opening sentence; the failure history
+       belongs in the task-family write-up and the attempt archives, not here.
      - `pick_result` keys name the RECIPE STEPS they came from (e.g.
        `bowl_pi0_pick_step3`), not bare object names.
      - Record suite, task_id, seed, regime:"strict_perception", final_state,
@@ -298,12 +296,11 @@ a. TASK LAYER — **ONLY IF SOLVED.** The audit JSON and the recipe JSONL must b
 b. TASK-FAMILY LAYER -> `{{memory_inbox}}/task-family_{{recipe_tag}}_draft.md`. ONE file for
    this task, updated at every close-out so the failure table grows across
    attempts. This is what a future run on this task at another seed reads first.
-   Use the shared task-family shape with
-   `id: task-family_<suite family>_<regime>_t<task_id>`
-   (for example `task-family_libero10_swap_t3`), `suite: <suite family>` such as
-   `libero10`, `regime` set to the perturbation axis (task|swap|lan|object), the
-   verbatim initial `task_language`, `evidence.cells: [{{recipe_tag}}]`, and the
-   attempt/seed evidence.
+   Use the shared task-family shape with a bare `id`, `suite: <suite family>`
+   such as `libero10`, `regime` set to the perturbation axis
+   (task|swap|lan|object), the verbatim initial `task_language`,
+   `evidence.cells: [{{recipe_tag}}]`, and the attempt/seed evidence. The merge
+   step derives `task-family_<suite>_<regime>_t<task_id>`.
 
    Headings VERBATIM — this structure is what has worked in this corpus:
 
@@ -332,8 +329,8 @@ b. TASK-FAMILY LAYER -> `{{memory_inbox}}/task-family_{{recipe_tag}}_draft.md`. 
                                     whatever stayed unsolved>
      ## Cross-refs                 <[[id]] links to global memories>
 
-c. GLOBAL LAYER -> `{{memory_inbox}}/new_global_<kind>_<slug>.md`, ONE lesson
-   per file. This is the deepest layer: the task-family write-up says what worked for
+c. GLOBAL LAYER -> `{{memory_inbox}}/<bare-id>.md`, ONE lesson per file. This
+   is the deepest layer: the task-family write-up says what worked for
    THIS task, global says what it teaches about the ROBOT — a lesson still true
    on a task with different objects and a different fixture, backed by a
    mechanism you can state (kinematics, OSC/IK, Pi0's training distribution,
@@ -345,11 +342,11 @@ c. GLOBAL LAYER -> `{{memory_inbox}}/new_global_<kind>_<slug>.md`, ONE lesson
    went through, and what actually moved them. A note in `wip/` that the winning
    run contradicted must NOT be promoted; if it is genuinely still true under
    stated conditions, promote it WITH those conditions in `applies_when`.
-   `<kind>` is one of primitive|perception|strategy|failure. `<slug>` is 2-5
-   kebab-case words naming the LESSON — not the task, not the objects.
-   Frontmatter: the shared global shape, with `title` as one imperative
-   sentence, `symptom: [...]` (words a stuck agent would search for), and
-   `related`. Body:
+   Use the shared global shape with a bare `id`; `<kind>` is one of
+   primitive|perception|strategy|failure and `<slug>` is 2-5 kebab-case words
+   naming the LESSON — not the task, not the objects. Add `title` as one
+   imperative sentence, `symptom: [...]` (words a stuck agent would search for),
+   and `related`. Body:
 
      <one-sentence claim>
 
@@ -363,20 +360,17 @@ c. GLOBAL LAYER -> `{{memory_inbox}}/new_global_<kind>_<slug>.md`, ONE lesson
 d. DEDUPE — before writing any new global file, search: `list_dir` the memory
    directory and `read_text_file` the plausible hits, comparing against the file
    BODY, not the index line.
-     - ALREADY COVERED and consistent -> do NOT write a new file. Append one
-       line to `{{memory_inbox}}/corroborations.jsonl`:
-         {"id":"<existing-id>","cell":"{{recipe_tag}}","effect":"confirmed",
-          "note":"<what you observed, 1 sentence>"}
-       Corroboration is how a memory earns higher confidence — prefer it over a
-       near-duplicate file.
-     - COVERED BUT CONTRADICTED -> do NOT edit or overwrite it. Write
-       `{{memory_inbox}}/conflict_<id>.md` with the existing claim, your
-       contradicting observation, the evidence (attempt numbers + measurements),
-       and the conditions under which each version might hold.
+     - ALREADY COVERED and consistent -> do NOT write a near-duplicate. Propose
+       the same bare `id` with `{{recipe_tag}}` added to `evidence.cells`; the
+       merge step accumulates evidence and raises confidence.
+     - COVERED BUT CONTRADICTED -> do NOT edit or overwrite it. Write a separate
+       proposal that cites the existing claim, your contradicting observation,
+       the evidence (attempt numbers + measurements), and the conditions under
+       which each version might hold.
 
 e. REPORT in your final message: how many lessons you considered, how they split
-   across the three layers, how many corroborations you logged, how many
-   conflicts you raised."""
+   across the three layers, how many existing entries you corroborated, and how
+   many contradictions you raised."""
 
 
 (

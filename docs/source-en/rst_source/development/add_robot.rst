@@ -283,8 +283,10 @@ Codex SDKs show them as ``mcp__rpent__<name>``. Do not maintain separate prompt
 copies for CLI and API planners. ``prompt_sources.json`` records how the chosen
 planner receives the two roles (a separate system prompt for ``api``, the
 system prompt prefixed to the first user message for ``claude_code`` and
-``codex``). ``delivered_prompt_sha256`` hashes the text in that delivered form,
-so a recorded digest always answers what the model saw.
+``codex``). ``delivered_prompt_sha256`` hashes the text RPent hands over in that
+form. Claude Code and Codex manage the model context in their SDK, so their own
+instructions and later turns are outside this digest; it answers what RPent
+delivered, not the complete final context.
 
 .. code-block:: python
 
@@ -329,7 +331,9 @@ placeholders filled at render time.
 To inspect the exact prompt without starting a simulator or model, run
 ``rpent --robot myrobot ... --dump-prompt``. The dump renders, writes the two
 files, and exits before memory preparation, so it neither creates nor syncs
-memory; it cannot be combined with ``--dashboard``. Each session also writes
+memory, and it skips the operator TTY gates of real-robot commands. It cannot be
+combined with ``--dashboard``, which assembles prompts per claimed task in its
+own session loop. Each session also writes
 ``effective_prompt.md`` and ``prompt_sources.json`` to its state directory (the
 output directory, or ``sessions/session_NNN/`` during exploration) and records
 ``prompt_sha256`` plus ``delivered_prompt_sha256`` in the transcript.
