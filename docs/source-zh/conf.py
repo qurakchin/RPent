@@ -71,6 +71,12 @@ templates_path = ["_templates"]
 exclude_patterns = ["**/_*.rst"]
 default_role = "code"
 
+# The Codex auth page answers 403 to non-browser clients, so linkcheck cannot
+# distinguish a live page from a removed one. Everything else is checked.
+linkcheck_ignore = [r"https://developers\.openai\.com/codex/auth/"]
+linkcheck_retries = 2
+linkcheck_timeout = 20
+
 language = "zh"
 html_search_language = "zh"
 html_theme = "pydata_sphinx_theme"

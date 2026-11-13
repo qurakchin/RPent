@@ -153,8 +153,14 @@ When adding a result:
 cd docs
 sphinx-build -E -W --keep-going source-en build/html-en
 sphinx-build -E -W --keep-going source-zh build/html-zh
+sphinx-build -W --keep-going -b linkcheck -q source-en build/linkcheck-en
 git diff --check
 ```
+
+The `Docs` workflow (`.github/workflows/docs.yml`) runs the two builds and the
+link check on every change under `docs/`. Link checking needs network access, so
+run it locally before editing external URLs; add an entry to `linkcheck_ignore`
+in both `conf.py` files only for pages that block automated clients.
 
 English and Chinese pages must keep matching relative paths under
 `rst_source/`. When a page moves or is renamed, add a redirect in both
