@@ -10,6 +10,8 @@ RoboTwin
 
 Run bimanual tabletop tasks with RPent in `RoboTwin <https://robotwin-platform.github.io/>`_, then reproduce the C2R experiment in randomized scenes. RPent connects to the simulator through RLinf and uses LingBot-VLA to generate actions.
 
+**Page map:** Overview → Installation and Resources → VLA Configuration → Run a Task → View Results → WAM Evaluation → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Common Options → Experiment Reproduction → HF corpus selection.
+
 .. _robotwin-overview:
 
 Overview
@@ -36,8 +38,8 @@ Check the model, task, and runtime requirements before following the installatio
 
       Linux, NVIDIA GPU; Python 3.11; CUDA and GL/EGL/Vulkan.
 
-Installation
-------------
+Installation and Resources
+--------------------------
 
 RoboTwin requires Python 3.11. The host must already provide a compatible
 CUDA toolkit/NVCC, a compiler toolchain, and the system GL/EGL/Vulkan
@@ -75,7 +77,7 @@ For networks closer to Chinese mirrors:
    configured.
 
 Download Assets
----------------
+~~~~~~~~~~~~~~~
 
 Download the supported RoboTwin asset snapshot and set its location:
 
@@ -89,8 +91,8 @@ Download the supported RoboTwin asset snapshot and set its location:
 The downloader validates existing files and skips the download when the target
 directory already contains a complete RoboTwin asset set.
 
-Download the Model
-------------------
+VLA Configuration
+-----------------
 
 Download the LingBot checkpoint and set its location:
 
@@ -103,28 +105,6 @@ Download the LingBot checkpoint and set its location:
    export LINGBOT_MODEL_PATH=/path/to/LingBot-VLA-RoboTwin-EEF-ckpt1500
 
 The checkpoint includes the default RoboTwin robot configuration.
-
-Fast-WAM Configuration
-~~~~~~~~~~~~~~~~~~~~~~
-
-Prepare a RoboTwin Fast-WAM worker using :doc:`../development/add_action_model`.
-It uses head/left-wrist/right-wrist RGB, native joint targets, and qpos14 action
-chunks. Select it with ``--am-backend fast-wam``; LingBot weights are not
-required. From the simulator environment:
-
-.. code-block:: bash
-
-   rpent --robot robotwin --task-name beat_block_hammer \
-     --task-config demo_randomized --seed 100000 \
-     --am-backend fast-wam --am-endpoint http://127.0.0.1:8117 \
-     --memory-profile local --planner api --model <planner-model>
-
-``wam_act(prompt=None, max_chunks=1)`` replaces ``lingbot_act``; each chunk
-executes the worker's configured ``execute_steps`` through ``action_type="qpos"``.
-WAM uses a required local memory manager and file tools, with a backend-specific
-directory that may be empty; ``--memory-dir`` selects a compatible local corpus.
-HF memory and exploration are unsupported. Native ``eval_success`` determines
-task success. The LingBot and HF memory workflows below apply to the VLA path.
 
 Run a Task
 ----------
@@ -179,28 +159,27 @@ define a second success condition.
 Add ``--dashboard`` to watch the planner and the head and wrist camera views in
 a browser. The command prints the Dashboard URL after startup.
 
-Common Options
+WAM Evaluation
 --------------
 
-RPent uses RoboTwin's ``demo_randomized`` task configuration by default, which
-adds scene disturbances (random backgrounds, clutter, lighting, and table
-height). Pass ``--task-config demo_clean`` for a simple, clean scene.
+Prepare a RoboTwin Fast-WAM worker using :doc:`../development/add_action_model`.
+It uses head/left-wrist/right-wrist RGB, native joint targets, and qpos14 action
+chunks. Select it with ``--am-backend fast-wam``; LingBot weights are not
+required. From the simulator environment:
 
-- ``--robotwin-assets-path`` overrides ``ROBOTWIN_ASSETS_PATH``.
-- ``--am-checkpoint`` overrides ``LINGBOT_MODEL_PATH``.
-- ``--env-cuda-device 0 --am-cuda-device 1`` assigns GPU 0 to the local
-  simulator and GPU 1 to the local action model. For GPU defaults and overrides,
-  see :doc:`../guides/cli`.
+.. code-block:: bash
 
-For planner setup, external service endpoints, and offline resources, see
-:doc:`../guides/configure_planner`, :doc:`../guides/advanced_deployment`, and
-:doc:`../guides/memory`.
+   rpent --robot robotwin --task-name beat_block_hammer \
+     --task-config demo_randomized --seed 100000 \
+     --am-backend fast-wam --am-endpoint http://127.0.0.1:8117 \
+     --memory-profile local --planner api --model <planner-model>
 
-Before evaluation runs with the HF memory profile, RPent syncs optional RoboTwin memory and task
-references from the public `RLinf/RPent-memory
-<https://huggingface.co/datasets/RLinf/RPent-memory/tree/main/robotwin>`_
-dataset. These references can improve planning by providing previously verified
-techniques; the run still starts if they are unavailable.
+``wam_act(prompt=None, max_chunks=1)`` replaces ``lingbot_act``; each chunk
+executes the worker's configured ``execute_steps`` through ``action_type="qpos"``.
+WAM uses a required local memory manager and file tools, with a backend-specific
+directory that may be empty; ``--memory-dir`` selects a compatible local corpus.
+HF memory and exploration are unsupported. Native ``eval_success`` determines
+task success. The LingBot and HF memory workflows below apply to the VLA path.
 
 Tasks
 -----
@@ -290,6 +269,12 @@ successful clean trajectory. An ``experimental`` recipe remains a weak prior.
 Start with ``MEMORY.md`` and read only the notes relevant to the current
 task and failure mode.
 
+Before evaluation runs with the HF memory profile, RPent syncs optional RoboTwin memory and task
+references from the public `RLinf/RPent-memory
+<https://huggingface.co/datasets/RLinf/RPent-memory/tree/main/robotwin>`_
+dataset. These references can improve planning by providing previously verified
+techniques; the run still starts if they are unavailable.
+
 Exploration Mode
 ----------------
 
@@ -310,6 +295,23 @@ re-runs perception after every reset. The runner exports only the winning
 commands after the final reset. Exploration memory is written to the current
 local inbox. Drafts are merged when the run completes normally without an agent
 execution error. Pass ``--no-auto-merge-memory`` to disable automatic merging.
+
+Common Options
+--------------
+
+RPent uses RoboTwin's ``demo_randomized`` task configuration by default, which
+adds scene disturbances (random backgrounds, clutter, lighting, and table
+height). Pass ``--task-config demo_clean`` for a simple, clean scene.
+
+- ``--robotwin-assets-path`` overrides ``ROBOTWIN_ASSETS_PATH``.
+- ``--am-checkpoint`` overrides ``LINGBOT_MODEL_PATH``.
+- ``--env-cuda-device 0 --am-cuda-device 1`` assigns GPU 0 to the local
+  simulator and GPU 1 to the local action model. For GPU defaults and overrides,
+  see :doc:`../guides/cli`.
+
+For planner setup, external service endpoints, and offline resources, see
+:doc:`../guides/configure_planner`, :doc:`../guides/advanced_deployment`, and
+:doc:`../guides/memory`.
 
 .. raw:: html
 

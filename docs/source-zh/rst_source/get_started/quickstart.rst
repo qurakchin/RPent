@@ -5,6 +5,8 @@
 
 若要使用其他平台，直接进入 :doc:`../simulators/robocasa`、:doc:`../simulators/robotwin` 或 :doc:`真机部署 <../real_world_robots/index>`，按该平台的要求安装。
 
+**本文结构：** 环境要求与资源估算 → 安装 → 下载资源与模型 → 配置规划器 → 运行一个任务 → 查看结果 → 失败时的处理。
+
 准备工作
 ------------
 

@@ -4,6 +4,8 @@ Introduction to RPent
 This page introduces the framework, its benchmark coverage, and the supported
 platforms. Installation and a first run are in :doc:`quickstart`.
 
+**Page map:** the framework and its benchmark coverage → the leaderboard → choosing a simulator or robot.
+
 **RPent (Recursive Physical Agent)** is an open framework for building embodied
 agents that continuously evolve through recursive interaction with the physical world.
 Rather than prescribing a single foundation model, RPent puts perception, reasoning,

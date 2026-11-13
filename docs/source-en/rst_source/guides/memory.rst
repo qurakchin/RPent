@@ -1,9 +1,12 @@
+
 .. _memory-management:
 
 Memory and Exploration
 ======================
 
 This page covers selecting published memory, running exploration, and evaluating or merging a local corpus. Memory lets runs reuse task experience; exploration builds local experience through repeated attempts. Complete :doc:`../get_started/quickstart` before following these LIBERO examples. See each environment’s page for its task arguments and success criterion.
+
+**Page map:** published memory → local exploration → evaluation with local memory → manual validation and merge → other environments.
 
 Evaluation reads memory without updating it. Exploration can reset and retry. Formal reproduction must use the specified memory revision and evaluation mode.
 

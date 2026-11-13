@@ -11,6 +11,8 @@ RPent（Recursive Physical Agent）是一个开源框架，用于构建在与物
 
 RPent 面向机器人学与具身智能的研究者和工程师：用同一套评测流程比较基础模型、规划器和记忆策略，或在仿真与真机上运行同一个智能体循环。
 
+文档按首次运行的使用路径组织：先看快速开始，再读记忆、规划器与工具指南，然后进入各仿真环境和真实机器人页面。评测成绩与真机演示各自成组。
+
 .. button-ref:: rst_source/get_started/quickstart
    :ref-type: doc
    :color: primary
@@ -28,7 +30,7 @@ RPent 面向机器人学与具身智能的研究者和工程师：用同一套�
 
       了解规划、感知、动作和记忆如何协同完成任务。
 
-   .. grid-item-card:: 使用记忆与探索模式
+   .. grid-item-card:: 记忆与探索
       :link: rst_source/guides/memory
       :link-type: doc
 
@@ -80,25 +82,15 @@ RPent 面向机器人学与具身智能的研究者和工程师：用同一套�
    :includehidden:
    :titlesonly:
    :hidden:
-   :caption: 真实世界演示
-
-   双臂 Franka <rst_source/real_world_demos/franka>
-   YAM <rst_source/real_world_demos/yam>
-
-.. toctree::
-   :maxdepth: 2
-   :includehidden:
-   :titlesonly:
-   :hidden:
    :caption: 使用指南
 
-   使用记忆与探索模式 <rst_source/guides/memory>
+   记忆与探索 <rst_source/guides/memory>
    动作原语与工具 <rst_source/guides/configure_primitives>
    规划器配置 <rst_source/guides/configure_planner>
    命令行参考 <rst_source/guides/cli>
    交互使用 <rst_source/guides/dashboard>
-   使用 Flash Mode <rst_source/guides/flash>
-   采集轨迹与数据飞轮 <rst_source/guides/flywheel>
+   Flash 模式 <rst_source/guides/flash>
+   数据飞轮 <rst_source/guides/flywheel>
    远程服务与并行运行 <rst_source/guides/advanced_deployment>
    问题排查 <rst_source/guides/troubleshooting>
 
@@ -125,6 +117,16 @@ RPent 面向机器人学与具身智能的研究者和工程师：用同一套�
    双臂 Franka <rst_source/real_world_robots/dual_franka>
    YAM <rst_source/real_world_robots/yam>
    SO-101 <rst_source/real_world_robots/so101>
+
+.. toctree::
+   :maxdepth: 2
+   :includehidden:
+   :titlesonly:
+   :hidden:
+   :caption: 真实世界演示
+
+   双臂 Franka <rst_source/real_world_demos/franka>
+   YAM <rst_source/real_world_demos/yam>
 
 .. toctree::
    :maxdepth: 2

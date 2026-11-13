@@ -12,6 +12,8 @@
 
 RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械臂。
 
+**本文结构：** 安装 → 标定 → 机器人配置 → 启动服务 → 运行一个任务 → 查看结果 → 工具与状态产物 → Flash 回放 → 安全与停止。
+
 安装
 ----
 
@@ -27,8 +29,8 @@ RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械�
    cd RPent
    uv sync --extra franka
 
-标定（Calibration）
-----------------------
+标定
+----
 
 手眼标定使用 ROS 的 `easy_handeye <https://github.com/IFL-CAMP/easy_handeye>`_ 完成。它为每台相机生成一个 YAML （外部相机为 eye-on-base，腕部相机为 eye-on-hand），默认保存在 ``~/.ros/easy_handeye/`` 下。
 
@@ -43,8 +45,8 @@ RPent 会直接加载这些 YAML 文件：在机器人配置的 ``perception.cal
 
 路径可以是绝对路径、以 ``~`` 开头的路径或相对路径；相对路径会相对启动 RPent 时的工作目录解析。
 
-开发配置
---------
+机器人配置
+----------
 
 仓库中给出的值是开发默认值，在启用机械臂运动前必须逐项核对：
 
@@ -52,7 +54,7 @@ RPent 会直接加载这些 YAML 文件：在机器人配置的 ``perception.cal
 
 RPent 会把这份机器人配置转换成内部的 RLinf cluster 和环境对象。如需改用其他文件，请传入 ``--robot-config /path/to/robot_config.yaml``。
 
-启动 Ray
+启动服务
 --------
 
 Ray 在启动时会捕获环境变量，因此必须先设置 node rank 再启动：
@@ -63,12 +65,15 @@ Ray 在启动时会捕获环境变量，因此必须先设置 node rank 再启�
    ray stop --force
    ray start --head
 
-运行冒烟测试
+运行一个任务
 ------------
 
-先按 :doc:`../guides/configure_planner` 配置规划器与模型服务。
+先按 :doc:`../guides/configure_planner` 配置规划器与模型服务。任务 ``0`` 是冒烟测试，用于验证基本的解析式运动和夹爪动作；任务 ``1`` 是 VLA 抓取演示。
 
-冒烟测试用于验证基本的解析式运动和夹爪动作是否正常工作。运行时指定任务 ``0``：
+冒烟测试
+~~~~~~~~
+
+运行任务 ``0``：
 
 .. code-block:: bash
 
@@ -80,7 +85,7 @@ Ray 在启动时会捕获环境变量，因此必须先设置 node rank 再启�
 RPent 会使用当前解释器启动 ``robots/franka/env_server.py``：加载机器人配置、生成内部的 RLinf 适配器配置、连接 Ray、等待 ``healthz``，并将初始状态记录为第 ``0`` 步。
 
 VLA 抓取演示
--------------
+~~~~~~~~~~~~
 
 RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vla_grasp`` 工具。当前单臂 Franka 需要兼容的外部 VLA 服务，其观测布局、动作布局、checkpoint 和归一化统计必须与 Franka 训练配置一致：
 
@@ -93,20 +98,22 @@ RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vl
 
 目前 VLA 服务需要单独部署。若未设置 ``--am-endpoint``，解析式运动和夹爪工具仍然可用，但 ``vla_grasp`` 会抛出运行时错误。
 
+查看结果
+--------
+
+每次运行请使用新的 ``--output-dir``。查看 ``transcript_*.json`` 中的规划器消息与工具调用，查看 ``run.log`` 和各组件 ``*_server.log`` 中的启动或运行错误，并用 ``view_env_state`` 读取已记录的状态。运行目录中保留各步骤引用的图像和深度数据。通用输出结构见 :ref:`run-output-files`。
+
+RPC 成功或规划器调用 ``finish`` 都不代表任务成功，结束运行前请确认实际结果。
+
 工具与状态产物
 --------------
 
 Franka 扩展提供 ``view_env_state``、``view_camera_meta``、``view_perception_setup``、``back_project``、``back_project_correspondence``、``move_delta``、``rotate_delta``、``open_gripper``、``close_gripper`` 和 ``vla_grasp``。``view_perception_setup`` 读取已加载的标定和投影约定；``back_project`` 将一个腕部或外部相机像素转换为基座坐标；``back_project_correspondence`` 将成对的腕部与外部相机像素融合为一个基座坐标系点。所有会改变环境状态的工具都会把机器人状态、腕部与外部 RGB 图像、可选的对齐深度数组和相机元数据保存到 RPent 统一的 ``EnvState`` 中。
 
-安全要求
---------
-
-操作员必须守在急停按钮旁。在尝试抓取之前，先用极小幅度动作验证任务 ``0``。一旦相机与状态结果不一致、目标运动没有到位，或任何标定存在疑问，应立即停止。
-
 .. _franka-flash:
 
-Franka Flash 任务卡
-------------------------
+Flash 回放
+----------
 
 单臂和双臂 Franka 可通过 ``--planner flash`` 回放经过人工审阅的 v1 JSON
 任务卡。任务卡固定动作顺序和运动意图；每次平移前，Molmo 在最新相机图像中
@@ -166,8 +173,8 @@ Franka Flash 任务卡
 
 .. _agent:
 
-Flash 模式加入大模型 Agent 介入选点
-------------------------------------------
+Agent 辅助选点
+~~~~~~~~~~~~~~~
 
 在 Flash 模式下，Molmo 找不到目标、选点的像素或深度无效，或请求失败时，
 可以由 Agent 重新选点。
@@ -202,7 +209,9 @@ Codex 复用已有的模型/provider 配置和文件登录，来加载介入的a
 每次尝试保存到对应步骤的 ``flash_grounding.json``。Agent 请求可能产生模型费用，
 当前设置的超时时间为 90 秒；Agent 选点请求产生的 token 不计入 Flash 规划器的统计。
 
-停止运行
-------------
+安全与停止
+----------
+
+操作员必须守在急停按钮旁。在尝试抓取之前，先用极小幅度动作验证冒烟测试。一旦相机与状态结果不一致、目标运动没有到位，或任何标定存在疑问，应立即停止。
 
 在终端按 Ctrl+C 请求结束 RPent；紧急情况下使用硬件急停按钮。确认机械臂与夹爪状态后，再按控制节点的停机流程关闭服务。

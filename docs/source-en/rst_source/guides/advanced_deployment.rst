@@ -15,6 +15,8 @@ omitted, or ``socket://`` for socket RPC.
 
 See :doc:`dashboard` for the endpoint rules that apply to Dashboard sessions.
 
+**Page map:** LIBERO environment service → Pi0.5 and APXInf VLA services → SAM3 → connect RPent → custom RLinf checkout → parallel evaluation → remote Dashboard.
+
 LIBERO Environment Service
 --------------------------
 

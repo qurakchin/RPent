@@ -1,3 +1,4 @@
+
 .. _release-v0-1:
 
 RPent v0.1 版本发布 🎉
@@ -8,6 +9,8 @@ RPent v0.1 版本发布 🎉
 RPent（Recursive Physical Agent）是面向真实物理世界的开源具身智能体基础设施。它连接通用大模型、VLA 模型、记忆与机器人接口，通过任务规划、执行反馈和经验复用完成物理世界任务。
 
 v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划，接入 LIBERO 系列、RoboCasa365、RoboTwin、RoboDojo 等仿真环境，以及单臂 Franka、双臂 Franka 和 YAM 真机，提供 Memory、Flash Mode、交互式 CLI 与 Web Dashboard。RPent 已在多种仿真环境和真机任务中完成验证，并在 LIBERO-PRO 等仿真基准上取得榜单所列方法中的领先任务成功率。
+
+**本文结构：** 版本亮点 → 功能特性 → 贡献者 → 评测结果 → 快速开始 → 测试结果。
 
 版本亮点
 --------------------
@@ -124,7 +127,6 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - 套件与任务
      - 成功回合
@@ -262,7 +264,6 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
    :header-rows: 1
    :class: rpent-release-results
 
-
    * - 套件与任务
      - 成功回合
      - 测试回合
@@ -335,7 +336,6 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - 套件与任务
      - 成功回合
@@ -433,7 +433,6 @@ LIBERO-PRO 与 RoboCasa365 使用 seed 0 探索、seed 1 至 seed 5 测试；Rob
    :header-rows: 1
    :class: rpent-release-results rpent-memory-results
 
-
    * - 环境与验证任务
      - 流程验证
      - 成功回合
@@ -482,7 +481,6 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - 套件与任务
      - 成功回合
@@ -620,7 +618,6 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
    :header-rows: 1
    :class: rpent-release-results
 
-
    * - 套件与任务
      - 成功回合
      - 测试回合
@@ -693,7 +690,6 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - 套件与任务
      - 成功回合
@@ -790,7 +786,6 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results rpent-demo-results
-
 
    * - 平台与任务
      - 规划配置

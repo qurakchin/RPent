@@ -3,6 +3,8 @@
 
 本页说明如何选择规划器、连接模型服务，并在正式运行任务前检查连接。RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 
+**本文结构：** 选择后端（``api``、``claude_code``、``codex``）→ 验证连接 → 添加后端 → 设置运行限制。
+
 .. code-block:: text
 
    --planner {api,claude_code,codex,flash}
@@ -116,7 +118,7 @@ Claude Code 可以连接兼容 Anthropic Messages API 的本地模型服务。�
 
 .. _planner-codex:
 
-``codex`` planner
+``codex`` 规划器
 ------------------
 
 ``--planner codex`` 使用 OpenAI Codex Python SDK。每次运行时，RPent 会在当前进程的后台线程中启动本地 Streamable HTTP MCP 服务，Codex 通过该服务调用同一个 toolkit；无需预先启动 ``scripts/codex_proxy/``。

@@ -12,6 +12,8 @@ Run tabletop manipulation tasks with RPent in `LIBERO <https://libero-project.gi
 
 For a first run, follow :doc:`../get_started/quickstart`; this page covers variants, task selection, results, and reproduction.
 
+**Page map:** Overview → Installation and Resources → VLA Configuration → SAM3 Configuration → Run a Task → View Results → Task Selection → WAM Evaluation → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Experiment Reproduction → Tools the Planner Can Call → What Runs Where → Dashboard → Bringing Your Own VLA.
+
 .. _libero-overview:
 
 Overview
@@ -237,16 +239,19 @@ Validation Status
 
 .. _exploration-and-memory:
 
-Task Memory and Exploration Mode
---------------------------------
+Task Memory
+-----------
 
-The HF memory and exploration workflows in this section apply to VLA.
-WAM uses local memory as described above.
+The HF memory workflow in this section applies to VLA; WAM uses local memory as
+described above.
 
 Evaluation is single-attempt and reads memory without updating it. The default
 ``hf`` profile uses ``--memory-version auto`` to select memory by model. See
 :doc:`../guides/memory` for explicit versions, offline preparation, and the
 versioned layout.
+
+Exploration Mode
+----------------
 
 Use ``--explore`` to build local memory or ``--memory-profile local`` to read a prepared corpus. See :doc:`../guides/memory` for the complete LIBERO workflow and commands. LIBERO’s native success result determines whether successful task records are published.
 
@@ -283,29 +288,6 @@ described in :doc:`../guides/advanced_deployment` first.
      --am-endpoint http://127.0.0.1:8220 \
      --sam3-endpoint http://127.0.0.1:8114
 
-What Runs Where
----------------
-
-LIBERO separates simulation and model inference into services. The toolkit
-uses their clients to execute the planner's requests.
-
-- **env_server** (``robots/libero/env_server.py``) — owns the LIBERO
-  MuJoCo env and EGL rendering. Exposes ``reset``, ``step``,
-  ``chunk_step``, ``render_camera``, ``get_camera_meta``, … over an RPC
-  transport (HTTP by default; socket via ``--transport socket``).
-- **vla_server** (``rpent/robots/components/pi05_vla_server.py``) — owns the Pi0.5
-  weights. Exposes ``predict`` over the same RPC transport (HTTP or
-  socket).
-- **sam3_server** (``rpent/robots/components/sam3_server.py``) — loads SAM 3.0 and
-  segments a target region from a text description or one pixel on the target
-  object. If the model produces multiple candidates, it selects the one with
-  the highest model score and returns its mask as a compressed PNG through the
-  same RPC transports (HTTP or socket).
-- **toolkit** (``robots/libero/toolkit.py``) — defines the tools the
-  LLM can call: ``pi0_pick`` (fed to Pi0.5), ``move_to``,
-  ``rotate_wrist``, ``back_project``, ``view_env_state``,
-  ``finish``, …
-
 Tools the Planner Can Call
 --------------------------
 
@@ -341,6 +323,29 @@ Physical action tools advance the environment and record new state and images.
 - ``finish(status, summary)`` — end the current run.
 
 These tools do not advance the environment.
+
+What Runs Where
+---------------
+
+LIBERO separates simulation and model inference into services. The toolkit
+uses their clients to execute the planner's requests.
+
+- **env_server** (``robots/libero/env_server.py``) — owns the LIBERO
+  MuJoCo env and EGL rendering. Exposes ``reset``, ``step``,
+  ``chunk_step``, ``render_camera``, ``get_camera_meta``, … over an RPC
+  transport (HTTP by default; socket via ``--transport socket``).
+- **vla_server** (``rpent/robots/components/pi05_vla_server.py``) — owns the Pi0.5
+  weights. Exposes ``predict`` over the same RPC transport (HTTP or
+  socket).
+- **sam3_server** (``rpent/robots/components/sam3_server.py``) — loads SAM 3.0 and
+  segments a target region from a text description or one pixel on the target
+  object. If the model produces multiple candidates, it selects the one with
+  the highest model score and returns its mask as a compressed PNG through the
+  same RPC transports (HTTP or socket).
+- **toolkit** (``robots/libero/toolkit.py``) — defines the tools the
+  LLM can call: ``pi0_pick`` (fed to Pi0.5), ``move_to``,
+  ``rotate_wrist``, ``back_project``, ``view_env_state``,
+  ``finish``, …
 
 Dashboard
 ---------

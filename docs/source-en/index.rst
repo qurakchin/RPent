@@ -11,6 +11,8 @@ RPent (Recursive Physical Agent) is an open-source framework for building embodi
 
 RPent is for robotics and embodied-AI researchers and engineers who want to compare foundation models, planners, and memory strategies under one evaluation harness, or run the same agent loop in simulation and on a real robot.
 
+The documentation follows the path of a first run: Quick Start, then the guides for memory, planners, and tools, then one page per simulator and robot. Published results and demo videos sit in their own sections.
+
 .. button-ref:: rst_source/get_started/quickstart
    :ref-type: doc
    :color: primary
@@ -80,16 +82,6 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    :includehidden:
    :titlesonly:
    :hidden:
-   :caption: Real-World Demos
-
-   Dual-Arm Franka <rst_source/real_world_demos/franka>
-   YAM <rst_source/real_world_demos/yam>
-
-.. toctree::
-   :maxdepth: 2
-   :includehidden:
-   :titlesonly:
-   :hidden:
    :caption: Guides
 
    Memory and Exploration <rst_source/guides/memory>
@@ -98,7 +90,7 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    Command-Line Reference <rst_source/guides/cli>
    Interactive Usage <rst_source/guides/dashboard>
    Flash Mode <rst_source/guides/flash>
-   Trajectory Collection and Data Flywheel <rst_source/guides/flywheel>
+   Data Flywheel <rst_source/guides/flywheel>
    Remote Services and Parallel Runs <rst_source/guides/advanced_deployment>
    Troubleshooting <rst_source/guides/troubleshooting>
 
@@ -125,6 +117,16 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    Dual-Arm Franka <rst_source/real_world_robots/dual_franka>
    YAM <rst_source/real_world_robots/yam>
    SO-101 <rst_source/real_world_robots/so101>
+
+.. toctree::
+   :maxdepth: 2
+   :includehidden:
+   :titlesonly:
+   :hidden:
+   :caption: Real-World Demos
+
+   Dual-Arm Franka <rst_source/real_world_demos/franka>
+   YAM <rst_source/real_world_demos/yam>
 
 .. toctree::
    :maxdepth: 2

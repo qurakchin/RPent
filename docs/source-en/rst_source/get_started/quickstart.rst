@@ -5,6 +5,8 @@ Install RPent, run one LIBERO-PRO task, and inspect its result. This example use
 
 For another platform, follow :doc:`../simulators/robocasa`, :doc:`../simulators/robotwin`, or :doc:`real-world robot deployment <../real_world_robots/index>` and use that platform’s requirements.
 
+**Page map:** requirements and resource estimates → install → download assets and models → configure the planner → run one task → inspect the result → recover from a failed step.
+
 Requirements
 ------------
 

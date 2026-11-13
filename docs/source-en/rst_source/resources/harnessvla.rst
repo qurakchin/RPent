@@ -11,6 +11,8 @@ This page summarizes the Harness VLA paper and the results behind RPent's
 memory-guided planning; setup and run commands are in the platform tutorials
 linked below.
 
+**Page map:** overview → framework → results → reproduction branches → citation.
+
 Overview
 --------
 

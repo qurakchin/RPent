@@ -13,8 +13,10 @@ Single-Arm Franka
 RPent can control one physical Franka arm through an RLinf ``RealWorldEnv``
 worker.
 
-Install
--------
+**Page map:** Installation → Calibration → Robot Configuration → Start Services → Run a Task → View Results → Tools and State Artifacts → Flash Replay → Safety and Stopping.
+
+Installation
+------------
 
 The checked-in configuration uses the ``franky`` backend, which does not need a
 separate libfranka installation. Installing the ``franka`` extra is sufficient:
@@ -60,8 +62,8 @@ the robot config, mapping each camera to its easy_handeye YAML (the checked-in
 Paths may be absolute, ``~``-prefixed, or relative; relative paths resolve
 against the working directory RPent is launched from.
 
-Development Configuration
--------------------------
+Robot Configuration
+-------------------
 
 The checked-in values are development defaults and must be reviewed before
 enabling motion:
@@ -77,8 +79,8 @@ RPent translates this robot-focused schema into the internal RLinf cluster and
 environment objects. To use a different file, pass
 ``--robot-config /path/to/robot_config.yaml``.
 
-Start Ray
----------
+Start Services
+--------------
 
 Set the node rank before starting Ray, because Ray captures the environment at
 startup:
@@ -89,13 +91,17 @@ startup:
    ray stop --force
    ray start --head
 
-Run a Smoke Test
-----------------
+Run a Task
+----------
 
-Configure the planner and model service using :doc:`../guides/configure_planner` first.
+Configure the planner and model service using :doc:`../guides/configure_planner`
+first. Task ``0`` runs a smoke test that verifies basic analytic motion and
+gripper primitives. Task ``1`` runs a VLA grasp demo.
 
-The smoke test verifies that basic analytic motion and gripper primitives work
-correctly. To run it, launch RPent with task ``0``:
+Smoke Test
+~~~~~~~~~~
+
+Launch RPent with task ``0``:
 
 .. code-block:: bash
 
@@ -110,7 +116,7 @@ connects to Ray, waits for ``healthz``, and records the initial state as step
 ``0``.
 
 VLA Grasp Demo
---------------
+~~~~~~~~~~~~~~
 
 RPent provides a demo that uses a VLA to grasp objects. Task ``1`` exposes
 ``vla_grasp``. Single Franka currently requires a compatible external VLA
@@ -128,8 +134,20 @@ The VLA server must be deployed separately for now. Without
 ``--am-endpoint``, analytic motion and gripper tools remain available, but
 ``vla_grasp`` raises a runtime error.
 
-Tools and Artifacts
--------------------
+View Results
+------------
+
+Use a new ``--output-dir`` for each run. Inspect ``transcript_*.json`` for planner
+messages and tool calls, ``run.log`` and the component ``*_server.log`` files for
+startup or runtime errors, and read recorded states with ``view_env_state``. The
+run directory keeps the images and depth data referenced by each state. See
+:ref:`run-output-files` for the shared output layout.
+
+A successful RPC or the planner's ``finish`` text is not a task-success label.
+Confirm the physical result before ending the run.
+
+Tools and State Artifacts
+-------------------------
 
 The extension exposes ``view_env_state``, ``view_camera_meta``,
 ``view_perception_setup``, ``back_project``, ``back_project_correspondence``,
@@ -141,17 +159,10 @@ wrist and external-camera pixels into one base-frame point. Mutating tools
 capture robot state, wrist and external RGB images, optional aligned depth
 arrays, and camera metadata in RPent's central ``EnvState``.
 
-Safety
-------
-
-Keep an operator at the emergency stop. Validate task ``0`` with very small
-motions before attempting a grasp. Stop when camera/state results disagree,
-when the requested motion is not reached, or when any calibration is uncertain.
-
 .. _franka-flash:
 
-Franka Flash plans (task cards)
---------------------------------
+Flash Replay
+------------
 
 Single and dual Franka support ``--planner flash`` using a reviewed version-1
 JSON plan. A plan records primitive order and motion intent; Molmo selects a
@@ -223,8 +234,8 @@ operator validation; offline unit tests do not establish real-robot success.
 
 .. _optional-agent-grounding-fallback:
 
-Large model agent assistance for point selection in Flash mode
---------------------------------------------------------------
+Agent-Assisted Point Selection
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In Flash mode, an agent can retry point selection when Molmo cannot find the
 target, selects a pixel with invalid coordinates or depth, or its request fails.
@@ -263,7 +274,13 @@ Each attempt is saved in the step's ``flash_grounding.json``. Agent requests
 may incur model costs. The current request timeout is 90 seconds; tokens from
 agent point-selection requests are not included in the Flash planner's counts.
 
-Stop the Run
-------------
+Safety and Stopping
+-------------------
 
-Press Ctrl+C in the terminal to request RPent shutdown; use the hardware emergency stop for an emergency. Check the arm and gripper before shutting down services through the controller’s shutdown procedure.
+Keep an operator at the emergency stop. Validate the smoke test with very small
+motions before attempting a grasp. Stop when camera/state results disagree,
+when the requested motion is not reached, or when any calibration is uncertain.
+
+Press Ctrl+C in the terminal to request RPent shutdown; use the hardware
+emergency stop for an emergency. Check the arm and gripper before shutting down
+services through the controller’s shutdown procedure.

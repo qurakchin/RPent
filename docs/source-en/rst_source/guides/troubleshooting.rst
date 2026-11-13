@@ -5,6 +5,8 @@ Start with the first error in ``run.log``; later messages usually follow from
 it. Service startup failures are written to the ``*_server.log`` files in the
 run's output directory, and planner messages are in ``transcript_*.json``.
 
+**Page map:** read the first error → per-symptom checks and fixes → evidence for a bug report.
+
 Common Problems
 ---------------
 

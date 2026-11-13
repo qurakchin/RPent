@@ -20,6 +20,8 @@ coordinates.
 
 Complete the LIBERO-PRO installation and model setup in :doc:`../get_started/quickstart` first. Start by running an existing plan; plan generation is covered later.
 
+**Page map:** plan files → Molmo and replay → multi-layout runs → replay mechanics → plan generation → results.
+
 Plan Files
 ----------
 

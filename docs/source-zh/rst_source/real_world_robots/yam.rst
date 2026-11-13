@@ -12,6 +12,8 @@ YAM
 
 RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :doc:`YAM 演示 <../real_world_demos/yam>`。
 
+**本文结构：** 安装 → 标定 → 机器人配置 → 任务选择 → VLA 配置 → 数据采集与训练 → Codex 配置 → 启动服务 → 手动技能测试 → 运行一个任务 → 查看结果 → 验证状态 → 工具与状态产物 → 探索模式 → 安全与停止。
+
 .. _id1:
 .. _yam-installation:
 
@@ -163,8 +165,8 @@ Codex 配置
 .. _id3:
 .. _yam-services:
 
-启动双机服务
-------------
+启动服务
+--------
 
 在两台机器分别激活安装好的 ``.venv``，按以下分工启动服务：
 
@@ -346,8 +348,8 @@ YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``r
 
 .. _yam-exploration:
 
-探索模式（人工复位与判定）
---------------------------
+探索模式
+--------
 
 在任务命令后追加 ``--explore``，即可探索并积累任务记忆。``--explore-attempts-per-session`` 设置每个会话的尝试次数，``--explore-sessions`` 设置会话数。
 
@@ -374,7 +376,7 @@ YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``r
 
 .. _yam-shutdown:
 
-停止与退出
+安全与停止
 ----------
 
 .. warning::

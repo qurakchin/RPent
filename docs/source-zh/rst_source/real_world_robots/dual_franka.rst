@@ -10,6 +10,8 @@
 
 RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统。任务视频见 :doc:`双臂 Franka 演示 <../real_world_demos/franka>`。
 
+**本文结构：** 安装 → 标定 → 机器人配置 → 任务选择 → VLA 配置 → Codex 配置 → 启动服务 → 手动技能测试 → 运行一个任务 → 查看结果 → 验证状态 → 工具与状态产物 → 探索模式 → Flash 回放 → 安全与停止。
+
 安装
 ----
 
@@ -255,8 +257,8 @@ Codex 配置
 
 使用 Codex 时，先按\ :ref:`planner-codex-isolation`\ 配置独立的运行目录并登录。
 
-启动双节点 Ray 集群
---------------------
+启动服务
+--------
 
 启动 Ray 前，在两个节点分别激活安装好的 ``.venv``。``robots/dual_franka/runtime_config.py`` 的默认部署为：
 
@@ -384,8 +386,8 @@ v0.1 发布说明和\ :doc:`双臂演示页 <../real_world_demos/franka>`\ 记�
 
 双臂 Franka 扩展提供 ``view_env_state``、``view_camera_meta``、``describe_dual_franka_setup``、``back_project``、``segment``、``move_delta``、``rotate_delta``、``open_gripper``、``close_gripper``、``recover_joint_posture``、``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place``、``request_scene_reset`` 和 ``request_operator_verdict``。每次解析式运动只会作用于一条臂（``left`` 或 ``right``）。``back_project`` 和 ``segment`` 使用配置的度量相机视角；``segment`` 还需要 SAM3 客户端。``recover_joint_posture`` 会重新下发每个夹爪当前的张开/闭合状态，将双臂关节复位到 ``workspace.joint_reset_qpos``，默认还会将两个 TCP 移回恢复前的位置附近。所有会改变环境状态的工具都会在 RPent 统一的 ``EnvState`` 中保存每条臂的状态以及同步的 left-wrist、base 和 right-wrist 图像。
 
-探索模式（人工复位与判定）
---------------------------
+探索模式
+--------
 
 在任务运行命令后追加 ``--explore``，即可启用探索模式。``--explore-attempts-per-session`` 设置每个规划器会话的尝试次数，``--explore-sessions`` 设置会话数；终端交互再加 ``--tui``，网页交互改用 ``--dashboard``。
 

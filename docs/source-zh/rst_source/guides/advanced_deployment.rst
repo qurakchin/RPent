@@ -7,6 +7,8 @@
 
 Dashboard Session 可用的 endpoint 参数见 :doc:`dashboard`。
 
+**本文结构：** LIBERO 环境服务 → Pi0.5 与 APXInf VLA 服务 → SAM3 → 连接 RPent → 自定义 RLinf 源码 → 并行评测 → 远程 Dashboard。
+
 LIBERO 环境服务
 ---------------
 

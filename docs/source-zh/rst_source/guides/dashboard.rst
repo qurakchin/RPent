@@ -3,6 +3,8 @@
 
 你可以在终端输入指令，也可以通过 Dashboard 在浏览器中提交任务、查看规划器输出、相机画面和动作记录。以下示例使用已完成 :doc:`../get_started/quickstart` 配置的 LIBERO；其他平台先按对应环境页完成安装。
 
+**本文结构：** 终端交互 → Dashboard 会话与任务提交 → 查看结果与结束会话。
+
 .. _terminal-interaction:
 
 终端交互（TUI）

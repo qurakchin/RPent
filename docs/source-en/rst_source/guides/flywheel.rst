@@ -1,3 +1,4 @@
+
 .. _libero-data-flywheel:
 
 Data Flywheel
@@ -7,6 +8,8 @@ This page covers trajectory recording, export to a LeRobot dataset, and the
 fine-tuning workflow that consumes it. The RPent data flywheel records
 trajectories from task planning through action execution and turns successful
 trajectories into training data.
+
+**Page map:** installation → record a trajectory → data format → export → RLinf training → SFT results.
 
 With the ``api``, ``claude_code``, or ``codex`` planner, ``--record-trajectory``
 records vision-language model (VLM) requests and responses, along with tool calls

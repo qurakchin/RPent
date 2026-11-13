@@ -1,9 +1,14 @@
+
 .. _planners-and-model-services:
 
 Planner Configuration
 =====================
 
-This page explains how to choose a planner, connect it to a model service, and verify that connection before running tasks. Select the Agentic Planner backend with one CLI flag:
+This page explains how to choose a planner, connect it to a model service, and verify that connection before running tasks.
+
+**Page map:** choose a backend (``api``, ``claude_code``, ``codex``) → verify the connection → add a backend → set run limits.
+
+Select the Agentic Planner backend with one CLI flag:
 
 .. code-block:: text
 

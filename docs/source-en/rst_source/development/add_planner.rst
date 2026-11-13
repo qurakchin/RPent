@@ -3,6 +3,8 @@ Add a Planner
 
 A planner receives prompts, chooses tools, and consumes their results. To add one, subclass ``Planner``, implement ``solve``, and expose it through the construction path and CLI choices.
 
+**Page map:** implement ``solve`` → wire the backend → validate it.
+
 The following interface sketch omits model requests and the tool loop; it is not a runnable implementation. See ``rpent/planner/api_loop.py`` for a complete backend.
 
 .. code-block:: python

@@ -6,6 +6,8 @@ action-model settings that select and connect a model service. Run
 ``rpent --robot <name> --help`` for the full options of an environment; each
 environment adds task selection, resource paths, and service settings.
 
+**Page map:** shared options → environment options → action-model compatibility → model-service environment variables → output files.
+
 .. code-block:: bash
 
    rpent --help

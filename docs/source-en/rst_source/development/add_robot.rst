@@ -5,6 +5,8 @@ This guide walks through what you need to write to plug a new physical /
 simulated robot into RPent's LLM-in-the-loop runner. Use
 ``robots/libero/`` as the worked reference.
 
+**Page map:** integration rules → steps 1–6 → conventions → tests.
+
 Integration Guidelines
 ----------------------
 

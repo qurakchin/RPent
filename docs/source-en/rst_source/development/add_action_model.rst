@@ -5,6 +5,8 @@ Integrate a VLA or WAM service and connect its predictions to a platform's
 native action executor. Tool declarations and state capture are described in
 :doc:`add_primitive`; platform discovery and runtime wiring are in :doc:`add_robot`.
 
+**Page map:** shared architecture → add a VLA → add a WAM → deployment and task runs → tests.
+
 Shared Architecture
 -------------------
 

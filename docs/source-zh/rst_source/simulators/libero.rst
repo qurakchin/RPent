@@ -12,6 +12,8 @@ LIBERO
 
 首次运行请按 :doc:`../get_started/quickstart` 操作；本页介绍版本选择、任务选择、结果查看与实验复现。
 
+**本文结构：** 概览 → 安装与资源准备 → VLA 配置 → SAM3 配置 → 运行一个任务 → 查看结果 → 任务选择 → WAM 评测 → 任务 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 实验复现 → 规划器可调用的工具 → 进程分工 → Dashboard → 接入自定义 VLA。
+
 .. _libero-overview:
 
 概览
@@ -216,12 +218,15 @@ Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-PRO 需�
 
 .. _exploration-and-memory:
 
-任务记忆与探索模式
-------------------
+任务记忆
+--------
 
-本节的 HF 记忆与探索流程适用于 VLA；WAM 使用上文说明的本地记忆。
+本节的 HF 记忆流程适用于 VLA；WAM 使用上文说明的本地记忆。
 
 评测只运行一次尝试，读取记忆但不更新。默认的 ``hf`` 模式使用 ``--memory-version auto`` 按模型选择记忆版本。显式版本、离线准备和分版本目录结构见 :doc:`../guides/memory`。
+
+探索模式
+--------
 
 使用 ``--explore`` 生成本地记忆，或通过 ``--memory-profile local`` 读取已有记忆。完整的 LIBERO 命令与操作步骤见 :doc:`../guides/memory`。LIBERO 以环境成功判定决定是否发布成功任务记录。
 
@@ -244,16 +249,6 @@ Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-PRO 需�
      --libero-type pro \
      --am-endpoint http://127.0.0.1:8220 \
      --sam3-endpoint http://127.0.0.1:8114
-
-进程分工
---------
-
-LIBERO 将仿真和模型推理分别放在独立服务器中运行，工具集通过对应客户端执行规划器的请求。
-
-- **env_server** （``robots/libero/env_server.py``）—— 负责运行 LIBERO 的 MuJoCo 环境并通过 EGL 渲染。它通过 RPC 传输（默认使用 HTTP；添加 ``--transport socket`` 后使用 pickle-framed socket）对外暴露 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 等接口。
-- **vla_server** （``rpent/robots/components/pi05_vla_server.py``）—— 持有 Pi0.5 权重，通过同一套 RPC 传输（HTTP 或 socket）暴露 ``predict``。
-- **sam3_server** （``rpent/robots/components/sam3_server.py``）—— 加载 SAM 3.0，根据文字描述或目标物体上的一个像素点，分割出目标区域。如果模型给出多个候选结果，只保留评分最高的一个，并通过同一套 RPC 传输（HTTP 或 socket）返回压缩 PNG 格式的分割掩码（mask）。
-- **toolkit（工具集）** （``robots/libero/toolkit.py``）—— 定义 LLM 能调用的工具：``pi0_pick`` （交给 Pi0.5）、``move_to``、``rotate_wrist``、 ``back_project``、``view_env_state``、``finish``…
 
 规划器可调用的工具
 --------------------
@@ -282,6 +277,16 @@ LIBERO 工具分为物理动作工具和只读工具。
 - ``finish(status, summary)`` —— 结束当前运行。
 
 这些工具不会推进环境。
+
+进程分工
+--------
+
+LIBERO 将仿真和模型推理分别放在独立服务器中运行，工具集通过对应客户端执行规划器的请求。
+
+- **env_server** （``robots/libero/env_server.py``）—— 负责运行 LIBERO 的 MuJoCo 环境并通过 EGL 渲染。它通过 RPC 传输（默认使用 HTTP；添加 ``--transport socket`` 后使用 pickle-framed socket）对外暴露 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 等接口。
+- **vla_server** （``rpent/robots/components/pi05_vla_server.py``）—— 持有 Pi0.5 权重，通过同一套 RPC 传输（HTTP 或 socket）暴露 ``predict``。
+- **sam3_server** （``rpent/robots/components/sam3_server.py``）—— 加载 SAM 3.0，根据文字描述或目标物体上的一个像素点，分割出目标区域。如果模型给出多个候选结果，只保留评分最高的一个，并通过同一套 RPC 传输（HTTP 或 socket）返回压缩 PNG 格式的分割掩码（mask）。
+- **toolkit（工具集）** （``robots/libero/toolkit.py``）—— 定义 LLM 能调用的工具：``pi0_pick`` （交给 Pi0.5）、``move_to``、``rotate_wrist``、 ``back_project``、``view_env_state``、``finish``…
 
 Dashboard
 ---------

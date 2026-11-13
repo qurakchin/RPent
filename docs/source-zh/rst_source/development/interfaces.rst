@@ -3,6 +3,8 @@
 
 将新机器人或动作原语接入 RPent 时，需要实现以下接口。具体操作见 :doc:`add_robot`、:doc:`add_primitive`；代码目录与模块职责见 :doc:`architecture`。
 
+**本文结构：** 机器人入口 → Planner → 工具集 → 进程间通信。
+
 机器人入口
 ----------
 

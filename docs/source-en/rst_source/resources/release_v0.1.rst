@@ -1,3 +1,4 @@
+
 .. _release-v0-1:
 
 RPent v0.1 Release 🎉
@@ -14,6 +15,8 @@ LIBERO family, RoboCasa365, RoboTwin, and RoboDojo simulators, as well as single
 dual-arm Franka, and YAM robots, and provides Memory, Flash Mode, an interactive CLI, and a Web
 Dashboard. RPent has been evaluated in simulation and on real robots, with leading task success
 rates on benchmarks such as LIBERO-PRO among the methods listed on the leaderboard.
+
+**Page map:** highlights → features → contributors → benchmark results → getting started → test results.
 
 Highlights
 --------------------
@@ -216,7 +219,6 @@ LIBERO-10. Each suite includes two selected tasks, each run with seeds 1 through
    :header-rows: 1
    :class: rpent-release-results
 
-
    * - Suite and Task
      - Succeeded
      - Episodes
@@ -354,7 +356,6 @@ tasks use seeds 1 through 5, for 50 episodes.
    :header-rows: 1
    :class: rpent-release-results
 
-
    * - Suite and Task
      - Succeeded
      - Episodes
@@ -428,7 +429,6 @@ scene seeds per task, for 50 episodes.
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - Suite and Task
      - Succeeded
@@ -530,7 +530,6 @@ LIBERO-PRO and RoboCasa365 explore with seed 0 and test with seeds 1 through 5. 
    :header-rows: 1
    :class: rpent-release-results rpent-memory-results
 
-
    * - Environment and Task
      - Workflow
      - Succeeded
@@ -583,7 +582,6 @@ setup and run guide </rst_source/simulators/libero>`
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - Suite and Task
      - Succeeded
@@ -722,7 +720,6 @@ run guide <reproduce-target50>`
    :header-rows: 1
    :class: rpent-release-results
 
-
    * - Suite and Task
      - Succeeded
      - Episodes
@@ -796,7 +793,6 @@ Planner: Codex + GPT-5.5 (xhigh). VLA: LingBot-VLA. Ten tasks, 50 episodes, in `
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - Suite and Task
      - Succeeded
@@ -896,7 +892,6 @@ refer to a single successful execution of each task.
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results rpent-demo-results
-
 
    * - Platform and Task
      - Planner Configuration

@@ -6,6 +6,8 @@ watch planner output, cameras, and actions in a browser. The examples use
 LIBERO after :doc:`../get_started/quickstart`; install other platforms through their
 environment guides first.
 
+**Page map:** terminal interaction → Dashboard session and task submission → result inspection and shutdown.
+
 .. _terminal-interaction:
 
 Terminal Interaction (TUI)

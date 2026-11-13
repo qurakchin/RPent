@@ -1,3 +1,4 @@
+
 .. _leaderboard-protocol:
 
 Evaluation Protocol
@@ -8,6 +9,8 @@ two rates are comparable only when their protocol identifiers match. Commands
 and per-environment success signals are in the simulator guides; this page
 covers counting and reporting. Results are rendered from
 ``docs/_static/leaderboard/results.json``.
+
+**Page map:** success → episodes and denominators → aggregation → counts and estimates → provenance → runtime and tokens → reproduction.
 
 Success
 -------

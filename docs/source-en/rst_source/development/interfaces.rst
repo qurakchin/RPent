@@ -4,6 +4,8 @@ Core Interfaces
 When you wire a new robot or primitive into RPent, you implement the interfaces below.
 Walkthroughs: :doc:`add_robot`, :doc:`add_primitive`. Repo layout: :doc:`architecture`.
 
+**Page map:** robot entry → planner → toolkit → inter-process communication.
+
 Robot Entry
 -----------
 

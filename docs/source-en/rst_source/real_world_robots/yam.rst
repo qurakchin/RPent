@@ -13,6 +13,8 @@ YAM
 RPent controls the dual-arm YAM system through RLinf's robot interface. For the task
 video, see :doc:`YAM demo <../real_world_demos/yam>`.
 
+**Page map:** Installation → Calibration → Robot Configuration → Task Selection → VLA Configuration → Data Collection and Training → Codex Configuration → Start Services → Manual Skill Tests → Run a Task → View Results → Verification Status → Tools and State Artifacts → Exploration Mode → Safety and Stopping.
+
 .. _id1:
 .. _yam-installation:
 
@@ -198,8 +200,8 @@ Before using Codex, configure separate runtime directories and log in by followi
 .. _id3:
 .. _yam-services:
 
-Start the Two-Machine Services
-------------------------------
+Start Services
+--------------
 
 Activate the installed ``.venv`` on each machine and start the services as follows:
 
@@ -424,8 +426,8 @@ Use ``set_gripper`` or ``release`` to open or close a gripper.
 
 .. _yam-exploration:
 
-Exploration Mode (Operator Reset and Verdict)
----------------------------------------------
+Exploration Mode
+----------------
 
 Append ``--explore`` to the task command to explore and accumulate task memory.
 ``--explore-attempts-per-session`` sets attempts per session, and ``--explore-sessions``
@@ -464,8 +466,8 @@ by default. Use ``--no-auto-merge-memory`` to disable automatic merging. See
 
 .. _yam-shutdown:
 
-Stop and Shutdown
------------------
+Safety and Stopping
+-------------------
 
 .. warning::
 

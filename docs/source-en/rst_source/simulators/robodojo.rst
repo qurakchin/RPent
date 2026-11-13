@@ -6,6 +6,8 @@ Isaac Sim / IsaacLab with an ARX-X5 dual-arm platform. RPent combines policy
 actions, native motion primitives and SAM3 object segmentation to complete tasks.
 Choose VPP2 or Awomo05 for policy actions.
 
+**Page map:** Overview → Installation and Resources → VLA Configuration → SAM3 Configuration → Run a Task → View Results → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Common Options → Tools the Planner Can Call → Prepare Local NVIDIA Scene Assets (Optional).
+
 Overview
 --------
 
@@ -76,8 +78,8 @@ in the same environment:
 
 Keep this checkout after installation; the runtime still uses it.
 
-Download Simulator Resources
-----------------------------
+Download Assets
+~~~~~~~~~~~~~~~
 
 Download the robot, object, material, and layout files from the
 `RoboDojo dataset <https://huggingface.co/datasets/RoboDojo-Benchmark/RoboDojo>`_
@@ -371,10 +373,10 @@ Validation Status
 - CPU only: offline unit tests cover configuration, tools, and result
   contracts.
 
-Task Memory and Exploration Mode
---------------------------------
+Task Memory
+-----------
 
-For instructions on using memory and exploration mode, see :doc:`../guides/memory`.
+For instructions on using memory, see :doc:`../guides/memory`.
 
 During evaluation, the planner reads the memory corpus without modifying it.
 The planner references
@@ -401,6 +403,9 @@ For a published Hugging Face corpus, use ``--memory-profile hf`` and
 arguments. RPent loads memory from the ``robodojo/`` directory at the specified
 dataset revision. Replace ``COMMIT_SHA`` with the dataset commit SHA to use. See
 :doc:`../guides/memory` for source selection and publication.
+
+Exploration Mode
+----------------
 
 Exploration retries the same task, seed group and layout, with up to three
 planner sessions and five attempts per session by default. Working notes and
@@ -472,8 +477,8 @@ Child services inherit the current shell environment. The CLI does not load
 ``config/runtime.env`` automatically. Run ``rpent --robot robodojo --help``
 for the full option list.
 
-Tools
------
+Tools the Planner Can Call
+--------------------------
 
 Evaluation runs one episode without reset. Exploration exposes ``reset`` for
 retries of the same scene; Flash replay remains unavailable.

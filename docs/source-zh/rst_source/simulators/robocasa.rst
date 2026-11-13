@@ -10,6 +10,8 @@ RoboCasa365
 
 使用 RPent 在 RoboCasa365 中运行厨房操作任务，并复现 Target50 实验。当前集成使用 PandaOmron 移动机械臂和 RLDX-1 动作模型，CLI 名称为 ``robocasa``。
 
+**本文结构：** 概览 → 安装与资源准备 → VLA 配置 → 运行一个任务 → 查看结果 → 任务 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 实验复现 → 环境自检、常见问题与实现说明。
+
 .. _robocasa-overview:
 
 概览
@@ -277,10 +279,10 @@ global 文件必须存在。任务记录（JSON）与动作序列（recipe）必
 
 .. _reproduce-target50:
 
-实验复现（Target50）
-----------------------
+实验复现
+--------
 
-Target50 包含 50 个厨房任务，共运行 340 次。以下使用 Codex、GPT-5.5、xhigh，配合当前任务记忆与 global memory 完成评测。
+本次复现针对 Target50，覆盖 50 个厨房任务，共运行 340 次。以下使用 Codex、GPT-5.5、xhigh，配合当前任务记忆与 global memory 完成评测。
 
 1. 准备记忆和运行参数
 ~~~~~~~~~~~~~~~~~~~~~~~~

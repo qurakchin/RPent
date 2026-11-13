@@ -3,6 +3,8 @@ RoboDojo
 
 通过 RPent 在 RoboDojo 中执行双臂桌面操作任务。仿真器基于 Isaac Sim / IsaacLab，采用 ARX-X5 双机械臂平台。RPent 结合策略动作、原生运动 Primitive 和 SAM3 物体分割完成任务。策略动作可选择 VPP2 或 Awomo05。
 
+**本文结构：** 概览 → 安装与资源准备 → VLA 配置 → SAM3 配置 → 运行一个任务 → 查看结果 → 任务 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 常用参数 → 规划器可调用的工具 → NVIDIA 场景素材的本地准备（可选）。
+
 概览
 ----
 
@@ -67,8 +69,8 @@ NVIDIA 驱动版本建议参考 `Isaac Sim 5.1 官方系统要求 <https://docs.
 
 安装后保留该源码目录，运行时仍会使用它。
 
-下载仿真资源
-------------
+下载资源
+~~~~~~~~
 
 从 `RoboDojo 数据集 <https://huggingface.co/datasets/RoboDojo-Benchmark/RoboDojo>`_ 下载机器人、物体、材质和布局文件，\
 并设置资源目录：
@@ -308,10 +310,10 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 - 已验证（单次）：v0.1 发布说明检查了安装与 ``put_bottles_into_dustbin`` 的一次执行。这验证安装与执行流程，不是任务成功率评测；见 :doc:`发布说明 <../resources/release_v0.1>`。
 - 仅 CPU：离线单测覆盖配置、工具与结果契约。
 
-任务记忆与探索模式
-------------------
+任务记忆
+--------
 
-使用记忆与探索模式见 :doc:`../guides/memory`。
+使用记忆见 :doc:`../guides/memory`。
 
 评测时，规划器只读取记忆库中的内容，不对其进行修改。规划器参考同一任务版本在 seed 0、layout 0 上生成的 JSON 任务记录和 JSONL 动作序列，以及对应的 task-family 经验和相关 global 经验。普通版与 ``*_random`` 版本的参考文件分开使用；缺少参考时，规划器记录缺失并根据当前观测继续。其他探索场景的产物可以作为经验保留，但不是评测 prompt 的默认参考。
 
@@ -327,6 +329,9 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
      --output-dir /path/to/eval-output
 
 使用已发布的 Hugging Face 记忆时，将本地记忆参数替换为 ``--memory-profile hf`` 和 ``--memory-repo RLinf/RPent-memory@COMMIT_SHA``。RPent 从指定数据集版本的 ``robodojo/`` 目录读取记忆；将 ``COMMIT_SHA`` 替换为要使用的数据集提交 SHA。来源选择和发布流程见 :doc:`../guides/memory`。
+
+探索模式
+--------
 
 探索模式在同一任务、seed 组和 layout 上反复尝试，默认最多运行 3 个规划会话，每个会话最多尝试 5 次。工作笔记和待整理的经验保存在本地。环境判定任务成功后，不再启动后续会话。按前文配置服务后，执行：
 
@@ -362,8 +367,8 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 子服务继承当前终端的环境变量；CLI 不会自动读取 ``config/runtime.env``。\
 完整参数可运行 ``rpent --robot robodojo --help`` 查看。
 
-工具
-----
+规划器可调用的工具
+------------------
 
 评测只运行一个回合，不提供 reset；探索模式允许通过 ``reset`` 重试同一场景。Flash 回放仍不可用。
 

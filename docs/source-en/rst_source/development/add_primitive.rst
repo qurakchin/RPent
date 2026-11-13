@@ -6,6 +6,8 @@ the environment can execute. It can be a learned policy (a VLA, a WAM,
 a diffusion planner) or a scripted routine (``move_to``,
 ``open_gripper``). This page covers tool declaration, registration and execution.
 
+**Page map:** two primitive types → scripted primitive → model-backed tools → serve modes → design principles.
+
 Two Types of Primitives
 -----------------------
 

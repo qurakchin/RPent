@@ -3,6 +3,8 @@ Memory Design
 
 RPent uses ``MemoryManager`` to manage each robot’s experience files, access permissions, and exploration drafts. See :doc:`../guides/memory` for commands; this page describes storage and publication.
 
+**Page map:** layout and access scope → exploration and merging → synchronization and contribution.
+
 Layout and Access Scope
 -----------------------
 

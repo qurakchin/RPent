@@ -43,20 +43,25 @@ version-specific changes in release or migration notes.
 
 Keep the same sections and ordering in both languages:
 
+Group order follows the reader's path: start, published results, usage guides,
+environments, demos, development, and project resources.
+
 1. **Get Started / 开始使用**: Introduction to RPent and Quick Start.
 2. **Leaderboard / 排行榜**: performance, time and token costs, and the
    evaluation protocol page.
-3. **Real-World Demos / 真实世界演示**: direct robot demo pages, each linking to
-   the corresponding installation and usage guide.
-4. **Guides / 使用指南**: memory and exploration; action primitives and tools;
+3. **Guides / 使用指南**: memory and exploration; action primitives and tools;
    planner configuration; command-line reference; interactive usage
    (terminal and Dashboard); Flash Mode;
    trajectory collection and data flywheel; remote services and parallel runs;
    troubleshooting.
-5. **Simulators / 仿真环境**: LIBERO, RoboCasa365, and RoboTwin. Each page owns
-   its installation, first run, reproduction protocol, and troubleshooting.
-6. **Real-World Robots / 真实机器人**: Single-Arm Franka, Dual-Arm Franka, YAM,
+4. **Simulators / 仿真环境**: LIBERO, RoboCasa365, RoboTwin, and RoboDojo. Each
+   page owns its installation, first run, reproduction protocol, and
+   troubleshooting.
+5. **Real-World Robots / 真实机器人**: Single-Arm Franka, Dual-Arm Franka, YAM,
    and SO-101. Preserve coming-soon pages and describe their actual status.
+6. **Real-World Demos / 真实世界演示**: direct robot demo pages, each linking to
+   the corresponding installation and usage guide. Keep demos next to the
+   robot pages they demonstrate.
 7. **Concepts & Development / 原理与开发**: architecture, interfaces, memory
    design, and extension guides for environments, tools, and planners.
 8. **Resources / 项目资源**: Harness VLA, contributing, and release notes.
@@ -67,10 +72,10 @@ Match source directories to the sidebar groups in both language trees:
 | --- | --- |
 | Get Started | `get_started/` |
 | Leaderboard | `leaderboard/` |
-| Real-World Demos | `real_world_demos/` |
 | Guides | `guides/` |
 | Simulators | `simulators/` |
 | Real-World Robots | `real_world_robots/` |
+| Real-World Demos | `real_world_demos/` |
 | Concepts & Development | `development/` |
 | Resources | `resources/` |
 
@@ -117,6 +122,28 @@ dependency-package scripts (asset downloaders and simulator helpers) distinct
 from the four `pyproject.toml` commands.
 
 ## Page structure
+
+### One opening, one route
+
+Every page except pure directory and demo pages opens in this order:
+
+1. H1 title.
+2. An optional overview figure.
+3. One or two sentences that state what the page is for and who should read
+   it.
+4. A **Page map** paragraph (`**Page map:**` in English, `**本文结构：**` in
+   Chinese) that lists the page's top-level sections in the order they appear,
+   joined by `→`. The map is a route, not a repetition of the headings: name
+   the first-run path, then the reference sections, then diagnostics.
+
+The page map makes the reading order predictable and keeps section names and
+their sequence consistent across pages with the same purpose. Omit it only on
+pages with a single section, such as a demo page or a generated results page.
+
+Within a section, put the decision-relevant content first: the command or
+answer, then its explanation, then optional details. Move optional material to
+the end of the section or a `dropdown` directive. Never open a section with a
+history note or a list of unsupported cases.
 
 ### Home and directory pages
 
@@ -191,37 +218,41 @@ After Overview, cover:
 Use the same headings and levels for sections with the same purpose.
 Required sections apply to each supported simulator; include conditional
 sections when the stated feature is supported or results are published.
+Keep this order for every simulator page:
 
-| English | Chinese | Level | Requirement |
-| --- | --- | --- | --- |
-| Overview | 概览 | H2 | Required |
-| Installation and Resources | 安装与资源准备 | H2 | Required |
-| Tasks | 任务 | H2 reference section after the first-run path | Required |
-| Observation and Action | 观测与动作 | H2 reference section after the first-run path | Required |
-| Run a Task | 运行一个任务 | H2 | Required |
-| View Results | 查看结果 | H2 | Required |
-| Task Memory | 任务记忆 | H2 | Conditional: memory is supported |
-| Exploration Mode | 探索模式 | H2 | Conditional: exploration is supported |
-| Experiment Reproduction | 实验复现 | H2 | Conditional: benchmark results are published |
+| # | English | Chinese | Level | Requirement |
+| --- | --- | --- | --- | --- |
+| 1 | Overview | 概览 | H2 | Required |
+| 2 | Installation and Resources | 安装与资源准备 | H2 | Required |
+| 3 | VLA Configuration | VLA 配置 | H2 | Conditional: a VLA checkpoint must be prepared |
+| 4 | SAM3 Configuration | SAM3 配置 | H2 | Conditional: segmentation is used |
+| 5 | Run a Task | 运行一个任务 | H2 | Required |
+| 6 | View Results | 查看结果 | H2 | Required |
+| 7 | Task Selection | 任务选择 | H2 | Conditional: the environment has more than one task-selection flag |
+| 8 | WAM Evaluation | WAM 评测 | H2 | Conditional: a WAM backend is supported |
+| 9 | Tasks | 任务 | H2 reference section after the first-run path | Required |
+| 10 | Observation and Action | 观测与动作 | H2 reference section after the first-run path | Required |
+| 11 | Validation Status | 验证状态 | H2 reference section after the first-run path | Required |
+| 12 | Task Memory | 任务记忆 | H2 | Conditional: memory is supported |
+| 13 | Exploration Mode | 探索模式 | H2 | Conditional: exploration is supported |
+| 14 | Common Options | 常用参数 | H2 | Conditional: the environment adds run options |
+| 15 | Experiment Reproduction | 实验复现 | H2 | Conditional: benchmark results are published |
+| 16 | Tools the Planner Can Call | 规划器可调用的工具 | H2 | Conditional: the tool surface needs explanation |
+| 17 | Page-specific sections | 页面专属章节 | H2 | Conditional: Dashboard, deployment, diagnostics, implementation notes |
 
-An introductory figure is optional. Configuration and diagnostic sections
-depend on the environment's setup; include instructions needed to run it.
+Installation and Resources owns both the environment setup and its asset
+downloads. When asset downloads form their own procedure, put them in a
+**Download Assets / 下载资源** H3 and keep the install prose above it; when a
+single table row covers them, keep them inline. VLA Configuration owns
+checkpoint download and model-specific settings; do not create separate
+**Download the Model** sections.
 
-Keep installation and downloads before Run a Task, followed immediately by
-View Results. Put memory, exploration, reproduction, diagnostics, and developer
-details after this first-run path. Keep the same order for shared sections;
-preserve environment-specific steps and their prerequisites.
-
-Keep headings accurate to their contents. A section covering only package
-installation can remain **Installation / 安装** when downloads have separate
-sections. A combined memory and exploration section can use **Task Memory and
-Exploration Mode / 任务记忆与探索模式**. Use **Experiment Reproduction /
-实验复现** as the shared heading. A benchmark qualifier is optional and must
-belong to that environment: **Experiment Reproduction (Target50) /
-实验复现（Target50）** applies only to RoboCasa365. Keep published results and
-environment-specific diagnostics where they help the reader; do not add
-empty sections to match another page. Preserve existing named anchors when
-renaming headings.
+Use **Task Memory / 任务记忆** and **Exploration Mode / 探索模式** as separate
+H2 sections, even when one of them is short. Use **Experiment Reproduction /
+实验复现** as the shared heading without qualifiers; state the benchmark name
+(Target50, for example) in the first sentence of that section. Keep
+environment-specific diagnostics after the reproduction section. Preserve
+existing named anchors when renaming headings.
 
 Use links to shared guides instead of repeating generic planner, memory, or
 Dashboard instructions. Preserve environment-specific requirements. Never
@@ -241,9 +272,32 @@ Use a clear introductory robot photo with alt text, a short caption, and
 proportions and check desktop and narrow-screen layouts. Keep the source URL
 in the RST; add a visible credit when the asset's terms require it.
 
-Deployment pages cover hardware and controller requirements, calibration,
-configuration, motion checks, task execution, result inspection, and stopping.
-Keep operator responsibilities and physical safety constraints explicit.
+Deployment pages follow this order, omitting a section only when the robot does
+not need it:
+
+| # | English | Chinese | Purpose |
+| --- | --- | --- | --- |
+| 1 | Installation | 安装 | Package, driver, and controller setup |
+| 2 | Calibration | 标定 | Hand-eye or arm calibration |
+| 3 | Robot Configuration | 机器人配置 | Robot file, workspace, and safety limits |
+| 4 | Task Selection | 任务选择 | Task and scene arguments |
+| 5 | VLA Configuration | VLA 配置 | Checkpoint and endpoint |
+| 6 | Codex Configuration | Codex 配置 | Codex login and runtime isolation, where the robot needs it |
+| 7 | Start Services | 启动服务 | Ray or two-machine startup |
+| 8 | Manual Skill Tests | 手动技能测试 | Primitives and diagnostics before an agent run |
+| 9 | Run a Task | 运行一个任务 | One runnable task |
+| 10 | View Results | 查看结果 | Artifacts and success criterion |
+| 11 | Verification Status | 验证状态 | What has actually been validated |
+| 12 | Tools and State Artifacts | 工具与状态产物 | Tool surface and captured state |
+| 13 | Exploration Mode | 探索模式 | Operator-assisted retries, when supported |
+| 14 | Flash Replay | Flash 回放 | Plan replay, when supported |
+| 15 | Safety and Stopping | 安全与停止 | Operator responsibilities and shutdown |
+
+Use **Start Services** rather than naming Ray or the machine count in the
+heading; state the topology in the section's first sentence. End every
+deployment page with **Safety and Stopping**; do not keep a separate
+**Safety** section earlier on the page. Keep operator responsibilities and
+physical safety constraints explicit.
 
 Demo pages describe the task, embed the video, and link to the corresponding
 installation and usage guide. Clearly mark pending instructions and coming-soon

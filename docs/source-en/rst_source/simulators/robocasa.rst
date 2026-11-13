@@ -10,6 +10,8 @@ RoboCasa365
 
 Run kitchen manipulation tasks with RPent in RoboCasa365, then reproduce Target50 experiments. This integration uses the PandaOmron mobile manipulator and the RLDX-1 action model; its CLI name is ``robocasa``.
 
+**Page map:** Overview → Installation and Resources → VLA Configuration → Run a Task → View Results → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Experiment Reproduction → environment checks, troubleshooting, and implementation notes.
+
 .. _robocasa-overview:
 
 Overview
@@ -351,10 +353,10 @@ at most five attempts per session by default:
 
 .. _reproduce-target50:
 
-Experiment Reproduction (Target50)
-----------------------------------
+Experiment Reproduction
+-----------------------
 
-Target50 covers 50 kitchen tasks and 340 runs. The example below uses Codex,
+This reproduction targets Target50, which covers 50 kitchen tasks and 340 runs. The example below uses Codex,
 GPT-5.5 and xhigh with task-specific and global memory.
 
 .. _run-and-check-results:

@@ -11,8 +11,10 @@ Dual-Arm Franka
 RPent controls a two-node dual-Franka setup through an RLinf
 ``RealWorldEnv`` worker. Watch the :doc:`task demos <../real_world_demos/franka>`.
 
-Install
--------
+**Page map:** Installation → Calibration → Robot Configuration → Task Selection → VLA Configuration → Codex Configuration → Start Services → Manual Skill Tests → Run a Task → View Results → Verification Status → Tools and State Artifacts → Exploration Mode → Flash Replay → Safety and Stopping.
+
+Installation
+------------
 
 Install RPent on both Linux control nodes with matching code, Python, Ray and
 RLinf versions. Nodes running VLA or SAM3 locally need an NVIDIA GPU.
@@ -330,8 +332,8 @@ Codex Configuration
 Before using Codex, configure separate runtime directories and log in by following
 :ref:`planner-codex-isolation`.
 
-Start the Two-node Ray Cluster
-------------------------------
+Start Services
+--------------
 
 Activate the installed ``.venv`` on each node before starting Ray. The default
 placement in ``robots/dual_franka/runtime_config.py`` is:
@@ -368,8 +370,8 @@ Node ``1``:
    ray stop --force
    ray start --address=HEAD_IP:6379 --node-ip-address=WORKER_IP
 
-Manual Skill Testing
---------------------
+Manual Skill Tests
+------------------
 
 List the available skills, then inspect the parameters and types accepted by a
 skill. From the repository root:
@@ -505,8 +507,8 @@ demonstration records, not a success-rate evaluation. This page reports no
 episode count or success rate, and a successful demo does not establish
 performance on a different rig or task.
 
-Tools and Artifacts
--------------------
+Tools and State Artifacts
+-------------------------
 
 The extension exposes ``view_env_state``, ``view_camera_meta``,
 ``describe_dual_franka_setup``, ``back_project``, ``segment``, ``move_delta``,
@@ -522,8 +524,8 @@ TCPs near their pre-recovery poses. Mutating tools capture per-arm state and
 synchronized left-wrist, base, and right-wrist images in RPent's central
 ``EnvState``.
 
-Attended Exploration
---------------------
+Exploration Mode
+----------------
 
 Append ``--explore`` to a task command to enable exploration. Set attempts per planner session
 with ``--explore-attempts-per-session`` and session count with

@@ -1,9 +1,12 @@
+
 .. _system-internals:
 
 Architecture and Execution
 ==========================
 
 RPent separates task planning, tool execution, and environment operation. The planner chooses tools, the toolkit dispatches them to perception or action components, and the environment returns updated state. Environments connect to the shared runner through ``RobotSpec``.
+
+**Page map:** one run end to end → component responsibilities → repository layout → command entry points → environment discovery → Dashboard sessions → extension guides.
 
 .. figure:: ../../../_static/img/architecture-en.svg
    :alt: RPent layers: user, agent, model and environment services, and environments
