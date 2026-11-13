@@ -25,37 +25,39 @@ Use Linux and Python 3.11. This guide uses two machines:
   runs ENV and RPent.
 * **Inference machine**: runs the Pi0.5 VLA service on an NVIDIA GPU.
 
-Use the same RPent code and RLinf commit on both machines. Install uv following
-:doc:`../get_started/quickstart`, then prepare the environment on each machine:
+Use the same RPent code and RLinf commit on both machines. Prepare both checkouts
+first, then install the ``yam`` profile on each machine as described below:
 
 .. code-block:: bash
 
    git clone https://github.com/RLinf/RPent.git /path/to/RPent
-   cd /path/to/RPent
-   uv venv --python 3.11
-   source .venv/bin/activate
-
    git clone --branch main https://github.com/RLinf/RLinf.git /path/to/RLinf
    git -C /path/to/RLinf checkout --detach 196d40b6dec6f7a4063edee31cfeaa6ca0ee435a
 
+On a fresh checkout where ``rpent-env`` is not installed yet, bootstrap it as
+described in :doc:`../get_started/installation`.
+
 **Control machine installation**
 
-From the RPent repository root on the control machine, install RPent, RLinf, the i2rt
-SDK and the required build dependencies together:
+From the RPent repository root on the control machine, install the ``yam``
+profile, then add RLinf, the i2rt SDK and the required build dependencies:
 
 .. code-block:: bash
 
    cd /path/to/RPent
+   rpent-env install yam --venv .venv
+   source .venv/bin/activate
    uv pip install --torch-backend cpu \
      --build-constraints /path/to/RLinf/requirements/embodied/envs/yam-build-constraints.txt \
-     -e '.[yam]' -e /path/to/RLinf \
+     -e /path/to/RLinf \
      -r /path/to/RLinf/requirements/embodied/envs/yam.txt
    uv pip check
 
 **Inference machine installation**
 
-On the inference machine, use RLinf's installer to install YAM and OpenPI dependencies,
-then install RPent:
+On the inference machine, use RLinf's installer to install YAM and OpenPI
+dependencies into the virtual environment, then install RPent with the ``yam``
+profile:
 
 .. code-block:: bash
 
@@ -63,7 +65,8 @@ then install RPent:
    bash requirements/install.sh embodied --model openpi --env yam \
      --venv /path/to/RPent/.venv --install-rlinf
    cd /path/to/RPent
-   uv pip install -e '.[yam]'
+   rpent-env install yam --venv .venv
+   source .venv/bin/activate
    uv pip check
 
 If system dependencies are already installed, append ``--no-root`` to the installer

@@ -416,7 +416,7 @@ def saved_camera(tmp_path, fake_env):
 
 
 def test_readers_are_readonly_and_do_not_act(saved_camera):
-    from rpent.robots.components.sam3_client import Sam3Result
+    from rpent.robots.components.sam3.client import Sam3Result
 
     obs = {
         "vision": {

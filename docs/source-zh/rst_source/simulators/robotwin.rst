@@ -84,27 +84,26 @@ RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVC
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   uv venv --python 3.11 .venv-robotwin
+   rpent-env install robotwin --venv .venv-robotwin
    source .venv-robotwin/bin/activate
-   uv pip install -e ".[robotwin]"
 
-用户不需要运行 RLinf 安装器，也不需要单独克隆 RoboTwin。
+新检出的仓库还没有 ``rpent-env`` 时，按 :doc:`../get_started/installation` 引导。用户不需要运行 RLinf 安装器，也不需要单独克隆 RoboTwin。
 
-国内网络可使用 PyPI 镜像加速：
+国内网络可通过 uv 的镜像环境变量加速安装：
 
 .. code-block:: bash
 
-   uv pip install -e ".[robotwin]" \
-      --default-index https://mirrors.aliyun.com/pypi/simple \
-      --index https://pypi.tuna.tsinghua.edu.cn/simple
+   UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple \
+   UV_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple \
+     rpent-env install robotwin --venv .venv-robotwin
 
 .. note::
 
-   ``.[robotwin]`` 使用 SAPIEN 3.0.0b1。其他版本可能改变仿真观测，导致模型效果下降。
+   ``robotwin`` 配方使用 SAPIEN 3.0.0b1。其他版本可能改变仿真观测，导致模型效果下降。
 
 .. note::
 
-   ``.[robotwin]`` 的 RoboTwin 与 LingBot 运行时已作为发布包安装到 PyPI； cuRobo 仍从 GitHub 官方 tag 源码构建，因此即使配置了 PyPI 镜像，安装时仍需能访问 GitHub。
+   ``robotwin`` 配方中的 RoboTwin 与 LingBot 运行时已作为发布包安装到 PyPI； cuRobo 仍从 GitHub 官方 tag 源码构建，因此即使配置了 PyPI 镜像，安装时仍需能访问 GitHub。
 
 下载仿真资源
 ------------

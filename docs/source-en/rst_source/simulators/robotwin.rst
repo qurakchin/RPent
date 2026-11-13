@@ -87,28 +87,30 @@ RoboTwin dependency set:
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   uv venv --python 3.11 .venv-robotwin
+   rpent-env install robotwin --venv .venv-robotwin
    source .venv-robotwin/bin/activate
-   uv pip install -e ".[robotwin]"
 
-You do not need to run the RLinf installer or clone RoboTwin separately.
+On a fresh checkout where ``rpent-env`` is not installed yet, bootstrap it as
+described in :doc:`../get_started/installation`. You do not need to run the
+RLinf installer or clone RoboTwin separately.
 
-For networks closer to Chinese mirrors:
+For networks closer to Chinese mirrors, set uv's index environment variables
+for the install:
 
 .. code-block:: bash
 
-   uv pip install -e ".[robotwin]" \
-      --default-index https://mirrors.aliyun.com/pypi/simple \
-      --index https://pypi.tuna.tsinghua.edu.cn/simple
+   UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple \
+   UV_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple \
+     rpent-env install robotwin --venv .venv-robotwin
 
 .. note::
 
-   ``.[robotwin]`` uses SAPIEN 3.0.0b1. Other versions can change simulator
+   The ``robotwin`` profile uses SAPIEN 3.0.0b1. Other versions can change simulator
    observations and reduce model performance.
 
 .. note::
 
-   The RoboTwin and LingBot runtimes in ``.[robotwin]`` are installed from
+   The RoboTwin and LingBot runtimes in the ``robotwin`` profile are installed from
    released PyPI packages. cuRobo is still built from a GitHub official tag,
    so the installation needs access to GitHub even when a PyPI mirror is
    configured.

@@ -1,0 +1,10 @@
+schema = 1
+name = "minimal"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/minimal.lock"
+# Compatibility extras are a migration aid; this profile has no legacy extra.
+extra = false
+description = "Core RPent only: CLI, discovery, and planner imports without robot extras."
+
+[components]

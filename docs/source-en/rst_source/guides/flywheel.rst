@@ -23,12 +23,12 @@ Installation
 
 The example below uses LIBERO-PRO. Follow :doc:`../get_started/quickstart` for
 environment setup and simulator assets, and :doc:`configure_planner` for API
-credentials. From the RPent repository root, install LIBERO-PRO with the
-optional export dependencies:
+credentials. From the RPent repository root, install the LIBERO-PRO profile
+with the export dependencies:
 
 .. code-block:: bash
 
-   uv pip install -e ".[libero-pro,flywheel]"
+   rpent-env install libero-pro-flywheel --venv .venv
 
 Record a Trajectory
 -------------------

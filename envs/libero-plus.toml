@@ -1,0 +1,11 @@
+schema = 1
+name = "libero-plus"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/libero-plus.lock"
+# LIBERO-plus requires robosuite<1.5, so it is a variant rather than an
+# inheritance from the standard LIBERO profile.
+description = "LIBERO-plus simulation with Pi0.5 and SAM 3.0."
+
+[components.libero]
+variant = "plus"

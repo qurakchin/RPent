@@ -13,6 +13,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from rpent.robots.components.am_platforms import YAM_VLA_CONTRACT
+
 YAM_CAMERA_NAMES = ("top", "left", "right")
 YAM_STATUS_KEYS = (
     "eval_success",
@@ -82,16 +84,7 @@ def env_runtime_contract(
 
 def vla_runtime_contract() -> dict:
     """Return the identity required from a YAM Pi0.5 VLA server."""
-    return {
-        "runtime": "yam_vla",
-        "policy_name": MODEL_SPEC.policy_name,
-        "camera_order": list(MODEL_SPEC.camera_order),
-        "state_layout": MODEL_SPEC.state_layout,
-        "action_layout": MODEL_SPEC.action_layout,
-        "action_dim": 14,
-        "action_horizon": MODEL_SPEC.action_horizon,
-        "use_length": MODEL_SPEC.use_length,
-    }
+    return dict(YAM_VLA_CONTRACT)
 
 
 def validate_actions(actions, *, action_type="qpos") -> np.ndarray:

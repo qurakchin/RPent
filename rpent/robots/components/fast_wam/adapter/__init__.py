@@ -17,13 +17,15 @@
 from functools import partial
 from typing import Any
 
-from robots.libero.control import LIBERO_OSC
-from robots.robotwin.control import ROBOTWIN_QPOS
-from robots.robotwin.observation import ROBOTWIN_CAMERAS
 from rpent.robots.components.am_contracts import WAMModelMeta
 from rpent.robots.components.am_facade_base import (
     WAMAdapter,
     WAMAdapterSpec,
+)
+from rpent.robots.components.am_platforms import (
+    LIBERO_OSC,
+    ROBOTWIN_CAMERAS,
+    ROBOTWIN_QPOS,
 )
 from rpent.robots.components.fast_wam import USES_SESSIONS
 from rpent.robots.components.fast_wam.adapter.decode import (

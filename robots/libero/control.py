@@ -14,21 +14,6 @@
 
 """LIBERO's native OSC action layout shared by clients and model adapters."""
 
-from rpent.robots.components.am_contracts import AMControlSpec
+from rpent.robots.components.am_platforms import LIBERO_OSC
 
-# Values use LIBERO's native OSC scaling and gripper convention. Model
-# adapters restore this representation before handing actions to the env.
-LIBERO_OSC = AMControlSpec(
-    embodiment="libero_7d",
-    action_space="libero.osc_pose.delta.v1",
-    action_schema=[
-        "delta_x",
-        "delta_y",
-        "delta_z",
-        "delta_axis_angle_x",
-        "delta_axis_angle_y",
-        "delta_axis_angle_z",
-        "gripper",
-    ],
-    action_type=None,
-)
+__all__ = ["LIBERO_OSC"]

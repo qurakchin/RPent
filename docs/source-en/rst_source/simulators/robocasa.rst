@@ -90,27 +90,29 @@ at the third line:
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   uv venv --python 3.10 .venv-robocasa
+   rpent-env install robocasa --venv .venv-robocasa
    source .venv-robocasa/bin/activate
 
-First install a matching CUDA-enabled Torch and torchvision pair for your driver
-using the `PyTorch instructions <https://pytorch.org/get-started/locally/>`_
-(replace ``pip`` with ``uv pip``). RLDX requires Torch >= 2.7 and
-torchvision >= 0.22, with mutually compatible versions. Then install RoboCasa:
+On a fresh checkout where ``rpent-env`` is not installed yet, bootstrap it as
+described in :doc:`../get_started/installation`. The profile installs a
+CUDA-enabled Torch and torchvision pair; RLDX requires Torch >= 2.7 and
+torchvision >= 0.22. If your driver needs a different build, reinstall the
+matching pair with ``uv pip install`` using the
+`PyTorch instructions <https://pytorch.org/get-started/locally/>`_.
 
 .. list-table::
    :header-rows: 1
 
    * - Environment
-     - Install
+     - Profile
      - Assets
    * - RoboCasa365
-     - ``uv pip install -e ".[robocasa]"``
+     - ``robocasa``
      - ``robocasa-download-assets`` (command below)
 
-Dependencies come from ``pyproject.toml``, including the ``rpent`` source branches
-of RoboCasa, RLDX and Robosuite. Do not also install ``rlinf-robocasa365``, which
-provides the same import package.
+The profile installs the ``rpent`` source branches of RoboCasa, RLDX and
+Robosuite. Do not also install ``rlinf-robocasa365``, which provides the same
+import package.
 
 Check dependencies, download the kitchen assets (~10 GB) outside the Python
 package directory, and set their path in the shell used to launch RPent:
@@ -573,8 +575,8 @@ VLA Inference Check
 ~~~~~~~~~~~~~~~~~~~
 
 Complete :ref:`VLA configuration <robocasa-vla-configuration>`, then select an
-available GPU and a fresh output directory. Install ``.[test]`` if you need the
-test dependencies:
+available GPU and a fresh output directory. Install the ``dev`` profile alongside it with
+``rpent-env install dev --venv .venv-robocasa`` if you need test dependencies:
 
 .. code-block:: bash
 
@@ -634,13 +636,12 @@ Downloads and Assets
 Startup and Inference
 ~~~~~~~~~~~~~~~~~~~~~
 
-- **Missing RLDX interfaces in an old environment:** reinstall ``.[robocasa]``
-  with ``--reinstall-package rlinf-rldx``. Older PyPI wheels can lack required
-  interfaces even with the same version number.
+- **Missing RLDX interfaces in an old environment:** reinstall the ``robocasa`` profile, then reinstall ``rlinf-rldx`` in the
+  environment. Older PyPI wheels can lack required interfaces even with the same
+  version number.
 - **Missing navigation camera:** if the error names ``mobilebase0_navview``,
-  reinstall ``.[robocasa]`` to update Robosuite rather than patching XML.
-- **Directory permission errors:** use the source dependencies from
-  ``.[robocasa]``; XML conversion should write temporary files. Set
+  reinstall the ``robocasa`` profile to update Robosuite rather than patching XML.
+- **Directory permission errors:** use the source dependencies installed by the ``robocasa`` profile; XML conversion should write temporary files. Set
   ``NUMBA_CACHE_DIR`` to a writable directory without changing package permissions.
 - **CUDA/EGL unavailable:** select Torch/torchvision for your machine, then run
   the :ref:`environment checks <environment-smoke-tests>` to verify GPU operations

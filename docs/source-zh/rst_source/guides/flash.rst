@@ -37,6 +37,8 @@
 
    uv venv --python 3.11 /path/to/molmo-venv
 
+Molmo 的模型代码需要 ``transformers>=4.57``，而 OpenPI 锁定 ``4.53.2``。组件清单声明了这一冲突，因此 ``rpent-env check`` 会拒绝把两者放进同一环境的配方。
+
 接着在该环境中安装 PyTorch 和匹配的 torchvision。按 `PyTorch 安装指南 <https://pytorch.org/get-started/locally/>`_ 选择兼容 GPU 和 NVIDIA 驱动的构建，将下方 ``<CUDA_TAG>`` 替换为所选构建（如 ``cu126`` 或 ``cu128``）。此命令使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_：
 
 .. code-block:: bash
@@ -44,11 +46,11 @@
    uv pip install --python /path/to/molmo-venv/bin/python \
      torch torchvision --index-url "https://mirror.sjtu.edu.cn/pytorch-wheels/<CUDA_TAG>/"
 
-PyTorch 安装完成后，再安装 Molmo extra：
+PyTorch 安装完成后，再把 ``molmo`` 配方安装到同一环境：
 
 .. code-block:: bash
 
-   uv pip install --python /path/to/molmo-venv/bin/python -e ".[molmo]"
+   rpent-env install molmo --venv /path/to/molmo-venv
 
 从 `Hugging Face <https://huggingface.co/allenai/Molmo2-8B>`_ 或 `ModelScope <https://modelscope.cn/models/allenai/Molmo2-8B>`_ 下载 ``allenai/Molmo2-8B``，然后启动服务：
 
@@ -56,7 +58,7 @@ PyTorch 安装完成后，再安装 Molmo extra：
 
    export MOLMO_CHECKPOINT_PATH=/path/to/Molmo2-8B
    PYTHONPATH=/path/to/RPent /path/to/molmo-venv/bin/python \
-     rpent/robots/components/molmo_server.py \
+     rpent/robots/components/molmo/server.py \
      --transport http --host 127.0.0.1 --port 20703
 
 运行计划

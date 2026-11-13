@@ -36,6 +36,7 @@ import torch
 from omegaconf import OmegaConf
 
 from rpent.robots.components.am_facade_base import BaseVLAFacade
+from rpent.robots.components.am_platforms import YAM_VLA_CONTRACT
 from rpent.utils.config import get_pi05_checkpoint_path
 from rpent.utils.logging import get_logger
 
@@ -242,9 +243,7 @@ class Pi05VLAFacade(BaseVLAFacade):
 
     def get_model_meta(self) -> dict:
         """Return YAM policy identity separately from framework readiness."""
-        from robots.yam.contracts import vla_runtime_contract
-
-        return vla_runtime_contract()
+        return dict(YAM_VLA_CONTRACT)
 
     # ---- inference ----
 

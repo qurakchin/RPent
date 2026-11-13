@@ -1,0 +1,20 @@
+schema = 1
+name = "molmo"
+kind = "capability"
+probe = "rpent.robots.components.molmo.server"
+python = ">=3.10,<3.13"
+platforms = ["linux-x86_64"]
+placement = ["in-env", "external-env", "remote"]
+# Molmo's model code needs transformers >=4.57, but OpenPI pins 4.53.2. The
+# default external environment keeps the two resolvers independent; placing
+# both in one environment is rejected before installation.
+default_placement = "external-env"
+env_conflicts = ["openpi", "robotwin"]
+docs = "docs/source-en/rst_source/guides/flash.rst"
+
+dependencies = [
+  "transformers>=4.57",
+  "torch",
+  "torchvision",
+  "pillow>=10",
+]

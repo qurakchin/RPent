@@ -78,7 +78,7 @@ SAM3 服务
 .. code-block:: bash
 
    export SAM3_CHECKPOINT_PATH=/path/to/sam3/sam3.pt
-   python -m rpent.robots.components.sam3_server \
+   python -m rpent.robots.components.sam3.server \
      --cuda-device 0 \
      --transport http --host 0.0.0.0 --port SAM3_PORT
 

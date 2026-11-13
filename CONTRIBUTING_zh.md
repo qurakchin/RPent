@@ -37,25 +37,24 @@ planner、robot 或 tool 集成，都能帮助项目持续发展。
 ### 第 2 步：搭建开发环境
 
 ```bash
-# 创建并启用隔离环境。
-uv venv --python 3.11
+# 创建并启用开发环境。
+uv run --no-project --python 3.11 --with packaging -- \
+  python -m rpent.cli.env install dev --venv .venv
 source .venv/bin/activate
 
-# 安装源码检出和轻量测试依赖。
-uv pip install -e ".[test]"
-
-# 开发 robot 时，改为选择对应的测试环境。
-uv pip install -e ".[test,libero-pro]"  # LIBERO
-uv pip install -e ".[test,robocasa]"    # RoboCasa
-uv pip install -e ".[test,robotwin]"    # RoboTwin
+# 开发 robot 时，改为加装对应配方。
+rpent-env install libero-pro --venv .venv --dev  # LIBERO
+rpent-env install robocasa --venv .venv --dev    # RoboCasa
+rpent-env install robotwin --venv .venv --dev    # RoboTwin
 
 # 安装并启用仓库 hooks。
 uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-以上命令是不同选择；只安装当前改动涉及的 robot extra。各环境的具体配置见
-[安装指南](docs/source-zh/rst_source/get_started/quickstart.rst)。
+以上 robot 命令是不同选择；只安装当前改动涉及的配方，未从 `dev` 配方开始时加
+`--dev`。各环境的具体配置见
+[安装指南](docs/source-zh/rst_source/get_started/installation.rst)。
 
 ### 第 3 步：开发
 

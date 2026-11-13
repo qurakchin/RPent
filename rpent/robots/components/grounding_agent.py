@@ -28,7 +28,7 @@ except ModuleNotFoundError:  # Python 3.10
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
 
-from rpent.robots.components.molmo_client import MolmoResult
+from rpent.robots.components.molmo.client import MolmoResult
 
 
 class PointSelection(BaseModel):

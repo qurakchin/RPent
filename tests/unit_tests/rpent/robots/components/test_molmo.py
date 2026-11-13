@@ -21,8 +21,8 @@ from typing import Any
 
 import pytest
 
-from rpent.robots.components.molmo_client import MolmoClient
-from rpent.robots.components.molmo_server import (
+from rpent.robots.components.molmo.client import MolmoClient
+from rpent.robots.components.molmo.server import (
     MolmoFacade,
     MolmoResult,
     _parse_point,

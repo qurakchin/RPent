@@ -1,0 +1,33 @@
+schema = 1
+name = "libero"
+kind = "robot"
+probe = "robots.libero.robot_spec"
+python = ">=3.10,<3.13"
+platforms = ["linux-x86_64"]
+requires = ["rlinf", "openpi", "sam3"]
+# LIBERO measures task success inside robosuite; the Franka stack pins
+# numpy<2, and RoboTwin's runtime ships incompatible MuJoCo/Torch builds.
+env_conflicts = ["franka", "dual_franka", "robotwin"]
+placement = ["in-env"]
+docs = "docs/source-en/rst_source/simulators/libero.rst"
+
+[optional]
+# A profile must pick a variant; the variants differ in the simulator package
+# they install. `plus` cannot inherit `standard` because LIBERO-plus requires
+# robosuite<1.5, while the standard package pins a newer robosuite.
+standard = [
+  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent",
+  # MuJoCo 3.4+ changes LIBERO settling, misplacing objects and reducing task
+  # success; see https://github.com/RLinf/RLinf/issues/1460.
+  "mujoco==3.3.0",
+]
+pro = [
+  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent",
+  "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent",
+  "mujoco==3.3.0",
+]
+plus = [
+  "rlinf-liberoplus",
+  "mujoco==3.3.0",
+  "h5py",
+]

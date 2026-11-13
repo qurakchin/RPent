@@ -527,7 +527,14 @@ def _spawn_sam3_server(
         name="sam3_server",
         cmd=[
             sys.executable,
-            str(get_repo_root() / "rpent" / "robots" / "components" / "sam3_server.py"),
+            str(
+                get_repo_root()
+                / "rpent"
+                / "robots"
+                / "components"
+                / "sam3"
+                / "server.py"
+            ),
             "--transport",
             "http",
             "--host",
@@ -564,8 +571,8 @@ def _init_runtime(
 ) -> tuple[list[ProcessDaemon], dict[str, Any]]:
     """Initialize every LIBERO component, or only ``components`` when given."""
     from robots.libero.env_client import LiberoEnvClient
-    from rpent.robots.components.molmo_client import MolmoClient
-    from rpent.robots.components.sam3_client import Sam3Client
+    from rpent.robots.components.molmo.client import MolmoClient
+    from rpent.robots.components.sam3.client import Sam3Client
 
     am = select_am(args, "libero")
     wam = am if am.is_wam else None

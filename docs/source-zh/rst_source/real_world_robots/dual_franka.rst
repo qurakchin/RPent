@@ -19,18 +19,19 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   uv venv
+   rpent-env install dual-franka --venv .venv
    source .venv/bin/activate
-   uv pip install -e ".[franka,sam3]"
 
-下载 Python 依赖较慢时，可使用 `清华 PyPI 镜像 <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_ 替换上面的安装命令：
+新检出的仓库还没有 ``rpent-env`` 时，按 :doc:`../get_started/installation` 引导。``dual-franka`` 配方包含双臂 Franka 和本地 SAM 3.0。
+
+下载 Python 依赖较慢时，可为安装设置 `清华 PyPI 镜像 <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_：
 
 .. code-block:: bash
 
-   uv pip install -e ".[franka,sam3]" \
-     --index-url https://pypi.tuna.tsinghua.edu.cn/simple
+   UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+     rpent-env install dual-franka --venv .venv
 
-该选项只替换 Python 包索引，不代理 Git 仓库、直接下载链接或模型权重。
+镜像只替换 Python 包索引，不代理 Git 仓库、直接下载链接或模型权重。
 
 连接机械臂前，请核对 libfranka 与机器人固件的兼容性。标定状态读取程序还需要 libfranka 开发库，见下文的标定步骤。
 

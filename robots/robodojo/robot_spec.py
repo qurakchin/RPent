@@ -513,7 +513,14 @@ def _spawn_sam3_server(
         name="sam3_server",
         cmd=[
             sys.executable,
-            str(get_repo_root() / "rpent" / "robots" / "components" / "sam3_server.py"),
+            str(
+                get_repo_root()
+                / "rpent"
+                / "robots"
+                / "components"
+                / "sam3"
+                / "server.py"
+            ),
             "--transport",
             "http",
             "--host",
@@ -573,7 +580,7 @@ def _init_runtime(
     """Start default backend services or an explicitly requested component set."""
     _validate_args(args)
     from robots.robodojo.env_client import RoboDojoEnvClient
-    from rpent.robots.components.sam3_client import Sam3Client
+    from rpent.robots.components.sam3.client import Sam3Client
 
     am = select_am(args, "robodojo")
     device = resolve_cuda_device(args, "env")
