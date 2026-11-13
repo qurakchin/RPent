@@ -36,6 +36,7 @@ class PolicyBinding(Protocol):
     """A connected client policy and the environment it acts on."""
 
     tool_name: str
+    backend: str
     model_name: str
     action_type: str
 
@@ -86,6 +87,12 @@ class PolicyTools(ToolFamily):
         capabilities: Capabilities | None = None,
         config: Mapping[str, Any] | None = None,
     ) -> Sequence[Tool]:
+        if (
+            capabilities is not None
+            and capabilities.policy_backends
+            and self._binding.backend not in capabilities.policy_backends
+        ):
+            return ()
         declarations = {
             declaration.name: declaration for declaration in iter_tools(self)
         }
@@ -123,9 +130,9 @@ class PolicyTools(ToolFamily):
             if status.get("eval_success") is True:
                 break
             step_lim = status.get("step_lim")
-            if step_lim is not None and int(
-                status.get("take_action_cnt", 0)
-            ) >= int(step_lim):
+            if step_lim is not None and int(status.get("take_action_cnt", 0)) >= int(
+                step_lim
+            ):
                 break
             observation, native_prompt = binding.observe(
                 prompt if override_prompt else None

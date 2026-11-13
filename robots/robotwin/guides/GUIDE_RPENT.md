@@ -23,11 +23,12 @@ authoritative. Head views identify objects, distractors, destinations, global
 relations, and completed subgoals. Wrist views refine grasp, contact, insertion,
 and release geometry for the same head-selected candidate.
 
-`geometry` localizes one target in a named view. Pass a described `target` when
-grounding is available, or a `[row,col]` pixel measured on that view, and ask for
-the quantities you need. It returns `pixel_rc`, per-field values with units and
-evidence status, `fit_accepted`, and `warnings`. Treat `status="partial"` or
-`fit_accepted=false` as a rejected measurement, not as a weak coordinate.
+`geometry` localizes one target in a named view. RoboTwin runs without a
+grounding service, so pass a `[row,col]` pixel measured on that view and ask for
+the quantities you need; a described `target` is rejected. It returns
+`pixel_rc`, per-field values with units and evidence status, `fit_accepted`, and
+`warnings`. Treat `status="partial"` or `fit_accepted=false` as a rejected
+measurement, not as a weak coordinate.
 
 World maps use `[row,col]`, contain world-frame `[x,y,z]` metres, and may contain
 NaN. Query the exact step/view whose RGB supplied the pixels. An exposed surface

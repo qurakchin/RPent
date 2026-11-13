@@ -139,6 +139,9 @@ class MotionTools(ToolFamily):
         capabilities: Capabilities | None = None,
         config: Mapping[str, Any] | None = None,
     ) -> Sequence[Tool]:
+        execution = capabilities.execution if capabilities is not None else {}
+        if execution and not (execution.get("step") or execution.get("chunk_step")):
+            return ()
         return tuple(iter_tools(self))
 
     def _feedback(
@@ -233,8 +236,7 @@ class MotionTools(ToolFamily):
             indices = np.linspace(0, len(path) - 1, substeps).astype(int)
             path = path[indices]
         updates = [
-            {"arm": arm, "arm_qpos": waypoint, "gripper": gripper}
-            for waypoint in path
+            {"arm": arm, "arm_qpos": waypoint, "gripper": gripper} for waypoint in path
         ]
         execution = backend.apply_qpos_updates(updates)
         executed = int(execution.get("executed_actions", 0))

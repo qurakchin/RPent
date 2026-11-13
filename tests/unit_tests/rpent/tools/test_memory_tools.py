@@ -69,6 +69,36 @@ def test_recall_ranks_matching_leaves_and_hides_unmatched(tmp_path: Path) -> Non
     assert "hammer" in match["snippet"].lower()
 
 
+def test_recall_searches_task_specific_and_audits_delivered_reads(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "memory"
+    _leaf(root / "global" / "hammer.md", "Hammer grasp", "Grasp the hammer head.")
+    directory = root / "task-specific"
+    directory.mkdir(parents=True)
+    (directory / "beat_block_hammer.json").write_text('{"task": "hammer"}')
+    (directory / "cup_only.json").write_text('{"task": "cup"}')
+    tools = MemoryTools(_manager(root, access="read_only"))
+
+    result = tools.recall("hammer", scope="all")
+
+    assert result.call_ok is True
+    assert {match["scope"] for match in result.data["matches"]} == {
+        "global",
+        "task-specific",
+    }
+    audit = [
+        json.loads(line)
+        for line in (root / "_internal" / "audit" / "reads.jsonl")
+        .read_text()
+        .splitlines()
+    ]
+    assert {record["path"] for record in audit} == {
+        "global/hammer.md",
+        "task-specific/beat_block_hammer.json",
+    }
+
+
 def test_recall_rejects_an_empty_query(tmp_path: Path) -> None:
     tools = MemoryTools(_manager(tmp_path / "memory", access="read_only"))
     result = tools.recall("   ")
@@ -118,6 +148,12 @@ def test_remember_is_refused_without_inbox_write_access(tmp_path: Path) -> None:
     assert result.call_ok is False
     assert result.error["code"] == "refused"
     assert result.no_execution is True
+
+
+def test_memory_writes_are_not_scheduled_as_readonly() -> None:
+    assert MemoryTools.recall.readonly is True
+    assert MemoryTools.remember.readonly is False
+    assert MemoryTools.corroborate.readonly is False
 
 
 def test_corroborate_records_the_outcome_in_the_inbox(tmp_path: Path) -> None:

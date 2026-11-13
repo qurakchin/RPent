@@ -15,7 +15,8 @@
 """Scene family: observation entry points over a persisted EnvState.
 
 The family owns the projection from recorded artifacts to the observation
-contract. The localization implementation lives in ``toolkits/geometry``.
+contract. Localization is a separate family in ``toolkits/geometry`` so the
+core does not import a toolkit package.
 """
 
 from __future__ import annotations
@@ -102,7 +103,9 @@ class EnvStateObservationProvider:
         views = self.views()
         return views[0] if views else None
 
-    def observe(self, *, view: str | None = None, step: int | None = None) -> Observation:
+    def observe(
+        self, *, view: str | None = None, step: int | None = None
+    ) -> Observation:
         record = self._record(step)
         specs = record.state.get("view_specs") or {}
         if not isinstance(specs, Mapping) or not specs:
@@ -136,16 +139,13 @@ class EnvStateObservationProvider:
         world_xyz = self._load_array(view, "world_xyz", record, image_shape)
         meta = self._load_meta(view, record)
 
-        depth_unit = (
-            self._depth_units.get(view)
-            or str(meta.get("depth_unit") or "metre")
+        depth_unit = self._depth_units.get(view) or str(
+            meta.get("depth_unit") or "metre"
         )
         if depth is not None:
             depth = self._metric_depth(depth, meta)
 
-        intrinsics = _array(
-            _first(meta, ("intrinsic_K", "intrinsics", "K"))
-        )
+        intrinsics = _array(_first(meta, ("intrinsic_K", "intrinsics", "K")))
         if intrinsics is not None and intrinsics.shape != (3, 3):
             intrinsics = None
         world_from_camera = _array(
@@ -326,49 +326,28 @@ def view_env_state(
 
 
 class SceneTools(ToolFamily):
-    """Observation and localization tools bound to one recorded EnvState."""
+    """Observation and world-map tools bound to one recorded EnvState."""
 
     name = "scene"
 
-    def __init__(
-        self,
-        *,
-        state: EnvState,
-        provider: EnvStateObservationProvider,
-        config: Any,
-        grounder: Any = None,
-        segmenter: Any = None,
-    ) -> None:
+    def __init__(self, *, state: EnvState) -> None:
         self._state = state
-        self._provider = provider
-        self._config = config
-        self._grounder = grounder
-        self._segmenter = segmenter
 
     def tools(
         self,
         capabilities: Capabilities | None = None,
         config: Mapping[str, Any] | None = None,
     ) -> Sequence[Tool]:
-        from toolkits.geometry.tool import geometry
-
-        return (
-            view_env_state.with_handler(
-                partial(view_env_state, state=self._state)
-            ),
-            query_world_map.with_handler(
-                partial(query_world_map, env_state=self._state)
-            ),
-            geometry.with_handler(
-                partial(
-                    geometry,
-                    provider=self._provider,
-                    grounder=self._grounder,
-                    segmenter=self._segmenter,
-                    config=self._config,
+        declarations = [
+            view_env_state.with_handler(partial(view_env_state, state=self._state))
+        ]
+        if capabilities is None or capabilities.has_depth():
+            declarations.append(
+                query_world_map.with_handler(
+                    partial(query_world_map, env_state=self._state)
                 )
-            ),
-        )
+            )
+        return tuple(declarations)
 
 
 __all__ = [
