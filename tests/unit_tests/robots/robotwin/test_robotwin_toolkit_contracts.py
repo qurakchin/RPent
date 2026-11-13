@@ -31,7 +31,7 @@ import pytest
 
 from robots.robotwin import toolkit
 from robots.robotwin.env_client import RoboTwinEnvClient
-from robots.robotwin.policy import RoboTwinPolicyBinding
+from robots.robotwin.skills.policy import RoboTwinSkillBinding
 from robots.robotwin.primitives import RoboTwinPrimitives
 from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES, env_runtime_contract
 from robots.robotwin.toolkit import _capture_robotwin_call
@@ -44,7 +44,7 @@ from rpent.session.env_capture import CapturingEnvClient, ToolCallCapture
 from rpent.tools import Toolkit, ToolResult, tool
 from rpent.tools.direct_action import direct_action_tool
 from rpent.tools.execution import track_execution
-from rpent.tools.policy_tools import PolicyConfig, PolicyTools
+from rpent.tools.motion.vla_act import SkillTools
 from rpent.utils import templates
 from rpent.utils.rpc import RpcError
 
@@ -591,10 +591,10 @@ def test_policy_capture_exports_only_executed_actions_with_their_inputs(
             memory=MemoryManager(tmp_path / "memory"),
         )
         toolkit.get_env_state = lambda **kw: ToolResult(data={})
-        binding = RoboTwinPolicyBinding(primitives)
+        binding = RoboTwinSkillBinding(primitives)
         name = binding.tool_name
         toolkit.add_tools(
-            PolicyTools(binding, config=PolicyConfig(use_length=binding.use_length))
+            SkillTools(binding)
         )
         toolkit.add_tool(
             direct_action_tool(env.action_specs, primitives.execute_action)
@@ -696,9 +696,9 @@ def test_wam_executes_selected_control_and_refreshes_observation(action_type, di
     )
     primitive.reset()
     model.reset.assert_called_once()
-    policy = PolicyTools(RoboTwinPolicyBinding(primitive))
-    assert policy.wam_act("subtask").data["executed_steps"] == 3
-    assert policy.wam_act().data["executed_steps"] == 3
+    declaration = SkillTools(RoboTwinSkillBinding(primitive)).tools()[0]
+    assert declaration("subtask").data["executed_steps"] == 3
+    assert declaration().data["executed_steps"] == 3
     calls = model.predict.call_args_list
     assert [call.args[0]["task_language"] for call in calls] == [
         "subtask",
@@ -707,3 +707,22 @@ def test_wam_executes_selected_control_and_refreshes_observation(action_type, di
     np.testing.assert_array_equal(
         calls[1].args[0]["robot_state"]["qpos_target14"], np.full(14, 3)
     )
+
+
+def test_renamed_skill_and_policy_aliases_resolve_to_one_class() -> None:
+    from robots.robotwin.policy import RoboTwinPolicyBinding
+    from rpent.tools.motion.vla_act import SkillBinding, SkillConfig, SkillTools
+    from rpent.tools.policy_tools import PolicyBinding, PolicyConfig, PolicyTools
+    from rpent.tools.skill_tools import (
+        SkillBinding as LegacySkillBinding,
+        SkillConfig as LegacySkillConfig,
+        SkillTools as LegacySkillTools,
+    )
+
+    assert RoboTwinPolicyBinding is RoboTwinSkillBinding
+    assert PolicyBinding is SkillBinding
+    assert PolicyConfig is SkillConfig
+    assert PolicyTools is SkillTools
+    assert LegacySkillBinding is SkillBinding
+    assert LegacySkillConfig is SkillConfig
+    assert LegacySkillTools is SkillTools

@@ -149,6 +149,26 @@ def test_robot_action_schemas_keep_bounded_vector_shapes() -> None:
         assert xyz["minItems"] == xyz["maxItems"] == 3
 
 
+def test_robotwin_declared_geometry_tracks_grounding_and_depth() -> None:
+    grounded = {
+        spec.name: spec for spec in RoboTwinToolkit.declared_tools(grounding=True)
+    }
+    ungrounded = {spec.name: spec for spec in RoboTwinToolkit.declared_tools()}
+
+    assert "target" in grounded["geometry"].input_schema["properties"]
+    assert grounded["geometry"].input_schema.get("required", []) == []
+    assert "target" not in ungrounded["geometry"].input_schema["properties"]
+    assert ungrounded["geometry"].input_schema["required"] == ["pixel"]
+
+    quantities = ungrounded["geometry"].input_schema["properties"]["quantities"]
+    assert "points" in quantities["items"]["enum"]
+    assert quantities["maxItems"] == 5
+
+    no_depth = {spec.name for spec in RoboTwinToolkit.declared_tools(depth=False)}
+    assert "geometry" not in no_depth
+    assert {"view_env_state", "move_to", "lingbot_act", "recall"} <= no_depth
+
+
 def test_robotwin_spatial_tools_share_row_col_image_coordinates() -> None:
     by_name = {spec.name: spec for spec in TOOL_DECLARATIONS["robotwin"]}
 

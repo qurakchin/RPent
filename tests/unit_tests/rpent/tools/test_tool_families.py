@@ -25,8 +25,8 @@ from pydantic import ValidationError
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
 from rpent.tools.capabilities import Capabilities
+from rpent.tools.motion.vla_act import SkillTools
 from rpent.tools.motion_tools import MotionTools
-from rpent.tools.policy_tools import PolicyTools
 from rpent.tools.scene_tools import SceneTools
 from rpent.tools.toolkit import Toolkit
 from toolkits.geometry.tool import GeometryTools
@@ -34,6 +34,17 @@ from toolkits.geometry.tool import GeometryTools
 
 def _names(family, capabilities: Capabilities | None) -> set[str]:
     return {declaration.name for declaration in family.tools(capabilities)}
+
+
+def _skill_binding(
+    tool_name: str = "lingbot_act", backend: str = "lingbot"
+) -> SimpleNamespace:
+    declaration = SimpleNamespace(name=tool_name)
+    return SimpleNamespace(
+        backend=backend,
+        tool_name=tool_name,
+        tools=lambda: (declaration,),
+    )
 
 
 def test_scene_family_publishes_world_queries_without_a_depth_gate() -> None:
@@ -108,11 +119,9 @@ def test_toolkit_reports_a_rejected_target_as_a_call_failure(tmp_path) -> None:
 
 
 def test_policy_family_logs_an_undeclared_backend(caplog) -> None:
-    family = PolicyTools(
-        SimpleNamespace(backend="lingbot", tool_name="lingbot_act"),
-    )
+    family = SkillTools(_skill_binding())
 
-    with caplog.at_level("WARNING", logger="rpent.tools.policy"):
+    with caplog.at_level("WARNING", logger="rpent.tools.skill"):
         assert family.tools(Capabilities(policy_backends=("wam",))) == ()
 
     assert "not declared" in caplog.text
@@ -155,12 +164,54 @@ def test_motion_family_requires_a_declared_step_transport() -> None:
     }
 
 
-def test_policy_family_hides_a_backend_the_host_does_not_serve() -> None:
-    binding = SimpleNamespace(backend="lingbot", tool_name="lingbot_act")
+def test_capabilities_report_the_execution_methods_the_env_declares() -> None:
+    capabilities = Capabilities(execution={"step": False, "chunk_step": True})
 
-    assert _names(PolicyTools(binding), Capabilities()) == set()
-    assert _names(PolicyTools(binding), Capabilities(policy_backends=("wam",))) == set()
-    assert _names(PolicyTools(binding), Capabilities(policy_backends=("lingbot",))) == {
+    assert capabilities.supports_execution("step", "chunk_step") is True
+    assert capabilities.supports_execution("reset") is False
+
+
+def test_add_tools_accepts_the_design_document_aliases(tmp_path) -> None:
+    toolkit = Toolkit(
+        dashboard_events=NullDashboardEventSink(),
+        memory=MemoryManager(tmp_path / "memory"),
+    )
+
+    toolkit.add_tools(
+        GeometryTools(provider=SimpleNamespace()),
+        caps=Capabilities(depth_views=("head",), calibrated_views=("head",)),
+        cfg={},
+    )
+
+    assert "geometry" in toolkit._tools
+
+
+def test_add_tools_rejects_both_names_for_one_value(tmp_path) -> None:
+    toolkit = Toolkit(
+        dashboard_events=NullDashboardEventSink(),
+        memory=MemoryManager(tmp_path / "memory"),
+    )
+
+    with pytest.raises(TypeError, match="capabilities or caps"):
+        toolkit.add_tools(
+            GeometryTools(provider=SimpleNamespace()),
+            capabilities=Capabilities(),
+            caps=Capabilities(),
+        )
+    with pytest.raises(TypeError, match="config or cfg"):
+        toolkit.add_tools(
+            GeometryTools(provider=SimpleNamespace()),
+            config={},
+            cfg={},
+        )
+
+
+def test_policy_family_hides_a_backend_the_host_does_not_serve() -> None:
+    binding = _skill_binding()
+
+    assert _names(SkillTools(binding), Capabilities()) == set()
+    assert _names(SkillTools(binding), Capabilities(policy_backends=("wam",))) == set()
+    assert _names(SkillTools(binding), Capabilities(policy_backends=("lingbot",))) == {
         "lingbot_act"
     }
-    assert _names(PolicyTools(binding), None) == {"lingbot_act"}
+    assert _names(SkillTools(binding), None) == {"lingbot_act"}

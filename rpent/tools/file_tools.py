@@ -18,10 +18,16 @@ Reads go through :class:`~rpent.memory.manager.MemoryManager` so a run cannot
 inspect another robot's corpus. Writes are limited to the run output directory
 and, when the manager grants ``inbox_write``, the current exploration cell's
 inbox. Published memory remains read-only.
+
+Hosts that register the Memory family set ``allow_memory=False``: memory access
+then goes only through ``recall`` / ``remember`` / ``corroborate``, which record
+audits and validate drafts. Hosts without the family keep the legacy behavior
+so existing robots can read hand-maintained notes and write inbox drafts.
 """
 
 from __future__ import annotations
 
+import os
 import threading
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -41,12 +47,22 @@ class FileTools:
         *,
         memory: MemoryManager,
         output_dir: str | Path | None = None,
+        allow_memory: bool = True,
     ) -> None:
         if memory is None:
             raise TypeError("memory must be a MemoryManager, not None")
         self._memory = memory
         self._output_dir = None if output_dir is None else Path(output_dir).resolve()
+        self._allow_memory = allow_memory
         self._file_lock = threading.Lock()
+
+    def _require_non_memory(self, resolved: Path) -> None:
+        """Reject memory paths when the host owns the Memory family."""
+        if not self._allow_memory and resolved.is_relative_to(self._memory.root):
+            raise PermissionError(
+                f"file tools cannot access the memory corpus; use recall, "
+                f"remember, or corroborate: {resolved}"
+            )
 
     def _require_writable_location(self, resolved: Path) -> None:
         """Keep file writes inside the output directory or a sanctioned inbox.
@@ -80,6 +96,7 @@ class FileTools:
             max_chars: Max chars (default 40000)
         """
         resolved = self._memory.authorize_read(path)
+        self._require_non_memory(resolved)
         if not resolved.exists():
             return ToolResult(data={"error": f"file not found: {resolved}"})
         if resolved.is_dir():
@@ -100,6 +117,7 @@ class FileTools:
     def write_text_file(self, path: str, content: str) -> ToolResult:
         """Write a UTF-8 text file inside the run output directory (creates parent dirs). Use this to save the working recipe JSONL and the final audit JSON at the end of a successful run. Paths outside the output directory are refused. Published memory is read-only; draft findings with the memory tools instead of editing memory files."""
         resolved = self._memory.authorize_write(path)
+        self._require_non_memory(resolved)
         self._require_writable_location(resolved)
         resolved.parent.mkdir(parents=True, exist_ok=True)
         with self._file_lock:
@@ -115,7 +133,12 @@ class FileTools:
         Args:
             path: Default: {{output_dir}}
         """
-        resolved, files = self._memory.list_directory(path or get_output_dir())
+        if self._allow_memory:
+            resolved, files = self._memory.list_directory(path or get_output_dir())
+        else:
+            resolved = self._memory.authorize_read(path or get_output_dir())
+            self._require_non_memory(resolved)
+            files = sorted(os.listdir(resolved)) if resolved.exists() else None
         if files is None:
             return ToolResult(data={"error": f"directory not found: {resolved}"})
         return ToolResult(

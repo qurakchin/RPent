@@ -15,7 +15,8 @@
 """Compatibility name for the shared file tools.
 
 The implementations live in :mod:`rpent.tools.file_tools`; ``CommonTools`` is
-kept for existing imports. ``finish`` belongs to
+kept for existing imports and should be removed one release after the slices
+stop constructing it (a_global R10). ``finish`` belongs to
 :class:`~rpent.tools.toolkit.Toolkit`, which registers it once for every run;
 robots replace it when their finish policy differs.
 """

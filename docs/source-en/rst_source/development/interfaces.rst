@@ -120,10 +120,13 @@ includes these layers.
 
 The base class registers the common file tools and ``finish``; call
 ``super().__init__()`` then ``add_tool`` for robot tools. Shared tool families in ``rpent/tools``
-(``SceneTools``, ``MotionTools``, ``MemoryTools``, ``PolicyTools``) expose
+(``SceneTools``, ``MotionTools``, ``MemoryTools``, ``SkillTools``) expose
 ``tools(capabilities, config)``. Register them with
 ``add_tools(family, ..., capabilities=services, config=...)`` so each family
-publishes only the declarations the connected host supports. Per-step state and
+publishes only the declarations the connected host supports. Until the a_1
+slice migration lands, RoboTwin still assembles its families in
+``robots/robotwin/toolkit.py``; it calls the same capability builder and family
+declarations that a declarative ``config.py`` will use. Per-step state and
 ``view_env_state`` are in :doc:`add_primitive`.
 
 Shared tools used by more than one robot live under ``toolkits/<name>/`` and do
