@@ -224,8 +224,15 @@ def test_successful_fake_sdk_stream_accounts_for_finish_and_hides_image_payload(
     embedded = "embedded-image-secret"
 
     async def query(*, prompt: str, options: Any):
-        assert prompt == "system rules\n\nuser task"
+        # RPent's rules travel as an appended system prompt, not as part of the
+        # first user message.
+        assert prompt == "user task"
         assert options is fake_sdk.options
+        assert options["system_prompt"] == {
+            "type": "preset",
+            "preset": "claude_code",
+            "append": "system rules",
+        }
         yield {
             "type": "AssistantMessage",
             "message_id": "assistant-1",

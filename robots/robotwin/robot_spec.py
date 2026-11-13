@@ -29,8 +29,8 @@ from typing import TYPE_CHECKING, Any, Literal
 from robots.robotwin.memory import prepare_memory, validate_options
 from robots.robotwin.observation import ROBOTWIN_CAMERAS
 from robots.robotwin.prompt_bundle import (
-    prompt_sections,
     system_prompt,
+    tool_sections,
     user_prompt,
 )
 from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
@@ -256,7 +256,7 @@ def get_robot_spec() -> RobotSpec:
         prompts=PromptBundle(
             system=system_prompt,
             user=user_prompt,
-            prompt_sections=prompt_sections,
+            tool_sections=tool_sections,
             source="robots/robotwin/prompts",
         ),
         add_cli_args=_add_cli_args,

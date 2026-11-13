@@ -50,39 +50,38 @@ Inspect the Prompt
 Every session writes the exact model input to its state directory — the output
 directory for evaluation runs, or ``sessions/session_NNN/`` for exploration
 sessions. ``effective_prompt.md`` contains the rendered system prompt and user
-message, and ``prompt_sources.json`` records the robot, planner, modes, section
-names, sources, and hashes of the assembled prompt and the opening user message.
-The transcript stores ``prompt_sha256`` for the run's first session; later
-exploration sessions keep their own artifacts under
-``sessions/session_NNN/``. The digest covers the assembled system and user
-messages. ``prompt_sources.json`` records how the planner receives the two
-roles, and for ``claude_code`` and ``codex`` — which prepend the system prompt
-to the first user message — ``effective_prompt.md`` also contains that prefixed
-single message. ``api`` keeps the roles separate, and ``flash`` does not
-receive the prompt. SDK-managed planners may still add their own context, so
-these artifacts cover RPent's contribution, not the model's complete final
-context.
+message, and ``prompt_sources.json`` records the robot, planner, run axes,
+section names, sources, and hashes of the assembled prompt. The transcript
+stores ``prompt_sha256`` for the run's first session; later exploration sessions
+keep their own artifacts under ``sessions/session_NNN/``. The digest covers the
+assembled system and user messages. ``prompt_sources.json`` records how the
+planner receives the two roles, and for ``codex`` — which prepends the system
+prompt to the first user message — ``effective_prompt.md`` also contains that
+prefixed single message. ``api`` and ``claude_code`` keep the roles separate,
+and ``flash`` does not receive the prompt. SDK-managed planners may still add
+their own context, so these artifacts cover RPent's contribution, not the
+model's complete final context.
 
-Add ``--dump-prompt`` to any robot command to render the prompt, write both
-files, print the result, and exit without starting simulators or models. The
-dump runs before the run's memory preparation, so it neither creates nor syncs
-memory, and it bypasses the operator TTY gates of real-robot commands. Its
-artifacts record ``memory prepared: no``, and RPent warns on stderr when the
-memory sections are absent; a run's own ``effective_prompt.md`` is authoritative
-for what the model received. The dump cannot be combined with ``--dashboard``,
-which assembles prompts per claimed task in its own session loop:
+Add ``--dump-prompt`` to any robot command to render the prompt, print it, and
+exit without starting simulators or models. The dump runs before the run's
+memory preparation, so it neither creates nor syncs memory, bypasses the
+operator TTY gates of real-robot commands, and writes no run artifacts; RPent
+warns on stderr when the memory sections are absent, and a run's own
+``effective_prompt.md`` is authoritative for what the model received. The dump
+cannot be combined with ``--dashboard``, which assembles prompts per claimed
+task in its own session loop:
 
 .. code-block:: bash
 
    rpent --robot libero --suite libero_object_task --task 0 \
      --output-dir /tmp/libero-prompt --dump-prompt
 
-The assembly order is fixed: base rules, run-mode contract, tool guidance, the
-robot's domain prompt, and the memory guidance this run can use. The reading
+The assembly order is fixed: base rules, the run-axis contracts, tool guidance,
+the robot's domain prompt, and the memory guidance this run can use. The reading
 protocol requires an existing corpus; exploration also receives the proposal
 contract. Each section in ``prompt_sources.json`` names the module that owns its
 text. The file also records how the selected planner receives the two roles;
-``api`` keeps them separate, while ``claude_code`` and ``codex`` prefix the
+``api`` and ``claude_code`` keep them separate, while ``codex`` prefixes the
 system prompt to the first user message.
 
 .. _planner-direct-actions:

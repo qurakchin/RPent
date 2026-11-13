@@ -27,8 +27,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from robots.robodojo.prompt_bundle import (
-    prompt_sections,
     system_prompt,
+    tool_sections,
     user_prompt,
 )
 from rpent.dashboard.events import DashboardEventSink
@@ -198,7 +198,7 @@ def get_robot_spec() -> RobotSpec:
         prompts=PromptBundle(
             system=system_prompt,
             user=user_prompt,
-            prompt_sections=prompt_sections,
+            tool_sections=tool_sections,
             source="robots/robodojo/prompts",
         ),
         add_cli_args=_add_cli_args,

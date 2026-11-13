@@ -30,8 +30,8 @@ from robots.robocasa.env_client import RoboCasaEnvClient
 from robots.robocasa.env_server import DEFAULT_CAMS, RoboCasaEnvFacade
 from robots.robocasa.primitives import RoboCasaPrimitives
 from robots.robocasa.prompt_bundle import (
-    prompt_sections,
     system_prompt,
+    tool_sections,
     user_prompt,
 )
 from robots.robocasa.toolkit import _capture_robocasa_call
@@ -95,7 +95,7 @@ def test_prompt_requires_live_task_language_and_fresh_geometry(tmp_path: Path) -
         PromptBundle(
             system=system_prompt,
             user=user_prompt,
-            prompt_sections=prompt_sections,
+            tool_sections=tool_sections,
         ),
         robot_name="robocasa",
         variables={
@@ -108,7 +108,7 @@ def test_prompt_requires_live_task_language_and_fresh_geometry(tmp_path: Path) -
             "memory_profile": "hf",
             "memory_dir": str(tmp_path / "results"),
         },
-        modes=("evaluate",),
+        axes=("evaluate",),
     ).system
 
     assert "complete live task_language" in rendered

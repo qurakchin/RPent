@@ -36,8 +36,8 @@ from rpent.dashboard.events import RunStartedEvent
 from rpent.evaluation import RunFinalizationContext
 from rpent.memory import MemoryManager
 from rpent.planner.base import build_planner, is_recoverable_agent_error
-from rpent.prompt.artifacts import write_prompt_artifacts
-from rpent.prompt.assembly import build_robot_prompt, run_modes
+from rpent.prompt.assembly import build_robot_prompt, run_axes
+from rpent.prompt.prompt_artifacts import write_prompt_artifacts
 from rpent.robots import get_toolkit
 from rpent.session.planner_capture import end_planner_task, start_planner_task
 from rpent.utils.config import get_memory_dir
@@ -241,7 +241,7 @@ def _run_dashboard_task(
                 **shared_runtime_kwargs,
             }
             prompt_vars = {**run_config.prompt_vars, "output_dir": output_dir}
-            modes = run_modes(
+            axes = run_axes(
                 explore=bool(getattr(task_args, "explore", False)),
                 dashboard=True,
                 real_robot=bool(robot_spec.is_real_robot),
@@ -274,7 +274,7 @@ def _run_dashboard_task(
                         "session_number": session_number,
                         "session_max": sessions,
                     },
-                    modes=modes,
+                    axes=axes,
                 )
                 system_prompt = assembled.system
                 if session_number > 1:
@@ -296,7 +296,7 @@ def _run_dashboard_task(
                     assembled=assembled,
                     robot_name=args.robot_name,
                     planner=task_args.planner,
-                    modes=modes,
+                    axes=axes,
                     user_message=session_message,
                 )
                 if session_number == 1:

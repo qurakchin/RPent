@@ -30,9 +30,9 @@
      - 机器人名，对应 ``--robot``。
    * - ``prompts``
      - ``PromptBundle``：``system`` 与 ``user`` 两套领域 prompt 工厂，以及可选的
-       ``prompt_sections`` 工具说明工厂（见
+       ``tool_sections`` 工具说明工厂（见
        ``robots/<robot>/prompt_bundle.py``）。共享拼装层会在它们前后加入
-       base、运行模式和记忆片段。
+       base、运行轴和记忆片段。
    * - ``dashboard``
      - 可选的 Dashboard 描述。设为 ``None`` 时，该机器人不支持 Dashboard 控制；
        否则由该配置定义任务命令与字段、运行组件和图像通道。

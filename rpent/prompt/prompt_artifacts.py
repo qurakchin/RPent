@@ -22,8 +22,6 @@ handoffs do not overwrite each other's evidence.
 
 from __future__ import annotations
 
-import hashlib
-import json
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -32,6 +30,7 @@ from rpent.prompt.assembly import (
     AssembledPrompt,
     prefix_system_prompt,
 )
+from rpent.utils.files import write_json_atomic, write_text_atomic
 
 EFFECTIVE_PROMPT = "effective_prompt.md"
 PROMPT_SOURCES = "prompt_sources.json"
@@ -57,9 +56,8 @@ def write_prompt_artifacts(
     assembled: AssembledPrompt,
     robot_name: str,
     planner: str,
-    modes: Sequence[str],
+    axes: Sequence[str],
     user_message: str,
-    memory_prepared: bool = True,
 ) -> tuple[Path, Path]:
     """Write ``effective_prompt.md`` and ``prompt_sources.json``.
 
@@ -68,44 +66,32 @@ def write_prompt_artifacts(
         assembled: Rendered prompts and section provenance.
         robot_name: Robot registry name.
         planner: Planner name recorded with the prompt.
-        modes: Run modes that shaped this prompt.
+        axes: Run axes that shaped this prompt.
         user_message: The exact opening message handed to the planner.
-        memory_prepared: Whether memory preparation ran before assembly. A
-            ``--dump-prompt`` render skips it, so its memory sections describe
-            the local corpus rather than what a run would synchronize.
 
     Returns:
         Paths of the prompt and sources files.
     """
     directory.mkdir(parents=True, exist_ok=True)
-    prompt_path = directory / EFFECTIVE_PROMPT
-    sources_path = directory / PROMPT_SOURCES
-    prompt_path.write_text(
+    prompt_path = write_text_atomic(
+        directory / EFFECTIVE_PROMPT,
         effective_prompt_markdown(
             assembled,
             robot_name=robot_name,
             planner=planner,
-            modes=modes,
+            axes=axes,
             user_message=user_message,
-            memory_prepared=memory_prepared,
         ),
-        encoding="utf-8",
     )
-    sources_path.write_text(
-        json.dumps(
-            prompt_sources(
-                assembled,
-                robot_name=robot_name,
-                planner=planner,
-                modes=modes,
-                user_message=user_message,
-                memory_prepared=memory_prepared,
-            ),
-            indent=2,
-            ensure_ascii=False,
-        )
-        + "\n",
-        encoding="utf-8",
+    sources_path = write_json_atomic(
+        directory / PROMPT_SOURCES,
+        prompt_sources(
+            assembled,
+            robot_name=robot_name,
+            planner=planner,
+            axes=axes,
+        ),
+        ensure_ascii=False,
     )
     return prompt_path, sources_path
 
@@ -115,9 +101,8 @@ def effective_prompt_markdown(
     *,
     robot_name: str,
     planner: str,
-    modes: Sequence[str],
+    axes: Sequence[str],
     user_message: str,
-    memory_prepared: bool = True,
 ) -> str:
     """Render the prompt artifact for humans."""
     layout = PLANNER_PROMPT_LAYOUT.get(planner, "unknown")
@@ -126,8 +111,7 @@ def effective_prompt_markdown(
         "",
         f"- robot: `{robot_name}`",
         f"- planner: `{planner}` ({layout})",
-        f"- modes: {', '.join(f'`{mode}`' for mode in modes)}",
-        f"- memory prepared: {'yes' if memory_prepared else 'no (--dump-prompt)'}",
+        f"- axes: {', '.join(f'`{axis}`' for axis in axes)}",
         f"- prompt_sha256: `{assembled.prompt_sha256}`",
         "",
         "## System prompt",
@@ -161,26 +145,20 @@ def prompt_sources(
     *,
     robot_name: str,
     planner: str,
-    modes: Sequence[str],
-    user_message: str,
-    memory_prepared: bool = True,
+    axes: Sequence[str],
 ) -> Mapping[str, object]:
     """Build the machine-readable prompt provenance record.
 
     ``prompt_sha256`` covers the assembled system and robot user prompt.
     ``planner_prompt_layout`` records how the planner frames the two roles, and
     ``effective_prompt.md`` contains the delivered text for prefixing planners,
-    so a second digest of the same text is not recorded. ``user_message_sha256``
-    covers the opening message actually delivered, which a continuation session
-    replaces with its handoff text.
+    so a second digest of the same text is not recorded.
     """
     return {
         "robot": robot_name,
         "planner": planner,
         "planner_prompt_layout": PLANNER_PROMPT_LAYOUT.get(planner, "unknown"),
-        "modes": list(modes),
-        "memory_prepared": memory_prepared,
+        "axes": list(axes),
         "prompt_sha256": assembled.prompt_sha256,
-        "user_message_sha256": hashlib.sha256(user_message.encode("utf-8")).hexdigest(),
         "sections": list(assembled.sections),
     }

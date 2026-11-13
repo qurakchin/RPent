@@ -42,11 +42,11 @@ def system_prompt(
     )
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return the dual-Franka tool guidance for the tools layer."""
-    return tool_parts.prompt_sections(variables)
+    return tool_parts.tool_sections(variables)
 
 
 def user_prompt(

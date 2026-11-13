@@ -32,9 +32,9 @@ functions implemented in ``robot_spec.py`` for ``main.py`` to call:
      - Robot name for ``--robot``.
    * - ``prompts``
      - A ``PromptBundle`` with ``system`` and ``user`` domain prompt factories
-       and an optional ``prompt_sections`` factory for tool guidance (see
+       and an optional ``tool_sections`` factory for tool guidance (see
        ``robots/<robot>/prompt_bundle.py``). The shared assembly layer adds the
-       base, run-mode, and memory fragments around them.
+       base, run-axis, and memory fragments around them.
    * - ``dashboard``
      - Optional Dashboard description. ``None`` disables Dashboard control for
        the robot. Otherwise, the spec defines its task command and

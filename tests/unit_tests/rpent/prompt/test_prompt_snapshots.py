@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from rpent.prompt.assembly import build_robot_prompt, prompt_sha256, run_modes
+from rpent.prompt.assembly import build_robot_prompt, prompt_sha256, run_axes
 from rpent.robots import get_robot_spec
 from tests.unit_tests.rpent.robots.test_registry_contracts import PROMPT_VARIABLES
 
@@ -76,7 +76,7 @@ def _rendered_snapshot(memory: Path) -> dict[str, dict[str, object]]:
                 spec.prompts,
                 robot_name=robot_name,
                 variables=variables,
-                modes=run_modes(
+                axes=run_axes(
                     explore=explore,
                     dashboard=dashboard,
                     real_robot=spec.is_real_robot,

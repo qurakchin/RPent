@@ -55,7 +55,6 @@ from rpent.planner.base import (
     strip_mcp_prefix,
 )
 from rpent.planner.utils.http_mcp_server import mcp_result
-from rpent.prompt.assembly import prefix_system_prompt
 from rpent.session import MissingInfo, Payload
 from rpent.session.claude_capture import ClaudeTraceCapture
 from rpent.session.env_capture import ToolCallCapture
@@ -119,10 +118,10 @@ class ClaudeCodePlanner(Planner):
             raise ValueError(
                 "input_queue and dashboard_interaction cannot be used together"
             )
-        prompt = prefix_system_prompt(system_prompt, user_message)
         return asyncio.run(
             self._solve_async(
-                prompt,
+                user_message,
+                system_prompt=system_prompt,
                 initial_user_text=user_message,
                 toolkit=toolkit,
                 max_turns=max_turns,
@@ -137,6 +136,7 @@ class ClaudeCodePlanner(Planner):
         self,
         prompt: str,
         *,
+        system_prompt: str,
         initial_user_text: str,
         toolkit: Toolkit,
         max_turns: int,
@@ -167,7 +167,11 @@ class ClaudeCodePlanner(Planner):
             task = None
         run_id = uuid4().hex if task is not None and task.status == "running" else None
         options = self._build_options(
-            sdk, toolkit=toolkit, max_turns=max_turns, run_id=run_id
+            sdk,
+            toolkit=toolkit,
+            max_turns=max_turns,
+            run_id=run_id,
+            system_prompt=system_prompt,
         )
 
         logger.info("prompt: %d chars", len(prompt))
@@ -371,7 +375,13 @@ class ClaudeCodePlanner(Planner):
     # -- options + tool bridge ---------------------------------------------
 
     def _build_options(
-        self, sdk: Any, *, toolkit: Toolkit, max_turns: int, run_id: str | None = None
+        self,
+        sdk: Any,
+        *,
+        toolkit: Toolkit,
+        max_turns: int,
+        run_id: str | None = None,
+        system_prompt: str = "",
     ) -> Any:
         allowed = [
             part for part in self._allowed_tools.replace(",", " ").split() if part
@@ -389,6 +399,13 @@ class ClaudeCodePlanner(Planner):
             max_turns=max_turns,
             max_budget_usd=self._max_budget_usd,
             max_buffer_size=_MAX_STREAM_BUFFER_BYTES,
+            # Keep the SDK's Claude Code preset and append RPent's rules, so the
+            # system prompt stays a system message the SDK can cache.
+            system_prompt=(
+                {"type": "preset", "preset": "claude_code", "append": system_prompt}
+                if system_prompt
+                else None
+            ),
             tools=builtins or None,
             allowed_tools=list(dict.fromkeys(allowed)),
             mcp_servers={

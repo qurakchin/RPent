@@ -39,32 +39,33 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 每次会话都会把模型实际收到的输入写入该会话的 state 目录：评测运行使用输出
 目录，探索运行使用 ``sessions/session_NNN/``。``effective_prompt.md`` 包含
 渲染后的系统提示词和用户消息，``prompt_sources.json`` 记录机器人、规划器、
-运行模式、各段名称、来源，以及拼装后提示词和开场用户消息的哈希。对话记录中
+运行轴、各段名称、来源，以及拼装后提示词的哈希。对话记录中
 保存本次运行第一个会话的 ``prompt_sha256``；
 后续探索会话的产物位于各自的 ``sessions/session_NNN/`` 下。该哈希覆盖拼装出的
 系统提示词和用户消息。``prompt_sources.json`` 记录规划器接收两种角色的方式；
-对会把 system prompt 拼到第一条 user 消息前面的 ``claude_code`` 和 ``codex``，
-``effective_prompt.md`` 还会写出这条拼接后的消息。``api`` 保持两种角色分离，
-``flash`` 不接收提示词。由 SDK 管理上下文的规划器还可能在 RPent 之外补充内容，
-因此这些产物覆盖的是 RPent 的贡献，而不是模型最终的完整上下文。
+对会把 system prompt 拼到第一条 user 消息前面的 ``codex``，
+``effective_prompt.md`` 还会写出这条拼接后的消息。``api`` 和 ``claude_code``
+保持两种角色分离，``flash`` 不接收提示词。由 SDK 管理上下文的规划器还可能在
+RPent 之外补充内容，因此这些产物覆盖的是 RPent 的贡献，而不是模型最终的完整
+上下文。
 
-在任意机器人命令后加上 ``--dump-prompt``，即可渲染提示词、写出上述两个
-文件、打印结果并退出，不启动仿真器或模型。dump 在本次运行的记忆准备之前执行，
-因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁。它的产物标记
-``memory prepared: no``，记忆段缺失时 RPent 会在 stderr 给出提示；模型实际收到
-的提示词以运行时写出的 ``effective_prompt.md`` 为准。dump 不能与
-``--dashboard`` 同时使用，后者在自身的会话循环中按认领的任务拼装提示词：
+在任意机器人命令后加上 ``--dump-prompt``，即可渲染提示词、打印结果并退出，
+不启动仿真器或模型。dump 在本次运行的记忆准备之前执行，因此既不创建也不同步
+memory，跳过真机命令的操作员 TTY 门禁，也不写运行产物；记忆段缺失时 RPent 会
+在 stderr 给出提示，模型实际收到的提示词以运行时写出的
+``effective_prompt.md`` 为准。dump 不能与 ``--dashboard`` 同时使用，后者在
+自身的会话循环中按认领的任务拼装提示词：
 
 .. code-block:: bash
 
    rpent --robot libero --suite libero_object_task --task 0 \
      --output-dir /tmp/libero-prompt --dump-prompt
 
-拼装顺序固定为：基础规则、运行模式契约、工具说明、机器人领域提示词，以及本次
+拼装顺序固定为：基础规则、运行轴契约、工具说明、机器人领域提示词，以及本次
 运行可用的记忆说明。读取协议要求记忆语料已经存在；探索运行还会得到提案契约。
 ``prompt_sources.json`` 中的每一段都记录文本所在的模块文件。该文件还会记录
-所选规划器接收两种角色的方式：``api`` 将二者分开，``claude_code`` 和 ``codex``
-则把系统提示词拼到第一条用户消息前面。
+所选规划器接收两种角色的方式：``api`` 和 ``claude_code`` 将二者分开，
+``codex`` 则把系统提示词拼到第一条用户消息前面。
 
 .. _planner-direct-actions:
 

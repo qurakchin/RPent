@@ -46,7 +46,7 @@ may contain NaN; visible surface points are not automatically object centers.
 Relocalize after occlusion, contact, or substantial arm/object motion."""
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return tool guidance for the selected policy."""

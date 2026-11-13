@@ -78,7 +78,7 @@ these two functions:
    from rpent.robots.prompt_bundle import PromptBundle
    from rpent.utils.config import get_memory_dir
    from robots.myrobot.prompt_bundle import (
-       prompt_sections,
+       tool_sections,
        system_prompt,
        user_prompt,
    )
@@ -91,7 +91,7 @@ these two functions:
            prompts=PromptBundle(
                system=system_prompt,
                user=user_prompt,
-               prompt_sections=prompt_sections,
+               tool_sections=tool_sections,
                source="robots/myrobot/prompts",
            ),
            add_cli_args=_add_cli_args,
@@ -255,14 +255,14 @@ and build a ``PromptBundle`` in the robot's ``robot_spec.py`` (see the entry
 point above). Each factory returns an ordered ``Mapping[str, PromptNode]`` or
 ``tuple[PromptSection, ...]`` of titled sections. The robot does not own the
 whole prompt: RPent's assembly
-layer puts the shared fragments and the run-mode contract around the robot's
+layer puts the shared fragments and the run-axis contracts around the robot's
 contribution in a fixed order:
 
 .. code-block:: text
 
    base → mode → tool guidance → robot domain → memory
 
-``base`` and ``mode`` come from ``rpent/prompt/fragments`` (role, general
+``base`` and the run-axis fragments come from ``rpent/prompt/fragments`` (role, general
 rules, output habits, the evaluate / explore / interactive / real-robot
 contracts, and the runner-ownership rule for physical hardware); ``memory``
 comes from the shared memory fragments whenever the run has a memory directory:
@@ -271,9 +271,9 @@ in exploration, how to propose a merge. The robot contributes:
 
 - ``system`` / ``user`` — its domain knowledge: layout, coordinate conventions,
   task families, object names, failure modes, and the user task message.
-- ``prompt_sections`` — usage guidance for tools that exist only in this slice,
+- ``tool_sections`` — usage guidance for tools that exist only in this slice,
   such as native tools. Shared tools are described by their tool families, so
-  do not repeat a family's guidance here, and omit ``prompt_sections`` when the
+  do not repeat a family's guidance here, and omit ``tool_sections`` when the
   slice adds no native tool. Return a ``Sequence[PromptSection]`` or a
   ``Mapping[str, PromptNode]``; the same prompt variables are passed in. Keep it
   a pure function of the variables so ``--dump-prompt`` can render without
@@ -288,8 +288,8 @@ One prompt serves every planner (API loop, Claude Code, Codex): refer to tools
 by their bare names (``move_to``, ...) and note once that the Claude Code and
 Codex SDKs show them as ``mcp__rpent__<name>``. Do not maintain separate prompt
 copies for CLI and API planners. ``prompt_sources.json`` records how the chosen
-planner receives the two roles (a separate system prompt for ``api``, the
-system prompt prefixed to the first user message for ``claude_code`` and
+planner receives the two roles (a separate system prompt for ``api`` and
+``claude_code``, the system prompt prefixed to the first user message for
 ``codex``) and, for prefixing planners, ``effective_prompt.md`` contains the
 delivered text as one
 message. Claude Code and Codex manage the model context in their SDK, so their
@@ -324,7 +324,7 @@ delivered, not the complete final context.
            role="user",
        )
 
-   def prompt_sections(variables) -> tuple[PromptSection, ...]:
+   def tool_sections(variables) -> tuple[PromptSection, ...]:
        return sections(
            tool_parts.__file__,
            {
@@ -336,7 +336,7 @@ delivered, not the complete final context.
    prompts=PromptBundle(
        system=system_prompt,
        user=user_prompt,
-       prompt_sections=prompt_sections,
+       tool_sections=tool_sections,
        source="robots/myrobot/prompts",
    )
 
@@ -347,15 +347,15 @@ bodies are plain strings (or ``BulletList`` / ``Numbered``) with ``{{suite}}`` /
 placeholders filled at render time.
 
 To inspect the exact prompt without starting a simulator or model, run
-``rpent --robot myrobot ... --dump-prompt``. The dump renders, writes the two
-files, and exits before memory preparation, so it neither creates nor syncs
-memory, and it skips the operator TTY gates of real-robot commands. Its
-artifacts record ``memory prepared: no``. It cannot be
+``rpent --robot myrobot ... --dump-prompt``. The dump prints the rendered
+prompt and exits before memory preparation, so it neither creates nor syncs
+memory, skips the operator TTY gates of real-robot commands, and writes no run
+artifacts; a run's own prompt files remain the recorded evidence. It cannot be
 combined with ``--dashboard``, which assembles prompts per claimed task in its
-own session loop. Each session also writes
-``effective_prompt.md`` and ``prompt_sources.json`` to its state directory (the
-output directory, or ``sessions/session_NNN/`` during exploration) and records
-``prompt_sha256`` in the transcript.
+own session loop. Each session writes ``effective_prompt.md`` and
+``prompt_sources.json`` to its state directory (the output directory, or
+``sessions/session_NNN/`` during exploration) and records ``prompt_sha256`` in
+the transcript.
 
 .. _add-robot-toolkit:
 

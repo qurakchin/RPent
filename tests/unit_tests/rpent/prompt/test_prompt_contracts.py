@@ -19,7 +19,7 @@ checks keep the model-facing instructions consistent with the shared sources
 and the memory manager:
 
 - shared tool usage belongs to the tool families; a robot's
-  ``prompt_sections`` covers only tools that exist in that slice and may be
+  ``tool_sections`` covers only tools that exist in that slice and may be
   omitted;
 - prompts name tools without restating their call signatures;
 - no prompt asks for ``corroborations.jsonl`` or ``conflict_<id>.md``, which
@@ -37,7 +37,7 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
-from rpent.prompt.assembly import build_robot_prompt, fragment, run_modes
+from rpent.prompt.assembly import build_robot_prompt, fragment, run_axes
 from rpent.prompt.utils import format_prompt
 from rpent.robots import get_robot_spec
 from rpent.robots.prompt_bundle import PromptBundle
@@ -168,7 +168,7 @@ def _render(robot: str, *, explore: bool, memory: Path, dashboard: bool = False)
         spec.prompts,
         robot_name=robot,
         variables=variables,
-        modes=run_modes(
+        axes=run_axes(
             explore=explore,
             dashboard=dashboard,
             real_robot=spec.is_real_robot,
@@ -187,20 +187,20 @@ def test_a_slice_may_contribute_no_tool_sections() -> None:
     """A slice with only family tools contributes domain, not tool guidance.
 
     Shared tool usage belongs to the tool families (a_3). Requiring every
-    robot's ``prompt_sections`` would keep that guidance in the slices after
+    robot's ``tool_sections`` would keep that guidance in the slices after
     the families take it over.
     """
     bundle = PromptBundle(
         system=lambda variables: {"DOMAIN": "domain knowledge"},
         user=lambda variables: {"TASK": "user task"},
-        prompt_sections=None,
+        tool_sections=None,
     )
 
     assembled = build_robot_prompt(
         bundle,
         robot_name="fixture",
         variables={},
-        modes=("evaluate",),
+        axes=("evaluate",),
     )
 
     assert "domain knowledge" in assembled.system
@@ -408,8 +408,8 @@ def _rendered_slice_text(robot: str, memory: Path) -> dict[str, int]:
     bundle = get_robot_spec(robot).prompts
     variables = {**PROMPT_VARIABLES[robot], "memory_dir": str(memory)}
     tools = (
-        _section_nodes(bundle.prompt_sections(variables))
-        if bundle.prompt_sections is not None
+        _section_nodes(bundle.tool_sections(variables))
+        if bundle.tool_sections is not None
         else ()
     )
     return {

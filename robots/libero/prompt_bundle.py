@@ -58,11 +58,11 @@ def user_prompt(
     return sections(user_parts.__file__, node, role="user")
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return the LIBERO tool guidance for the selected policy and mode."""
-    return tool_parts.prompt_sections(variables)
+    return tool_parts.tool_sections(variables)
 
 
-__all__ = ["system_prompt", "user_prompt", "prompt_sections"]
+__all__ = ["system_prompt", "user_prompt", "tool_sections"]

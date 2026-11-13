@@ -52,11 +52,11 @@ def user_prompt(
     return sections(user_parts.__file__, prompt, role="user")
 
 
-__all__ = ["system_prompt", "user_prompt", "prompt_sections"]
+__all__ = ["system_prompt", "user_prompt", "tool_sections"]
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return the RoboDojo tool guidance for the selected VLA backend."""
-    return tool_parts.prompt_sections(variables)
+    return tool_parts.tool_sections(variables)

@@ -28,7 +28,7 @@ import pytest
 from robots.robocasa.prompt_bundle import system_prompt
 from robots.robocasa.robot_spec import _parse_config
 from rpent.memory import MemoryManager
-from rpent.prompt.assembly import build_robot_prompt, run_modes
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 from rpent.prompt.utils import format_prompt
 from rpent.tools import ToolResult
 from rpent.tools.common import CommonTools
@@ -170,7 +170,7 @@ def test_all_50_tasks_share_prompt_and_tool_selection(tmp_path, make_corpus):
                 "memory_dir": str(root),
                 "output_dir": tmp_path / "run",
             },
-            modes=run_modes(explore=False, dashboard=False, real_robot=False),
+            axes=run_axes(explore=False, dashboard=False, real_robot=False),
         ).system
         for name in selection.selected:
             assert str(root / name) in prompt
@@ -564,7 +564,7 @@ def test_native_merge_output_shares_prompt_tool_and_audit_selection(
             "mode": "eval",
             "output_dir": tmp_path / "run",
         },
-        modes=run_modes(explore=False, dashboard=False, real_robot=False),
+        axes=run_axes(explore=False, dashboard=False, real_robot=False),
     ).system
     for name in expected:
         assert str(root / name) in prompt
@@ -693,7 +693,7 @@ def test_exploration_can_start_empty_and_keeps_inbox_access(
         robot_spec.get_robot_spec().prompts,
         robot_name="robocasa",
         variables={**config.prompt_vars, "output_dir": str(config.output_dir)},
-        modes=run_modes(explore=True, dashboard=False, real_robot=False),
+        axes=run_axes(explore=True, dashboard=False, real_robot=False),
     ).system
     for directory in (
         root / "task-specific",

@@ -13,7 +13,7 @@ from robots.robodojo.primitives import RoboDojoPrimitives
 from robots.robodojo.toolkit import RoboDojoToolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
-from rpent.prompt.assembly import build_robot_prompt, run_modes
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 from rpent.tools.toolkit import ToolCancelled
 
 
@@ -635,7 +635,7 @@ def test_explore_defaults_and_scene_identity_in_config(tmp_path):
         robot_spec.get_robot_spec().prompts,
         robot_name="robodojo",
         variables={**config.prompt_vars, "output_dir": str(tmp_path)},
-        modes=run_modes(explore=True, dashboard=False, real_robot=False),
+        axes=run_axes(explore=True, dashboard=False, real_robot=False),
     )
     assert "5 attempts" in " ".join(assembled.system.split())
     args.random = True
@@ -664,7 +664,7 @@ def test_policy_prompts_match_configured_backend(tmp_path, mode, backend, backen
         prompts,
         robot_name="robodojo",
         variables=variables,
-        modes=run_modes(explore=args.explore, dashboard=False, real_robot=False),
+        axes=run_axes(explore=args.explore, dashboard=False, real_robot=False),
     )
     system = assembled.system
     prompt = " ".join(system.split())
@@ -714,7 +714,7 @@ def test_evaluation_references_seed_zero_without_changing_output_identity(
         robot_spec.get_robot_spec().prompts,
         robot_name="robodojo",
         variables={**config.prompt_vars, "output_dir": str(tmp_path)},
-        modes=run_modes(explore=False, dashboard=False, real_robot=False),
+        axes=run_axes(explore=False, dashboard=False, real_robot=False),
     )
     prompt = assembled.system
     memory = config.prompt_vars["memory_dir"]
