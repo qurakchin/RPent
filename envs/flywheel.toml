@@ -1,9 +1,0 @@
-schema = 1
-name = "flywheel"
-python = "3.11"
-platform = "linux-x86_64"
-lock = "envs/locks/flywheel.lock"
-description = "LeRobot trajectory export and replay dependencies."
-
-[components.flywheel]
-placement = "in-env"

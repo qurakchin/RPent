@@ -1,9 +1,0 @@
-schema = 1
-name = "robocasa"
-python = "3.10"
-platform = "linux-x86_64"
-lock = "envs/locks/robocasa.lock"
-description = "RoboCasa simulation with RLinf's RoboCasa365 and RLDX stack."
-
-[components.robocasa]
-placement = "in-env"

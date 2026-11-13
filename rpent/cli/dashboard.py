@@ -34,7 +34,7 @@ from rpent.cli.main import (
 )
 from rpent.dashboard.events import RunStartedEvent
 from rpent.evaluation import RunFinalizationContext
-from rpent.install.runtime import record_run_environment
+from rpent.install.snapshot import record_run_environment
 from rpent.memory import MemoryManager
 from rpent.planner.base import build_planner, is_recoverable_agent_error
 from rpent.robots import get_toolkit

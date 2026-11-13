@@ -20,8 +20,9 @@ from rpent.install.discovery import discover, discover_components, discover_prof
 from rpent.install.errors import InstallConfigError
 
 
-def _manifest(write_toml, relative, name, kind, *, conflicts=()):
+def _manifest(write_toml, relative, name, kind, *, conflicts=(), requires=()):
     rendered = ", ".join(f'"{item}"' for item in conflicts)
+    required = ", ".join(f'"{item}"' for item in requires)
     return write_toml(
         f"{relative}/{name}/component.toml",
         f"""
@@ -29,6 +30,7 @@ def _manifest(write_toml, relative, name, kind, *, conflicts=()):
         name = "{name}"
         kind = "{kind}"
         probe = "{name}"
+        requires = [{required}]
         env_conflicts = [{rendered}]
         """,
     )
@@ -39,7 +41,7 @@ def test_discovery_loads_components_profiles_and_conflict_symmetry(
 ):
     _manifest(write_toml, "robots", "alpha", "robot", conflicts=["beta"])
     _manifest(write_toml, "robots", "beta", "robot", conflicts=["alpha"])
-    _manifest(write_toml, "rpent/robots/components", "sam3", "capability")
+    _manifest(write_toml, "capabilities", "sam3", "capability")
     write_toml(
         "envs/alpha.toml",
         """
@@ -113,6 +115,64 @@ def test_profiles_are_discovered_by_filename(tmp_path, write_toml):
     profiles = discover_profiles(tmp_path)
 
     assert profiles["alpha"].python == "3.10"
+
+
+def test_profiles_require_a_source_checkout(tmp_path):
+    with pytest.raises(InstallConfigError, match="envs.*does not exist"):
+        discover_profiles(tmp_path)
+
+
+def test_imports_must_be_declared_in_requires(tmp_path, write_toml):
+    write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "alpha"
+        imports = ["beta"]
+        """,
+    )
+    _manifest(write_toml, "robots", "beta", "robot")
+
+    with pytest.raises(InstallConfigError, match="neither.*requires the other"):
+        discover_components(tmp_path)
+
+
+def test_imports_may_rely_on_the_other_components_requires(tmp_path, write_toml):
+    write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "alpha"
+        imports = ["beta"]
+        """,
+    )
+    _manifest(write_toml, "robots", "beta", "robot", requires=["alpha"])
+
+    components = discover_components(tmp_path)
+
+    assert components["alpha"].imports == ("beta",)
+
+
+def test_imports_must_name_a_same_kind_component(tmp_path, write_toml):
+    write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "alpha"
+        requires = ["sam3"]
+        imports = ["sam3"]
+        """,
+    )
+    _manifest(write_toml, "capabilities", "sam3", "capability")
+
+    with pytest.raises(InstallConfigError, match="must name a robot component"):
+        discover_components(tmp_path)
 
 
 def test_apple_double_metadata_is_ignored(tmp_path, write_toml):

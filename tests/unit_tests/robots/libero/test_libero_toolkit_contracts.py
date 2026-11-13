@@ -27,11 +27,11 @@ from typing import Any
 import numpy as np
 import pytest
 
+from capabilities.sam3.client import Sam3Result
 from robots.libero import robot_spec, toolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
 from rpent.robots import RunConfig
-from rpent.robots.components.sam3.client import Sam3Result
 from rpent.session import EnvState
 from rpent.tools import Toolkit, ToolResult
 from rpent.tools.common import CommonTools

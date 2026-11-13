@@ -1,0 +1,11 @@
+schema = 1
+name = "robocasa-sim"
+python = "3.10"
+platform = "linux-x86_64"
+lock = "envs/locks/robocasa-sim.lock"
+# Compatibility alias: the extra name predates the profile rename.
+extra = "robocasa"
+description = "RoboCasa simulation with RLinf's RoboCasa365 and RLDX stack."
+
+[components.robocasa]
+placement = "in-env"

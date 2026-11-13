@@ -30,7 +30,7 @@ from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.fingerprint import current_venv
 from rpent.install.installer import install, resolve_install_target
 from rpent.install.lock import lock_profiles
-from rpent.install.locks import lock_problems
+from rpent.install.lock_coverage import lock_problems
 from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import Resolution, resolve
 from rpent.utils.config import get_repo_root
@@ -191,7 +191,7 @@ def build_parser() -> argparse.ArgumentParser:
     check.set_defaults(handler=command_check)
 
     installer = subcommands.add_parser(
-        "install", help="install a profile (or one component for diagnostics)"
+        "install", help="install one named profile into a virtualenv"
     )
     installer.add_argument("target")
     installer.add_argument("--venv", type=Path, help="virtualenv path")

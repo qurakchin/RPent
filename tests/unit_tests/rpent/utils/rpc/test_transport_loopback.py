@@ -31,8 +31,8 @@ from typing import Literal
 import numpy as np
 import pytest
 
-from rpent.robots.components.env_client_base import BaseEnvClient
-from rpent.robots.components.env_facade_base import BaseEnvFacade
+from rpent.env.client import BaseEnvClient
+from rpent.env.facade import BaseEnvFacade
 from rpent.utils.daemon import pick_free_port
 from rpent.utils.rpc import (
     RpcClient,

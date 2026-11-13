@@ -14,6 +14,6 @@
 
 """LIBERO's native OSC action layout shared by clients and model adapters."""
 
-from rpent.robots.components.am_platforms import LIBERO_OSC
+from capabilities._base.platforms import LIBERO_OSC
 
 __all__ = ["LIBERO_OSC"]

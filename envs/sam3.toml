@@ -1,9 +1,0 @@
-schema = 1
-name = "sam3"
-python = "3.11"
-platform = "linux-x86_64"
-lock = "envs/locks/sam3.lock"
-description = "SAM 3.0 segmentation runtime used as a diagnostic environment."
-
-[components.sam3]
-placement = "in-env"

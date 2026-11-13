@@ -67,6 +67,8 @@ Documentation = "https://rpent.readthedocs.io/en/latest/"
 
 # --- BEGIN GENERATED EXTRAS: do not edit, run scripts/gen_extras.py ---
 [project.optional-dependencies]
+apxinf = [
+]
 cosmos3 = [
 ]
 cosmos_policy = [
@@ -246,11 +248,6 @@ robodojo = [
     'torch',
     'torchvision',
 ]
-robodojo-sim = [
-    'pyarrow>=21.0.0,<26.0.0',
-    'rlinf @ git+https://github.com/littleZ05/RLinf.git@rpent/robodojo',
-    'rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@rpent',
-]
 robotwin = [
     'nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@v0.7.8',
     'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
@@ -271,6 +268,8 @@ test = [
     'omegaconf',
     'pytest',
     'pytest-timeout',
+]
+xpolicylab = [
 ]
 yam = [
     'huggingface_hub>=0.24,<1',
@@ -295,7 +294,6 @@ conflicts = [
     [{ extra = "dual-franka" }, { extra = "libero-pro-molmo" }],
     [{ extra = "dual-franka" }, { extra = "robocasa" }],
     [{ extra = "dual-franka" }, { extra = "robodojo" }],
-    [{ extra = "dual-franka" }, { extra = "robodojo-sim" }],
     [{ extra = "dual-franka" }, { extra = "robotwin" }],
     [{ extra = "flywheel" }, { extra = "robotwin" }],
     [{ extra = "franka" }, { extra = "libero" }],
@@ -306,34 +304,24 @@ conflicts = [
     [{ extra = "franka" }, { extra = "libero-pro-molmo" }],
     [{ extra = "franka" }, { extra = "robocasa" }],
     [{ extra = "franka" }, { extra = "robodojo" }],
-    [{ extra = "franka" }, { extra = "robodojo-sim" }],
     [{ extra = "franka" }, { extra = "robotwin" }],
     [{ extra = "libero" }, { extra = "robodojo" }],
-    [{ extra = "libero" }, { extra = "robodojo-sim" }],
     [{ extra = "libero" }, { extra = "robotwin" }],
     [{ extra = "libero-openpi-external" }, { extra = "robodojo" }],
-    [{ extra = "libero-openpi-external" }, { extra = "robodojo-sim" }],
     [{ extra = "libero-openpi-external" }, { extra = "robotwin" }],
     [{ extra = "libero-plus" }, { extra = "robodojo" }],
-    [{ extra = "libero-plus" }, { extra = "robodojo-sim" }],
     [{ extra = "libero-plus" }, { extra = "robotwin" }],
     [{ extra = "libero-pro" }, { extra = "robodojo" }],
-    [{ extra = "libero-pro" }, { extra = "robodojo-sim" }],
     [{ extra = "libero-pro" }, { extra = "robotwin" }],
     [{ extra = "libero-pro-flywheel" }, { extra = "robodojo" }],
-    [{ extra = "libero-pro-flywheel" }, { extra = "robodojo-sim" }],
     [{ extra = "libero-pro-flywheel" }, { extra = "robotwin" }],
     [{ extra = "libero-pro-molmo" }, { extra = "robodojo" }],
-    [{ extra = "libero-pro-molmo" }, { extra = "robodojo-sim" }],
     [{ extra = "libero-pro-molmo" }, { extra = "robotwin" }],
     [{ extra = "molmo" }, { extra = "robotwin" }],
     [{ extra = "rlinf" }, { extra = "robodojo" }],
-    [{ extra = "rlinf" }, { extra = "robodojo-sim" }],
     [{ extra = "robocasa" }, { extra = "robodojo" }],
-    [{ extra = "robocasa" }, { extra = "robodojo-sim" }],
     [{ extra = "robocasa" }, { extra = "robotwin" }],
     [{ extra = "robodojo" }, { extra = "robotwin" }],
-    [{ extra = "robodojo-sim" }, { extra = "robotwin" }],
 ]
 # --- END GENERATED EXTRAS ---
 
@@ -347,13 +335,25 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-# robots and toolkits are top-level packages; without them, non-editable
-# installations leave the CLI unable to import any backend. The globs also
-# cover every per-robot subpackage (robots.yam.*, robots.robodojo.*, ...).
-include = ["rpent*", "robots", "robots.*", "toolkits", "toolkits.*"]
+# robots, toolkits and capabilities are top-level packages; without them,
+# non-editable installations leave the CLI unable to import any backend. The
+# globs also cover every per-robot subpackage (robots.yam.*, ...) and every
+# model service (capabilities.molmo.*, ...).
+include = [
+  "rpent*",
+  "robots",
+  "robots.*",
+  "toolkits",
+  "toolkits.*",
+  "capabilities",
+  "capabilities.*",
+]
 exclude = ["tests*", "docs*", "examples*", "docker*"]
 
 [tool.setuptools.package-data]
+# Component manifests are runtime data: discovery reads them from installed
+# packages, so every component package must ship its component.toml.
+"*" = ["component.toml"]
 "robots.robodojo" = ["guides/*.md"]
 "rpent.dashboard" = ["*.html", "static/*.css", "static/*.js"]
 "robots.yam" = ["config/*.yaml", "config/*.json", "guides/*.md"]

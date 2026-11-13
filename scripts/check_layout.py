@@ -13,28 +13,36 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Check component ownership and import boundaries from a_1 section 4.6.
+"""Check repository layout and import boundaries from a_1 section 4.6.
 
 Rules:
 
-- ``toolkits/*`` must not import ``robots`` or ``robots.<name>``.
-- ``robots/<a>`` must not import another ``robots.<b>`` unless the two
-  integrations declare each other through ``requires`` (a co-installed
-  extension such as dual Franka reusing the Franka pipeline).
-- capabilities under ``rpent/robots/components/<name>/`` must not import robots.
-- core ``rpent/**`` must not import ``toolkits.*`` or a concrete ``robots.<x>``.
-  Importing the ``robots`` package itself for discovery is allowed.
+- K1: top-level directories and root files match the a_1 4.1 whitelist.
+- K2: every component directory declares a ``component.toml`` with the
+  matching kind (manifest validity is left to ``rpent-env check``).
+- K4: ``toolkits/`` and ``capabilities/`` must not import ``robots``, and
+  slices, toolkits, or capabilities must not import a sibling of their own
+  kind unless the manifest declares it in ``imports``. Core ``rpent/**`` must
+  not import ``toolkits``, ``capabilities``, or a concrete ``robots.<name>``;
+  importing the ``robots`` package itself for discovery is allowed.
+- K5: core ``rpent/**`` must not name a robot or benchmark (R8).
+- K6: a slice ``robots/<name>/__init__.py`` only re-exports lazily.
+- K7: ``spec.py`` > 80, ``adapter.py`` > 400, and ``native_tools.py`` > 100
+  lines are reported as warnings until a_5 splits them.
 
-The script also checks that every ``robots/*``, ``toolkits/*`` and capability
-directory declares a ``component.toml`` with the matching kind.
+``rpent/robots/components/__init__.py`` is the documented compatibility shim
+that forwards to ``capabilities._base`` for one release, so K4 exempts it.
 """
 
 from __future__ import annotations
 
 import argparse
 import ast
+import re
 import sys
+import tokenize
 from dataclasses import dataclass
+from fnmatch import fnmatch
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -44,6 +52,31 @@ if str(REPO_ROOT) not in sys.path:
 from rpent.install.discovery import discover_components  # noqa: E402
 from rpent.install.errors import InstallConfigError  # noqa: E402
 
+#: Directories a_1 4.1 registers an owner for. Hidden directories are tool
+#: configuration and are exempt.
+ALLOWED_TOP_LEVEL = frozenset(
+    {"rpent", "robots", "toolkits", "capabilities", "envs", "tests", "docs", "scripts"}
+)
+#: Root files a_1 4.1 allows next to the top-level directories.
+ALLOWED_ROOT_FILES = (
+    "pyproject.toml",
+    "README*",
+    "CONTRIBUTING*",
+    "LICENSE",
+    "AGENTS.md",
+    "CLAUDE.md",
+    ".gitignore",
+    ".pre-commit-config.yaml",
+)
+#: Generated, gitignored directories that may appear in a working checkout.
+IGNORED_TOP_LEVEL = frozenset({"memory", "__pycache__"})
+#: The compatibility shim allowed to forward into ``capabilities``.
+CORE_EXEMPTIONS = frozenset({"rpent/robots/components/__init__.py"})
+#: Line-count limits from K7; exceeded counts are warnings until a_5 splits.
+LINE_LIMITS = {"spec.py": 80, "adapter.py": 400, "native_tools.py": 100}
+ERROR = "error"
+WARNING = "warning"
+
 
 @dataclass(frozen=True)
 class Finding:
@@ -52,6 +85,7 @@ class Finding:
     path: Path
     line: int
     message: str
+    level: str = ERROR
 
 
 def _imports(path: Path) -> list[tuple[int, str]]:
@@ -66,12 +100,41 @@ def _imports(path: Path) -> list[tuple[int, str]]:
                 imports.append((node.lineno, alias.name))
         elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
             imports.append((node.lineno, node.module))
+        elif isinstance(node, ast.Call):
+            target = _literal_import_target(node)
+            if target is not None:
+                imports.append((node.lineno, target))
     return imports
+
+
+def _literal_import_target(node: ast.Call) -> str | None:
+    """Return the module named by ``import_module("...")`` and friends."""
+    function = node.func
+    if isinstance(function, ast.Name):
+        name = function.id
+    elif isinstance(function, ast.Attribute):
+        name = function.attr
+    else:
+        return None
+    if name not in {"import_module", "__import__"}:
+        return None
+    if not node.args or not isinstance(node.args[0], ast.Constant):
+        return None
+    value = node.args[0].value
+    return value if isinstance(value, str) else None
 
 
 def _concrete_robot(module: str) -> str | None:
     parts = module.split(".")
     if len(parts) >= 2 and parts[0] == "robots":
+        return parts[1]
+    return None
+
+
+def _sibling_package(module: str, package: str) -> str | None:
+    """Return ``<package>.<name>``'s name for a sibling import."""
+    parts = module.split(".")
+    if len(parts) >= 2 and parts[0] == package:
         return parts[1]
     return None
 
@@ -84,39 +147,57 @@ def _owner(path: Path, root: Path) -> tuple[str, str] | None:
         return "robot", relative[1]
     if relative[0] == "toolkits" and len(relative) > 1:
         return "toolkit", relative[1]
-    if (
-        len(relative) > 4
-        and relative[0] == "rpent"
-        and relative[1] == "robots"
-        and relative[2] == "components"
-    ):
-        return "capability", relative[3]
+    if relative[0] == "capabilities" and len(relative) > 1:
+        return "capability", relative[1]
     if relative[0] == "rpent":
         return "core", ""
     return None
 
 
-def _declared_robot_imports(root: Path) -> dict[str, set[str]]:
-    """Return robot -> robots it may import because they install together."""
+def _declared_imports(root: Path) -> dict[str, set[str]]:
+    """Return component -> siblings it may import because it declares them."""
     try:
         components = discover_components(root)
     except InstallConfigError:
         return {}
-    declared = {
-        name: set(component.requires)
-        for name, component in components.items()
-        if component.kind == "robot"
-    }
-    for name, requires in list(declared.items()):
-        for other in requires:
-            declared.setdefault(other, set()).add(name)
-    return declared
+    return {name: set(component.imports) for name, component in components.items()}
+
+
+def check_top_level(root: Path) -> list[Finding]:
+    """Return K1 violations."""
+    findings: list[Finding] = []
+    for entry in sorted(root.iterdir()):
+        name = entry.name
+        if name.startswith(".") or name in IGNORED_TOP_LEVEL:
+            continue
+        if name.endswith(".egg-info"):
+            continue
+        if entry.is_dir():
+            if name not in ALLOWED_TOP_LEVEL:
+                findings.append(
+                    Finding(
+                        entry,
+                        0,
+                        f"top-level directory {name!r} has no owner; add it to "
+                        "the a_1 4.1 table before creating it",
+                    )
+                )
+        elif not any(fnmatch(name, pattern) for pattern in ALLOWED_ROOT_FILES):
+            findings.append(
+                Finding(
+                    entry,
+                    0,
+                    f"root file {name!r} is not whitelisted; move it into a "
+                    "owned directory or extend the a_1 4.1 whitelist",
+                )
+            )
+    return findings
 
 
 def check_imports(root: Path) -> list[Finding]:
-    """Return import boundary violations under ``root``."""
+    """Return K4 import boundary violations under ``root``."""
     findings: list[Finding] = []
-    declared_imports = _declared_robot_imports(root)
+    declared_imports = _declared_imports(root)
     for path in sorted(root.rglob("*.py")):
         if path.name.startswith("."):
             # AppleDouble metadata for a synced checkout, not source.
@@ -127,12 +208,27 @@ def check_imports(root: Path) -> list[Finding]:
         if owner is None:
             continue
         kind, name = owner
+        relative = path.relative_to(root).as_posix()
         for line, module in _imports(path):
             robot = _concrete_robot(module)
-            if kind == "toolkit":
+            if kind in {"toolkit", "capability"}:
                 if module == "robots" or robot is not None:
+                    label = (
+                        "toolkits must not import robots"
+                        if kind == "toolkit"
+                        else f"capability {name!r} must not import robots"
+                    )
+                    findings.append(Finding(path, line, label))
+                package = "toolkits" if kind == "toolkit" else "capabilities"
+                sibling = _sibling_package(module, package)
+                if sibling is not None and sibling != name and sibling != "_base":
                     findings.append(
-                        Finding(path, line, "toolkits must not import robots")
+                        Finding(
+                            path,
+                            line,
+                            f"{kind} {name!r} must not import sibling "
+                            f"{sibling!r}; declare a shared contract instead",
+                        )
                     )
             elif kind == "robot":
                 if (
@@ -145,23 +241,30 @@ def check_imports(root: Path) -> list[Finding]:
                             path,
                             line,
                             f"robot {name!r} must not import robot {robot!r}; "
-                            "declare a co-installed extension in component.toml "
-                            "requires if that is intentional",
+                            "declare it in component.toml imports when the "
+                            "integration intentionally extends another slice",
                         )
                     )
-            elif kind == "capability":
-                if robot is not None:
+            elif kind == "core":
+                if relative in CORE_EXEMPTIONS:
+                    continue
+                if module == "toolkits" or module.startswith("toolkits."):
                     findings.append(
                         Finding(
                             path,
                             line,
-                            f"capability {name!r} must not import robots",
+                            "core must not import toolkits; pass a toolkit "
+                            "through the robot slice",
                         )
                     )
-            elif kind == "core":
-                if module == "toolkits" or module.startswith("toolkits."):
+                if module == "capabilities" or module.startswith("capabilities."):
                     findings.append(
-                        Finding(path, line, "core must not import toolkits")
+                        Finding(
+                            path,
+                            line,
+                            "core must not import capabilities; keep model "
+                            "services behind the slice contract",
+                        )
                     )
                 if robot is not None:
                     findings.append(
@@ -174,8 +277,106 @@ def check_imports(root: Path) -> list[Finding]:
     return findings
 
 
+def check_core_robot_names(root: Path) -> list[Finding]:
+    """Return K5 findings for robot or benchmark names in core sources."""
+    names = _component_names(root / "robots")
+    if not names:
+        return []
+    pattern = re.compile(
+        r"(?<![0-9A-Za-z_])(?:%s)(?![0-9A-Za-z_])"
+        % "|".join(re.escape(name) for name in sorted(names, key=len, reverse=True)),
+        re.IGNORECASE,
+    )
+    findings: list[Finding] = []
+    for path in sorted((root / "rpent").rglob("*.py")):
+        if any(part in {".git", ".rpent", "__pycache__"} for part in path.parts):
+            continue
+        try:
+            with path.open("rb") as file:
+                tokens = list(tokenize.tokenize(file.readline))
+        except (OSError, SyntaxError, UnicodeDecodeError, tokenize.TokenError):
+            continue
+        for token in tokens:
+            if token.type not in {
+                tokenize.NAME,
+                tokenize.STRING,
+                tokenize.COMMENT,
+            }:
+                continue
+            match = pattern.search(token.string)
+            if match is None:
+                continue
+            findings.append(
+                Finding(
+                    path,
+                    token.start[0],
+                    f"core names {match.group(0)!r}; move the robot or "
+                    "benchmark detail into its slice",
+                )
+            )
+    return findings
+
+
+def check_lazy_slices(root: Path) -> list[Finding]:
+    """Return K6 findings for slice ``__init__.py`` files that import eagerly."""
+    findings: list[Finding] = []
+    robots = root / "robots"
+    if not robots.is_dir():
+        return findings
+    for path in sorted(robots.glob("*/__init__.py")):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+        for node in tree.body:
+            if _is_lazy_statement(node):
+                continue
+            findings.append(
+                Finding(
+                    path,
+                    node.lineno,
+                    "slice __init__.py must stay lazy; export through "
+                    "__getattr__ so a missing optional dependency does not "
+                    "break robot discovery",
+                )
+            )
+    return findings
+
+
+def _is_lazy_statement(node: ast.stmt) -> bool:
+    """Return whether ``node`` is part of the lazy slice entry pattern."""
+    if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant):
+        # Module docstring.
+        return isinstance(node.value.value, str)
+    if isinstance(node, ast.ImportFrom):
+        return node.module in {"__future__", "typing", "typing_extensions"}
+    if isinstance(node, (ast.Import,)):
+        return False
+    if isinstance(node, ast.Assign):
+        return all(
+            isinstance(target, ast.Name) and target.id == "__all__"
+            for target in node.targets
+        )
+    if isinstance(node, ast.FunctionDef):
+        return node.name == "__getattr__"
+    if isinstance(node, ast.If):
+        # Type-checking imports never execute at runtime.
+        return _is_type_checking(node.test) and all(
+            isinstance(child, (ast.Import, ast.ImportFrom)) for child in node.body
+        )
+    return False
+
+
+def _is_type_checking(test: ast.expr) -> bool:
+    if isinstance(test, ast.Name):
+        return test.id == "TYPE_CHECKING"
+    if isinstance(test, ast.Attribute):
+        return test.attr == "TYPE_CHECKING"
+    return False
+
+
 def check_coverage(root: Path) -> list[Finding]:
-    """Return missing or mismatched component manifests."""
+    """Return K2 findings for missing or mismatched component manifests."""
     findings: list[Finding] = []
     try:
         components = discover_components(root)
@@ -185,7 +386,7 @@ def check_coverage(root: Path) -> list[Finding]:
     roots = [
         (root / "robots", "robot"),
         (root / "toolkits", "toolkit"),
-        (root / "rpent" / "robots" / "components", "capability"),
+        (root / "capabilities", "capability"),
     ]
     for directory, kind in roots:
         if not directory.is_dir():
@@ -206,6 +407,41 @@ def check_coverage(root: Path) -> list[Finding]:
     return findings
 
 
+def check_file_sizes(root: Path) -> list[Finding]:
+    """Return K7 warnings for role files over their line-count limit."""
+    findings: list[Finding] = []
+    for directory in ("robots", "toolkits"):
+        for path in sorted((root / directory).rglob("*.py")):
+            limit = LINE_LIMITS.get(path.name)
+            if limit is None:
+                continue
+            try:
+                lines = sum(1 for _ in path.open(encoding="utf-8"))
+            except OSError:
+                continue
+            if lines > limit:
+                findings.append(
+                    Finding(
+                        path,
+                        0,
+                        f"{path.name} has {lines} lines (limit {limit}); "
+                        "split it along the a_5 roles",
+                        WARNING,
+                    )
+                )
+    return findings
+
+
+def _component_names(directory: Path) -> set[str]:
+    if not directory.is_dir():
+        return set()
+    return {
+        child.name
+        for child in directory.iterdir()
+        if child.is_dir() and not child.name.startswith((".", "_"))
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="check_layout.py")
     parser.add_argument(
@@ -216,7 +452,14 @@ def main() -> int:
     )
     args = parser.parse_args()
     root = args.root.resolve()
-    findings = check_coverage(root) + check_imports(root)
+    findings = (
+        check_top_level(root)
+        + check_coverage(root)
+        + check_imports(root)
+        + check_core_robot_names(root)
+        + check_lazy_slices(root)
+        + check_file_sizes(root)
+    )
     for finding in findings:
         location = (
             finding.path.relative_to(root)
@@ -224,9 +467,10 @@ def main() -> int:
             else finding.path
         )
         suffix = f":{finding.line}" if finding.line else ""
-        print(f"{location}{suffix}: {finding.message}")
-    if findings:
-        print(f"{len(findings)} layout violation(s)", file=sys.stderr)
+        print(f"{location}{suffix}: {finding.level}: {finding.message}")
+    errors = [finding for finding in findings if finding.level == ERROR]
+    if errors:
+        print(f"{len(errors)} layout violation(s)", file=sys.stderr)
         return 1
     print("layout ok")
     return 0

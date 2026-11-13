@@ -94,10 +94,13 @@ def generate(catalog: Catalog) -> GeneratedExtras:
         if name not in DEV_PROFILES:
             covered.update(components)
     for name, component in sorted(catalog.components.items()):
-        if name in covered:
-            continue
         extra = name
         if extra in extras:
+            continue
+        # A capability or deps component keeps its own compatibility extra even
+        # when a profile installs it, so ``pip install -e ".[sam3]"`` and
+        # ``pip install -e ".[rlinf]"`` keep working during the migration.
+        if name in covered and component.kind not in {"capability", "deps"}:
             continue
         extras[extra] = _component_closure(component, catalog)
         members[extra] = frozenset({name})

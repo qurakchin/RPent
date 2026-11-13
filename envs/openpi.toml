@@ -1,9 +1,0 @@
-schema = 1
-name = "openpi"
-python = "3.11"
-platform = "linux-x86_64"
-lock = "envs/locks/openpi.lock"
-description = "Pi0.5 policy runtime used as a diagnostic environment."
-
-[components.openpi]
-placement = "in-env"

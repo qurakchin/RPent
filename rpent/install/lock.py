@@ -145,7 +145,7 @@ def lock_profiles(
                 expected = candidate.read_text(encoding="utf-8")
         except InstallError as exc:
             # One profile that cannot resolve on this host must not hide the
-            # state of the others; for example RoboTwin needs CUDA to lock.
+            # state of the others; for example a simulator may need CUDA to lock.
             print(f"lock {name}: FAIL\n  {exc}")
             has_drift = True
             continue

@@ -1,0 +1,14 @@
+schema = 1
+name = "rlinf"
+kind = "deps"
+# The RLinf release runtime is imported by LIBERO, RoboTwin, RoboCasa and
+# Franka; it has no service or code of its own, so it is a deps component and
+# installs into whichever environment requires it.
+probe = "rlinf"
+python = ">=3.10,<3.13"
+platforms = ["linux-x86_64"]
+docs = "docs/source-en/rst_source/get_started/quickstart.rst"
+
+dependencies = [
+  "rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4",
+]

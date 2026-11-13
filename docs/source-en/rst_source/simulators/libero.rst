@@ -292,10 +292,10 @@ uses their clients to execute the planner's requests.
   MuJoCo env and EGL rendering. Exposes ``reset``, ``step``,
   ``chunk_step``, ``render_camera``, ``get_camera_meta``, … over an RPC
   transport (HTTP by default; socket via ``--transport socket``).
-- **vla_server** (``rpent/robots/components/pi05_vla_server.py``) — owns the Pi0.5
+- **vla_server** (``capabilities/openpi/server.py``) — owns the Pi0.5
   weights. Exposes ``predict`` over the same RPC transport (HTTP or
   socket).
-- **sam3_server** (``rpent/robots/components/sam3/server.py``) — loads SAM 3.0 and
+- **sam3_server** (``capabilities/sam3/server.py``) — loads SAM 3.0 and
   segments a target region from a text description or one pixel on the target
   object. If the model produces multiple candidates, it selects the one with
   the highest model score and returns its mask as a compressed PNG through the

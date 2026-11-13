@@ -58,7 +58,7 @@ RPent 安装的是具名环境配方，而不是一组 extra。``envs/`` 中的�
    * - ``dev``
      - 3.11
      - 测试和 lint 依赖；可用 ``rpent-env install <配方> --dev`` 附加到其他配方。
-   * - ``libero`` / ``libero-pro`` / ``libero-plus``
+   * - ``libero-sim`` / ``libero-pro`` / ``libero-plus``
      - 3.11
      - 对应 LIBERO 变体，含 RLinf、Pi0.5 和 SAM 3.0。
    * - ``libero-pro-flywheel``
@@ -66,32 +66,32 @@ RPent 安装的是具名环境配方，而不是一组 extra。``envs/`` 中的�
      - LIBERO-PRO 与 LeRobot 轨迹导出。
    * - ``libero-pro-molmo``
      - 3.11
-     - LIBERO-PRO，并将 Molmo 定位放在外部 ``molmo`` 环境。
+     - LIBERO-PRO，并将 Molmo 定位放在外部 ``molmo-server`` 环境。
    * - ``libero-openpi-external``
      - 3.11
-     - LIBERO-PRO，通过 ``--am-endpoint`` 连接外部 ``openpi`` 环境中的 Pi0.5 服务。
-   * - ``franka`` / ``dual-franka``
+     - LIBERO-PRO，通过 ``--am-endpoint`` 连接外部 ``openpi-server`` 环境中的 Pi0.5 服务。
+   * - ``franka-real`` / ``dual-franka-real``
      - 3.11
      - Franka 真机；双臂配方额外包含 SAM 3.0。
-   * - ``robocasa``
+   * - ``robocasa-sim``
      - 3.10
      - RoboCasa365 与 RLinf 的 RoboCasa、RLDX 栈。
-   * - ``robotwin``
+   * - ``robotwin-sim``
      - 3.11
      - RoboTwin 与 LingBot-VLA、cuRobo。
-   * - ``robodojo`` / ``robodojo-sim``
+   * - ``robodojo-sim``
      - 3.11
      - RoboDojo 及其 RLinf fork 与 Isaac Sim 运行时。
-   * - ``yam``
+   * - ``yam-real``
      - 3.11
      - YAM 控制和推理依赖。
-   * - ``molmo``
+   * - ``molmo-server``
      - 3.11
      - 独立的 Molmo 服务环境（``core = false``）。
    * - ``geometry-eval``
      - 3.11
      - 几何工具包及其冻结的 CPU 评测语料。
-   * - ``rlinf`` / ``sam3`` / ``openpi`` / ``flywheel``
+   * - ``sam3-server`` / ``openpi-server``
      - 3.11
      - 单能力诊断环境。
 
@@ -105,25 +105,22 @@ RPent 安装的是具名环境配方，而不是一组 extra。``envs/`` 中的�
 
    rpent-env install minimal --venv .venv-minimal
    rpent-env install dev --venv .venv-dev
-   rpent-env install libero --venv .venv-libero
+   rpent-env install libero-sim --venv .venv-libero-sim
    rpent-env install libero-pro --venv .venv-libero-pro
    rpent-env install libero-plus --venv .venv-libero-plus
    rpent-env install libero-pro-flywheel --venv .venv-libero-pro-flywheel
    rpent-env install libero-pro-molmo --venv .venv-libero-pro-molmo
    rpent-env install libero-openpi-external --venv .venv-libero-openpi-external
-   rpent-env install franka --venv .venv-franka
-   rpent-env install dual-franka --venv .venv-dual-franka
-   rpent-env install robocasa --venv .venv-robocasa
-   rpent-env install robotwin --venv .venv-robotwin
-   rpent-env install robodojo --venv .venv-robodojo
+   rpent-env install franka-real --venv .venv-franka-real
+   rpent-env install dual-franka-real --venv .venv-dual-franka-real
+   rpent-env install robocasa-sim --venv .venv-robocasa-sim
+   rpent-env install robotwin-sim --venv .venv-robotwin-sim
    rpent-env install robodojo-sim --venv .venv-robodojo-sim
-   rpent-env install yam --venv .venv-yam
-   rpent-env install molmo --venv .venv-molmo
+   rpent-env install yam-real --venv .venv-yam-real
+   rpent-env install molmo-server --venv .venv-molmo-server
    rpent-env install geometry-eval --venv .venv-geometry-eval
-   rpent-env install rlinf --venv .venv-rlinf
-   rpent-env install sam3 --venv .venv-sam3
-   rpent-env install openpi --venv .venv-openpi
-   rpent-env install flywheel --venv .venv-flywheel
+   rpent-env install sam3-server --venv .venv-sam3-server
+   rpent-env install openpi-server --venv .venv-openpi-server
 
 诊断与复现
 ----------
@@ -135,7 +132,7 @@ RPent 安装的是具名环境配方，而不是一组 extra。``envs/`` 中的�
    rpent-env lock --all
    rpent-env lock --all --check
 
-``doctor`` 将安装指纹与配方清单比较，检查 Python 和平台，运行 ``uv pip check`` 与组件探针，并可用 ``--endpoint molmo=host:port`` 探测外部 endpoint。``inspect`` 打印指纹及其 hash。``lock`` 用 ``uv pip compile`` 生成 ``envs/locks/<配方>.lock``；``--check`` 在锁过期时失败。Linux 锁默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本），因为当前 GPU wheel 不再为更早的基线发布。若组件需要更新的基线，配方可用 ``manylinux`` 提高它；例如 RoboDojo 为 Isaac Sim 5.1 的 wheel 使用 ``manylinux = "2_35"``。``lock --all`` 会报告在当前主机上无法解析的配方并继续处理其余配方；``robotwin`` 锁需要在设置了 ``CUDA_HOME`` 的 Linux 主机上生成，因为 cuRobo 在解析期间构建元数据。重新生成锁时使用较新的 ``uv``：旧版本对相同输入可能解析出不同版本，结果会与仓库中的锁不一致。
+``doctor`` 将安装指纹与配方清单比较，检查 Python 和平台，运行 ``uv pip check`` 与组件探针，并可用 ``--endpoint molmo=host:port`` 探测外部 endpoint。``inspect`` 打印指纹及其 hash。``lock`` 用 ``uv pip compile`` 生成 ``envs/locks/<配方>.lock``；``--check`` 在锁过期时失败。Linux 锁默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本），因为当前 GPU wheel 不再为更早的基线发布。若组件需要更新的基线，配方可用 ``manylinux`` 提高它；例如 RoboDojo 为 Isaac Sim 5.1 的 wheel 使用 ``manylinux = "2_35"``。``lock --all`` 会报告在当前主机上无法解析的配方并继续处理其余配方；``robotwin-sim`` 锁需要在设置了 ``CUDA_HOME`` 的 Linux 主机上生成，因为 cuRobo 在解析期间构建元数据。重新生成锁时使用较新的 ``uv``：旧版本对相同输入可能解析出不同版本，结果会与仓库中的锁不一致。
 
 运行产物会在 ``run.json`` 中记录当前配方、指纹 hash、源码 commit 和组件名。
 

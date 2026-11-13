@@ -1,9 +1,0 @@
-schema = 1
-name = "yam"
-python = "3.11"
-platform = "linux-x86_64"
-lock = "envs/locks/yam.lock"
-description = "Dual-arm YAM control and inference dependencies."
-
-[components.yam]
-placement = "in-env"

@@ -23,8 +23,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from capabilities._base import runtime
 from robots.robodojo import robot_spec, tools
-from rpent.robots.components import am_runtime
 from rpent.tools import Tool, iter_tools
 
 
@@ -109,9 +109,7 @@ def test_explicit_paths_do_not_read_workspace_or_mutate_parent(monkeypatch, tmp_
     assert str(tmp_path / "policy") in env["PYTHONPATH"].split(os.pathsep)
     assert dict(os.environ) == before
     assert (
-        args.sim_python
-        == am_runtime.select_am(args, "robodojo").python
-        == sys.executable
+        args.sim_python == runtime.select_am(args, "robodojo").python == sys.executable
     )
 
 
@@ -152,7 +150,7 @@ def test_cuda_selection_is_only_overridden_explicitly(
             pass
 
     monkeypatch.setattr(robot_spec, "ProcessDaemon", Daemon)
-    monkeypatch.setattr(am_runtime, "ProcessDaemon", Daemon)
+    monkeypatch.setattr(runtime, "ProcessDaemon", Daemon)
     flags = [] if explicit is None else ["--cuda-device", str(explicit)]
     args = _args("--source-root", str(tmp_path), "--vla-backend", backend, *flags)
     assert args.cuda_device == explicit
@@ -220,7 +218,7 @@ def test_env_spawn_uses_explicit_interpreter_and_child_paths(monkeypatch, tmp_pa
             recorded["started"] = True
 
     monkeypatch.setattr(robot_spec, "ProcessDaemon", Daemon)
-    monkeypatch.setattr(am_runtime, "ProcessDaemon", Daemon)
+    monkeypatch.setattr(runtime, "ProcessDaemon", Daemon)
     args = _args("--source-root", str(tmp_path), "--sim-python", sys.executable)
     robot_spec._spawn_env_server(args, tmp_path)
     assert recorded["cmd"][0] == sys.executable
@@ -416,7 +414,7 @@ def saved_camera(tmp_path, fake_env):
 
 
 def test_readers_are_readonly_and_do_not_act(saved_camera):
-    from rpent.robots.components.sam3.client import Sam3Result
+    from capabilities.sam3.client import Sam3Result
 
     obs = {
         "vision": {
@@ -824,13 +822,13 @@ def test_resource_root_uses_selected_backend_environment(
     monkeypatch.setenv("AWOMO05_MODEL_PATH", "/models/awomo")
     config = _args("--vla-backend", backend)
     assert (
-        am_runtime.select_am(config, "robodojo").checkpoint
+        runtime.select_am(config, "robodojo").checkpoint
         == {"VPP2_MODEL_PATH": "/models/vpp2", "AWOMO05_MODEL_PATH": "/models/awomo"}[
             variable
         ]
     )
     config.am_checkpoint = "/explicit"
-    assert am_runtime.select_am(config, "robodojo").checkpoint == "/explicit"
+    assert runtime.select_am(config, "robodojo").checkpoint == "/explicit"
 
 
 @pytest.mark.parametrize("backend", ["vpp2", "awomo05"])
@@ -877,7 +875,7 @@ def test_model_startup_failure_stops_owned_process(
         raise RuntimeError("model startup failed")
 
     monkeypatch.setattr(robot_spec, "ProcessDaemon", Daemon)
-    monkeypatch.setattr(am_runtime, "ProcessDaemon", Daemon)
+    monkeypatch.setattr(runtime, "ProcessDaemon", Daemon)
     monkeypatch.setattr(robot_spec, "pick_free_port", lambda: 9205)
     monkeypatch.setattr(robot_spec, "make_rpc_client", fail)
     config = _args(
@@ -942,7 +940,7 @@ def test_model_spawn_owns_process_and_borrows_endpoint(monkeypatch, tmp_path, ba
             recorded["started"] = True
 
     monkeypatch.setattr(robot_spec, "ProcessDaemon", Daemon)
-    monkeypatch.setattr(am_runtime, "ProcessDaemon", Daemon)
+    monkeypatch.setattr(runtime, "ProcessDaemon", Daemon)
     monkeypatch.setattr(robot_spec, "pick_free_port", lambda: 9205)
     monkeypatch.setattr(
         robot_spec, "make_rpc_client", lambda endpoint, **kw: (endpoint, kw)

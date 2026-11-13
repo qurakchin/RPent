@@ -5,9 +5,12 @@ probe = "robots.franka.robot_spec"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
 requires = ["rlinf", "openpi"]
+# The flash perception tools branch to the dual-arm implementation when the
+# dual Franka slice is installed; the import is lazy and only runs then.
+imports = ["dual_franka"]
 # Franka pins numpy<2 and gymnasium==0.29.1 for franky-control and the camera
 # stack, so it cannot share an environment with the simulator adapters below.
-env_conflicts = ["libero", "robocasa", "robotwin", "robodojo", "robodojo-sim"]
+env_conflicts = ["libero", "robocasa", "robotwin", "robodojo"]
 placement = ["in-env"]
 docs = "docs/source-en/rst_source/real_world_robots/franka.rst"
 

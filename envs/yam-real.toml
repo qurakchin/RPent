@@ -1,0 +1,11 @@
+schema = 1
+name = "yam-real"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/yam-real.lock"
+# Compatibility alias: the extra name predates the profile rename.
+extra = "yam"
+description = "Dual-arm YAM control and inference dependencies."
+
+[components.yam]
+placement = "in-env"

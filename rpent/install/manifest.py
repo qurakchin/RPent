@@ -34,7 +34,9 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
 SCHEMA = 1
-KINDS = ("robot", "toolkit", "capability")
+KINDS = ("robot", "toolkit", "capability", "deps")
+#: Kinds declared by ``component.toml`` inside the component's own directory.
+DIRECTORY_KINDS = ("robot", "toolkit", "capability")
 PLACEMENTS = ("in-env", "external-env", "remote")
 _PYTHON_MINOR = re.compile(r"^\d+\.\d+$")
 _MANYLINUX = re.compile(r"^\d+_\d+$")
@@ -127,13 +129,15 @@ class Component:
     name: str
     kind: str
     path: Path
+    manifest: Path
     probe: str
     python: str | None
     platforms: tuple[str, ...]
     requires: tuple[str, ...]
+    imports: tuple[str, ...]
     env_conflicts: tuple[str, ...]
     placements: tuple[str, ...]
-    default_placement: str
+    default_placement: str | None
     default_variant: str | None
     variant_required: bool
     dependencies: tuple[str, ...]
@@ -145,7 +149,12 @@ class Component:
     @property
     def manifest_path(self) -> Path:
         """Return the manifest path."""
-        return self.path / "component.toml"
+        return self.manifest
+
+    @property
+    def is_deps(self) -> bool:
+        """Return whether this component only groups packages for its consumers."""
+        return self.kind == "deps"
 
     def dependencies_for(self, variant: str | None) -> tuple[str, ...]:
         """Return the component's direct dependencies for one optional variant."""
@@ -165,7 +174,7 @@ class Selection:
 
     placement: str | None = None
     variant: str | None = None
-    env: str | None = None
+    profile: str | None = None
 
 
 @dataclass(frozen=True)
@@ -193,7 +202,7 @@ class Profile:
 
 
 def load_component(path: Path) -> Component:
-    """Load and validate one ``component.toml``."""
+    """Load and validate one ``component.toml`` from a component directory."""
     data = _read_toml(path)
     _schema(data, path)
     name = _name(data, path)
@@ -202,6 +211,48 @@ def load_component(path: Path) -> Component:
             f"{path}: name {name!r} must match its directory {path.parent.name!r}"
         )
     kind = data.get("kind")
+    if kind == "deps":
+        raise InstallConfigError(
+            f"{path}: 'deps' components live at envs/deps/<name>.toml"
+        )
+    return _component(data, path, name=name, kind=kind)
+
+
+def load_deps_component(path: Path) -> Component:
+    """Load and validate one ``envs/deps/<name>.toml`` manifest."""
+    data = _read_toml(path)
+    _schema(data, path)
+    name = _name(data, path)
+    if path.stem != name:
+        raise InstallConfigError(
+            f"{path}: name {name!r} must match its file name {path.stem!r}"
+        )
+    kind = data.get("kind")
+    if kind != "deps":
+        raise InstallConfigError(
+            f"{path}: 'kind' must be 'deps'; use component.toml in a component "
+            "directory for robots, toolkits and capabilities"
+        )
+    if "placement" in data or "default_placement" in data:
+        raise InstallConfigError(
+            f"{path}: deps components follow the components that require them; "
+            "remove 'placement' and 'default_placement'"
+        )
+    if data.get("imports"):
+        raise InstallConfigError(
+            f"{path}: deps components have no code; remove 'imports'"
+        )
+    return _component(data, path, name=name, kind=kind)
+
+
+def _component(
+    data: dict[str, Any],
+    path: Path,
+    *,
+    name: str,
+    kind: Any,
+) -> Component:
+    """Build a component from parsed data, validating shared fields."""
     if kind not in KINDS:
         raise InstallConfigError(f"{path}: 'kind' must be one of {', '.join(KINDS)}")
     probe = data.get("probe")
@@ -209,12 +260,16 @@ def load_component(path: Path) -> Component:
         raise InstallConfigError(f"{path}: 'probe' must be a non-empty import path")
     python = _optional_string(data, "python", path)
     platforms = _string_list(data, "platforms", path)
-    placements = _placement_list(data, path)
-    default_placement = data.get("default_placement", placements[0])
-    if default_placement not in placements:
-        raise InstallConfigError(
-            f"{path}: 'default_placement' must be one of {', '.join(placements)}"
-        )
+    if kind == "deps":
+        placements: tuple[str, ...] = ()
+        default_placement: str | None = None
+    else:
+        placements = _placement_list(data, path)
+        default_placement = data.get("default_placement", placements[0])
+        if default_placement not in placements:
+            raise InstallConfigError(
+                f"{path}: 'default_placement' must be one of {', '.join(placements)}"
+            )
     optional = _optional_groups(data, path)
     default_variant = _optional_string(data, "variant", path)
     if default_variant is not None and default_variant not in optional:
@@ -242,10 +297,12 @@ def load_component(path: Path) -> Component:
         name=name,
         kind=kind,
         path=path.parent,
+        manifest=path,
         probe=probe,
         python=python,
         platforms=platforms,
         requires=_string_list(data, "requires", path),
+        imports=_string_list(data, "imports", path),
         env_conflicts=_string_list(data, "env_conflicts", path),
         placements=placements,
         default_placement=default_placement,
@@ -285,7 +342,7 @@ def load_profile(path: Path) -> Profile:
             raise InstallConfigError(
                 f"{path}: components.{component_name} must be a table"
             )
-        unknown = sorted(set(raw) - {"placement", "variant", "env"})
+        unknown = sorted(set(raw) - {"placement", "variant", "profile"})
         if unknown:
             raise InstallConfigError(
                 f"{path}: components.{component_name} has unknown field(s): "
@@ -302,23 +359,25 @@ def load_profile(path: Path) -> Profile:
             raise InstallConfigError(
                 f"{path}: components.{component_name}.variant must be a string"
             )
-        env = raw.get("env")
-        if env is not None and (not isinstance(env, str) or not env):
+        external_profile = raw.get("profile")
+        if external_profile is not None and (
+            not isinstance(external_profile, str) or not external_profile
+        ):
             raise InstallConfigError(
-                f"{path}: components.{component_name}.env must be a string"
+                f"{path}: components.{component_name}.profile must be a string"
             )
-        if placement == "in-env" and env is not None:
+        if placement == "in-env" and external_profile is not None:
             raise InstallConfigError(
                 f"{path}: components.{component_name} places an in-env component "
-                "inside a named external environment; remove 'env'"
+                "inside a named external environment; remove 'profile'"
             )
-        if placement == "external-env" and env is None:
+        if placement == "external-env" and external_profile is None:
             raise InstallConfigError(
                 f"{path}: components.{component_name} uses external-env "
-                "without an 'env' name"
+                "without a 'profile' name"
             )
         components[component_name] = Selection(
-            placement=placement, variant=variant, env=env
+            placement=placement, variant=variant, profile=external_profile
         )
     extra_value = data.get("extra", name)
     if extra_value is False:

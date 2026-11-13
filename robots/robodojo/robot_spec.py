@@ -26,15 +26,15 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from capabilities._base.runtime import (
+    add_am_args,
+    select_am,
+)
 from robots.robodojo.prompt_bundle import system_prompt, user_prompt
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
 from rpent.evaluation import RunFinalizationContext, write_json_atomic
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
-    add_am_args,
-    select_am,
-)
 from rpent.robots.prompt_bundle import PromptBundle
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 from rpent.robots.runtime import stop_owned_daemons, try_spawn_server, try_wait_server
@@ -579,8 +579,8 @@ def _init_runtime(
 ) -> tuple[list[ProcessDaemon], dict[str, Any]]:
     """Start default backend services or an explicitly requested component set."""
     _validate_args(args)
+    from capabilities.sam3.client import Sam3Client
     from robots.robodojo.env_client import RoboDojoEnvClient
-    from rpent.robots.components.sam3.client import Sam3Client
 
     am = select_am(args, "robodojo")
     device = resolve_cuda_device(args, "env")

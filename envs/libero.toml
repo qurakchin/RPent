@@ -1,9 +1,0 @@
-schema = 1
-name = "libero"
-python = "3.11"
-platform = "linux-x86_64"
-lock = "envs/locks/libero.lock"
-description = "LIBERO simulation with Pi0.5 and SAM 3.0."
-
-[components.libero]
-variant = "standard"

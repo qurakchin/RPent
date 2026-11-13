@@ -37,7 +37,7 @@ from rpent.install.fingerprint import (
     source_state,
     write_fingerprint,
 )
-from rpent.install.locks import lock_problems
+from rpent.install.lock_coverage import lock_problems
 from rpent.install.manifest import Component, Profile, Selection
 from rpent.install.requirements import (
     read_core_dependencies,
@@ -338,7 +338,7 @@ def install(
                 "placement": resolved.placement,
                 "variant": resolved.variant,
                 **(
-                    {"env": resolved.env}
+                    {"profile": resolved.env}
                     if resolved.placement == "external-env"
                     else {}
                 ),

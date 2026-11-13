@@ -12,4 +12,4 @@ variant = "pro"
 # `--am-endpoint` instead of installing OpenPI's Torch pins into this env.
 [components.openpi]
 placement = "external-env"
-env = "openpi"
+profile = "openpi-server"

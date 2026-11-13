@@ -18,8 +18,8 @@ from typing import Any
 
 import numpy as np
 
-from rpent.robots.components.am_contracts import AMObservation
-from rpent.robots.components.am_platforms import ROBOTWIN_CAMERAS
+from capabilities._base.contracts import AMObservation
+from capabilities._base.platforms import ROBOTWIN_CAMERAS
 
 __all__ = ["ROBOTWIN_CAMERAS", "physical_observation"]
 

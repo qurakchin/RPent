@@ -417,7 +417,7 @@ def test_segmentation_failure_keeps_manual_localization_available(toolkit_factor
 
 
 def test_segmentation_no_mask_explains_manual_fallback(toolkit_factory):
-    from rpent.robots.components.sam3.client import Sam3Result
+    from capabilities.sam3.client import Sam3Result
 
     _, toolkit = toolkit_factory(
         sam3=SimpleNamespace(
@@ -436,7 +436,7 @@ def test_segmentation_no_mask_explains_manual_fallback(toolkit_factory):
 
 
 def test_segmentation_reports_artifact_write_failure(toolkit_factory, monkeypatch):
-    from rpent.robots.components.sam3.client import Sam3Result
+    from capabilities.sam3.client import Sam3Result
 
     _, toolkit = toolkit_factory(
         sam3=SimpleNamespace(

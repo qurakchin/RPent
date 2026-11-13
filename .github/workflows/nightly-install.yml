@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        profile: [libero-pro, franka, robocasa, robotwin, robodojo]
+        profile: [libero-pro, franka-real, robocasa-sim, robotwin-sim, robodojo-sim]
     env:
       # Shared install policy used by RLinf's NVIDIA embodied runner.
       UV_CACHE_DIR: /workspace/dataset/.uv_cache

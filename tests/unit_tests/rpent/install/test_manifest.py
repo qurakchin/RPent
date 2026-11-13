@@ -210,7 +210,7 @@ def test_profile_reads_components_and_disables_generated_extra(write_toml):
 
         [components.alpha]
         placement = "external-env"
-        env = "alpha-model"
+        profile = "alpha-model"
         variant = "pro"
 
         [components.beta]
@@ -223,7 +223,7 @@ def test_profile_reads_components_and_disables_generated_extra(write_toml):
     assert profile.python == "3.10"
     assert profile.generate_extra is False
     assert profile.extra is None
-    assert profile.components["alpha"].env == "alpha-model"
+    assert profile.components["alpha"].profile == "alpha-model"
     assert profile.components["alpha"].variant == "pro"
     assert profile.dependencies == ("pytest",)
 
@@ -291,10 +291,13 @@ def test_profile_requires_minor_python(write_toml):
 @pytest.mark.parametrize(
     ("entry", "message"),
     [
-        ('[components.alpha]\nplacement = "external-env"', "without an 'env' name"),
         (
-            '[components.alpha]\nplacement = "in-env"\nenv = "model"',
-            "remove 'env'",
+            '[components.alpha]\nplacement = "external-env"',
+            "without a 'profile' name",
+        ),
+        (
+            '[components.alpha]\nplacement = "in-env"\nprofile = "model"',
+            "remove 'profile'",
         ),
         ("[components.alpha]\ntypo = true", "unknown field"),
     ],

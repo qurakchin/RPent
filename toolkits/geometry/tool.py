@@ -30,19 +30,19 @@ import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from rpent.tools.base import Tool, ToolResult, tool
-from rpent.tools.capabilities import Capabilities, ToolFamily
-from rpent.tools.observation import (
-    Grounder,
-    Observation,
-    ObservationError,
-    ObservationProvider,
-    Segmenter,
-)
+from toolkits.geometry.capabilities import Capabilities, ToolFamily
 from toolkits.geometry.core import (
     GeometryConfig,
     depth_region_mask,
     fit_mask,
     observation_world_xyz,
+)
+from toolkits.geometry.observation import (
+    Grounder,
+    Observation,
+    ObservationError,
+    ObservationProvider,
+    Segmenter,
 )
 
 Quantity = Literal["center", "extent", "z_range", "orientation"]

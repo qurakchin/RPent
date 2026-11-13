@@ -52,6 +52,10 @@ class Resolution:
 
     profile: Profile
     components: dict[str, ResolvedComponent] = field(default_factory=dict)
+    #: Environment name -> deps components installed there because a consumer
+    #: in that environment requires them. A deps component has no placement of
+    #: its own, so it may appear in more than one environment.
+    environment_deps: dict[str, list[str]] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -63,9 +67,13 @@ class Resolution:
         """Return environment name to component names, excluding remote ones."""
         groups: dict[str, list[str]] = {self.profile.name: []}
         for resolved in self.components.values():
+            if resolved.component.is_deps:
+                continue
             if resolved.placement == "remote" or resolved.env is None:
                 continue
             groups.setdefault(resolved.env, []).append(resolved.name)
+        for environment, names in self.environment_deps.items():
+            groups.setdefault(environment, []).extend(names)
         return {name: tuple(sorted(names)) for name, names in groups.items()}
 
     def nonempty_environments(self) -> dict[str, tuple[str, ...]]:
@@ -77,8 +85,13 @@ class Resolution:
         return {
             name: resolved
             for name, resolved in self.components.items()
-            if resolved.placement == "in-env"
+            if resolved.placement == "in-env" and not resolved.component.is_deps
         }
+
+    def main_deps(self) -> dict[str, ResolvedComponent]:
+        """Return deps components grouped into the profile's main environment."""
+        names = self.environment_deps.get(self.profile.name, [])
+        return {name: self.components[name] for name in names}
 
     def external_components(self) -> dict[str, ResolvedComponent]:
         """Return components installed into named external environments."""
@@ -103,8 +116,8 @@ def _canonical(value: str) -> tuple[str, SpecifierSet, str] | None:
         return None
     if requirement.marker is not None:
         # Marker-scoped pins select different wheels per interpreter/platform
-        # (for example the cp310-cp312 Franka wheels); the resolver decides
-        # which one applies, so they are not contradictory declarations.
+        # (for example per-version pxd wheels); the resolver decides which one
+        # applies, so they are not contradictory declarations.
         return None
     url = str(requirement.url) if requirement.url else ""
     return (
@@ -235,6 +248,30 @@ def _format_conflict(
     )
 
 
+def _check_requires_cycles(resolution: Resolution) -> None:
+    """Report ``requires`` cycles instead of silently placing them once."""
+    state: dict[str, int] = {}
+
+    def visit(name: str, stack: list[str]) -> None:
+        if state.get(name) == 2:
+            return
+        if state.get(name) == 1:
+            start = stack.index(name)
+            cycle = " -> ".join([*stack[start:], name])
+            resolution.errors.append(f"component requires cycle: {cycle}")
+            return
+        state[name] = 1
+        for required in resolution.components[name].component.requires:
+            if required in resolution.components and not (
+                resolution.components[required].component.is_deps
+            ):
+                visit(required, [*stack, name])
+        state[name] = 2
+
+    for name in sorted(resolution.components):
+        visit(name, [])
+
+
 def _check_component_range(resolved: ResolvedComponent, profile: Profile) -> list[str]:
     errors: list[str] = []
     component = resolved.component
@@ -277,7 +314,18 @@ def resolve(
                 f"profile {profile.name!r} references unknown component {name!r}; "
                 f"known components: {', '.join(sorted(catalog.components))}"
             )
-    pending = [name for name in sorted(selections) if name in catalog.components]
+        elif catalog.components[name].is_deps:
+            resolution.errors.append(
+                f"profile {profile.name!r} selects deps component {name!r}; deps "
+                "components are installed by the components that require them, so "
+                "remove the [components] entry and add "
+                f"'requires = [\"{name}\"]' to a consuming component"
+            )
+    pending = [
+        name
+        for name in sorted(selections)
+        if name in catalog.components and not catalog.components[name].is_deps
+    ]
     placed: set[str] = set()
     while pending:
         name = pending.pop(0)
@@ -315,8 +363,8 @@ def resolve(
             placement = component.default_placement
         if placement == "external-env":
             env = (
-                selection.env
-                if selection is not None and selection.env is not None
+                selection.profile
+                if selection is not None and selection.profile is not None
                 else component.name
             )
             external = catalog.profiles.get(env)
@@ -352,9 +400,27 @@ def resolve(
                     f"component {name!r} requires unknown component {required!r}"
                 )
                 continue
+            if catalog.components[required].is_deps:
+                if env is None:
+                    resolution.errors.append(
+                        f"component {name!r} requires deps component {required!r} "
+                        "but is placed remotely; deps components install with the "
+                        "environment of the component that requires them"
+                    )
+                    continue
+                resolution.environment_deps.setdefault(env, []).append(required)
+                resolution.components[required] = ResolvedComponent(
+                    component=catalog.components[required],
+                    placement=placement,
+                    variant=None,
+                    env=env,
+                )
+                continue
             if required not in selections:
                 selections[required] = Selection()
             pending.append(required)
+
+    _check_requires_cycles(resolution)
 
     for resolved in resolution.components.values():
         resolution.errors.extend(_check_component_range(resolved, profile))

@@ -1,0 +1,13 @@
+schema = 1
+name = "apxinf"
+kind = "capability"
+probe = "capabilities.apxinf.server"
+python = ">=3.10,<3.13"
+platforms = ["linux-x86_64"]
+placement = ["in-env", "external-env"]
+docs = "docs/source-en/rst_source/guides/advanced_deployment.rst"
+
+# The APXInf engine, APXInf-robo presets, and the apxinf_py binding are built
+# from source in the environment that runs the server, so they are not pip
+# dependencies of the adapter.
+dependencies = []
