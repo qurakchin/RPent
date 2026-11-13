@@ -220,25 +220,33 @@ run_gpu_pytest() {
   return "$cleanup_status"
 }
 
+# rpent-env is the only supported install entry point. A fresh checkout has no
+# installed CLI yet, so bootstrap it in a throwaway environment that adds only
+# the manifest parser dependency.
+run_rpent_env() {
+  local python_version=$1
+  shift
+  (
+    cd "$repo_root"
+    timeout --foreground --kill-after=2m "$install_timeout" \
+      uv run --no-project --python "$python_version" --with packaging -- \
+      python -m rpent.cli.env "$@"
+  )
+}
+
 run_in_clean_env() {
   local name=$1
   local python_version=$2
-  local extra=$3
+  local profile=$3
   local test_dir=$4
   local suite_output=$5
   local venv_dir="$venv_root/$name"
 
-  timeout --foreground --kill-after=2m "$install_timeout" \
-    uv venv "$venv_dir" --python "$python_version"
-  # Torch and torchvision version compatibility must come from the selected
-  # public RPent extra and its transitive package metadata. The CUDA wheel
+  # Torch and torchvision version compatibility come from the profile's
+  # component manifests and their transitive package metadata. The CUDA wheel
   # backend is the separate runner/install-policy input UV_TORCH_BACKEND.
   # Do not hide a dependency-contract failure with a workflow-only version pin.
-  timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
-    --python "$venv_dir/bin/python" \
-    --editable "${repo_root}[$extra,test]"
-  timeout --foreground --kill-after=2m "$install_timeout" \
-    uv pip check --python "$venv_dir/bin/python"
+  run_rpent_env "$python_version" install "$profile" --venv "$venv_dir" --dev
   (
     cd "$repo_root"
     run_gpu_pytest \
@@ -260,11 +268,7 @@ case "$target" in
     export LIBERO_CONFIG_PATH="$(cd "$output_dir" && pwd)/libero-config"
     mkdir -p "$LIBERO_CONFIG_PATH"
     venv_dir="$venv_root/libero-pro"
-    timeout --foreground --kill-after=2m "$install_timeout" \
-      uv venv "$venv_dir" --python 3.11
-    timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
-      --python "$venv_dir/bin/python" \
-      --editable "${repo_root}[libero-pro,test]"
+    run_rpent_env 3.11 install libero-pro --venv "$venv_dir" --dev
     # Keep realpath(__file__) beside this venv's assets, preserving the Git revision.
     liberopro_requirement=$(uv pip freeze --python "$venv_dir/bin/python" \
       | awk '$1 == "rpent-liberopro" {print}')

@@ -1,0 +1,9 @@
+schema = 1
+name = "geometry-eval"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/geometry-eval.lock"
+description = "Geometry toolkit with its frozen CPU evaluation corpus."
+
+[components.geometry]
+variant = "eval"

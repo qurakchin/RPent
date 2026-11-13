@@ -77,26 +77,30 @@ NVIDIA 驱动版本建议参考 `Isaac Sim 5.1 官方系统要求 <https://docs.
 
 .. code-block:: bash
 
-   uv venv --python 3.11 .venv-robodojo
+   rpent-env install robodojo --venv .venv-robodojo
    source .venv-robodojo/bin/activate
-   uv pip install -e ".[robodojo-sim,sam3]" --extra-index-url https://pypi.nvidia.com \
-     --override requirements/robodojo-override.txt
+
+新检出的仓库还没有 ``rpent-env`` 时，按 :doc:`../get_started/installation` 引导。配方安装 RoboDojo 运行时、SAM 3.0 和 Pi0.5；其组件清单提供 NVIDIA 软件包索引和 RoboDojo 依赖覆盖文件。
 
 .. note::
 
    Blackwell GPU 需要 CUDA 12.8 版 PyTorch。本项目固定的 PyTorch 2.7.0 也提供 CUDA 12.6 构建，\
-   但该构建不支持 Blackwell。使用这类 GPU 时，首次安装及后续重新安装都使用以下命令，\
-   通过 ``--torch-backend=cu128`` 选择 CUDA 12.8 构建：
+   但该构建不支持 Blackwell。使用这类 GPU 时，首次安装及后续重新安装都通过 ``UV_TORCH_BACKEND`` \
+   选择 CUDA 12.8 构建：
 
    .. code-block:: bash
 
-      uv pip install -e ".[robodojo-sim,sam3]" --extra-index-url https://pypi.nvidia.com \
-        --override requirements/robodojo-override.txt \
-        --torch-backend=cu128
+      UV_TORCH_BACKEND=cu128 \
+        rpent-env install robodojo --venv .venv-robodojo
 
    如果环境中已安装 ``torch==2.7.0+cu126``，uv 会认为它满足版本要求，继续保留原有安装。\
-   此时需在上面的命令末尾再添加 ``--reinstall-package torch --reinstall-package torchvision``，\
-   强制替换为 CUDA 12.8 构建。
+   此时需在环境中显式替换：
+
+   .. code-block:: bash
+
+      uv pip install --python .venv-robodojo/bin/python \
+        --reinstall-package torch --reinstall-package torchvision \
+        torch torchvision
 
 当前固定的 IsaacLab 版本需要 editable 安装，才能找到扩展配置。克隆到一个可写目录，并在同一环境中执行：
 
@@ -182,7 +186,7 @@ VPP2 配置
        │   └── dataset_stats.json
        └── Wan2.1-I2V-14B-480P/
 
-按固定版本的 `推理环境说明 <https://github.com/roboterax/video-prediction-policy-2/blob/72c17acf022494ff63617be86079bb92e92f5bf8/docs/robodojo.md#policy-environment>`_ 安装模型依赖。这些依赖与 ``.[robodojo-sim]`` 分开安装。模型依赖与 RPent 环境兼容时，设置 ``VPP2_MODEL_PATH`` 即可自动启动本地服务，``--am-checkpoint`` 可覆盖该路径。本地服务默认使用 RPent 当前的 Python 解释器；使用 ``--am-python`` 可指定独立模型环境。模型在单张 GPU 上完整加载。
+按固定版本的 `推理环境说明 <https://github.com/roboterax/video-prediction-policy-2/blob/72c17acf022494ff63617be86079bb92e92f5bf8/docs/robodojo.md#policy-environment>`_ 安装模型依赖。这些依赖与 ``robodojo`` 配方分开安装。模型依赖与 RPent 环境兼容时，设置 ``VPP2_MODEL_PATH`` 即可自动启动本地服务，``--am-checkpoint`` 可覆盖该路径。本地服务默认使用 RPent 当前的 Python 解释器；使用 ``--am-python`` 可指定独立模型环境。模型在单张 GPU 上完整加载。
 
 若使用独立模型环境，在该环境中安装策略依赖和 RPent 核心包，然后启动服务：
 
@@ -225,7 +229,7 @@ Awomo05 配置
        ├── flux2-dev/
        └── Qwen3-VL-4B-Instruct/
 
-按固定版本的 `推理环境说明 <https://github.com/XPolicyLab/XPolicyLab/blob/562c14cf08b9e6e411e7d76f192740afced77160/policy/Awomo05/README.md>`__ 安装模型依赖。这些依赖与 ``.[robodojo-sim]`` 分开安装。模型依赖与 RPent 环境兼容时，设置 ``AWOMO05_MODEL_PATH`` 即可自动启动本地服务，``--am-checkpoint`` 可覆盖该路径。本地服务默认使用 RPent 当前的 Python 解释器；使用 ``--am-python`` 可指定独立模型环境。模型在单张 GPU 上完整加载。
+按固定版本的 `推理环境说明 <https://github.com/XPolicyLab/XPolicyLab/blob/562c14cf08b9e6e411e7d76f192740afced77160/policy/Awomo05/README.md>`__ 安装模型依赖。这些依赖与 ``robodojo`` 配方分开安装。模型依赖与 RPent 环境兼容时，设置 ``AWOMO05_MODEL_PATH`` 即可自动启动本地服务，``--am-checkpoint`` 可覆盖该路径。本地服务默认使用 RPent 当前的 Python 解释器；使用 ``--am-python`` 可指定独立模型环境。模型在单张 GPU 上完整加载。
 
 若使用独立模型环境，在该环境中安装策略依赖和 RPent 核心包，然后启动服务：
 

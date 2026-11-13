@@ -1,0 +1,15 @@
+schema = 1
+name = "libero-pro-molmo"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/libero-pro-molmo.lock"
+description = "LIBERO-PRO with Molmo grounding in its own external environment."
+
+[components.libero]
+variant = "pro"
+
+# Molmo needs transformers>=4.57; OpenPI pins 4.53.2. Keep the resolver split
+# and point the grounder at the ``molmo`` profile over RPC.
+[components.molmo]
+placement = "external-env"
+env = "molmo"

@@ -1,0 +1,12 @@
+schema = 1
+name = "robodojo"
+kind = "robot"
+probe = "robots.robodojo.robot_spec"
+python = ">=3.11,<3.12"
+platforms = ["linux-x86_64"]
+requires = ["robodojo-sim", "sam3", "openpi"]
+env_conflicts = ["franka", "dual_franka", "robotwin"]
+placement = ["in-env"]
+docs = "docs/source-en/rst_source/simulators/robodojo.rst"
+
+dependencies = []

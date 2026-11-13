@@ -54,6 +54,7 @@ dependencies = [
 
 [project.scripts]
 rpent = "rpent.cli.main:main"
+rpent-env = "rpent.cli.env:main"
 rpent-memory = "rpent.cli.memory:main"
 rpent-check-llm = "rpent.cli.check_llm:main"
 rpent-flywheel = "rpent.flywheel.cli:main"
@@ -64,198 +65,286 @@ Repository = "https://github.com/RLinf/RPent"
 Documentation = "https://rpent.readthedocs.io/en/latest/"
 "Bug Report" = "https://github.com/RLinf/RPent/issues"
 
+# --- BEGIN GENERATED EXTRAS: do not edit, run scripts/gen_extras.py ---
 [project.optional-dependencies]
-test = [
-    "coverage",
-    "pytest",
-    "pytest-timeout",
-    "omegaconf",
-    "gymnasium",
+cosmos3 = [
 ]
-rlinf = [
-    "rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4",
+cosmos_policy = [
 ]
-sam3 = [
-    "sam3 @ git+https://github.com/RLinf/sam3.git@main",
-    "einops>=0.8.0",
-    "pycocotools",
-    "torch",
-    "torchvision",
-    "pillow>=10",
-]
-molmo = [
-    # Molmo's remote code uses transformers' video-processing API, which the
-    # LIBERO extra cannot supply: OpenPI pins transformers==4.53.2 exactly, and
-    # 4.53.2 has no transformers.video_utils.make_batched_metadata. Install this
-    # into its own environment and point the grounder at it over RPC.
-    "transformers>=4.57",
-    "torch",
-    "torchvision",
-    "pillow>=10",
-]
-libero = [
-    "rpent[rlinf,sam3]",
-    "rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent",
-    "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent",
-    # MuJoCo 3.4+ changes LIBERO settling, misplacing objects and reducing task success; see https://github.com/RLinf/RLinf/issues/1460.
-    "mujoco==3.3.0",
-]
-libero-pro = [
-    "rpent[libero]",
-    "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent",
-]
-libero-plus = [
-    # LIBERO-plus requires robosuite<1.5, so it cannot inherit the standard LIBERO extra.
-    "rpent[rlinf,sam3]",
-    "rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent",
-    "rlinf-liberoplus",
-    "mujoco==3.3.0",
-    "h5py",
-]
-franka = [
-    "rpent[rlinf]",
-    # Keep this list aligned with requirements/embodied/envs/franka.txt at the
-    # RLinf revision pinned by the rlinf extra.
-    "pyyaml",
-    "rospkg",
-    "pyrealsense2; sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "empy==3.3.4",
-    "gymnasium==0.29.1",
-    "pyquaternion",
-    "opencv-python",
-    "defusedxml",
-    "pyspacemouse>=2.0.0",
-    "pymodbus>=3.0,<4.0",
-    "pyserial",
-    "imageio[ffmpeg]",
-    "evdev",
-    "numpy<2",
-    # PyArrow 26 requires NumPy >=2 at import time, incompatible with Franka.
-    "pyarrow<26.0.0",
-    "pyzmq",
-    "websockets",
-    "rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent",
+dual-franka = [
+    'defusedxml',
+    'einops>=0.8.0',
+    'empy==3.3.4',
+    'evdev',
     "franky-control @ https://github.com/Brunch-Life/franky/releases/download/wheels-libfranka-0.19.0/franky_control-1.1.3-cp310-cp310-manylinux_2_28_x86_64.whl ; python_version == '3.10' and sys_platform == 'linux' and platform_machine == 'x86_64'",
     "franky-control @ https://github.com/Brunch-Life/franky/releases/download/wheels-libfranka-0.19.0/franky_control-1.1.3-cp311-cp311-manylinux_2_28_x86_64.whl ; python_version == '3.11' and sys_platform == 'linux' and platform_machine == 'x86_64'",
     "franky-control @ https://github.com/Brunch-Life/franky/releases/download/wheels-libfranka-0.19.0/franky_control-1.1.3-cp312-cp312-manylinux_2_28_x86_64.whl ; python_version == '3.12' and sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "matplotlib>=3.8",
-    "pillow>=10",
+    'gymnasium==0.29.1',
+    'imageio[ffmpeg]',
+    'matplotlib>=3.8',
+    'numpy<2',
+    'opencv-python',
+    'pillow>=10',
+    'pyarrow<26.0.0',
+    'pycocotools',
+    'pymodbus>=3.0,<4.0',
+    'pyquaternion',
+    "pyrealsense2; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    'pyserial',
+    'pyspacemouse>=2.0.0',
+    'pyyaml',
+    'pyzmq',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rospkg',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'torch',
+    'torchvision',
+    'websockets',
 ]
-robocasa = [
-    "rpent[rlinf]",
-    "rpent-robocasa365 @ git+https://github.com/RLinf/robocasa.git@rpent",
-    "rlinf-rldx @ git+https://github.com/RLinf/RLDX-1.git@rpent",
-    "robosuite @ git+https://github.com/RLinf/robosuite.git@rpent",
+fast_wam = [
 ]
 flywheel = [
-    "lerobot>=0.3.3,<0.4",
-    # LeRobot 0.3.x expects Fraction frame rates; PyAV 19 returns AVRational.
-    "av<19",
-    # OpenPI requires NumPy 1.x; PyArrow 26 requires NumPy 2 at import time.
-    "pyarrow<26",
+    'av<19',
+    'lerobot>=0.3.3,<0.4',
+    'pyarrow<26',
 ]
-yam = [
-    # Install the fixed RLinf YAM revision and i2rt SDK from the YAM guide.
-    # i2rt 1.1.2 requires click<8.2; huggingface-hub 2.x requires click>=8.4.
-    "huggingface_hub>=0.24,<1",
-    "omegaconf>=2.3,<3",
-    "mujoco>=3.2,<4",
-    "pyrealsense2>=2.55,<3",
-    "imageio-ffmpeg",
+franka = [
+    'defusedxml',
+    'empy==3.3.4',
+    'evdev',
+    "franky-control @ https://github.com/Brunch-Life/franky/releases/download/wheels-libfranka-0.19.0/franky_control-1.1.3-cp310-cp310-manylinux_2_28_x86_64.whl ; python_version == '3.10' and sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "franky-control @ https://github.com/Brunch-Life/franky/releases/download/wheels-libfranka-0.19.0/franky_control-1.1.3-cp311-cp311-manylinux_2_28_x86_64.whl ; python_version == '3.11' and sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "franky-control @ https://github.com/Brunch-Life/franky/releases/download/wheels-libfranka-0.19.0/franky_control-1.1.3-cp312-cp312-manylinux_2_28_x86_64.whl ; python_version == '3.12' and sys_platform == 'linux' and platform_machine == 'x86_64'",
+    'gymnasium==0.29.1',
+    'imageio[ffmpeg]',
+    'matplotlib>=3.8',
+    'numpy<2',
+    'opencv-python',
+    'pillow>=10',
+    'pyarrow<26.0.0',
+    'pymodbus>=3.0,<4.0',
+    'pyquaternion',
+    "pyrealsense2; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    'pyserial',
+    'pyspacemouse>=2.0.0',
+    'pyyaml',
+    'pyzmq',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rospkg',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'websockets',
 ]
-robotwin = [
-    "rpent[rlinf]",
-    "rlinf-robotwin-runtime==0.1.3",
-    "rlinf-lingbotvla==0.1.3",
-    "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@v0.7.8",
+geometry-eval = [
 ]
-
+libero = [
+    'einops>=0.8.0',
+    'mujoco==3.3.0',
+    'pillow>=10',
+    'pycocotools',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'torch',
+    'torchvision',
+]
+libero-openpi-external = [
+    'einops>=0.8.0',
+    'mujoco==3.3.0',
+    'pillow>=10',
+    'pycocotools',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
+    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'torch',
+    'torchvision',
+]
+libero-plus = [
+    'einops>=0.8.0',
+    'h5py',
+    'mujoco==3.3.0',
+    'pillow>=10',
+    'pycocotools',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rlinf-liberoplus',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'torch',
+    'torchvision',
+]
+libero-pro = [
+    'einops>=0.8.0',
+    'mujoco==3.3.0',
+    'pillow>=10',
+    'pycocotools',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
+    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'torch',
+    'torchvision',
+]
+libero-pro-flywheel = [
+    'av<19',
+    'einops>=0.8.0',
+    'lerobot>=0.3.3,<0.4',
+    'mujoco==3.3.0',
+    'pillow>=10',
+    'pyarrow<26',
+    'pycocotools',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
+    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'torch',
+    'torchvision',
+]
+libero-pro-molmo = [
+    'einops>=0.8.0',
+    'mujoco==3.3.0',
+    'pillow>=10',
+    'pycocotools',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
+    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'torch',
+    'torchvision',
+]
+molmo = [
+    'pillow>=10',
+    'torch',
+    'torchvision',
+    'transformers>=4.57',
+]
+openpi = [
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+]
+rlinf = [
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+]
+robocasa = [
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rlinf-rldx @ git+https://github.com/RLinf/RLDX-1.git@rpent',
+    'robosuite @ git+https://github.com/RLinf/robosuite.git@rpent',
+    'rpent-robocasa365 @ git+https://github.com/RLinf/robocasa.git@rpent',
+]
 robodojo = [
-    "rpent[robodojo-sim,sam3]",
-    "rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent",
+    'einops>=0.8.0',
+    'pillow>=10',
+    'pyarrow>=21.0.0,<26.0.0',
+    'pycocotools',
+    'rlinf @ git+https://github.com/littleZ05/RLinf.git@rpent/robodojo',
+    'rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@rpent',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'torch',
+    'torchvision',
 ]
 robodojo-sim = [
-    # Supplies both the simulator adapter and the OpenPI policy configuration.
-    "rlinf @ git+https://github.com/littleZ05/RLinf.git@rpent/robodojo",
-    "rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@rpent",
-    # datasets 5 requires PyArrow >=21; PyArrow 26 needs NumPy >=2,
-    # incompatible with RoboDojo's NumPy 1 simulator stack.
-    "pyarrow>=21.0.0,<26.0.0",
+    'pyarrow>=21.0.0,<26.0.0',
+    'rlinf @ git+https://github.com/littleZ05/RLinf.git@rpent/robodojo',
+    'rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@rpent',
+]
+robotwin = [
+    'nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@v0.7.8',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rlinf-lingbotvla==0.1.3',
+    'rlinf-robotwin-runtime==0.1.3',
+]
+sam3 = [
+    'einops>=0.8.0',
+    'pillow>=10',
+    'pycocotools',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'torch',
+    'torchvision',
+]
+test = [
+    'coverage',
+    'gymnasium',
+    'omegaconf',
+    'pytest',
+    'pytest-timeout',
+]
+yam = [
+    'huggingface_hub>=0.24,<1',
+    'imageio-ffmpeg',
+    'mujoco>=3.2,<4',
+    'omegaconf>=2.3,<3',
+    'pyrealsense2>=2.55,<3',
 ]
 
 [tool.uv]
 prerelease = "allow"
 
-# `robodojo-sim` needs eight overrides for its simulator stack; they live in
-# requirements/robodojo-override.txt so every other robot keeps resolving the
-# versions it was validated against. Pass them explicitly:
-#
-#   uv pip install -e ".[robodojo]" --override requirements/robodojo-override.txt
-
-# Each robot extra pulls a separately pinned VLA runtime whose Torch,
-# Transformers, Tokenizers, or Diffusers versions are mutually incompatible.
+# Each profile pulls a separately pinned simulator or model runtime whose
+# Torch, Transformers, Tokenizers, or Diffusers versions are mutually
+# incompatible with the others. Generated from component env_conflicts.
 conflicts = [
-    [
-        { extra = "franka" },
-        { extra = "libero" },
-    ],
-    [
-        { extra = "franka" },
-        { extra = "libero-pro" },
-    ],
-    [
-        { extra = "franka" },
-        { extra = "libero-plus" },
-    ],
-    [
-        { extra = "franka" },
-        { extra = "robocasa" },
-    ],
-    [
-        { extra = "franka" },
-        { extra = "robotwin" },
-    ],
-    [
-        { extra = "franka" },
-        { extra = "robodojo" },
-    ],
-    [
-        { extra = "franka" },
-        { extra = "robodojo-sim" },
-    ],
-    [
-        { extra = "robocasa" },
-        { extra = "robotwin" },
-    ],
-    [
-        { extra = "robotwin" },
-        { extra = "libero" },
-    ],
-    [
-        { extra = "robotwin" },
-        { extra = "libero-pro" },
-    ],
-    [
-        { extra = "robotwin" },
-        { extra = "libero-plus" },
-    ],
-    [
-        { extra = "robotwin" },
-        { extra = "molmo" },
-    ],
-    [
-        { extra = "robotwin" },
-        { extra = "flywheel" },
-    ],
-    [
-        { extra = "robotwin" },
-        { extra = "robodojo" },
-    ],
-    [
-        { extra = "robotwin" },
-        { extra = "robodojo-sim" },
-    ],
+    [{ extra = "dual-franka" }, { extra = "libero" }],
+    [{ extra = "dual-franka" }, { extra = "libero-openpi-external" }],
+    [{ extra = "dual-franka" }, { extra = "libero-plus" }],
+    [{ extra = "dual-franka" }, { extra = "libero-pro" }],
+    [{ extra = "dual-franka" }, { extra = "libero-pro-flywheel" }],
+    [{ extra = "dual-franka" }, { extra = "libero-pro-molmo" }],
+    [{ extra = "dual-franka" }, { extra = "molmo" }],
+    [{ extra = "dual-franka" }, { extra = "robocasa" }],
+    [{ extra = "dual-franka" }, { extra = "robodojo" }],
+    [{ extra = "dual-franka" }, { extra = "robodojo-sim" }],
+    [{ extra = "dual-franka" }, { extra = "robotwin" }],
+    [{ extra = "flywheel" }, { extra = "robotwin" }],
+    [{ extra = "franka" }, { extra = "libero" }],
+    [{ extra = "franka" }, { extra = "libero-openpi-external" }],
+    [{ extra = "franka" }, { extra = "libero-plus" }],
+    [{ extra = "franka" }, { extra = "libero-pro" }],
+    [{ extra = "franka" }, { extra = "libero-pro-flywheel" }],
+    [{ extra = "franka" }, { extra = "libero-pro-molmo" }],
+    [{ extra = "franka" }, { extra = "molmo" }],
+    [{ extra = "franka" }, { extra = "robocasa" }],
+    [{ extra = "franka" }, { extra = "robodojo" }],
+    [{ extra = "franka" }, { extra = "robodojo-sim" }],
+    [{ extra = "franka" }, { extra = "robotwin" }],
+    [{ extra = "libero" }, { extra = "molmo" }],
+    [{ extra = "libero" }, { extra = "robodojo" }],
+    [{ extra = "libero" }, { extra = "robodojo-sim" }],
+    [{ extra = "libero" }, { extra = "robotwin" }],
+    [{ extra = "libero-openpi-external" }, { extra = "robodojo" }],
+    [{ extra = "libero-openpi-external" }, { extra = "robodojo-sim" }],
+    [{ extra = "libero-openpi-external" }, { extra = "robotwin" }],
+    [{ extra = "libero-plus" }, { extra = "molmo" }],
+    [{ extra = "libero-plus" }, { extra = "robodojo" }],
+    [{ extra = "libero-plus" }, { extra = "robodojo-sim" }],
+    [{ extra = "libero-plus" }, { extra = "robotwin" }],
+    [{ extra = "libero-pro" }, { extra = "molmo" }],
+    [{ extra = "libero-pro" }, { extra = "robodojo" }],
+    [{ extra = "libero-pro" }, { extra = "robodojo-sim" }],
+    [{ extra = "libero-pro" }, { extra = "robotwin" }],
+    [{ extra = "libero-pro-flywheel" }, { extra = "molmo" }],
+    [{ extra = "libero-pro-flywheel" }, { extra = "robodojo" }],
+    [{ extra = "libero-pro-flywheel" }, { extra = "robodojo-sim" }],
+    [{ extra = "libero-pro-flywheel" }, { extra = "robotwin" }],
+    [{ extra = "libero-pro-molmo" }, { extra = "molmo" }],
+    [{ extra = "libero-pro-molmo" }, { extra = "robodojo" }],
+    [{ extra = "libero-pro-molmo" }, { extra = "robodojo-sim" }],
+    [{ extra = "libero-pro-molmo" }, { extra = "robotwin" }],
+    [{ extra = "molmo" }, { extra = "openpi" }],
+    [{ extra = "molmo" }, { extra = "robodojo" }],
+    [{ extra = "molmo" }, { extra = "robotwin" }],
+    [{ extra = "rlinf" }, { extra = "robodojo" }],
+    [{ extra = "rlinf" }, { extra = "robodojo-sim" }],
+    [{ extra = "robocasa" }, { extra = "robodojo" }],
+    [{ extra = "robocasa" }, { extra = "robodojo-sim" }],
+    [{ extra = "robocasa" }, { extra = "robotwin" }],
+    [{ extra = "robodojo" }, { extra = "robotwin" }],
+    [{ extra = "robodojo-sim" }, { extra = "robotwin" }],
 ]
+# --- END GENERATED EXTRAS ---
 
 [tool.uv.extra-build-dependencies]
 # Build RoboTwin's Torch extensions against its runtime Torch version.
@@ -267,11 +356,11 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-# robots is a top-level package; without it, non-editable installations
-# leave the CLI unable to import any backend. The globs also cover every
-# per-robot subpackage (robots.yam.*, robots.robodojo.*, ...).
-include = ["rpent*", "robots", "robots.*"]
-exclude = ["tests*", "docs*", "examples*", "docker*", "toolkits*"]
+# robots and toolkits are top-level packages; without them, non-editable
+# installations leave the CLI unable to import any backend. The globs also
+# cover every per-robot subpackage (robots.yam.*, robots.robodojo.*, ...).
+include = ["rpent*", "robots", "robots.*", "toolkits", "toolkits.*"]
+exclude = ["tests*", "docs*", "examples*", "docker*"]
 
 [tool.setuptools.package-data]
 "robots.robodojo" = ["guides/*.md"]

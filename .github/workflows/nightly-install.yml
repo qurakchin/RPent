@@ -1,0 +1,68 @@
+name: Nightly environment install
+
+on:
+  schedule:
+    # Offset from the unit-test and GPU suites to spread runner load.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hosted:
+    name: Install ${{ matrix.profile }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [minimal, dev, geometry-eval]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Check every profile
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.env check --all
+      - name: Fresh install
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.env install "${{ matrix.profile }}" \
+            --venv ".venv-${{ matrix.profile }}"
+      - name: Doctor
+        run: |
+          uv run --no-project --with packaging -- python -m rpent.cli.env doctor \
+            --venv ".venv-${{ matrix.profile }}"
+
+  gpu:
+    name: Fresh install ${{ matrix.profile }}
+    runs-on: embodied
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [libero-pro, franka, robocasa, robotwin, robodojo]
+    env:
+      # Shared install policy used by RLinf's NVIDIA embodied runner.
+      UV_CACHE_DIR: /workspace/dataset/.uv_cache
+      UV_LINK_MODE: symlink
+      UV_PYTHON_INSTALL_DIR: /workspace/dataset/.uv_python
+      UV_TORCH_BACKEND: auto
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+      - name: Fresh install
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.env install "${{ matrix.profile }}" \
+            --venv ".venv-${{ matrix.profile }}"
+      - name: Doctor
+        run: |
+          uv run --no-project --with packaging -- python -m rpent.cli.env doctor \
+            --venv ".venv-${{ matrix.profile }}"
+      - name: Clean up
+        if: always()
+        run: find ".venv-${{ matrix.profile }}" -depth -delete

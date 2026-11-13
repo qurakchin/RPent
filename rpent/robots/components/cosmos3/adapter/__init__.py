@@ -17,9 +17,9 @@
 from functools import partial
 from typing import Any
 
-from robots.libero.control import LIBERO_OSC
 from rpent.robots.components.am_contracts import WAMModelMeta
 from rpent.robots.components.am_facade_base import WAMAdapter, WAMAdapterSpec
+from rpent.robots.components.am_platforms import LIBERO_OSC
 from rpent.robots.components.cosmos3 import USES_SESSIONS
 from rpent.robots.components.cosmos3.adapter.decode import decode_libero
 from rpent.robots.components.cosmos3.adapter.encode import encode_libero

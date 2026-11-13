@@ -1,0 +1,12 @@
+schema = 1
+name = "libero-pro-flywheel"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/libero-pro-flywheel.lock"
+description = "LIBERO-PRO with LeRobot trajectory export and replay."
+
+[components.libero]
+variant = "pro"
+
+[components.flywheel]
+placement = "in-env"

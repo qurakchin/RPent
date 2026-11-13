@@ -1,0 +1,14 @@
+schema = 1
+name = "dual_franka"
+kind = "robot"
+probe = "robots.dual_franka.robot_spec"
+python = ">=3.10,<3.13"
+platforms = ["linux-x86_64"]
+# Dual Franka extends the single-arm integration instead of duplicating its
+# camera, gripper, and teleoperation stack.
+requires = ["franka", "sam3"]
+env_conflicts = ["libero", "robocasa", "robotwin", "robodojo", "robodojo-sim"]
+placement = ["in-env"]
+docs = "docs/source-en/rst_source/real_world_robots/dual_franka.rst"
+
+dependencies = []

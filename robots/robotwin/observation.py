@@ -19,8 +19,9 @@ from typing import Any
 import numpy as np
 
 from rpent.robots.components.am_contracts import AMObservation
+from rpent.robots.components.am_platforms import ROBOTWIN_CAMERAS
 
-ROBOTWIN_CAMERAS = ("head", "left_wrist", "right_wrist")
+__all__ = ["ROBOTWIN_CAMERAS", "physical_observation"]
 
 
 def physical_observation(observation: dict[str, Any]) -> AMObservation:

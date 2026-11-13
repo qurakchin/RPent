@@ -288,7 +288,7 @@ def replay(
 def replay_card(toolkit: Any, cell_tag: str, note: Callable[[str], None]) -> dict:
     """Run the robot-owned Flash hook and close its Molmo connection."""
     from robots.franka.runtime_config import get_robot_config_path, load_mapping
-    from rpent.robots.components.molmo_client import MolmoClient
+    from rpent.robots.components.molmo.client import MolmoClient
     from rpent.utils.rpc import make_rpc_client
 
     options = toolkit.flash_options

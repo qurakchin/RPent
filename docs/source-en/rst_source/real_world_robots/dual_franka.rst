@@ -22,19 +22,23 @@ Use the same installation workflow as :doc:`../get_started/quickstart`:
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   uv venv
+   rpent-env install dual-franka --venv .venv
    source .venv/bin/activate
-   uv pip install -e ".[franka,sam3]"
 
-If Python package downloads are slow, replace the installation command with the
-`Tsinghua PyPI mirror <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_:
+On a fresh checkout where ``rpent-env`` is not installed yet, bootstrap it as
+described in :doc:`../get_started/installation`. The ``dual-franka`` profile
+includes both Franka arms and local SAM 3.0.
+
+If Python package downloads are slow, set the
+`Tsinghua PyPI mirror <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_ for
+the install:
 
 .. code-block:: bash
 
-   uv pip install -e ".[franka,sam3]" \
-     --index-url https://pypi.tuna.tsinghua.edu.cn/simple
+   UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
+     rpent-env install dual-franka --venv .venv
 
-This option changes only the Python package index; it does not proxy Git
+The mirror changes only the Python package index; it does not proxy Git
 repositories, direct download URLs or model weights.
 
 Check libfranka compatibility with the robot firmware before connecting.

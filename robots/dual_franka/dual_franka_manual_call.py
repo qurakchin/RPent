@@ -56,7 +56,7 @@ from robots.franka.tools import view_camera_meta
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory.manager import MemoryManager
 from rpent.robots.components.pi05_vla_client import Pi05VLAClient
-from rpent.robots.components.sam3_client import Sam3Client
+from rpent.robots.components.sam3.client import Sam3Client
 from rpent.session import EnvState
 from rpent.utils.config import get_repo_root
 from rpent.utils.rpc import make_rpc_client, wait_for_ready

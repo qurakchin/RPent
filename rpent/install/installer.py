@@ -1,0 +1,361 @@
+# Copyright 2026 The RPent Authors.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""Create a profile environment, install it, and record its fingerprint."""
+
+from __future__ import annotations
+
+import dataclasses
+import os
+import shutil
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from rpent.install.discovery import Catalog, discover
+from rpent.install.errors import InstallError
+from rpent.install.fingerprint import (
+    freeze_sha256,
+    runtime_platform,
+    source_state,
+    write_fingerprint,
+)
+from rpent.install.manifest import Profile, Selection
+from rpent.install.requirements import (
+    read_core_dependencies,
+    render_requirements,
+    requirements_sha256,
+)
+from rpent.install.resolve import Resolution, resolve
+from rpent.utils.config import get_repo_root
+
+#: Per-checkout state: generated requirements and per-profile virtualenvs.
+STATE_DIR = ".rpent"
+
+
+def default_venv(root: Path, profile: Profile) -> Path:
+    """Return the default virtualenv path for ``profile``."""
+    return root / STATE_DIR / "venvs" / profile.name
+
+
+def requirements_file(root: Path, profile: Profile, environment: str) -> Path:
+    """Return the generated requirements path for one environment."""
+    if environment == profile.name:
+        return root / STATE_DIR / "envs" / f"{profile.name}.txt"
+    return root / STATE_DIR / "envs" / f"{profile.name}.{environment}.txt"
+
+
+def venv_python(venv: Path) -> Path:
+    """Return the interpreter path inside a virtualenv."""
+    candidate = Path(venv) / "bin" / "python"
+    if candidate.exists():
+        return candidate
+    return Path(venv) / "Scripts" / "python.exe"
+
+
+def find_uv() -> str:
+    """Return the uv executable or raise an actionable error."""
+    override = os.environ.get("RPENT_UV")
+    if override:
+        return override
+    uv = shutil.which("uv")
+    if uv is None:
+        raise InstallError(
+            "uv is required to install RPent environments: "
+            "https://docs.astral.sh/uv/getting-started/installation/"
+        )
+    return uv
+
+
+def run_command(
+    command: list[str],
+    *,
+    env: dict[str, str] | None = None,
+    capture: bool = False,
+) -> str:
+    try:
+        result = subprocess.run(
+            command,
+            check=True,
+            text=True,
+            capture_output=capture,
+            env=env,
+        )
+    except FileNotFoundError as exc:
+        raise InstallError(f"command not found: {command[0]}") from exc
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or "").strip()
+        message = f"command failed ({exc.returncode}): {' '.join(command)}"
+        if detail:
+            message += f"\n{detail}"
+        raise InstallError(message) from exc
+    return result.stdout if capture else ""
+
+
+def _with_dev(profile: Profile, catalog: Catalog) -> Profile:
+    dev = catalog.profiles.get("dev")
+    if dev is None:
+        return profile
+    components = dict(profile.components)
+    for name, selection in dev.components.items():
+        components.setdefault(name, selection)
+    return dataclasses.replace(
+        profile,
+        components=components,
+        dependencies=tuple(dict.fromkeys(profile.dependencies + dev.dependencies)),
+        extra_index_urls=tuple(
+            dict.fromkeys(profile.extra_index_urls + dev.extra_index_urls)
+        ),
+    )
+
+
+def component_profile(
+    component_name: str,
+    catalog: Catalog,
+    *,
+    root: Path,
+) -> Profile:
+    """Build a development-only profile for one component."""
+    return Profile(
+        name=component_name,
+        path=root / "envs" / f"{component_name}.toml",
+        python=f"{sys.version_info.major}.{sys.version_info.minor}",
+        platform=runtime_platform(),
+        components={component_name: Selection()},
+        dependencies=(),
+        index_url=None,
+        extra_index_urls=(),
+        lock=None,
+        core=True,
+        generate_extra=False,
+        extra=None,
+        description=f"development diagnostic environment for {component_name}",
+    )
+
+
+def resolve_install_target(
+    target: str,
+    catalog: Catalog,
+    *,
+    root: Path,
+    include_dev: bool = False,
+) -> Resolution:
+    """Resolve a profile name or, when needed, a single component name."""
+    if target in catalog.profiles:
+        profile = catalog.profiles[target]
+        if include_dev:
+            profile = _with_dev(profile, catalog)
+    elif target in catalog.components:
+        if include_dev:
+            raise InstallError("--dev applies to profiles, not single components")
+        profile = component_profile(target, catalog, root=root)
+    else:
+        known = ", ".join(sorted(catalog.profiles))
+        raise InstallError(
+            f"unknown profile or component {target!r}; known profiles: {known}"
+        )
+    core = read_core_dependencies(root) if profile.core else ()
+    return resolve(profile, catalog, core_dependencies=core)
+
+
+def install(
+    target: str,
+    *,
+    root: Path | None = None,
+    venv: Path | None = None,
+    include_dev: bool = False,
+    dry_run: bool = False,
+    verbose: bool = True,
+) -> dict[str, Any]:
+    """Install ``target`` and return the written fingerprint."""
+    repo_root = (root or get_repo_root()).resolve()
+    catalog = discover(repo_root)
+    resolution = resolve_install_target(
+        target, catalog, root=repo_root, include_dev=include_dev
+    )
+    if not resolution.ok:
+        raise InstallError("\n".join(resolution.errors))
+    profile = resolution.profile
+    core = read_core_dependencies(repo_root) if profile.core else ()
+    main_requirements = render_requirements(
+        resolution, profile.name, core_dependencies=core
+    )
+    destination = (venv or default_venv(repo_root, profile)).resolve()
+    requirements_path = requirements_file(repo_root, profile, profile.name)
+    external = resolution.nonempty_environments()
+    external.pop(profile.name, None)
+
+    if dry_run:
+        print(main_requirements, end="")
+        return {
+            "profile": profile.name,
+            "venv": str(destination),
+            "requirements": main_requirements,
+            "external_environments": sorted(external),
+        }
+
+    requirements_path.parent.mkdir(parents=True, exist_ok=True)
+    requirements_path.write_text(main_requirements, encoding="utf-8")
+    external_requirements: dict[str, Path] = {}
+    for environment in sorted(external):
+        path = requirements_file(repo_root, profile, environment)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            render_requirements(resolution, environment, core_dependencies=core),
+            encoding="utf-8",
+        )
+        external_requirements[environment] = path
+
+    uv = find_uv()
+    python = venv_python(destination)
+    if not python.exists():
+        if verbose:
+            print(f"$ {uv} venv --python {profile.python} {destination}")
+        run_command([uv, "venv", "--python", profile.python, str(destination)])
+        python = venv_python(destination)
+    if not python.exists():
+        raise InstallError(
+            f"{destination} exists but has no Python interpreter; remove it and "
+            f"rerun `rpent-env install {target}`"
+        )
+
+    # Install the profile's lock when it exists so a checkout with a lock gets
+    # the same versions everywhere. A lock covers only the profile closure, so
+    # `--dev` (which appends the dev profile's packages) resolves from the
+    # generated requirements instead.
+    lock = repo_root / profile.lock if profile.lock else None
+    using_lock = lock is not None and lock.is_file() and not include_dev
+    install_from = lock if using_lock else requirements_path
+    install_command = [uv, "pip", "install", "--python", str(python)]
+    install_command.extend(index_options(profile))
+    for resolved in resolution.main_components().values():
+        for override in resolved.component.overrides:
+            install_command.extend(["--override", str(override)])
+    install_command.extend(["-r", str(install_from)])
+    if verbose:
+        print(f"$ {' '.join(install_command)}")
+    run_command(install_command)
+
+    if profile.core:
+        editable = [
+            uv,
+            "pip",
+            "install",
+            "--python",
+            str(python),
+            "--no-deps",
+            "-e",
+            str(repo_root),
+        ]
+        if verbose:
+            print(f"$ {' '.join(editable)}")
+        run_command(editable)
+
+    _probe_components(resolution, python, repo_root, verbose=verbose)
+    run_command([uv, "pip", "check", "--python", str(python)])
+
+    frozen = run_command([uv, "pip", "freeze", "--python", str(python)], capture=True)
+    commit, dirty = source_state(repo_root)
+    fingerprint = {
+        "schema": 1,
+        "profile": profile.name,
+        "python": _python_version(python),
+        "platform": runtime_platform(),
+        "source_commit": commit,
+        "source_dirty": dirty,
+        "components": {
+            name: {
+                "manifest_sha256": resolved.component.manifest_sha256,
+                "placement": resolved.placement,
+                "variant": resolved.variant,
+                **(
+                    {"env": resolved.env}
+                    if resolved.placement == "external-env"
+                    else {}
+                ),
+            }
+            for name, resolved in sorted(resolution.components.items())
+        },
+        "requirements_sha256": requirements_sha256(
+            resolution,
+            core_dependencies=core,
+            include_dev=include_dev,
+        ),
+        "include_dev": include_dev,
+        "freeze_sha256": freeze_sha256(frozen),
+        "requirements_file": str(requirements_path.relative_to(repo_root)),
+        "external_requirements": {
+            environment: str(path.relative_to(repo_root))
+            for environment, path in external_requirements.items()
+        },
+        "lock": str(lock.relative_to(repo_root)) if using_lock else None,
+        "installed_at": datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z"),
+    }
+    written = write_fingerprint(destination, fingerprint)
+    if verbose:
+        print(f"installation fingerprint: {written}")
+        if external:
+            print("external environments are installed separately:")
+            for environment in sorted(external):
+                print(f"  rpent-env install {environment}")
+    return fingerprint
+
+
+def index_options(profile: Profile) -> list[str]:
+    options: list[str] = []
+    if profile.index_url:
+        options.extend(["--index-url", profile.index_url])
+    for url in profile.extra_index_urls:
+        options.extend(["--extra-index-url", url])
+    return options
+
+
+def _python_version(python: Path) -> str:
+    try:
+        return run_command(
+            [str(python), "-c", "import platform; print(platform.python_version())"],
+            capture=True,
+        ).strip()
+    except InstallError:
+        return "unknown"
+
+
+def _probe_components(
+    resolution: Resolution,
+    python: Path,
+    root: Path,
+    *,
+    verbose: bool,
+) -> None:
+    environment = {**os.environ, "PYTHONPATH": str(root)}
+    for name, resolved in sorted(resolution.main_components().items()):
+        probe = resolved.component.probe
+        if verbose:
+            print(f"probe {name}: import {probe}")
+        try:
+            run_command(
+                [str(python), "-c", f"import {probe}"], env=environment, capture=True
+            )
+        except InstallError as exc:
+            raise InstallError(
+                f"component {name!r} is not importable in {python.parent.parent}\n"
+                f"  probe: import {probe}\n"
+                f"  install: rpent-env install {name} --venv {python.parent.parent}\n"
+                f"{exc}"
+            ) from exc

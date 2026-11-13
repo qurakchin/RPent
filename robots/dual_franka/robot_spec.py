@@ -388,7 +388,14 @@ def _spawn_sam3_server(
         name="sam3_server",
         cmd=[
             sys.executable,
-            str(get_repo_root() / "rpent" / "robots" / "components" / "sam3_server.py"),
+            str(
+                get_repo_root()
+                / "rpent"
+                / "robots"
+                / "components"
+                / "sam3"
+                / "server.py"
+            ),
             "--transport",
             "http",
             "--host",
@@ -422,7 +429,7 @@ def _init_runtime(
     select_am(args, "dual_franka")
     from robots.dual_franka.env_client import DualFrankaEnvClient
     from rpent.robots.components.pi05_vla_client import Pi05VLAClient
-    from rpent.robots.components.sam3_client import Sam3Client
+    from rpent.robots.components.sam3.client import Sam3Client
 
     available = {"env", "vla", "sam3"}
     selected = available if components is None else components

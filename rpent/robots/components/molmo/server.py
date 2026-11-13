@@ -16,7 +16,7 @@
 Run manually with::
 
     MOLMO_CHECKPOINT_PATH=/path/to/molmo PYTHONPATH=/path/to/RPent \
-        python -m rpent.robots.components.molmo_server \
+        python -m rpent.robots.components.molmo.server \
         --transport http --host 127.0.0.1 --port 8115
 
 Runs under the ``molmo`` extra's own interpreter, which does not have RPent
@@ -42,6 +42,7 @@ from typing import Any
 
 from PIL import Image
 
+from rpent.components import require
 from rpent.utils.logging import get_logger
 from rpent.utils.rpc import RpcFacade
 
@@ -88,14 +89,10 @@ class MolmoFacade(RpcFacade):
         self._register_rpc()
 
     def _load(self, checkpoint: str) -> None:
-        try:
-            import torch
-            from transformers import AutoModelForImageTextToText, AutoProcessor
-        except ImportError as exc:
-            raise RuntimeError(
-                "local Molmo dependencies are missing; install RPent with "
-                '`pip install -e ".[molmo]"`'
-            ) from exc
+        torch = require("molmo", "torch")
+        transformers = require("molmo", "transformers")
+        AutoModelForImageTextToText = transformers.AutoModelForImageTextToText
+        AutoProcessor = transformers.AutoProcessor
 
         if not torch.cuda.is_available():
             raise RuntimeError("local Molmo requires a CUDA-capable GPU")

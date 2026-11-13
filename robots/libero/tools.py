@@ -27,8 +27,8 @@ import numpy as np
 from pydantic import Field
 
 from robots.libero.env_client import LiberoEnvClient
-from rpent.robots.components.molmo_client import MolmoClient
-from rpent.robots.components.sam3_client import Sam3Client
+from rpent.robots.components.molmo.client import MolmoClient
+from rpent.robots.components.sam3.client import Sam3Client
 from rpent.session import EnvState, StepRecord
 from rpent.session.env_capture import CapturingEnvClient
 from rpent.tools import Tool, ToolResult, tool

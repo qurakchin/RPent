@@ -1,0 +1,9 @@
+schema = 1
+name = "rlinf"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/rlinf.lock"
+description = "RLinf release runtime used as a diagnostic environment."
+
+[components.rlinf]
+placement = "in-env"
