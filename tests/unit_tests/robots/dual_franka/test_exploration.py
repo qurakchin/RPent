@@ -25,7 +25,7 @@ from robots.dual_franka import robot_spec
 from robots.dual_franka.toolkit import DualFrankaToolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
-from rpent.prompt.assembly import build_robot_prompt, run_modes
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 
 
 class FakeEnv:
@@ -216,7 +216,7 @@ def test_explore_prompt_and_factory_use_local_layered_memory(
         robot_spec.get_robot_spec().prompts,
         robot_name="dual_franka",
         variables={**config.prompt_vars, "output_dir": tmp_path},
-        modes=run_modes(explore=True, dashboard=False, real_robot=True),
+        axes=run_axes(explore=True, dashboard=False, real_robot=True),
     ).system
     assert "request_scene_reset" in prompt and "request_operator_verdict" in prompt
     assert (

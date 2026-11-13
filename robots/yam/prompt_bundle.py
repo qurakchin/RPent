@@ -45,11 +45,11 @@ def user_prompt(
     )
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return the YAM tool guidance for the tools layer."""
-    return tool_parts.prompt_sections(variables)
+    return tool_parts.tool_sections(variables)
 
 
-__all__ = ["system_prompt", "user_prompt", "prompt_sections"]
+__all__ = ["system_prompt", "user_prompt", "tool_sections"]

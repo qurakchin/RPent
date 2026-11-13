@@ -28,7 +28,7 @@ from rpent.prompt.assembly import PromptSection
 from rpent.prompt.utils import PromptNode, format_prompt
 
 PromptFactory = Callable[..., "PromptNode | Sequence[PromptSection]"]
-PromptSectionsFactory = Callable[
+ToolSectionsFactory = Callable[
     ..., "Sequence[PromptSection] | Mapping[str, PromptNode]"
 ]
 
@@ -38,8 +38,8 @@ class PromptBundle:
     """Python-defined prompt factories for one robot.
 
     ``system`` and ``user`` are the robot's domain contribution. The shared
-    assembly layer inserts base rules, run-mode contracts, shared tool-family
-    guidance, and memory pointers around them. ``prompt_sections`` contributes
+    assembly layer inserts base rules, run-axis contracts, shared tool-family
+    guidance, and memory pointers around them. ``tool_sections`` contributes
     guidance for tools that exist only in this slice, such as native tools; it
     must not repeat a tool family's guidance and may be omitted when the slice
     adds no native tool. It takes the same variables and must stay a pure
@@ -50,7 +50,7 @@ class PromptBundle:
 
     system: PromptFactory
     user: PromptFactory
-    prompt_sections: PromptSectionsFactory | None = None
+    tool_sections: ToolSectionsFactory | None = None
     source: str = ""
 
     def render(

@@ -24,8 +24,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from robots.libero.prompt_bundle import (
-    prompt_sections,
     system_prompt,
+    tool_sections,
     user_prompt,
 )
 from robots.libero.suites import LIBERO_SUITE_NAMES, resolve_libero_type
@@ -154,7 +154,7 @@ def get_robot_spec() -> RobotSpec:
         prompts=PromptBundle(
             system=system_prompt,
             user=user_prompt,
-            prompt_sections=prompt_sections,
+            tool_sections=tool_sections,
             source="robots/libero/prompts",
         ),
         add_cli_args=_add_cli_args,

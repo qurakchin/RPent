@@ -16,12 +16,14 @@
 
 from __future__ import annotations
 
-import json
-import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from rpent.utils.files import write_json_atomic
+
+__all__ = ["RunFinalizationContext", "RunFinalizer", "write_json_atomic"]
 
 
 @dataclass(frozen=True)
@@ -45,20 +47,3 @@ class RunFinalizationContext:
 
 
 RunFinalizer = Callable[[RunFinalizationContext], Path | str | None]
-
-
-def write_json_atomic(
-    destination: Path | str,
-    record: Mapping[str, Any],
-) -> Path:
-    """Write one JSON object atomically and return its destination path."""
-    path = Path(destination)
-    temporary = path.with_name(f".{path.name}.tmp")
-    try:
-        with temporary.open("w", encoding="utf-8") as file:
-            json.dump(record, file, indent=2)
-            file.write("\n")
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
-    return path

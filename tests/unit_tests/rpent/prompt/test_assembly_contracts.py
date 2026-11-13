@@ -14,22 +14,22 @@ from pathlib import Path
 
 import pytest
 
-from rpent.prompt.artifacts import (
-    EFFECTIVE_PROMPT,
-    PROMPT_SOURCES,
-    delivered_prompt_text,
-    write_prompt_artifacts,
-)
 from rpent.prompt.assembly import (
     PromptLayers,
     PromptSection,
     assemble_prompt,
     build_robot_prompt,
     fragment,
-    mode_sections,
     prefix_system_prompt,
     prompt_sha256,
-    run_modes,
+    run_axes,
+    section_source,
+)
+from rpent.prompt.prompt_artifacts import (
+    EFFECTIVE_PROMPT,
+    PROMPT_SOURCES,
+    delivered_prompt_text,
+    write_prompt_artifacts,
 )
 from rpent.prompt.utils import format_prompt
 from rpent.robots.prompt_bundle import PromptBundle
@@ -38,7 +38,7 @@ from rpent.robots.prompt_bundle import PromptBundle
 def _layers() -> PromptLayers:
     return PromptLayers(
         base=(fragment("base", "OPERATING RULES"),),
-        mode=mode_sections(("evaluate",)),
+        axis=(fragment("mode_evaluate", "RUN MODE — EVALUATION"),),
         tools=(PromptSection("TOOL", "tool guidance", "robot/tools.py"),),
         domain=(PromptSection("DOMAIN", "domain knowledge", "robot/domain.py"),),
         memory=(fragment("memory_protocol", "MEMORY — HOW TO READ"),),
@@ -89,6 +89,23 @@ def test_assemble_prompt_renders_fixed_layer_order() -> None:
     assert assembled.prompt_sha256 == prompt_sha256(assembled.system, assembled.user)
 
 
+def test_section_source_falls_back_to_the_outermost_package(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An installed slice outside the repository root still gets a stable path."""
+    root = tmp_path / "site-packages"
+    prompts = root / "robots" / "demo" / "prompts"
+    prompts.mkdir(parents=True)
+    for package in (root / "robots", root / "robots" / "demo", prompts):
+        (package / "__init__.py").write_text("", encoding="utf-8")
+    module = prompts / "tools.py"
+    module.write_text("", encoding="utf-8")
+    monkeypatch.setenv("RPENT_REPO_ROOT", str(tmp_path / "elsewhere"))
+
+    assert section_source(module) == "robots/demo/prompts/tools.py"
+
+
 def test_sections_that_render_empty_are_not_recorded_as_sources() -> None:
     """A conditional contribution the model never saw is not provenance."""
     assembled = assemble_prompt(
@@ -129,22 +146,43 @@ def test_assemble_prompt_is_deterministic_and_rejects_duplicates() -> None:
     )
     with pytest.raises(ValueError, match="duplicate prompt section"):
         assemble_prompt(duplicate, variables={})
-    with pytest.raises(ValueError, match="unknown prompt mode"):
-        mode_sections(("typo",))
+
+    with pytest.raises(ValueError, match="unknown prompt axis"):
+        build_robot_prompt(
+            _bundle(),
+            robot_name="demo",
+            variables={},
+            axes=("typo",),
+        )
 
 
-def test_run_modes_and_memory_sections_follow_the_run() -> None:
-    assert run_modes(explore=False, dashboard=False, real_robot=False) == ("evaluate",)
-    assert run_modes(explore=True, dashboard=True, real_robot=True) == (
+def _bundle() -> PromptBundle:
+    return PromptBundle(
+        system=lambda variables: {"DOMAIN": "domain knowledge"},
+        user=lambda variables: {"TASK": "user task"},
+    )
+
+
+def test_run_axes_and_memory_sections_follow_the_run() -> None:
+    assert run_axes(explore=False, dashboard=False, real_robot=False) == ("evaluate",)
+    assert run_axes(explore=True, dashboard=True, real_robot=True) == (
         "explore",
         "interactive",
         "real_robot",
     )
 
-    names = [section.name for section in mode_sections(("evaluate", "real_robot"))]
-    assert names == ["RUN MODE — EVALUATION", "RUN MODE — REAL ROBOT"]
-    interactive = mode_sections(("interactive",))
-    assert [section.name for section in interactive] == ["RUN MODE — INTERACTIVE"]
+    assembled = build_robot_prompt(
+        _bundle(),
+        robot_name="demo",
+        variables={},
+        axes=("evaluate", "interactive", "real_robot"),
+    )
+    names = [section["name"] for section in assembled.sections]
+    assert names[1:4] == [
+        "RUN MODE — EVALUATION",
+        "RUN MODE — INTERACTIVE",
+        "RUN MODE — REAL ROBOT",
+    ]
 
 
 def test_fragments_do_not_depend_on_robot_variables() -> None:
@@ -170,7 +208,7 @@ def test_build_robot_prompt_contributes_domain_tools_and_memory(
     bundle = PromptBundle(
         system=lambda variables: {"DOMAIN": "domain knowledge"},
         user=lambda variables: {"TASK": "user task"},
-        prompt_sections=lambda variables: {"TOOL": "tool knowledge"},
+        tool_sections=lambda variables: {"TOOL": "tool knowledge"},
         source="robots/demo/prompts",
     )
     variables = {
@@ -181,7 +219,7 @@ def test_build_robot_prompt_contributes_domain_tools_and_memory(
         bundle,
         robot_name="demo",
         variables=variables,
-        modes=("explore",),
+        axes=("explore",),
     )
 
     assert "tool knowledge" in assembled.system
@@ -200,7 +238,7 @@ def test_build_robot_prompt_contributes_domain_tools_and_memory(
         bundle,
         robot_name="demo",
         variables={"task": "demo"},
-        modes=("evaluate",),
+        axes=("evaluate",),
     )
     assert "MEMORY — HOW TO READ" not in without_memory.system
 
@@ -212,7 +250,7 @@ def test_write_prompt_artifacts_records_layout_and_sources(tmp_path: Path) -> No
         assembled=assembled,
         robot_name="demo",
         planner="claude_code",
-        modes=("evaluate",),
+        axes=("evaluate",),
         user_message="do the task",
     )
 
@@ -224,30 +262,29 @@ def test_write_prompt_artifacts_records_layout_and_sources(tmp_path: Path) -> No
     assert "do the task" in text
 
     sources = json.loads(sources_path.read_text(encoding="utf-8"))
-    assert sources["planner_prompt_layout"] == "system_prefixed_to_user"
-    assert sources["modes"] == ["evaluate"]
+    assert sources["planner_prompt_layout"] == "separate_system"
+    assert sources["axes"] == ["evaluate"]
     assert sources["prompt_sha256"] == assembled.prompt_sha256
     assert "delivered_prompt_sha256" not in sources
-    assert sources["user_message_sha256"] == hashlib.sha256(b"do the task").hexdigest()
+    assert "user_message_sha256" not in sources
     assert [section["name"] for section in sources["sections"]] == [
         section["name"] for section in assembled.sections
     ]
+    assert not list(tmp_path.glob(".*.tmp"))
 
 
 def test_delivered_text_uses_the_same_prefix_helper_as_the_planners() -> None:
     system, user = "system text\n", "user text\n"
 
-    # The planners and the artifact both call this helper.
+    # Codex and the artifact both call this helper.
     assert prefix_system_prompt(system, user) == f"{system}\n\n{user}"
-    assert delivered_prompt_text("claude_code", system=system, user=user) == (
-        prefix_system_prompt(system, user)
-    )
     assert delivered_prompt_text("codex", system=system, user=user) == (
         prefix_system_prompt(system, user)
     )
 
-    # api sends two messages; flash never receives the prompt.
+    # api and claude_code send two roles; flash never receives the prompt.
     assert delivered_prompt_text("api", system=system, user=user) is None
+    assert delivered_prompt_text("claude_code", system=system, user=user) is None
     assert delivered_prompt_text("flash", system=system, user=user) is None
     assert prefix_system_prompt("", user) == user
 
@@ -259,14 +296,14 @@ def test_bundle_assembly_keeps_the_declared_layer_order(tmp_path: Path) -> None:
     bundle = PromptBundle(
         system=lambda variables: {"DOMAIN": "domain knowledge"},
         user=lambda variables: {"TASK": "user task"},
-        prompt_sections=lambda variables: {"TOOL": "tool knowledge"},
+        tool_sections=lambda variables: {"TOOL": "tool knowledge"},
         source="robots/demo/prompts",
     )
     assembled = build_robot_prompt(
         bundle,
         robot_name="demo",
         variables={"memory_dir": str(memory_dir)},
-        modes=run_modes(explore=True, dashboard=False, real_robot=True),
+        axes=run_axes(explore=True, dashboard=False, real_robot=True),
     )
 
     assert [section["name"] for section in assembled.sections] == [

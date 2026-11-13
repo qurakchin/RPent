@@ -73,7 +73,7 @@ unavailable coordinated motion or contact feedback, explain that limitation
 instead of requesting an untrained policy."""
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return perception, control, and policy guidance for the exposed tools."""
@@ -88,4 +88,4 @@ def prompt_sections(
     )
 
 
-__all__ = ["prompt_sections"]
+__all__ = ["tool_sections"]

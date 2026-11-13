@@ -61,11 +61,11 @@ from rpent.planner.base import (
     is_recoverable_agent_error,
 )
 from rpent.planner.check import BASE_URL_ENV_BY_PLANNER
-from rpent.prompt.artifacts import (
+from rpent.prompt.assembly import build_robot_prompt, run_axes
+from rpent.prompt.prompt_artifacts import (
     effective_prompt_markdown,
     write_prompt_artifacts,
 )
-from rpent.prompt.assembly import build_robot_prompt, run_modes
 from rpent.robots import enumerate_robots, get_robot_spec, get_toolkit
 from rpent.session.planner_capture import end_planner_task, start_planner_task
 from rpent.utils.config import get_memory_dir
@@ -204,9 +204,8 @@ def _build_argparser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--dump-prompt",
         action="store_true",
-        help="Render the robot's final prompt, write effective_prompt.md and "
-        "prompt_sources.json, print the prompt, and exit without starting a "
-        "runtime.",
+        help="Render the robot's final prompt, print it, and exit without "
+        "starting a runtime or writing run artifacts.",
     )
     ap.add_argument(
         "--record-trajectory",
@@ -329,12 +328,12 @@ def _assemble_robot_prompt(
     variables,
     explore: bool,
 ):
-    """Assemble this run's prompt and return it with the modes that shaped it.
+    """Assemble this run's prompt and return it with the run axes behind it.
 
     Dashboard runs assemble their prompt in :mod:`rpent.cli.dashboard`, so this
-    session path never carries the dashboard mode.
+    session path never carries the dashboard axis.
     """
-    modes = run_modes(
+    axes = run_axes(
         explore=explore,
         dashboard=False,
         real_robot=bool(robot_spec.is_real_robot),
@@ -343,9 +342,9 @@ def _assemble_robot_prompt(
         robot_spec.prompts,
         robot_name=robot_name,
         variables=variables,
-        modes=modes,
+        axes=axes,
     )
-    return assembled, modes
+    return assembled, axes
 
 
 def _start_continuation_session(
@@ -358,7 +357,7 @@ def _start_continuation_session(
     prompt_vars,
     session_number: int,
     session_max: int,
-    modes=(),
+    axes=(),
     state_output_dir=None,
 ):
     """Build a fresh planner and prompts for an exploration handoff."""
@@ -387,7 +386,7 @@ def _start_continuation_session(
         prompt_bundle,
         robot_name=args.robot_name,
         variables=variables,
-        modes=modes,
+        axes=axes,
     )
     session_message = _handoff_message(
         output_dir,
@@ -404,7 +403,7 @@ def _start_continuation_session(
         assembled=assembled,
         robot_name=args.robot_name,
         planner=args.planner,
-        modes=modes,
+        axes=axes,
         user_message=session_message,
     )
     return planner, assembled, session_message
@@ -546,34 +545,26 @@ def main() -> int:
 
     prompt_bundle = robot_spec.prompts
     if args.dump_prompt:
-        # Dumping renders the prompt; it must not sync or create memory.
+        # Dumping renders the prompt for inspection only: it must not sync or
+        # create memory, and it leaves no run artifacts behind.
         dump_vars = {**prompt_vars, "output_dir": output_dir}
         dump_vars.setdefault("memory_dir", str(get_memory_dir(robot_name)))
-        assembled, modes = _assemble_robot_prompt(
+        assembled, axes = _assemble_robot_prompt(
             robot_spec,
             robot_name=robot_name,
             variables=dump_vars,
             explore=bool(getattr(args, "explore", False)),
-        )
-        write_prompt_artifacts(
-            Path(output_dir),
-            assembled=assembled,
-            robot_name=robot_name,
-            planner=args.planner,
-            modes=modes,
-            user_message=assembled.user,
-            memory_prepared=False,
         )
         if not any(
             section["source"] == "rpent/prompt/fragments/memory_protocol.md"
             for section in assembled.sections
         ):
             # A run prepares memory before assembly; the dump deliberately does
-            # not. Say so where the difference is visible.
+            # not, so its memory sections describe only the local corpus.
             print(
                 "warning: --dump-prompt skips memory preparation, so the memory "
-                "sections describe only the local corpus; effective_prompt.md "
-                "from a run is authoritative.",
+                "sections describe only the local corpus; the prompt recorded by "
+                "a run is authoritative.",
                 file=sys.stderr,
             )
         print(
@@ -581,9 +572,8 @@ def main() -> int:
                 assembled,
                 robot_name=robot_name,
                 planner=args.planner,
-                modes=modes,
+                axes=axes,
                 user_message=assembled.user,
-                memory_prepared=False,
             )
         )
         return 0
@@ -591,7 +581,7 @@ def main() -> int:
     prepare_run_memory(args, robot_spec, run_config)
 
     prompt_vars = {**prompt_vars, "output_dir": output_dir}
-    assembled, modes = _assemble_robot_prompt(
+    assembled, axes = _assemble_robot_prompt(
         robot_spec,
         robot_name=robot_name,
         variables=prompt_vars,
@@ -704,7 +694,7 @@ def main() -> int:
                     prompt_vars=prompt_vars,
                     session_number=session_number,
                     session_max=sessions,
-                    modes=modes,
+                    axes=axes,
                     state_output_dir=state_output_dir,
                 )
                 system_prompt = assembled.system
@@ -714,7 +704,7 @@ def main() -> int:
                     assembled=assembled,
                     robot_name=robot_name,
                     planner=args.planner,
-                    modes=modes,
+                    axes=axes,
                     user_message=session_msg,
                 )
                 first_prompt_sha = assembled.prompt_sha256

@@ -108,13 +108,13 @@ def test_wam_configuration_and_toolkit_use_local_memory(tmp_path, monkeypatch, b
     assert "wam" in {
         item["name"] for item in spec.resolve_dashboard(args)["runtime_components"]
     }
-    from rpent.prompt.assembly import build_robot_prompt, run_modes
+    from rpent.prompt.assembly import build_robot_prompt, run_axes
 
     assembled = build_robot_prompt(
         spec.prompts,
         robot_name="libero",
         variables={**config.prompt_vars, "output_dir": str(tmp_path)},
-        modes=run_modes(
+        axes=run_axes(
             explore=bool(getattr(args, "explore", False)),
             dashboard=False,
             real_robot=False,

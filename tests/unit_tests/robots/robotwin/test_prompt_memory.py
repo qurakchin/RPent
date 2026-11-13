@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from rpent.prompt.assembly import build_robot_prompt, run_modes
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 from rpent.robots import get_robot_spec
 
 
@@ -35,7 +35,7 @@ def test_prompts_render_with_memory_relative_paths():
         get_robot_spec("robotwin").prompts,
         robot_name="robotwin",
         variables=variables,
-        modes=run_modes(explore=False, dashboard=False, real_robot=False),
+        axes=run_axes(explore=False, dashboard=False, real_robot=False),
     )
     system, user = assembled.system, assembled.user
 

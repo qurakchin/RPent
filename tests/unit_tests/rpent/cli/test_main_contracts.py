@@ -835,7 +835,7 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
     sources = json.loads(
         (tmp_path / "sessions" / "session_001" / "prompt_sources.json").read_text()
     )
-    assert sources["modes"] == ["explore"]
+    assert sources["axes"] == ["explore"]
     assert sources["prompt_sha256"] == transcript["prompt_sha256"]
     system_sections = [
         section for section in sources["sections"] if section["role"] == "system"
@@ -1114,13 +1114,13 @@ def test_dump_prompt_renders_without_syncing_or_creating_memory(
     printed = capsys.readouterr().out
     assert "OPERATING RULES" in printed
     assert "prompt_sha256" in printed
+    assert "separate_system" in printed
     assert not memory_root.exists()
 
-    sources = json.loads((tmp_path / "run" / "prompt_sources.json").read_text())
-    assert sources["planner_prompt_layout"] == "separate_system"
-    assert len(sources["prompt_sha256"]) == 64
-    assert "delivered_prompt_sha256" not in sources
-    assert (tmp_path / "run" / "effective_prompt.md").exists()
+    # A dump is inspection only: the run's own prompt artifacts are what a
+    # later reader should treat as evidence.
+    assert not (tmp_path / "run" / "prompt_sources.json").exists()
+    assert not (tmp_path / "run" / "effective_prompt.md").exists()
 
 
 def test_dump_prompt_skips_real_robot_tty_gates(

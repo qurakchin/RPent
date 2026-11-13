@@ -361,14 +361,14 @@ def test_libero_prompt_matches_direct_action_enablement(
     args.enable_direct_action = enabled
     args.explore = explore
     config = robot_spec._parse_config(args)
-    from rpent.prompt.assembly import build_robot_prompt, run_modes
+    from rpent.prompt.assembly import build_robot_prompt, run_axes
 
     variables = {**config.prompt_vars, "output_dir": tmp_path}
     assembled = build_robot_prompt(
         robot_spec.get_robot_spec().prompts,
         robot_name="libero",
         variables=variables,
-        modes=run_modes(explore=explore, dashboard=False, real_robot=False),
+        axes=run_axes(explore=explore, dashboard=False, real_robot=False),
     )
     prompt = assembled.system
     allowed = prompt.split("ALLOWED PRIMITIVES", 1)[1].split(".", 1)[0]

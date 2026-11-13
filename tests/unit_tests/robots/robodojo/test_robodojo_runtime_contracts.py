@@ -24,7 +24,7 @@ import numpy as np
 import pytest
 
 from robots.robodojo import robot_spec, tools
-from rpent.prompt.assembly import build_robot_prompt, run_modes
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 from rpent.robots.components import am_runtime
 from rpent.tools import Tool, iter_tools
 
@@ -611,7 +611,7 @@ def test_task_guidance_is_scoped_and_tools_are_injected():
             bundle,
             robot_name="robodojo",
             variables=variables,
-            modes=run_modes(explore=False, dashboard=False, real_robot=False),
+            axes=run_axes(explore=False, dashboard=False, real_robot=False),
         )
         system, user = assembled.system, assembled.user
         assert "move_to" in system and "set_gripper" in system

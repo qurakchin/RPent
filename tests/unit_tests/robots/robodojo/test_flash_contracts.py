@@ -30,7 +30,7 @@ from robots.robodojo.toolkit import RoboDojoToolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
 from rpent.planner.flash import FlashPlanner
-from rpent.prompt.assembly import build_robot_prompt, run_modes
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 from rpent.tools import ToolResult
 
 
@@ -480,7 +480,7 @@ def test_mode_tools_state_and_prompt_gate(monkeypatch, tmp_path, eval_fair, fake
         bundle,
         robot_name="robodojo",
         variables=variables,
-        modes=run_modes(explore=False, dashboard=False, real_robot=False),
+        axes=run_axes(explore=False, dashboard=False, real_robot=False),
     )
     prompt = assembled.system + assembled.user
     for name in ("get_reward_details", "get_safety_status", "privileged"):
@@ -498,7 +498,7 @@ def test_mode_tools_state_and_prompt_gate(monkeypatch, tmp_path, eval_fair, fake
             bundle,
             robot_name="robodojo",
             variables=variables,
-            modes=run_modes(explore=False, dashboard=False, real_robot=False),
+            axes=run_axes(explore=False, dashboard=False, real_robot=False),
         )
         prompt = assembled.system + assembled.user
         for word in ("get_reward_details", "get_safety_status", "predicate"):

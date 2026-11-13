@@ -35,7 +35,7 @@ from robots.libero.memory import (
 )
 from robots.libero.robot_spec import get_robot_spec
 from rpent.memory import loading
-from rpent.prompt.assembly import build_robot_prompt, run_modes
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 
 
 @pytest.mark.parametrize(
@@ -333,7 +333,7 @@ def test_task_model_changes_resolve_root_again_without_changing_effort(
                 **config.prompt_vars,
                 "output_dir": config.output_dir,
             },
-            modes=run_modes(explore=False, dashboard=False, real_robot=False),
+            axes=run_axes(explore=False, dashboard=False, real_robot=False),
         ).system
         assert str(root / "MEMORY.md") in prompt
         assert "RUN MODE — EXPLORATION" not in prompt
@@ -360,7 +360,7 @@ def test_task_model_changes_resolve_root_again_without_changing_effort(
                 **config.prompt_vars,
                 "output_dir": config.output_dir,
             },
-            modes=run_modes(explore=explore, dashboard=False, real_robot=False),
+            axes=run_axes(explore=explore, dashboard=False, real_robot=False),
         ).system
         assert str(root / "MEMORY.md") in prompt
         assert ("RUN MODE — EXPLORATION" in prompt) is explore

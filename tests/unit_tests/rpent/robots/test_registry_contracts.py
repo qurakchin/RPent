@@ -27,7 +27,7 @@ from robots.robotwin.robot_spec import (
     env_runtime_contract,
     vla_runtime_contract,
 )
-from rpent.prompt.assembly import build_robot_prompt, run_modes
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 from rpent.robots import enumerate_robots, get_robot_spec
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 
@@ -154,7 +154,7 @@ def test_robot_prompts_render_from_public_spec(robot_name: str, tmp_path) -> Non
         spec.prompts,
         robot_name=robot_name,
         variables=variables,
-        modes=run_modes(
+        axes=run_axes(
             explore=False,
             dashboard=False,
             real_robot=spec.is_real_robot,
@@ -192,7 +192,7 @@ def test_robot_exploration_prompts_render_with_exploration_contracts(
         spec.prompts,
         robot_name=robot_name,
         variables=variables,
-        modes=run_modes(explore=True, dashboard=False, real_robot=spec.is_real_robot),
+        axes=run_axes(explore=True, dashboard=False, real_robot=spec.is_real_robot),
     )
 
     assert assembled.system.strip()
@@ -220,7 +220,7 @@ def test_libero_prompts_observe_task_before_reading_memory(
         spec.prompts,
         robot_name="libero",
         variables=variables,
-        modes=run_modes(explore=mode == "explore", dashboard=False, real_robot=False),
+        axes=run_axes(explore=mode == "explore", dashboard=False, real_robot=False),
     )
     system = assembled.system
     user = assembled.user

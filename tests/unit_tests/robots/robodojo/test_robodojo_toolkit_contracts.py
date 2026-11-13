@@ -15,8 +15,8 @@ def test_backend_alone_exposes_policy_primitives_geometry_and_memory(
     policy_toolkit, backend
 ):
     from robots.robodojo.prompt_bundle import (
-        prompt_sections,
         system_prompt,
+        tool_sections,
         user_prompt,
     )
     from rpent.prompt.assembly import build_robot_prompt
@@ -40,11 +40,11 @@ def test_backend_alone_exposes_policy_primitives_geometry_and_memory(
         PromptBundle(
             system=system_prompt,
             user=user_prompt,
-            prompt_sections=prompt_sections,
+            tool_sections=tool_sections,
         ),
         robot_name="robodojo",
         variables=variables,
-        modes=("evaluate",),
+        axes=("evaluate",),
     )
     prompt = assembled.system + assembled.user
     expected = {
@@ -295,8 +295,8 @@ def test_environment_only_toolkit_keeps_motion_and_observation_tools(
 
 def test_default_prompt_preserves_vpp2_capabilities():
     from robots.robodojo.prompt_bundle import (
-        prompt_sections,
         system_prompt,
+        tool_sections,
         user_prompt,
     )
     from rpent.prompt.assembly import build_robot_prompt
@@ -306,7 +306,7 @@ def test_default_prompt_preserves_vpp2_capabilities():
         PromptBundle(
             system=system_prompt,
             user=user_prompt,
-            prompt_sections=prompt_sections,
+            tool_sections=tool_sections,
         ),
         robot_name="robodojo",
         variables={
@@ -320,7 +320,7 @@ def test_default_prompt_preserves_vpp2_capabilities():
             "seed": 0,
             "memory_dir": "memory",
         },
-        modes=("evaluate",),
+        axes=("evaluate",),
     ).system
     for tool in ("vpp2_act", "move_to", "segment", "back_project"):
         assert tool in prompt

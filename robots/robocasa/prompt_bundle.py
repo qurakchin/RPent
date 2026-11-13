@@ -34,11 +34,11 @@ def system_prompt(
     return evaluate_parts.system_prompt(variables)
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return the RoboCasa tool guidance for this run."""
-    return tool_parts.prompt_sections(variables)
+    return tool_parts.tool_sections(variables)
 
 
 def user_prompt(

@@ -106,7 +106,7 @@ margin, prefer one chunk and inspect the result before continuing. Use the
 returned action count and remaining_steps to assess actual consumption."""
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return tool guidance with the selected VLA backend's wording."""

@@ -15,13 +15,13 @@
 """Assemble one model prompt from fixed, traceable layers.
 
 Every robot contributes only its domain knowledge. Shared rules live in
-``rpent/prompt/fragments``, run modes add their own contract, and the tool
+``rpent/prompt/fragments``, the run axes add their own contract, and the tool
 families contribute the guidance for the tools they expose. A slice may still
 contribute guidance for tools that exist only in that robot through
-``PromptBundle.prompt_sections``; it must not restate a family's tool. The layer
+``PromptBundle.tool_sections``; it must not restate a family's tool. The layer
 order is fixed so a reader can predict where a rule lives:
 
-    base -> mode -> tool families -> robot domain -> memory
+    base -> run axes -> tool families -> robot domain -> memory
 
 Prompt rendering stays independent of the robot runtime: tool contributions are
 pure functions of the prompt variables. ``--dump-prompt`` therefore renders a
@@ -53,17 +53,19 @@ _FRAGMENT_DIR = Path(__file__).with_name("fragments")
 
 #: How each planner receives the two prompt roles.
 #:
-#: ``api`` keeps the system prompt separate. ``claude_code`` and ``codex``
-#: prepend the system prompt to the first user message; recording that layout
-#: keeps ``prompt_sources.json`` honest about what the model actually saw.
+#: ``api`` and ``claude_code`` keep the system prompt separate; the Claude Code
+#: planner appends RPent's rules to the SDK's ``claude_code`` preset, so they
+#: stay a system message. ``codex`` has no system-prompt option and prepends the
+#: system prompt to the first user message. Recording the layout keeps
+#: ``prompt_sources.json`` honest about what the model actually saw.
 PLANNER_PROMPT_LAYOUT: dict[str, str] = {
     "api": "separate_system",
-    "claude_code": "system_prefixed_to_user",
+    "claude_code": "separate_system",
     "codex": "system_prefixed_to_user",
     "flash": "not_applicable",
 }
 
-_MODES: dict[str, tuple[str, str]] = {
+_AXES: dict[str, tuple[str, str]] = {
     "evaluate": ("mode_evaluate", "RUN MODE — EVALUATION"),
     "explore": ("mode_explore", "RUN MODE — EXPLORATION"),
     "interactive": ("interactive", "RUN MODE — INTERACTIVE"),
@@ -74,9 +76,10 @@ _MODES: dict[str, tuple[str, str]] = {
 def prefix_system_prompt(system: str, user: str) -> str:
     """Return the single message a planner sends when it cannot separate roles.
 
-    Claude Code and Codex prepend the system prompt to the first user message.
-    Both planners and :mod:`rpent.prompt.artifacts` call this helper so the
-    delivered text has one implementation.
+    Codex prepends the system prompt to the first user message because its
+    thread options have no system role. The planner and
+    :mod:`rpent.prompt.prompt_artifacts` call this helper so the delivered text
+    has one implementation.
     """
     return f"{system}\n\n{user}" if system else user
 
@@ -102,12 +105,24 @@ def section_source(module_file: str | Path) -> str:
     ``prompt_sources.json`` records one source per contribution. Prompt modules
     pass their ``__file__`` here so a section points at the file that defines
     its text, not merely at the robot's ``prompts`` directory.
+
+    An installed distribution may place the module outside the repository root
+    that :func:`get_repo_root` derives, so fall back to the directory above the
+    module's outermost package.
     """
     path = Path(module_file).resolve()
     try:
         return path.relative_to(get_repo_root()).as_posix()
     except ValueError:
-        return path.as_posix()
+        return path.relative_to(_package_root(path)).as_posix()
+
+
+def _package_root(path: Path) -> Path:
+    """Return the directory containing the outermost package of ``path``."""
+    for parent in path.parents:
+        if not (parent / "__init__.py").is_file():
+            return parent
+    return path.parent
 
 
 def sections(
@@ -117,7 +132,16 @@ def sections(
     role: PromptRole = "system",
 ) -> tuple[PromptSection, ...]:
     """Name every contribution in ``node`` and attribute it to ``module_file``."""
-    source = section_source(module_file)
+    return _named_sections(node, source=section_source(module_file), role=role)
+
+
+def _named_sections(
+    node: Mapping[str, PromptNode] | PromptNode,
+    *,
+    source: str,
+    role: PromptRole,
+) -> tuple[PromptSection, ...]:
+    """Split one contribution into named sections attributed to ``source``."""
     if isinstance(node, Mapping):
         return tuple(
             PromptSection(str(name), {str(name): body}, source=source, role=role)
@@ -135,14 +159,14 @@ class PromptLayers:
     """
 
     base: Sequence[PromptSection] = field(default_factory=tuple)
-    mode: Sequence[PromptSection] = field(default_factory=tuple)
+    axis: Sequence[PromptSection] = field(default_factory=tuple)
     tools: Sequence[PromptSection] = field(default_factory=tuple)
     domain: Sequence[PromptSection] = field(default_factory=tuple)
     memory: Sequence[PromptSection] = field(default_factory=tuple)
 
     def ordered(self) -> Iterator[PromptSection]:
         """Yield sections in the fixed layer order."""
-        for layer in (self.base, self.mode, self.tools, self.domain, self.memory):
+        for layer in (self.base, self.axis, self.tools, self.domain, self.memory):
             yield from layer
 
 
@@ -181,40 +205,40 @@ def fragment(stem: str, title: str, *, role: PromptRole = "system") -> PromptSec
     )
 
 
-def mode_sections(modes: Sequence[str]) -> tuple[PromptSection, ...]:
-    """Return the mode fragments for one run, in the declared order.
+def _axis_sections(axes: Sequence[str]) -> tuple[PromptSection, ...]:
+    """Return the fragments for the run axes that apply, in declared order.
 
-    Unknown mode names are rejected: a typo must not silently drop the contract
-    for a run mode.
+    Unknown axis names are rejected: a typo must not silently drop the contract
+    for a run axis.
     """
     sections: list[PromptSection] = []
     seen: set[str] = set()
-    for mode in modes:
-        if mode in seen:
+    for axis in axes:
+        if axis in seen:
             continue
-        seen.add(mode)
+        seen.add(axis)
         try:
-            stem, title = _MODES[mode]
+            stem, title = _AXES[axis]
         except KeyError as exc:
-            raise ValueError(f"unknown prompt mode: {mode!r}") from exc
+            raise ValueError(f"unknown prompt axis: {axis!r}") from exc
         sections.append(fragment(stem, title))
     return tuple(sections)
 
 
-def run_modes(*, explore: bool, dashboard: bool, real_robot: bool) -> tuple[str, ...]:
-    """Compose the axes that apply to one session.
+def run_axes(*, explore: bool, dashboard: bool, real_robot: bool) -> tuple[str, ...]:
+    """Compose the run axes that apply to one session.
 
     ``dashboard`` selects the interactive axis; the Dashboard is its current
     implementation, not a separate axis. ``policy_mode`` is the fourth axis in
     ``a_global`` 2.2 and is added by a_4 together with its ``mode_code``
     fragment; until that lands, this helper must not invent code-mode rules.
     """
-    modes = ["explore" if explore else "evaluate"]
+    axes = ["explore" if explore else "evaluate"]
     if dashboard:
-        modes.append("interactive")
+        axes.append("interactive")
     if real_robot:
-        modes.append("real_robot")
-    return tuple(modes)
+        axes.append("real_robot")
+    return tuple(axes)
 
 
 def memory_sections(
@@ -243,32 +267,30 @@ def build_robot_prompt(
     *,
     robot_name: str,
     variables: Mapping[str, object],
-    modes: Sequence[str],
+    axes: Sequence[str],
 ) -> AssembledPrompt:
     """Assemble one robot's system and user prompts.
 
     Args:
         bundle: The robot's domain prompt factories and optional guidance for
             tools that exist only in this slice. Shared tool usage comes from
-            the tool families (a_3); a bundle with no ``prompt_sections`` is
+            the tool families (a_3); a bundle with no ``tool_sections`` is
             valid.
         robot_name: Registry name, used as the default source label.
         variables: Prompt variables passed to every contribution.
-        modes: Run modes such as ``("evaluate", "real_robot")``.
+        axes: Run axes that apply, such as ``("evaluate", "real_robot")``.
 
     Returns:
         The rendered prompts, combined digest, and per-section provenance.
     """
     source = bundle.source or f"robots/{robot_name}/prompt_bundle.py"
-    tools = (
-        bundle.prompt_sections(variables) if bundle.prompt_sections is not None else ()
-    )
+    tools = bundle.tool_sections(variables) if bundle.tool_sections is not None else ()
     layers = PromptLayers(
         base=(fragment("base", "OPERATING RULES"),),
-        mode=mode_sections(modes),
+        axis=_axis_sections(axes),
         tools=_normalize(tools, source=source, role="system"),
         domain=_normalize(bundle.system(variables), source=source, role="system"),
-        memory=memory_sections(variables, explore="explore" in modes),
+        memory=memory_sections(variables, explore="explore" in axes),
     )
     user = _normalize(bundle.user(variables), source=source, role="user")
     return assemble_prompt(layers, user=user, variables=variables)
@@ -337,13 +359,10 @@ def assemble_prompt(
         if rendered[role]:
             rendered[role] += "\n"
 
-    digest = hashlib.sha256(
-        f"system\0{rendered['system']}\0user\0{rendered['user']}".encode("utf-8")
-    ).hexdigest()
     return AssembledPrompt(
         system=rendered["system"],
         user=rendered["user"],
-        prompt_sha256=digest,
+        prompt_sha256=prompt_sha256(rendered["system"], rendered["user"]),
         sections=tuple(sources),
     )
 
@@ -355,21 +374,13 @@ def _normalize(
     role: PromptRole,
 ) -> tuple[PromptSection, ...]:
     """Turn a contribution into named sections without changing its content."""
-    if isinstance(node, PromptSection):
-        return (node,)
-    if isinstance(node, Mapping):
-        return tuple(
-            PromptSection(
-                name=str(name), node={str(name): body}, source=source, role=role
-            )
-            for name, body in node.items()
-        )
     if isinstance(node, Iterable) and not isinstance(node, (str, bytes)):
-        sections = list(node)
-        if all(isinstance(section, PromptSection) for section in sections):
-            return tuple(sections)
-    name = "USER" if role == "user" else "ROBOT"
-    return (PromptSection(name=name, node=node, source=source, role=role),)
+        parts = list(node)
+        if all(isinstance(part, PromptSection) for part in parts):
+            return tuple(parts)
+    elif isinstance(node, PromptSection):
+        return (node,)
+    return _named_sections(node, source=source, role=role)
 
 
 def prompt_sha256(system: str, user: str) -> str:

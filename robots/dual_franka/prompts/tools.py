@@ -83,7 +83,7 @@ VLA_GATES = (
 )
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return camera, projection, and VLA segment guidance for these tools."""
@@ -96,4 +96,4 @@ def prompt_sections(
     )
 
 
-__all__ = ["prompt_sections"]
+__all__ = ["tool_sections"]

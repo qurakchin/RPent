@@ -92,7 +92,7 @@ GRIPPER RULES:
 """
 
 
-def prompt_sections(
+def tool_sections(
     variables: Mapping[str, object] | None = None,
 ) -> tuple[PromptSection, ...]:
     """Return the RoboCasa tool guidance for this run."""
