@@ -555,19 +555,26 @@ def main() -> int:
         dashboard_events,
         None,
     )
-    # Render the system prompt after the runtime so a robot can report the
-    # capabilities of the connected task, not only the requested options.
-    if robot_spec.prepare_prompt_vars is not None:
-        prompt_vars = {
-            **prompt_vars,
-            **robot_spec.prepare_prompt_vars(args, run_config, runtime_kwargs),
-        }
-        # ``prepare_prompt_vars`` may add variables the user prompt reads, so
-        # re-render it once the connected runtime has reported its capabilities.
-        # The interactive reader keeps the earlier render, which is only the
-        # editable default.
-        user_msg = prompt_bundle.render("user", variables=prompt_vars)
-    system_prompt = prompt_bundle.render("system", variables=prompt_vars)
+    try:
+        # Render the system prompt after the runtime so a robot can report the
+        # capabilities of the connected task, not only the requested options.
+        if robot_spec.prepare_prompt_vars is not None:
+            prompt_vars = {
+                **prompt_vars,
+                **robot_spec.prepare_prompt_vars(args, run_config, runtime_kwargs),
+            }
+            # ``prepare_prompt_vars`` may add variables the user prompt reads, so
+            # re-render it once the connected runtime has reported its capabilities.
+            # The interactive reader keeps the earlier render, which is only the
+            # editable default.
+            user_msg = prompt_bundle.render("user", variables=prompt_vars)
+        system_prompt = prompt_bundle.render("system", variables=prompt_vars)
+    except BaseException:
+        # The agent-loop ``finally`` below stops the daemons. A prompt or hook
+        # failure happens before it and must not leak the runtime.
+        for daemon in daemons:
+            daemon.stop()
+        raise
 
     # --- agent loop --------------------------------------------------------
     t0 = time.time()

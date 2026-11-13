@@ -149,6 +149,14 @@ def test_exploration_is_rejected_because_the_runner_starts_its_own_sessions(tmp_
         _validate_args(args)
 
 
+def test_memory_repo_is_rejected_because_efe_prepares_its_own_memory(tmp_path):
+    args = _args(tmp_path)
+    args.memory_repo = "org/dataset"
+
+    with pytest.raises(ValueError, match="--memory-repo is not supported"):
+        _validate_args(args)
+
+
 def test_toolkit_is_built_from_the_configured_memory_and_skills(tmp_path):
     init_output_dir(tmp_path)
     config = _parse_config(_args(tmp_path))

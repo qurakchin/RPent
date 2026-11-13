@@ -411,6 +411,7 @@ class _RecordingPlanner:
     instances: list["_RecordingPlanner"] = []
     probe: dict[str, str] | None = None
     session_errors: list[str | None] = []
+    session_stop_reasons: list[str | None] = []
 
     def __init__(self, **options):
         self.options = options
@@ -424,6 +425,11 @@ class _RecordingPlanner:
         error = (
             _RecordingPlanner.session_errors[index]
             if index < len(_RecordingPlanner.session_errors)
+            else None
+        )
+        stop_reason = (
+            _RecordingPlanner.session_stop_reasons[index]
+            if index < len(_RecordingPlanner.session_stop_reasons)
             else None
         )
         if _RecordingPlanner.probe is not None:
@@ -443,6 +449,7 @@ class _RecordingPlanner:
                 "total_reasoning_output_tokens": 0,
             },
             error=error,
+            stop_reason=stop_reason,
         )
 
 
@@ -453,6 +460,7 @@ def recording_planner(monkeypatch):
     _RecordingPlanner.instances = []
     _RecordingPlanner.probe = None
     _RecordingPlanner.session_errors = []
+    _RecordingPlanner.session_stop_reasons = []
     monkeypatch.setattr(codex, "CodexPlanner", _RecordingPlanner)
     return _RecordingPlanner
 
@@ -701,6 +709,25 @@ def test_a_spent_planner_budget_is_a_clean_stop(
     assert report["error"] is None
     assert report["budget_stop"] == "Codex SDK timed out after 5s"
     assert report["sessions"][0]["error"] == "Codex SDK timed out after 5s"
+
+
+def test_a_structured_timeout_is_a_clean_stop_whatever_the_error_says(
+    tmp_path, recording_planner, efe_client
+):
+    """Do not make Harbor's exit code depend on the planner's error wording."""
+    recording_planner.session_errors = ["the model returned no final message"]
+    recording_planner.session_stop_reasons = ["timeout"]
+
+    report = run_efe(
+        "Task",
+        workdir=tmp_path,
+        output_dir=tmp_path / "logs",
+        model="test-model",
+        client=efe_client,
+    )
+
+    assert report["error"] is None
+    assert report["budget_stop"] == "the model returned no final message"
 
 
 def test_budget_expired_before_the_first_session_is_a_clean_stop(tmp_path, efe_client):

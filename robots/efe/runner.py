@@ -269,6 +269,7 @@ def run_efe(
     sessions: list[dict[str, object]] = report["sessions"]  # type: ignore[assignment]
     started = time.monotonic()
     deadline = started + timeout_s
+    terminal_stop_reason: str | None = None
     try:
         from rpent.planner.codex import CodexPlanner
 
@@ -283,6 +284,10 @@ def run_efe(
         }
         with _trial_codex_home(output_dir), _trial_repo_root(workdir):
             for number in range(1, explore_sessions + 1):
+                # Only a planner result can report a clean budget stop; reset
+                # this before anything else so an exception between sessions
+                # is never attributed to the previous session's timeout.
+                terminal_stop_reason = None
                 if client.done:
                     # The service refuses a reset only once the trial is
                     # settled. An attempt that ended early on a failure can
@@ -365,6 +370,7 @@ def run_efe(
                 finally:
                     solved = toolkit.solved()
                     toolkit.close()
+                terminal_stop_reason = result.stop_reason
                 sessions.append(
                     {
                         "session": number,
@@ -401,7 +407,9 @@ def run_efe(
         # Report it separately so the CLI exits zero: Harbor treats a non-zero
         # agent exit as a failed trial, rescans the whole run.log for transient
         # messages, and can mark the reward of a validly graded episode invalid.
-        if report["error"] is not None and _is_budget_stop(str(report["error"])):
+        if report["error"] is not None and (
+            terminal_stop_reason == "timeout" or _is_budget_stop(str(report["error"]))
+        ):
             report["budget_stop"] = report["error"]
             report["error"] = None
             logger.info("the planner used its time budget: %s", report["budget_stop"])

@@ -246,6 +246,7 @@ class CodexPlanner(Planner):
         worker: threading.Thread | None = None
         error: str | None = None
         error_type = "error"
+        stop_reason: str | None = None
         try:
             mcp_url = mcp_server.start()
             logger.info("mcp http endpoint: %s", mcp_url)
@@ -271,6 +272,7 @@ class CodexPlanner(Planner):
             if not state["session_done"].wait(timeout=self._timeout_s):
                 error = f"Codex SDK timed out after {self._timeout_s}s"
                 error_type = "timeout"
+                stop_reason = "timeout"
             elif "error" in state:
                 exc = state["error"]
                 error = f"{type(exc).__name__}: {exc}"
@@ -321,6 +323,7 @@ class CodexPlanner(Planner):
                 **recorder.stats(),
             },
             error=error,
+            stop_reason=stop_reason,
         )
 
     def _output_paths(self) -> tuple[Path, Path, Path]:
@@ -464,6 +467,7 @@ class CodexPlanner(Planner):
         )
         chunks: list[str] = []
         error: str | None = None
+        stop_reason: str | None = None
         started = time.time()
 
         mcp_server = HttpMcpServer(toolkit)
@@ -516,6 +520,7 @@ class CodexPlanner(Planner):
                     await asyncio.wait_for(session.run(prompt), timeout=self._timeout_s)
                 except asyncio.TimeoutError:
                     error = f"Codex SDK timed out after {self._timeout_s}s"
+                    stop_reason = "timeout"
                     control.end()
                     _write_jsonl(raw_f, {"type": "timeout", "message": error})
                 except Exception as exc:
@@ -560,6 +565,7 @@ class CodexPlanner(Planner):
                 **recorder.stats(),
             },
             error=error or session.error or recorder.error,
+            stop_reason=stop_reason,
         )
 
     # -- config builder ----------------------------------------------------

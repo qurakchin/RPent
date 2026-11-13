@@ -1120,6 +1120,7 @@ def test_timeout_interrupts_without_starting_a_worker_or_socket(
     )
 
     assert result.error == "Codex SDK timed out after 0.01s"
+    assert result.stop_reason == "timeout"
     assert FakeMcpServer.instances[0].stopped is True
 
 
@@ -1178,6 +1179,7 @@ def test_terminal_timeout_returns_without_importing_a_running_worker_trace(
             pytest.fail("Planner did not return while SDK initialization was blocked")
         assert not isinstance(result, BaseException), repr(result)
         assert result.error == "Codex SDK timed out after 0.01s"
+        assert result.stop_reason == "timeout"
         assert workers[0].is_alive()
         assert toolkit.cancel_calls == 1
         assert FakeMcpServer.instances[0].stopped
@@ -1301,6 +1303,7 @@ def test_terminal_exit_drains_worker_before_trace_import(
     else:
         result = planner.solve(**kwargs)
         assert result.error == "Codex SDK timed out after 0.01s"
+        assert result.stop_reason == "timeout"
         assert result.stats["codex_trace"]["bundles"] == 0
 
     assert cleanup == [(True, False, True, 1, "running")]

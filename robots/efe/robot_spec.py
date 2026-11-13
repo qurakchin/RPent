@@ -149,6 +149,11 @@ def _validate_args(args: argparse.Namespace) -> None:
             "The EFE runner starts its own sessions; set explore_sessions on "
             "RPentEfeAgent or pass explore_sessions to run_efe"
         )
+    if getattr(args, "memory_repo", None) is not None:
+        raise ValueError(
+            "--memory-repo is not supported for EFE; use --memory-profile local "
+            "with --memory-dir, or pass memory_source to RPentEfeAgent"
+        )
     if args.instruction_file is not None and not args.instruction_file.is_file():
         raise ValueError(
             f"The instruction file does not exist: {args.instruction_file}"
