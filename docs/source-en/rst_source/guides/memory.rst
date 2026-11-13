@@ -201,7 +201,7 @@ After exploration, inspect the local corpus and run result, then evaluate anothe
 
 The ``local`` profile neither downloads memory nor enables exploration. LIBERO checks that a corpus exists and rejects an empty directory. The ``hf`` profile cannot be combined with ``--memory-dir``.
 
-Inspect ``recall`` results and file reads in the transcript to confirm they return only files permitted for the current task. Historical coordinates, pixels, and poses are references; actions still require localization against current observations.
+Inspect memory file reads in the transcript to confirm they return only files permitted for the current task. Historical coordinates, pixels, and poses are references; actions still require localization against current observations.
 
 Validate and Merge Manually
 ---------------------------

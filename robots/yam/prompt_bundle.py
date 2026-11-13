@@ -14,6 +14,7 @@ from collections.abc import Mapping
 
 from robots.yam.prompts import system as system_parts
 from robots.yam.prompts import user as user_parts
+from rpent.prompt.common import RESULT_FIELDS
 from rpent.prompt.utils import PromptNode
 
 
@@ -36,6 +37,7 @@ def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
         "CONTROL": system_parts.CONTROL,
         "POLICY AVAILABILITY": policy,
         "SUCCESS": system_parts.SUCCESS,
+        "TOOL RESULTS": RESULT_FIELDS,
     }
 
 

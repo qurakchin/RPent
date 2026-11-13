@@ -20,6 +20,7 @@ from collections.abc import Mapping
 
 from robots.franka.prompts import system as system_parts
 from robots.franka.prompts import user as user_parts
+from rpent.prompt.common import RESULT_FIELDS
 from rpent.prompt.utils import Numbered, PromptNode
 
 
@@ -30,6 +31,7 @@ def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
         "RUNTIME": system_parts.RUNTIME,
         "SAFETY RULES": Numbered(system_parts.RULES),
         "WORKFLOW": Numbered(system_parts.WORKFLOW),
+        "TOOL RESULTS": RESULT_FIELDS,
     }
 
 

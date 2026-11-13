@@ -20,6 +20,7 @@ from collections.abc import Mapping
 
 from robots.robocasa.prompts import evaluate as evaluate_parts
 from robots.robocasa.prompts import explore as explore_parts
+from rpent.prompt.common import RESULT_FIELDS
 from rpent.prompt.utils import PromptNode
 
 
@@ -28,8 +29,10 @@ def system_prompt(
 ) -> dict[str, PromptNode]:
     """Return the RoboCasa system prompt tree."""
     if (variables or {}).get("mode", "eval") == "explore":
-        return explore_parts.system_prompt()
-    return evaluate_parts.system_prompt(variables)
+        prompt = explore_parts.system_prompt()
+    else:
+        prompt = evaluate_parts.system_prompt(variables)
+    return {**prompt, "TOOL RESULTS": RESULT_FIELDS}
 
 
 def user_prompt(

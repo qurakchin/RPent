@@ -206,6 +206,12 @@ class Toolkit:
         declarations to the capabilities the host actually connected. Passing
         a plain iterable of declarations keeps the older registration path.
         """
+        if capabilities is not None:
+            snapshot = getattr(capabilities, "as_dict", None)
+            logger.info(
+                "registering tool families with capabilities: %s",
+                snapshot() if callable(snapshot) else capabilities,
+            )
         for owner in owners:
             family = getattr(owner, "tools", None)
             if callable(family) and not isinstance(owner, Tool):
@@ -339,7 +345,11 @@ class Toolkit:
                     )
 
             if native.execution_status is None:
-                native.execution_status = "completed"
+                # A call that explicitly produced no physical action must not
+                # be reported as executed.
+                native.execution_status = (
+                    "not_started" if native.no_execution else "completed"
+                )
 
             if capture is not None and capture.started:
                 capture.result(

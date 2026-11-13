@@ -65,6 +65,24 @@ _RECIPE_ACTIONS = {
 }
 
 
+def _connected_policy_backend(model: Any, declared: str) -> str:
+    """Return the backend of the connected client, not the requested one.
+
+    ``policy_kind`` travels with the runtime arguments, so a mismatched
+    declaration could otherwise make the policy capability self-certify. The
+    concrete client is the runtime evidence; unknown test doubles keep the
+    declaration.
+    """
+    from robots.robotwin.vla_client import LingBotVLAClient
+    from robots.robotwin.wam_client import RoboTwinWAMClient
+
+    if isinstance(model, RoboTwinWAMClient):
+        return "wam"
+    if isinstance(model, LingBotVLAClient):
+        return "lingbot"
+    return declared
+
+
 def _declared_views(
     server_meta: dict[str, Any],
 ) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -163,6 +181,9 @@ class RoboTwinToolkit(Toolkit):
         binding = RoboTwinPolicyBinding(self._primitives)
         server_meta = dict(getattr(self._primitives.env, "server_meta", {}) or {})
         views, calibrated_views = _declared_views(server_meta)
+        policy_backend = _connected_policy_backend(
+            getattr(self._primitives, "model", None), binding.backend
+        )
         self._capabilities = Capabilities(
             env=server_meta,
             execution=dict(
@@ -170,7 +191,7 @@ class RoboTwinToolkit(Toolkit):
             ),
             segmentation=segmenter is not None,
             grounding=grounder is not None,
-            policy_backends=(binding.backend,),
+            policy_backends=(policy_backend,),
             real_robot=False,
             depth_views=views,
             calibrated_views=calibrated_views,

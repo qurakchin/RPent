@@ -27,6 +27,15 @@ OUTPUT = BulletList(
     ]
 )
 
+RESULT_FIELDS = """Every tool result carries `call_ok` and `execution_status`.
+`call_ok` only means the call was valid and the framework handled it; it never
+means the action succeeded. `execution_status` is `completed`, `partial`,
+`not_started`, `rejected`, or `unknown`; `no_execution` marks a call that
+produced no physical action, and `execution_uncertain` marks an interrupted
+call whose outcome must be verified before retrying. Motion results also report
+`stop_reason`, `stop_evidence`, and `pose_error`; judge motion by those fields
+and a fresh observation, not by `call_ok`."""
+
 USER = {
     "Task": """
     - suite:   {{suite}}

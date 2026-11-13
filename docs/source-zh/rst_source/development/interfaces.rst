@@ -45,7 +45,7 @@
 
 ``get_toolkit`` 一般只需把 ``runtime_kwargs`` 传给机器人子类； ``dashboard_events`` 和 ``config`` 由当前 runner 传入。必须构造一个
 :class:`~rpent.memory.MemoryManager`（root 取自
-``config.prompt_vars["memory_dir"]``，未设置时回退到 ``get_memory_dir(robot_name)``）并传给 toolkit。Memory 访问权限在 ``MemoryManager`` 上配置。工具集会始终注册公共文件工具、``recall`` / ``remember`` / ``corroborate`` 和 ``finish``。如果某个机器人还需要额外参数，可以继续声明 keyword-only 参数；例如 LIBERO 还使用 ``mode``、``attempts_per_session`` 和 ``state_output_dir``。
+``config.prompt_vars["memory_dir"]``，未设置时回退到 ``get_memory_dir(robot_name)``）并传给 toolkit。Memory 访问权限在 ``MemoryManager`` 上配置。工具集会始终注册公共文件工具和 ``finish``；采用共享 memory 族的工具集还会额外注册 ``recall`` / ``remember`` / ``corroborate``（目前是 RoboTwin）。如果某个机器人还需要额外参数，可以继续声明 keyword-only 参数；例如 LIBERO 还使用 ``mode``、``attempts_per_session`` 和 ``state_output_dir``。
 
 参考实现：``robots/libero/robot_spec.py``。
 

@@ -356,7 +356,25 @@ class MemoryManager:
         with lock_path.open("r+") as lock_file:
             fcntl.flock(lock_file, fcntl.LOCK_EX)
             published_draft = False
+            # Exploration prompts ask the model to raise a contradiction as
+            # ``conflict_<id>.md``. Archive those drafts next to the conflicts
+            # detected during merge instead of parsing them as new memories.
+            for source in sorted(inbox.glob("conflict_*.md")):
+                target_id = re.sub(r"[^A-Za-z0-9_.-]+", "-", source.stem[9:]).strip(
+                    "-"
+                )
+                if not target_id:
+                    result["skipped"].append(
+                        f"{source.name}: conflict file names no memory id"
+                    )
+                    continue
+                conflict = conflicts / f"{target_id}__from_{cell_tag}.md"
+                conflict.write_text(source.read_text())
+                result["conflicts"] += 1
+                published_draft = True
             for source in sorted(inbox.glob("*.md")):
+                if source.name.startswith("conflict_"):
+                    continue
                 try:
                     metadata, body = _split_frontmatter(source)
                     _validate(metadata)

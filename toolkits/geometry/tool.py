@@ -38,12 +38,15 @@ from rpent.tools.observation import (
     ObservationProvider,
     Segmenter,
 )
+from rpent.utils.logging import get_logger
 from toolkits.geometry.core import (
     GeometryConfig,
     depth_region_mask,
     fit_mask,
     observation_world_xyz,
 )
+
+logger = get_logger("toolkits.geometry")
 
 Quantity = Literal["center", "extent", "z_range", "orientation"]
 _QUANTITIES = ("center", "extent", "z_range", "orientation")
@@ -448,6 +451,11 @@ class GeometryTools(ToolFamily):
         if capabilities is not None and not (
             capabilities.has_depth() and capabilities.has_calibration()
         ):
+            logger.info(
+                "geometry tool omitted: depth_views=%s calibrated_views=%s",
+                list(capabilities.depth_views),
+                list(capabilities.calibrated_views),
+            )
             return ()
         declaration = geometry.with_handler(
             partial(
@@ -459,6 +467,10 @@ class GeometryTools(ToolFamily):
             )
         )
         if capabilities is not None and not capabilities.grounding:
+            logger.info(
+                "geometry target grounding omitted: no grounder is connected; "
+                "the model must pass a pixel"
+            )
             schema = declaration.input_schema
             schema["properties"].pop("target", None)
             schema["properties"]["pixel"] = {

@@ -28,6 +28,9 @@ from pydantic import Field
 
 from rpent.tools.base import Tool, ToolResult, iter_tools, tool
 from rpent.tools.capabilities import Capabilities, ToolFamily
+from rpent.utils.logging import get_logger
+
+logger = get_logger("tools.motion")
 
 
 class MotionBackend(Protocol):
@@ -54,11 +57,18 @@ class MotionBackend(Protocol):
 
 @dataclass(frozen=True)
 class MotionConfig:
-    """Convergence tolerances for the shared motion feedback."""
+    """Convergence tolerances and the commanded-path safety limit.
+
+    ``max_waypoint_jump_m`` rejects a plan whose adjacent Cartesian waypoints
+    are farther apart than one native step should ever move the arm. It guards
+    the command before execution; a slice that needs a looser bound sets it in
+    its own config.
+    """
 
     position_tolerance_m: float = 0.01
     orientation_tolerance_rad: float = 0.05
     gripper_tolerance: float = 0.02
+    max_waypoint_jump_m: float = 0.5
 
 
 def _qmult(left: np.ndarray, right: np.ndarray) -> np.ndarray:
@@ -93,8 +103,12 @@ def stop_reason(
     executed: int,
     status: Mapping[str, Any],
     reached: bool | None = None,
+    diverged: bool | None = None,
+    unsafe: bool | None = None,
 ) -> str:
     """Map native counters and convergence to the shared stop vocabulary."""
+    if unsafe is True:
+        return "unsafe_motion"
     if status.get("eval_success") is True:
         return "episode_over"
     step_lim = status.get("step_lim")
@@ -102,13 +116,30 @@ def stop_reason(
         return "max_steps"
     if executed == 0 or executed < requested:
         return "stalled"
+    if diverged is True:
+        return "diverging"
     if reached is True:
         return "arrived"
     return "max_steps"
 
 
+def _execution_layer(requested: int, executed: int) -> tuple[str, bool]:
+    """Return ``(execution_status, no_execution)`` for native counters."""
+    if executed == 0:
+        return "not_started", True
+    if executed < requested:
+        return "partial", False
+    return "completed", False
+
+
 def _stop_evidence(
-    *, requested: int, executed: int, status: Mapping[str, Any]
+    *,
+    requested: int,
+    executed: int,
+    status: Mapping[str, Any],
+    position_error: float | None = None,
+    initial_position_error: float | None = None,
+    max_waypoint_jump_m: float | None = None,
 ) -> dict[str, Any]:
     evidence: dict[str, Any] = {
         "requested_steps": requested,
@@ -117,6 +148,16 @@ def _stop_evidence(
     for key in ("step_lim", "take_action_cnt", "eval_success"):
         if key in status:
             evidence[key] = status[key]
+    if max_waypoint_jump_m is not None:
+        evidence["max_waypoint_jump_m"] = max_waypoint_jump_m
+    if initial_position_error is not None:
+        evidence["initial_position_error_m"] = initial_position_error
+    if position_error is not None:
+        evidence["final_position_error_m"] = position_error
+        if initial_position_error is not None:
+            evidence["window_improvement_m"] = (
+                initial_position_error - position_error
+            )
     return evidence
 
 
@@ -144,6 +185,11 @@ class MotionTools(ToolFamily):
             or capabilities.execution.get("chunk_step")
         ):
             # A declared host that cannot step or chunk cannot move either.
+            logger.info(
+                "motion tools omitted: nothing declares step or chunk_step "
+                "(execution=%s)",
+                dict(capabilities.execution),
+            )
             return ()
         return tuple(iter_tools(self))
 
@@ -156,6 +202,10 @@ class MotionTools(ToolFamily):
         position_error: float | None = None,
         orientation_error: float | None = None,
         reached: bool | None = None,
+        diverged: bool | None = None,
+        unsafe: bool | None = None,
+        initial_position_error: float | None = None,
+        max_waypoint_jump_m: float | None = None,
         stop_reason_override: str | None = None,
         **extra: Any,
     ) -> dict[str, Any]:
@@ -169,9 +219,16 @@ class MotionTools(ToolFamily):
                 executed=executed,
                 status=status,
                 reached=reached,
+                diverged=diverged,
+                unsafe=unsafe,
             ),
             "stop_evidence": _stop_evidence(
-                requested=requested, executed=executed, status=status
+                requested=requested,
+                executed=executed,
+                status=status,
+                position_error=position_error,
+                initial_position_error=initial_position_error,
+                max_waypoint_jump_m=max_waypoint_jump_m,
             ),
             "pose_error": {
                 "pos_m": position_error,
@@ -212,6 +269,8 @@ class MotionTools(ToolFamily):
         if quat is None:
             quat = pose[3:].tolist()
         target = np.asarray([*xyz, *quat], dtype=np.float64)
+        target_xyz = np.asarray(xyz, dtype=np.float64)
+        initial_position_error = float(np.linalg.norm(pose[:3] - target_xyz))
         planned = backend.plan_arm_path(arm, target)
         backend.check_cancelled()
         if planned.get("status") != "Success" or planned.get("position") is None:
@@ -221,15 +280,16 @@ class MotionTools(ToolFamily):
                     requested=0,
                     executed=0,
                     status=backend.episode_status(),
-                    position_error=float(
-                        np.linalg.norm(current - np.asarray(xyz, dtype=np.float64))
-                    ),
+                    position_error=float(np.linalg.norm(current - target_xyz)),
                     orientation_error=quaternion_angle(pose[3:], quat),
                     reached=False,
+                    initial_position_error=initial_position_error,
                     stop_reason_override="planning_rejected",
                     plan_status=planned.get("status"),
                     hint="target may be unreachable or in collision",
-                )
+                ),
+                no_execution=True,
+                execution_status="rejected",
             )
         path = np.asarray(planned["position"], dtype=np.float64)
         substeps = int(substeps)
@@ -238,6 +298,34 @@ class MotionTools(ToolFamily):
         elif substeps >= 2 and len(path) > substeps:
             indices = np.linspace(0, len(path) - 1, substeps).astype(int)
             path = path[indices]
+        max_waypoint_jump = (
+            float(np.max(np.linalg.norm(np.diff(path[:, :3], axis=0), axis=1)))
+            if len(path) > 1
+            else 0.0
+        )
+        if (
+            self._config.max_waypoint_jump_m is not None
+            and max_waypoint_jump > self._config.max_waypoint_jump_m
+        ):
+            return ToolResult(
+                data=self._feedback(
+                    requested=0,
+                    executed=0,
+                    status=backend.episode_status(),
+                    position_error=initial_position_error,
+                    orientation_error=quaternion_angle(pose[3:], quat),
+                    reached=False,
+                    unsafe=True,
+                    initial_position_error=initial_position_error,
+                    max_waypoint_jump_m=max_waypoint_jump,
+                    hint=(
+                        "planned waypoints jump farther than "
+                        f"{self._config.max_waypoint_jump_m} m; adjust the target"
+                    ),
+                ),
+                no_execution=True,
+                execution_status="rejected",
+            )
         updates = [
             {"arm": arm, "arm_qpos": waypoint, "gripper": gripper} for waypoint in path
         ]
@@ -247,14 +335,14 @@ class MotionTools(ToolFamily):
         backend.check_cancelled()
         status = execution.get("episode_status") or backend.episode_status()
         final = np.asarray(backend.robot_state()[key], dtype=np.float64)
-        position_error = float(
-            np.linalg.norm(final[:3] - np.asarray(xyz, dtype=np.float64))
-        )
+        position_error = float(np.linalg.norm(final[:3] - target_xyz))
         orientation_error = quaternion_angle(final[3:], quat)
         reached = (
             position_error <= self._config.position_tolerance_m
             and orientation_error <= self._config.orientation_tolerance_rad
         )
+        diverged = not reached and position_error > initial_position_error
+        execution_status, no_execution = _execution_layer(len(updates), executed)
         return ToolResult(
             data=self._feedback(
                 requested=len(updates),
@@ -263,10 +351,15 @@ class MotionTools(ToolFamily):
                 position_error=position_error,
                 orientation_error=orientation_error,
                 reached=reached,
+                diverged=diverged,
+                initial_position_error=initial_position_error,
+                max_waypoint_jump_m=max_waypoint_jump,
                 plan_status=planned.get("status"),
                 waypoints=len(path),
                 final_eef_xyz=final[:3].tolist(),
-            )
+            ),
+            no_execution=no_execution,
+            execution_status=execution_status,
         )
 
     @tool
@@ -323,6 +416,7 @@ class MotionTools(ToolFamily):
         current = float(backend.robot_state()[f"{arm}_gripper"])
         step_count = int(steps)
         target = float(val)
+        initial_error = abs(current - target)
         values = [
             current + (target - current) * index / step_count
             for index in range(1, step_count + 1)
@@ -334,16 +428,24 @@ class MotionTools(ToolFamily):
         backend.check_cancelled()
         status = execution.get("episode_status") or backend.episode_status()
         gripper_val = float(backend.robot_state()[f"{arm}_gripper"])
-        reached = abs(gripper_val - target) <= self._config.gripper_tolerance
+        error = abs(gripper_val - target)
+        reached = error <= self._config.gripper_tolerance
+        diverged = not reached and error > initial_error
+        execution_status, no_execution = _execution_layer(len(updates), executed)
         return ToolResult(
             data=self._feedback(
                 requested=len(updates),
                 executed=executed,
                 status=status,
                 reached=reached,
+                diverged=diverged,
                 gripper_val=gripper_val,
                 target_gripper_val=target,
-            )
+                gripper_error=error,
+                initial_gripper_error=initial_error,
+            ),
+            no_execution=no_execution,
+            execution_status=execution_status,
         )
 
     @tool
