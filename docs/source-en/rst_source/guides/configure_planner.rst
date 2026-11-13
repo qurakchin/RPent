@@ -52,15 +52,16 @@ directory for evaluation runs, or ``sessions/session_NNN/`` for exploration
 sessions. ``effective_prompt.md`` contains the rendered system prompt and user
 message, and ``prompt_sources.json`` records the robot, planner, modes, section
 names, sources, and hashes of the assembled prompt and the opening user message.
-The transcript stores ``prompt_sha256`` and ``delivered_prompt_sha256`` for the
-run's first session; later exploration sessions keep their own artifacts under
-``sessions/session_NNN/``. The first hashes the assembled system and user
-messages; the second hashes the text RPent hands to the planner, so the two
-differ for planners that concatenate the roles. For ``api`` it equals
-``prompt_sha256``; for ``claude_code`` and ``codex`` it is the SHA-256 of the
-prefixed single message; ``flash`` ignores the prompt and records ``null``.
-SDK-managed planners may still add their own context, so the delivered digest
-covers RPent's contribution, not the model's complete final context.
+The transcript stores ``prompt_sha256`` for the run's first session; later
+exploration sessions keep their own artifacts under
+``sessions/session_NNN/``. The digest covers the assembled system and user
+messages. ``prompt_sources.json`` records how the planner receives the two
+roles, and for ``claude_code`` and ``codex`` — which prepend the system prompt
+to the first user message — ``effective_prompt.md`` also contains that prefixed
+single message. ``api`` keeps the roles separate, and ``flash`` does not
+receive the prompt. SDK-managed planners may still add their own context, so
+these artifacts cover RPent's contribution, not the model's complete final
+context.
 
 Add ``--dump-prompt`` to any robot command to render the prompt, write both
 files, print the result, and exit without starting simulators or models. The

@@ -43,7 +43,7 @@
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
-      "RUN MODE \u2014 DASHBOARD",
+      "RUN MODE \u2014 INTERACTIVE",
       "RUN MODE \u2014 REAL ROBOT",
       "PERCEPTION",
       "CONTROL",
@@ -57,7 +57,7 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "fdb8a3169133009df7d4645c6eef2e068325ac263ccf3ec813a5805b8b356e2a"
+    "prompt_sha256": "356025b9df71c65f4aedafb204bc59ae149d05c7e64e1fceea43f04bf660be79"
   },
   "libero:eval": {
     "sections": [
@@ -106,7 +106,7 @@
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
-      "RUN MODE \u2014 DASHBOARD",
+      "RUN MODE \u2014 INTERACTIVE",
       "RUNTIME",
       "LOCALIZATION",
       "PERCEPTION ALGORITHM",
@@ -122,7 +122,7 @@
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "3c9f185c1430e3df272b23e0d1fcb2ceae6734d80657ad4dcb6cc993c5933e97"
+    "prompt_sha256": "8548811b1ef5a011932deef2bd1f93ae327f1eccd980697f57e1f95a1f2b5323"
   },
   "robocasa:eval": {
     "sections": [
@@ -175,7 +175,7 @@
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
-      "RUN MODE \u2014 DASHBOARD",
+      "RUN MODE \u2014 INTERACTIVE",
       "LOCALIZATION",
       "NAVIGATION",
       "PRIMITIVES",
@@ -193,7 +193,7 @@
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "2889edcc6a5760414d2133e282e204b18914f946cb796df29984edc6cd6cda9c"
+    "prompt_sha256": "ad73c85ee0aa3ca02232a52d6ac8739ea52bc7a22bb53d90db5f495e823f3b68"
   },
   "robodojo:eval": {
     "sections": [
@@ -246,7 +246,7 @@
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
-      "RUN MODE \u2014 DASHBOARD",
+      "RUN MODE \u2014 INTERACTIVE",
       "TOOL ACCESS",
       "PERCEPTION",
       "AVAILABLE OPERATIONS",
@@ -263,7 +263,7 @@
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "fa36fbb0ee542f60a94fa8b058c04b85be9a5175f16294b16160aecf416c3306"
+    "prompt_sha256": "2958ca38fca12cf3455bac45936735360f15142fbb9e9ef41c8e6271f2e34e58"
   },
   "robotwin:eval": {
     "sections": [
@@ -315,7 +315,7 @@
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
-      "RUN MODE \u2014 DASHBOARD",
+      "RUN MODE \u2014 INTERACTIVE",
       "VLA AND PRIMITIVE CONTROL",
       "PERCEPTION",
       "ROLE",
@@ -331,7 +331,7 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "76f1125196c80426f1b8418c5092ccbe8935d2a2c20608ec67ea168813d1261f"
+    "prompt_sha256": "989079000528a126c3c88017eb013bdd741219208ac763a2c98fa8eccbc0a887"
   },
   "franka:eval": {
     "sections": [
@@ -370,7 +370,7 @@
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
-      "RUN MODE \u2014 DASHBOARD",
+      "RUN MODE \u2014 INTERACTIVE",
       "RUN MODE \u2014 REAL ROBOT",
       "PRIMITIVE CONVENTIONS",
       "ROLE",
@@ -381,7 +381,7 @@
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "7d7406c950444024c57d052f0f954f3b80b8eb8386b6acd559c8443f26f0bfee"
+    "prompt_sha256": "3cf80e2f549e168c8f5a36b0969157302cb1165b6a704bea179574a88df91b9a"
   },
   "dual_franka:eval": {
     "sections": [
@@ -427,7 +427,7 @@
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
-      "RUN MODE \u2014 DASHBOARD",
+      "RUN MODE \u2014 INTERACTIVE",
       "RUN MODE \u2014 REAL ROBOT",
       "CAMERA AND PROJECTION RULES",
       "VLA SEGMENT GATES",
@@ -440,6 +440,6 @@
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "ef064c12362a0e1a0dc715a9adfe1def60e2c83786a8e8aee5c83d8dbf680027"
+    "prompt_sha256": "a53aca11939f0460e2df057cb9887f8f1232effeab004523893b2d20044c3593"
   }
 }

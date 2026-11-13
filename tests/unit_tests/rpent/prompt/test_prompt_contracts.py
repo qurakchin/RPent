@@ -18,7 +18,9 @@ The a_2 migration moved shared rules into ``rpent/prompt/fragments``. These
 checks keep the model-facing instructions consistent with the shared sources
 and the memory manager:
 
-- the tool layer comes from every robot's ``prompt_sections``;
+- shared tool usage belongs to the tool families; a robot's
+  ``prompt_sections`` covers only tools that exist in that slice and may be
+  omitted;
 - prompts name tools without restating their call signatures;
 - no prompt asks for ``corroborations.jsonl`` or ``conflict_<id>.md``, which
   the merge step does not consume;
@@ -38,6 +40,7 @@ from pathlib import Path
 from rpent.prompt.assembly import build_robot_prompt, fragment, run_modes
 from rpent.prompt.utils import format_prompt
 from rpent.robots import get_robot_spec
+from rpent.robots.prompt_bundle import PromptBundle
 from tests.unit_tests.rpent.robots.test_registry_contracts import PROMPT_VARIABLES
 
 ROOT = Path(__file__).resolve().parents[4]
@@ -180,9 +183,28 @@ def _prompt_texts(memory: Path, *, explore: bool) -> dict[str, str]:
     }
 
 
-def test_every_robot_contributes_a_tool_layer() -> None:
-    for robot in PROMPT_VARIABLES:
-        assert get_robot_spec(robot).prompts.prompt_sections is not None, robot
+def test_a_slice_may_contribute_no_tool_sections() -> None:
+    """A slice with only family tools contributes domain, not tool guidance.
+
+    Shared tool usage belongs to the tool families (a_3). Requiring every
+    robot's ``prompt_sections`` would keep that guidance in the slices after
+    the families take it over.
+    """
+    bundle = PromptBundle(
+        system=lambda variables: {"DOMAIN": "domain knowledge"},
+        user=lambda variables: {"TASK": "user task"},
+        prompt_sections=None,
+    )
+
+    assembled = build_robot_prompt(
+        bundle,
+        robot_name="fixture",
+        variables={},
+        modes=("evaluate",),
+    )
+
+    assert "domain knowledge" in assembled.system
+    assert "OPERATING RULES" in assembled.system
 
 
 def test_prompts_do_not_ask_for_memory_artifacts_the_merge_cannot_consume(

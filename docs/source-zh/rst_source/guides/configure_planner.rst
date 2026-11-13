@@ -40,13 +40,13 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 目录，探索运行使用 ``sessions/session_NNN/``。``effective_prompt.md`` 包含
 渲染后的系统提示词和用户消息，``prompt_sources.json`` 记录机器人、规划器、
 运行模式、各段名称、来源，以及拼装后提示词和开场用户消息的哈希。对话记录中
-保存本次运行第一个会话的 ``prompt_sha256`` 和 ``delivered_prompt_sha256``；
-后续探索会话的产物位于各自的 ``sessions/session_NNN/`` 下。前者对拼装出的系统提示词
-和用户消息求哈希，后者对 RPent 交给规划器的文本求哈希，因此对会把两种角色拼接
-在一起的规划器，两者不同。``api`` 下两者相同；``claude_code`` 和 ``codex`` 下
-是对拼接后单条消息的 SHA-256；``flash`` 忽略提示词，记为 ``null``。由 SDK 管理
-上下文的规划器还可能在 RPent 之外补充内容，因此投递摘要覆盖的是 RPent 的贡献，
-而不是模型最终的完整上下文。
+保存本次运行第一个会话的 ``prompt_sha256``；
+后续探索会话的产物位于各自的 ``sessions/session_NNN/`` 下。该哈希覆盖拼装出的
+系统提示词和用户消息。``prompt_sources.json`` 记录规划器接收两种角色的方式；
+对会把 system prompt 拼到第一条 user 消息前面的 ``claude_code`` 和 ``codex``，
+``effective_prompt.md`` 还会写出这条拼接后的消息。``api`` 保持两种角色分离，
+``flash`` 不接收提示词。由 SDK 管理上下文的规划器还可能在 RPent 之外补充内容，
+因此这些产物覆盖的是 RPent 的贡献，而不是模型最终的完整上下文。
 
 在任意机器人命令后加上 ``--dump-prompt``，即可渲染提示词、写出上述两个
 文件、打印结果并退出，不启动仿真器或模型。dump 在本次运行的记忆准备之前执行，
