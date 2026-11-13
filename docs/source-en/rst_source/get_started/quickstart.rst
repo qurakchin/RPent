@@ -3,9 +3,15 @@ Quick Start
 
 Install RPent, run one LIBERO-PRO task, and inspect its result. This example uses the Claude Code planner, Pi0.5 for robot actions, and SAM3 for visual segmentation.
 
-For another platform, follow :doc:`../simulators/robocasa`, :doc:`../simulators/robotwin`, or :doc:`real-world robot deployment <../real_world_robots/index>` and use that platform’s requirements.
+.. page-head::
+   :for: First-time users with a Linux machine, an NVIDIA GPU, and a planner credential
+   :outcome: RPent installed, one LIBERO-PRO task run, and its artifacts and success signal inspected
+   :read-when: You are installing RPent for the first time or checking that the full stack runs
+   :skip-when: You already have a working install and need flags or platform-specific setup; see :doc:`../guides/cli` or the page for your platform
 
-**Page map:** requirements and resource estimates → install → download assets and models → configure the planner → run one task → inspect the result → recover from a failed step.
+For another platform, follow :doc:`../simulators/robocasa`, :doc:`../simulators/robotwin`, or :doc:`Real-World Robots <../real_world_robots/index>` and use that platform’s requirements.
+
+**Page map:** requirements → install → download assets and models → configure the planner → run one task → inspect the result → resource estimates → recover from a failed step.
 
 Requirements
 ------------
@@ -13,27 +19,8 @@ Requirements
 - Linux, an NVIDIA GPU, and a driver compatible with the selected PyTorch CUDA build.
 - ``git``, ``bash``, and a C/C++ toolchain.
 - `uv <https://docs.astral.sh/uv/getting-started/installation/>`_ to create an isolated Python environment. These commands use Python 3.11.
+- Disk and GPU: allow about 60 GB of disk and 16 GB of GPU memory for this setup; the full estimate is under Resource Estimates.
 - Credentials for the Claude Code planner: either an ``ANTHROPIC_API_KEY`` with access to the example model, or a Claude Code login created with ``claude auth login``. You also need network access to download assets and weights; model calls incur API charges.
-
-Resource estimates
-~~~~~~~~~~~~~~~~~~
-
-These estimates cover this LIBERO-PRO setup; they are not a hardware certification.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 22 78
-
-   * - Resource
-     - Estimate
-   * - GPU memory
-     - Allow at least 16 GB to run Pi0.5 and SAM3 on one GPU. Pi0.5 inference needs more than 8 GB, and SAM3 loads a 3.4 GB checkpoint; split the services with ``--am-cuda-device`` and ``--sam3-cuda-device`` when memory is tight.
-   * - Disk
-     - About 60 GB free: LIBERO datasets (~34 GB), scene assets (~0.6 GB), model weights (~11 GB), and the Python environment.
-   * - Model downloads
-     - Pi0.5 ``model.safetensors`` is 7.5 GB; the command below skips the 13.5 GB ``optimizer.pt``. ``sam3.pt`` is 3.4 GB.
-   * - Run time
-     - Typically 5–15 minutes per episode with an online planner; planner, model, and reasoning effort dominate. Reported means are on :doc:`Time & Token Costs <../leaderboard/time-token-costs>`.
 
 .. _quickstart-install:
 
@@ -114,7 +101,7 @@ Run task ``2`` in ``libero_object_swap`` with scene seed ``0``:
      --planner claude_code --model claude-opus-4-8 \
      --output-dir ./logs/first-libero-pro
 
-The terminal shows environment, VLA, and SAM3 service startup, followed by planner messages and tool calls. Inspect ``logs/first-libero-pro/`` when the run ends. Choose a new output directory for later runs to preserve this record.
+The terminal shows environment, vision-language-action (VLA) model, and SAM3 service startup, followed by planner messages and tool calls. Inspect ``logs/first-libero-pro/`` when the run ends. Choose a new output directory for later runs to preserve this record.
 
 5. Inspect the Result
 ---------------------
@@ -134,6 +121,26 @@ See :ref:`dashboard-usage` to watch cameras and actions live. For more tasks, ex
 For terminal interaction, add ``--tui`` (``-t``) to enter follow-up
 instructions. It cannot be combined with ``--dashboard``. See
 :ref:`terminal-interaction` for planner-specific controls.
+
+Resource Estimates
+------------------
+
+These estimates cover this LIBERO-PRO setup; they are not a hardware certification.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - Resource
+     - Estimate
+   * - GPU memory
+     - Allow at least 16 GB to run Pi0.5 and SAM3 on one GPU. Pi0.5 inference needs more than 8 GB, and SAM3 loads a 3.4 GB checkpoint; split the services with ``--am-cuda-device`` and ``--sam3-cuda-device`` when memory is tight.
+   * - Disk
+     - About 60 GB free: LIBERO datasets (~34 GB), scene assets (~0.6 GB), model weights (~11 GB), and the Python environment.
+   * - Model downloads
+     - Pi0.5 ``model.safetensors`` is 7.5 GB; the command below skips the 13.5 GB ``optimizer.pt``. ``sam3.pt`` is 3.4 GB.
+   * - Run time
+     - Typically 5–15 minutes per episode with an online planner; planner, model, and reasoning effort dominate. Reported means are on :doc:`Time & Token Costs <../leaderboard/time-token-costs>`.
 
 Common Problems
 ---------------

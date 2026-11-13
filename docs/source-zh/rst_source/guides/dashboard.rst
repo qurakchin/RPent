@@ -3,6 +3,12 @@
 
 你可以在终端输入指令，也可以通过 Dashboard 在浏览器中提交任务、查看规划器输出、相机画面和动作记录。以下示例使用已完成 :doc:`../get_started/quickstart` 配置的 LIBERO；其他平台先按对应环境页完成安装。
 
+.. page-head::
+   :for: 要在终端补充指令，或在浏览器中观察运行的操作用户
+   :outcome: 启动会话、提交任务、查看相机与动作，并结束会话
+   :read-when: 需要交互控制、实时画面或 Dashboard 时
+   :skip-when: 只运行一次批处理任务；快速开始中的命令已经够用
+
 **本文结构：** 终端交互 → Dashboard 会话与任务提交 → 查看结果与结束会话。
 
 .. _terminal-interaction:

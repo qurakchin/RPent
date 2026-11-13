@@ -4,6 +4,12 @@ Core Interfaces
 When you wire a new robot or primitive into RPent, you implement the interfaces below.
 Walkthroughs: :doc:`add_robot`, :doc:`add_primitive`. Repo layout: :doc:`architecture`.
 
+.. page-head::
+   :for: Developers implementing a robot package, primitive, or planner adapter
+   :outcome: You can find the contract each extension point must satisfy and where the runner calls it
+   :read-when: You are wiring a new robot, tool, or planner into the runner
+   :skip-when: You only operate an existing platform; start with its page
+
 **Page map:** robot entry → planner → toolkit → inter-process communication.
 
 Robot Entry

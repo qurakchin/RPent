@@ -5,6 +5,12 @@ Deployment and protocol details for action-model integrations. The integration
 steps are in :doc:`add_action_model`; this page covers per-client state, the WAM
 wire protocol, platform compatibility, and worker deployment.
 
+.. page-head::
+   :for: Developers who need the action-model wire protocol and deployment details
+   :outcome: You can explain per-client state, the WAM protocol, platform compatibility, and worker deployment
+   :read-when: You are debugging an action-model service or deploying a WAM worker
+   :skip-when: You have not integrated the model yet; start with :doc:`add_action_model`
+
 **Page map:** per-client policy state → communication and lifecycle → platform checklist → deployment and task runs.
 
 

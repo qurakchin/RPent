@@ -13,6 +13,12 @@ Flash 模式
 
 先完成 :doc:`../get_started/quickstart` 的 LIBERO-PRO 安装与模型配置。以下流程执行已有计划；生成新计划的方法在后文。
 
+.. page-head::
+   :for: 要在新场景中回放已记录的 LIBERO 计划，或生成计划的读者
+   :outcome: 运行计划、生成计划，并说明定位如何更新记录中的坐标
+   :read-when: 任务会重复执行已知计划，或需要评测 Flash 模式时
+   :skip-when: 要做通用规划器配置；见 :doc:`configure_planner`
+
 **本文结构：** 计划文件 → Molmo 与回放 → 多场景运行 → 执行原理 → 生成计划 → 评测结果。
 
 计划文件
@@ -138,14 +144,14 @@ LIBERO-PRO 评测结果
 
 :doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>` 报告 Flash Mode 的平均每回合耗时和输出 token。均值包含成功、失败和超时的评测回合；token 仅统计评测阶段的输出。
 
-RPent Flash Mode 直接使用官方发布的 GPT-5.5 探索记忆，Molmo2-8B 用于视觉定位，动作执行使用与 π_RLinf 相同的 VLA。排行榜的每个分项都包含全部 100 个预期回合（task 0–9、seed 0–9），没有 Flash 计划的回合仍计入分母。
+RPent Flash Mode 直接使用官方发布的 GPT-5.5 探索记忆。Molmo2-8B 负责视觉定位，动作执行使用与 π_RLinf 相同的 VLA。排行榜的每个分项都包含全部 100 个预期回合（task 0–9、seed 0–9）。没有 Flash 计划的回合仍计入分母。
 
 历史对比
 ~~~~~~~~
 
 下图保留早期 Flash/Codex 对比。图中的 Flash 耗时取每个计划对应的成功源回合，与上方统计全部评测回合的平均耗时口径不同。
 
-图中对比 Flash Mode、不使用 reasoning 的 Codex（500/800，62.50%）和 high reasoning Codex（628/800，78.50%），成功率与上方使用同一套 800 次运行口径。
+图中对比三种配置：Flash Mode、不使用 reasoning 的 Codex（500/800，62.50%）和 high reasoning Codex（628/800，78.50%）。成功率与上方使用同一套 800 次运行口径。
 
 .. image:: https://raw.githubusercontent.com/RLinf/misc/main/rpent/flash/flash_libero_pro_performance_time.png
    :alt: Flash Mode 与 Codex 在 LIBERO-PRO 全系列上的逐任务成功率和执行时间对比

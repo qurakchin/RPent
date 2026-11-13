@@ -3,7 +3,7 @@ Remote Services and Parallel Runs
 
 This page covers running the environment and model services on separate hosts,
 or reusing them across tasks and processes. The examples below use LIBERO with
-Pi0.5 VLA and SAM3. By default, RPent starts
+Pi0.5, a vision-language-action (VLA) model, and SAM3. By default, RPent starts
 and stops these services and the environment with each run. Configure external
 endpoints when services live on different hosts or are reused across tasks.
 For WAM worker deployment, see :ref:`action-model-deployment`.
@@ -11,9 +11,15 @@ For WAM worker deployment, see :ref:`action-model-deployment`.
 Three flags set the endpoints: ``--env-endpoint`` for the LIBERO
 environment, ``--am-endpoint`` for the selected action model, and ``--sam3-endpoint``
 for SAM3. Each takes ``[protocol://]HOST:PORT`` — HTTP when the protocol is
-omitted, or ``socket://`` for socket RPC.
+omitted, or ``socket://`` for remote procedure calls (RPC) over a socket.
 
 See :doc:`dashboard` for the endpoint rules that apply to Dashboard sessions.
+
+.. page-head::
+   :for: Operators running services on separate hosts or reusing them across tasks
+   :outcome: You can start each service, connect RPent through endpoints, and run evaluations in parallel
+   :read-when: A service is already running, or one machine cannot host the full stack
+   :skip-when: The default single-machine startup works for your task
 
 **Page map:** LIBERO environment service → Pi0.5 and APXInf VLA services → SAM3 → connect RPent → custom RLinf checkout → parallel evaluation → remote Dashboard.
 

@@ -3,9 +3,15 @@
 
 本页从安装开始，带你运行一个 LIBERO-PRO 任务，并检查执行结果。示例使用 Claude Code 规划器、Pi0.5 动作模型和 SAM3 视觉分割。
 
-若要使用其他平台，直接进入 :doc:`../simulators/robocasa`、:doc:`../simulators/robotwin` 或 :doc:`真机部署 <../real_world_robots/index>`，按该平台的要求安装。
+.. page-head::
+   :for: 第一次使用 RPent、具备 Linux 机器、NVIDIA GPU 和规划器凭据的读者
+   :outcome: 完成 RPent 安装，跑通一个 LIBERO-PRO 任务，并看懂运行产物和成功判定
+   :read-when: 首次安装 RPent，或需要确认整套服务能够跑通时
+   :skip-when: 已有可用安装，只想查参数或某个平台的专属配置；见 :doc:`../guides/cli` 或对应平台页面
 
-**本文结构：** 环境要求与资源估算 → 安装 → 下载资源与模型 → 配置规划器 → 运行一个任务 → 查看结果 → 失败时的处理。
+若要使用其他平台，直接进入 :doc:`../simulators/robocasa`、:doc:`../simulators/robotwin` 或 :doc:`真实机器人 <../real_world_robots/index>`，按该平台的要求安装。
+
+**本文结构：** 环境要求 → 安装 → 下载资源与模型 → 配置规划器 → 运行一个任务 → 查看结果 → 资源估算 → 失败时的处理。
 
 准备工作
 ------------
@@ -13,27 +19,8 @@
 - Linux、NVIDIA GPU，以及兼容所选 PyTorch CUDA 构建的驱动。
 - ``git``、``bash`` 和 C/C++ 编译工具。
 - `uv <https://docs.astral.sh/uv/getting-started/installation/>`_，用于创建独立的 Python 环境。以下命令使用 Python 3.11。
+- 磁盘与显存：本配置需要约 60 GB 磁盘和 16 GB 显存，完整估算见文末“资源估算”。
 - Claude Code 规划器的凭据：可访问示例模型的 ``ANTHROPIC_API_KEY``，或已通过 ``claude auth login`` 完成的 Claude Code 登录。还需要能下载仿真资源和模型权重的网络；模型调用会产生 API 费用。
-
-资源估算
-~~~~~~~~
-
-以下数值针对本页的 LIBERO-PRO 配置，属于估算值，不是硬件认证结果。
-
-.. list-table::
-   :header-rows: 1
-   :widths: 22 78
-
-   * - 资源
-     - 估算
-   * - 显存
-     - 在单张 GPU 上同时运行 Pi0.5 和 SAM3 时，建议至少 16 GB。Pi0.5 推理需要 8 GB 以上，SAM3 加载 3.4 GB 的 checkpoint；显存紧张时可用 ``--am-cuda-device`` 和 ``--sam3-cuda-device`` 拆分服务。
-   * - 磁盘
-     - 约 60 GB 可用空间：LIBERO 数据集约 34 GB、场景资源约 0.6 GB、模型权重约 11 GB，以及 Python 环境。
-   * - 模型下载
-     - Pi0.5 的 ``model.safetensors`` 为 7.5 GB；下方命令会跳过 13.5 GB 的 ``optimizer.pt``。``sam3.pt`` 为 3.4 GB。
-   * - 运行耗时
-     - 使用在线规划器时，每个回合通常需要 5 至 15 分钟；规划器、模型和推理强度是主要变量。实测均值见 :doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>`。
 
 .. _quickstart-install:
 
@@ -110,7 +97,7 @@ Pi0.5 用于执行机器人动作，SAM3 用于定位图像中的物体。SAM3 �
      --planner claude_code --model claude-opus-4-8 \
      --output-dir ./logs/first-libero-pro
 
-终端会依次显示环境、VLA 和 SAM3 服务的启动状态，随后输出规划器对话与工具调用。结束后查看 ``logs/first-libero-pro/``。再次运行时，请换一个输出目录以保留前一次记录。
+终端会依次显示环境、视觉语言动作模型（VLA）和 SAM3 服务的启动状态，随后输出规划器对话与工具调用。结束后查看 ``logs/first-libero-pro/``。再次运行时，请换一个输出目录以保留前一次记录。
 
 5. 查看结果
 ---------------
@@ -128,6 +115,26 @@ LIBERO 的任务成功以最终环境状态的顶层 ``terminated`` 为准，可
 .. _quickstart-interactive:
 
 若要在终端中交互，添加 ``--tui`` 或 ``-t`` 即可输入后续指令。该选项不能与 ``--dashboard`` 同时使用；各规划器的操作方式见 :ref:`terminal-interaction`。
+
+资源估算
+--------
+
+以下数值针对本页的 LIBERO-PRO 配置，属于估算值，不是硬件认证结果。
+
+.. list-table::
+   :header-rows: 1
+   :widths: 22 78
+
+   * - 资源
+     - 估算
+   * - 显存
+     - 在单张 GPU 上同时运行 Pi0.5 和 SAM3 时，建议至少 16 GB。Pi0.5 推理需要 8 GB 以上，SAM3 加载 3.4 GB 的 checkpoint；显存紧张时可用 ``--am-cuda-device`` 和 ``--sam3-cuda-device`` 拆分服务。
+   * - 磁盘
+     - 约 60 GB 可用空间：LIBERO 数据集约 34 GB、场景资源约 0.6 GB、模型权重约 11 GB，以及 Python 环境。
+   * - 模型下载
+     - Pi0.5 的 ``model.safetensors`` 为 7.5 GB；下方命令会跳过 13.5 GB 的 ``optimizer.pt``。``sam3.pt`` 为 3.4 GB。
+   * - 运行耗时
+     - 使用在线规划器时，每个回合通常需要 5 至 15 分钟；规划器、模型和推理强度是主要变量。实测均值见 :doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>`。
 
 常见问题
 --------

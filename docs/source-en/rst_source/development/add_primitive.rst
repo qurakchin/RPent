@@ -4,35 +4,17 @@ Add an Action Primitive
 An *action primitive* in RPent turns a tool call into an action that
 the environment can execute. It can be a learned policy (a VLA, a WAM,
 a diffusion planner) or a scripted routine (``move_to``,
-``open_gripper``). This page covers tool declaration, registration and execution.
+``open_gripper``). Model-based primitives run in a model service and are called through a model client;
+scripted primitives run in the agent process. Both expose the same tool schema.
+This page covers declaration, registration, and execution.
 
-**Page map:** two primitive types → scripted primitive → model-backed tools → serve modes → design principles.
+.. page-head::
+   :for: Developers exposing a new action or perception capability as a tool
+   :outcome: You can declare, register, and validate a scripted or model-backed primitive
+   :read-when: You are adding a tool the planner can call
+   :skip-when: You need to add the model service itself; see :doc:`add_action_model`
 
-Two Types of Primitives
------------------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 25 40 35
-
-   * - Family
-     - Execution location
-     - Examples
-   * - **Model-based**
-       (VLA / WAM / diffusion / …)
-     - Runs in its own model service process and is called through
-       a *model client* held by the toolkit.
-     - Pi0.5 (LIBERO), RLDX-1 (RoboCasa)
-   * - **Scripted**
-       (kinematic / heuristic)
-     - Runs in the agent process, with an optional server-side RPC for
-       kinematics. It does not load model weights.
-     - ``move_to``, ``rotate_wrist``, ``release``,
-       ``back_project``
-
-From the LLM's perspective, both types expose the same interface: a
-tool schema, a primitives method, and a state dump after the
-call. They differ only in how the method is implemented.
+**Page map:** scripted primitive → model-backed tools → serve modes → primitive families and design principles.
 
 Add a Scripted Primitive
 ------------------------
@@ -126,3 +108,29 @@ Design Principles for a New Primitive
 - **Guardrails belong in env_server**, not in the toolkit. The LLM
   can and will call any tool with any arguments; workspace bounds
   and safety clamps must be enforced on the server side.
+
+Primitive Families
+~~~~~~~~~~~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 40 35
+
+   * - Family
+     - Execution location
+     - Examples
+   * - **Model-based**
+       (VLA / WAM / diffusion / …)
+     - Runs in its own model service process and is called through
+       a *model client* held by the toolkit.
+     - Pi0.5 (LIBERO), RLDX-1 (RoboCasa)
+   * - **Scripted**
+       (kinematic / heuristic)
+     - Runs in the agent process, with an optional server-side RPC for
+       kinematics. It does not load model weights.
+     - ``move_to``, ``rotate_wrist``, ``release``,
+       ``back_project``
+
+From the LLM's perspective, both types expose the same interface: a
+tool schema, a primitives method, and a state dump after the
+call. They differ only in how the method is implemented.

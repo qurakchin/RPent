@@ -1,7 +1,7 @@
 digraph architecture {
   graph [rankdir=TB, splines=ortho, nodesep=0.50, ranksep=0.55, pad=0.20,
          newrank=true, fontname="Helvetica", bgcolor="white",
-         label="Green: user entry · Blue: agent · Teal: services · Purple: environments", labelloc="b", labeljust="l", fontsize=10,
+         label="Green: user entry · Purple: agent · Magenta: services · Gray: environments. Solid arrow: call · dashed: input · double arrow: shared connection.", labelloc="b", labeljust="l", fontsize=10,
          fontcolor="#4b5563"];
   node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12,
         margin="0.16,0.09", penwidth=1.2];
@@ -12,43 +12,43 @@ digraph architecture {
     label="User"; labeljust="l"; labelloc="t";
     fontsize=14; margin=14;
     fontcolor="#3f6b1f"; style="rounded,filled";
-    fillcolor="#f2f8ea66"; color="#a9cf85";
+    fillcolor="#eef7e666"; color="#a5cc7f";
 {rank=same; dashboard; cli;}
-  dashboard [label=<<FONT POINT-SIZE="13"><B>Web Dashboard</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Session · TaskRun · SSE</FONT>>, fillcolor="#f2f8ea", color="#a9cf85"];
-  cli [label=<<FONT POINT-SIZE="13"><B>CLI / TUI</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">rpent --robot &lt;name&gt;</FONT>>, fillcolor="#f2f8ea", color="#a9cf85"];
+  dashboard [label=<<FONT POINT-SIZE="13"><B>Web Dashboard</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Session · TaskRun · SSE</FONT>>, fillcolor="#eef7e6", color="#a5cc7f"];
+  cli [label=<<FONT POINT-SIZE="13"><B>CLI / TUI</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">rpent --robot &lt;name&gt;</FONT>>, fillcolor="#eef7e6", color="#a5cc7f"];
   }
 
   subgraph cluster_agent {
     label="Agent"; labeljust="l"; labelloc="t";
     fontsize=14; margin=14;
-    fontcolor="#1d4ed8"; style="rounded,filled";
-    fillcolor="#eaf1fd66"; color="#93b4f0";
+    fontcolor="#4527a0"; style="rounded,filled";
+    fillcolor="#ede7f666"; color="#9575cd";
 {rank=same; prompts; planner; toolkit; memory;}
-  prompts [label=<<FONT POINT-SIZE="13"><B>Prompts</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">system · user templates</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
-  planner [label=<<FONT POINT-SIZE="13"><B>Planner</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">api · claude_code · codex · flash</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
-  toolkit [label=<<FONT POINT-SIZE="13"><B>Toolkit</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">tool schemas · dispatch · ToolResult</FONT>>, fillcolor="#eaf1fd", color="#93b4f0", group=spine];
-  memory [label=<<FONT POINT-SIZE="13"><B>MemoryManager</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">read · merge · index</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
+  prompts [label=<<FONT POINT-SIZE="13"><B>Prompts</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">system · user templates</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  planner [label=<<FONT POINT-SIZE="13"><B>Planner</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">api · claude_code · codex · flash</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  toolkit [label=<<FONT POINT-SIZE="13"><B>Toolkit</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">tool schemas · dispatch · ToolResult</FONT>>, fillcolor="#ede7f6", color="#9575cd", group=spine];
+  memory [label=<<FONT POINT-SIZE="13"><B>MemoryManager</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">read · merge · index</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
   }
 
   subgraph cluster_service {
     label="Model and environment services"; labeljust="l"; labelloc="b";
     fontsize=14; margin=14;
-    fontcolor="#0f766e"; style="rounded,filled";
-    fillcolor="#e7f7f566"; color="#7fd3c8";
+    fontcolor="#8e24aa"; style="rounded,filled";
+    fillcolor="#fce4f266"; color="#ce93d8";
 {rank=same; vla; perception; env_service;}
-  vla [label=<<FONT POINT-SIZE="13"><B>VLA / WAM service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Pi0.5 · RLDX-1 · LingBot-VLA<BR/>VPP2 · Awomo05</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8"];
-  perception [label=<<FONT POINT-SIZE="13"><B>Perception service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">SAM3 · Molmo2<BR/>(Flash localization)</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8"];
-  env_service [label=<<FONT POINT-SIZE="13"><B>Environment service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">simulator or robot connection</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8", group=spine];
+  vla [label=<<FONT POINT-SIZE="13"><B>VLA / WAM service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Pi0.5 · RLDX-1 · LingBot-VLA<BR/>VPP2 · Awomo05</FONT>>, fillcolor="#fce4f2", color="#ce93d8"];
+  perception [label=<<FONT POINT-SIZE="13"><B>Perception service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">SAM3 · Molmo2<BR/>(Flash localization)</FONT>>, fillcolor="#fce4f2", color="#ce93d8"];
+  env_service [label=<<FONT POINT-SIZE="13"><B>Environment service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">simulator or robot connection</FONT>>, fillcolor="#fce4f2", color="#ce93d8", group=spine];
   }
 
   subgraph cluster_env {
     label="Environments"; labeljust="l"; labelloc="t";
     fontsize=14; margin=14;
-    fontcolor="#6d28d9"; style="rounded,filled";
-    fillcolor="#f3ecfe66"; color="#b79bea";
+    fontcolor="#455a64"; style="rounded,filled";
+    fillcolor="#eceff166"; color="#b0bec5";
 {rank=same; sims; real;}
-  sims [label=<<FONT POINT-SIZE="13"><B>Simulators</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">LIBERO · RoboCasa365<BR/>RoboTwin · RoboDojo</FONT>>, fillcolor="#f3ecfe", color="#b79bea"];
-  real [label=<<FONT POINT-SIZE="13"><B>Real robots</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Franka · Dual-Arm Franka · YAM</FONT>>, fillcolor="#f3ecfe", color="#b79bea"];
+  sims [label=<<FONT POINT-SIZE="13"><B>Simulators</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">LIBERO · RoboCasa365<BR/>RoboTwin · RoboDojo</FONT>>, fillcolor="#eceff1", color="#b0bec5"];
+  real [label=<<FONT POINT-SIZE="13"><B>Real robots</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Franka · Dual-Arm Franka · YAM</FONT>>, fillcolor="#eceff1", color="#b0bec5"];
   }
 
   dashboard -> planner [xlabel="task"];

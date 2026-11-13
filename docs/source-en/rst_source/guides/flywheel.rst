@@ -9,6 +9,12 @@ fine-tuning workflow that consumes it. The RPent data flywheel records
 trajectories from task planning through action execution and turns successful
 trajectories into training data.
 
+.. page-head::
+   :for: Readers turning recorded runs into VLA training data
+   :outcome: You can record a trajectory, export a LeRobot dataset, and start the RLinf training path
+   :read-when: You are collecting demonstrations or fine-tuning an action model
+   :skip-when: You only need to run or evaluate a task
+
 **Page map:** installation → record a trajectory → data format → export → RLinf training → SFT results.
 
 With the ``api``, ``claude_code``, or ``codex`` planner, ``--record-trajectory``

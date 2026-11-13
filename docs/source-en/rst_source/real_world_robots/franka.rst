@@ -13,6 +13,12 @@ Single-Arm Franka
 RPent can control one physical Franka arm through an RLinf ``RealWorldEnv``
 worker.
 
+.. page-head::
+   :for: Operators deploying one physical Franka Research 3 arm
+   :outcome: You can calibrate and configure the arm, start services, run a bounded task, and stop it safely
+   :read-when: You are installing or operating a single Franka arm
+   :skip-when: You only run simulated tasks, or you operate two arms; see :doc:`dual_franka`
+
 **Page map:** Safety and Stopping → Installation → Calibration → Robot Configuration → Start Services → Run a Task → Smoke Test → VLA Grasp Demo → View Results → Tools and State Artifacts → Flash Replay → Agent-Assisted Point Selection.
 
 Safety and Stopping

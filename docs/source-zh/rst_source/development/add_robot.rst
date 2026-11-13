@@ -1,9 +1,15 @@
 添加机器人或仿真环境
 ==============================
 
-本指南介绍如何将新的真实机器人或仿真环境接入 RPent，让语言模型通过工具调用完成任务。完整的参考实现见 ``robots/libero/``。
+本指南介绍如何将新的真机或仿真环境接入 RPent，让语言模型通过工具调用完成任务。完整的参考实现见 ``robots/libero/``。
 
-**本文结构：** 接入原则 → 六个步骤 → 约定 → 测试。
+.. page-head::
+   :for: 要新增真机或仿真平台接入的开发者
+   :outcome: 注册 ``RobotSpec``、实现环境 RPC 两端、提示词和工具集，并补充测试
+   :read-when: 新增机器人包，或适配 RLinf 环境时
+   :skip-when: 只使用已支持的平台；看该平台页面即可
+
+**本文结构：** 接入原则与约定 → 步骤 1–7 → 测试。
 
 接入原则
 --------
@@ -12,6 +18,15 @@
 - **优先复用 RLinf 的 Env 或 VLA。** 如果 RLinf 已有对应实现，RPent 尽量只增加必要的适配层。
 - **尽量和现有机器人接入方式保持一致。** ``RobotSpec``、Prompt、Toolkit 和运行时尽量参考已有实现，不为单个机器人引入新的公共机制。
 - **无法复用时说明原因。** 如果 RPent 或 RLinf 已有相关 Env / VLA 但无法复用，请在 PR 描述中说明或提交 issue，帮助改进现有抽象。
+
+建议遵循的约定
+--------------
+
+- ``output_dir`` 是 runner 为单次运行创建的工作目录。环境观测由 ``EnvState`` 管理；调用方只使用逻辑基础文件名，不自行拼接存储路径。 transcript 等运行管理输出与环境工件共享该目录。
+- 工具提供 ``name``、``description`` 和 ``input_schema``，由各 planner 转换成对应模型接口的格式。
+- 环境侧的返回值必须可 pickle，且不包含 torch 对象。
+- 每个原语工具执行后要 dump 一次新的状态快照, 这样下一次 ``view_env_state`` 看到的是动作后的世界。
+- ``dump_state`` 是 Agent 获取环境状态的唯一数据来源；任何新的模态（例如触觉、力）都通过它提供。
 
 接入步骤概览
 ------------
@@ -29,8 +44,8 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-entry:
 
-入口
-----
+1. 入口与注册
+--------------
 
 新增名为 ``myrobot`` 的机器人时，目录结构如下：
 
@@ -39,10 +54,10 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
    robots/myrobot/
        __init__.py            # 包入口，仅重导出两个工厂
        robot_spec.py          # RobotSpec、工厂、Dashboard 描述和 runtime 钩子
-       env_client.py          # MyEnvClient —— agent 侧 RPC client (§1)
-       prompt_bundle.py       # system()/user() prompt 工厂              (§2)
-       toolkit.py             # MyRobotToolkit + primitives + 工具定义     (§3)
-       env_server.py          # 环境侧 facade + RPC 服务                 (§1)
+       env_client.py          # MyEnvClient —— agent 侧 RPC client (步骤 2)
+       prompt_bundle.py       # system()/user() prompt 工厂              (步骤 3)
+       toolkit.py             # MyRobotToolkit + primitives + 工具定义     (步骤 4)
+       env_server.py          # 环境侧 facade + RPC 服务                 (步骤 2)
        vla_server.py          # （可选）VLA 模型服务
 
 ``__init__.py`` 是机器人包入口，应保持精简，仅重导出 ``robot_spec.py`` 中实现的工厂。``rpent/robots/base.py`` 中的注册表会按需导入 ``robots.<name>``，并调用这两个函数：
@@ -117,12 +132,12 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-env-rpc:
 
-1. ``env_client.py`` + ``env_server.py``
------------------------------------------
+2. 环境 client 与 server
+------------------------
 
 这两个文件连接 agent 进程与 ``env_server``。client 在 agent 进程内将方法调用转换成 RPC 请求，``env_server`` 负责处理这些请求。
 
-1.1 Env client（agent 侧）
+2.1 环境 client（agent 侧）
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 继承 :class:`rpent.robots.components.env_client_base.BaseEnvClient`。它已经负责启动时校验 ``env.get_env_meta``、执行首次 reset、缓存 ``last_obs``，并实现公共的 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 和 ``get_task_language`` RPC。子类只需增加环境专用方法；扩展方法需要独立超时时，再扩展超时表。RPC 名称需要保持稳定，因为服务端 facade 会显式注册每个名称。
@@ -146,7 +161,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
    env = MyEnvClient(rpc_client, expected_meta=expected_meta)
 
-1.2 Env server（环境侧）
+2.2 环境 server（环境侧）
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 在 ``env_server`` 中定义与 client API 对应的 facade 类，例如 ``MyEnvFacade``。该类继承
@@ -186,8 +201,8 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-prompts:
 
-2. ``prompt_bundle.py``
------------------------
+3. 提示词
+---------
 
 定义 ``system_prompt(variables)`` 和 ``user_prompt(variables)`` 两个 prompt 工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle(system=system_prompt, user=user_prompt)`` （见上面的“入口”）。每个工厂接收本次运行的 prompt 变量，返回 ``PromptNode``，通常是按调用顺序排列的 ``dict[str, PromptNode]`` 分节； ``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
 
@@ -224,8 +239,8 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-toolkit:
 
-3. ``toolkit.py``
-------------------
+4. 工具集与原语
+----------------
 
 该模块负责工具定义、动作原语、每步状态记录，以及允许通过 MCP 调用的工具列表。LIBERO 将这些内容分布在 ``tools.py`` 和 ``toolkit.py`` 中；新增机器人时，也可以将它们放在同一个 ``toolkit.py`` 中。
 
@@ -248,18 +263,22 @@ toolkit 模块通常包含四部分：
 
 ``runtime_kwargs`` 由 ``robot_spec.py:get_toolkit`` 转发给 toolkit，再原样传入 primitives 的 ``__init__``。其中通常包含 ``{"env": MyEnvClient(...), "model": VLAClient(...), ...}``。
 
-建议遵循的约定
---------------
+5. 命令行参数与 RunConfig
+-------------------------
 
-- ``output_dir`` 是 runner 为单次运行创建的工作目录。环境观测由 ``EnvState`` 管理；调用方只使用逻辑基础文件名，不自行拼接存储路径。 transcript 等运行管理输出与环境工件共享该目录。
-- 工具提供 ``name``、``description`` 和 ``input_schema``，由各 planner 转换成对应模型接口的格式。
-- 环境侧的返回值必须可 pickle，且不包含 torch 对象。
-- 每个原语工具执行后要 dump 一次新的状态快照, 这样下一次 ``view_env_state`` 看到的是动作后的世界。
-- ``dump_state`` 是 Agent 获取环境状态的唯一数据来源；任何新的模态（例如触觉、力）都通过它提供。
+用 ``_add_cli_args`` 注册机器人参数，并由 ``_parse_config`` 返回 ``RunConfig``。
+钩子契约、校验规则和 ``RunConfig`` 字段见 :ref:`add-robot-config`。
+
+6. Runtime 钩子
+----------------
+
+``init_runtime`` 启动或连接机器人服务，返回自有 daemon 和 toolkit 参数。
+Dashboard 使用的 component 子集，以及启动与就绪等待辅助函数，见
+:ref:`add-robot-runtime`。
 
 .. _add-robot-testing:
 
-6. 需要补充的测试
+7. 需要补充的测试
 -----------------
 
 新增机器人时，应先分别测试它使用的每个 runtime 组件，再跑一次完整调用链。每个组件都应实际调用一次并检查结果，仅能导入模块或通过服务健康检查还不够。

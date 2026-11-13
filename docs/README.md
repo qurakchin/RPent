@@ -93,6 +93,11 @@ check the pages that link to it.
 
 | Fact | Canonical location |
 | --- | --- |
+| Installation commands, Python version, and the base environment | `source-{en,zh}/rst_source/get_started/quickstart.rst` |
+| Platform extra, driver, and system packages | The matching page under `simulators/` or `real_world_robots/` |
+| Checkpoint names and download commands | The matching page under `simulators/` or `real_world_robots/` |
+| Success criterion and result files | The matching page under `simulators/` or `real_world_robots/` |
+| Default flag values and retry/turn limits | `source-{en,zh}/rst_source/guides/cli.rst` and `configure_planner.rst` |
 | Command-line flags, defaults, and run output | `source-{en,zh}/rst_source/guides/cli.rst` |
 | Planner backends, credentials, and limits | `source-{en,zh}/rst_source/guides/configure_planner.rst` |
 | Memory versions, caching, and exploration | `source-{en,zh}/rst_source/guides/memory.rst` |
@@ -151,6 +156,7 @@ When adding a result:
 
 ```bash
 cd docs
+python3 _checks/check_structure.py
 sphinx-build -E -W --keep-going source-en build/html-en
 sphinx-build -E -W --keep-going source-zh build/html-zh
 sphinx-build -W --keep-going -b linkcheck -q source-en build/linkcheck-en

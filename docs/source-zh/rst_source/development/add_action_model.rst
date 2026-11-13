@@ -3,12 +3,18 @@
 
 接入 VLA 或 WAM 服务，并将预测结果交给平台的原生动作执行器。工具声明与状态采集见 :doc:`add_primitive`，平台发现和运行时接线见 :doc:`add_robot`。
 
+.. page-head::
+   :for: 要接入 VLA 或 WAM 服务的开发者
+   :outcome: 把模型服务接到平台的动作执行器，并验证整条调用链
+   :read-when: 新增或替换动作模型时
+   :skip-when: 只需要工具声明；见 :doc:`add_primitive`
+
 **本文结构：** 共享架构 → 添加 VLA → 添加 WAM → 测试。
 
 共享架构
 --------
 
-RPent 负责 agent 编排、平台观测与动作的语义映射，以及模型服务的连接。对于 RLinf 已支持的模型与平台组合，接入代码复用其模型加载、推理和数据转换；其余组合由模型包连接模型的原生实现，并补充所需的数据转换。
+RPent 负责 agent 编排、平台观测与动作的语义映射，以及模型服务的连接。对于 RLinf 已支持的模型与平台组合，接入代码复用其模型加载、推理和数据转换。其余组合由模型包连接模型的原生实现，并补充所需的数据转换。
 
 VLA 和 WAM 通过公共 AM 基类复用 RPC 注册与推理转发。VLA 保留现有的模型专用消息格式和推理路径；WAM 使用 ``am_contracts.py`` 中的物理观测与原生控制声明，连接平台客户端和模型适配器。
 
@@ -136,7 +142,7 @@ VLA 启动函数也使用 ``AMConfig.spawn_worker()``。平台保留各自的服
 添加 WAM
 --------
 
-Cosmos Policy 和 Cosmos3 支持 LIBERO、LIBERO-PRO；Fast-WAM 支持 LIBERO、LIBERO-PRO 和 RoboTwin。每个模型与平台组合都需要匹配的 checkpoint。
+Cosmos Policy 和 Cosmos3 支持 LIBERO、LIBERO-PRO。Fast-WAM 支持 LIBERO、LIBERO-PRO 和 RoboTwin。每个模型与平台组合都需要匹配的 checkpoint。
 
 ``cosmos-policy`` 使用 NVIDIA 发布的 ``Cosmos-Policy-LIBERO-Predict2-2B`` 权重和官方 LIBERO 推理接口。``cosmos3`` 通过 RLinf 的 ``Cosmos3SGLangAdapter`` 和 HTTP client，连接独立部署的 SGLang ``/v1/actions/generations`` 服务。图像拼接、请求构造、动作反归一化和旋转转换由 RLinf 负责，其 ``prepare_actions_for_libero`` 还负责适配仿真器的夹爪约定。RPent 复用已有 LIBERO client，只在接口边界映射观测与预测。这两个后端需要不同的 checkpoint。
 

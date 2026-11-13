@@ -7,11 +7,36 @@ Welcome to RPent
    :alt: RPent
    :class: rpent-home-logo
 
-RPent (Recursive Physical Agent) is an open-source framework for building embodied agents that continually evolve through recursive interaction with the physical world. It supports different foundation models and integrates perception, reasoning, memory, execution, and self-evolution in a unified agent framework. Through ongoing interaction, agents reflect on and adjust their behavior, accumulate experience, and develop new capabilities beyond their initial design.
+RPent (Recursive Physical Agent) is an open-source framework for building embodied agents that accumulate experience and improve their behavior through interaction with the physical world. It supports different foundation models and integrates perception, reasoning, memory, execution, and self-evolution in a unified agent framework. Through ongoing interaction, agents reflect on and adjust their behavior, accumulate experience, and develop new capabilities beyond their initial design.
 
 RPent is for robotics and embodied-AI researchers and engineers who want to compare foundation models, planners, and memory strategies under one evaluation harness, or run the same agent loop in simulation and on a real robot.
 
-The documentation follows the path of a first run: Quick Start, then the guides for memory, planners, and tools, then one page per simulator and robot. Published results and demo videos sit in their own sections.
+The navigation follows the reader's task: get started, run in simulation, deploy on a robot, watch a demo, compare results, configure a feature, or extend the framework.
+
+The navigation follows the reader's task rather than the project's file layout:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 76
+
+   * - Section
+     - Question it answers
+   * - Get Started
+     - What is RPent, and how do I complete one task?
+   * - Simulators
+     - Which simulated platform do I run, and how do I reproduce its results?
+   * - Real-World Robots
+     - How do I deploy and operate a physical robot safely?
+   * - Real-World Demos
+     - What does a task look like on the hardware?
+   * - Leaderboard
+     - How do the reported methods compare, and what do the numbers count?
+   * - Guides
+     - How do I configure memory, planners, tools, the CLI, the Dashboard, or remote services?
+   * - Concepts & Development
+     - How does RPent work inside, and how do I extend it?
+   * - Resources
+     - What does the paper report, how do I contribute, and what changed in v0.1?
 
 .. button-ref:: rst_source/get_started/quickstart
    :ref-type: doc
@@ -71,34 +96,6 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    :includehidden:
    :titlesonly:
    :hidden:
-   :caption: Leaderboard
-
-   Performance <rst_source/leaderboard/performance>
-   Evaluation Protocol <rst_source/leaderboard/methodology>
-   Time & Token Costs <rst_source/leaderboard/time-token-costs>
-
-.. toctree::
-   :maxdepth: 2
-   :includehidden:
-   :titlesonly:
-   :hidden:
-   :caption: Guides
-
-   Memory and Exploration <rst_source/guides/memory>
-   Action Primitives and Tools <rst_source/guides/configure_primitives>
-   Planner Configuration <rst_source/guides/configure_planner>
-   Command-Line Reference <rst_source/guides/cli>
-   Interactive Usage <rst_source/guides/dashboard>
-   Flash Mode <rst_source/guides/flash>
-   Data Flywheel <rst_source/guides/flywheel>
-   Remote Services and Parallel Runs <rst_source/guides/advanced_deployment>
-   Troubleshooting <rst_source/guides/troubleshooting>
-
-.. toctree::
-   :maxdepth: 2
-   :includehidden:
-   :titlesonly:
-   :hidden:
    :caption: Simulators
 
    LIBERO <rst_source/simulators/libero>
@@ -127,6 +124,34 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
 
    Dual-Arm Franka <rst_source/real_world_demos/franka>
    YAM <rst_source/real_world_demos/yam>
+
+.. toctree::
+   :maxdepth: 2
+   :includehidden:
+   :titlesonly:
+   :hidden:
+   :caption: Leaderboard
+
+   Performance <rst_source/leaderboard/performance>
+   Evaluation Protocol <rst_source/leaderboard/methodology>
+   Time & Token Costs <rst_source/leaderboard/time-token-costs>
+
+.. toctree::
+   :maxdepth: 2
+   :includehidden:
+   :titlesonly:
+   :hidden:
+   :caption: Guides
+
+   Memory and Exploration <rst_source/guides/memory>
+   Action Primitives and Tools <rst_source/guides/configure_primitives>
+   Planner Configuration <rst_source/guides/configure_planner>
+   Command-Line Reference <rst_source/guides/cli>
+   Interactive Usage <rst_source/guides/dashboard>
+   Flash Mode <rst_source/guides/flash>
+   Data Flywheel <rst_source/guides/flywheel>
+   Remote Services and Parallel Runs <rst_source/guides/advanced_deployment>
+   Troubleshooting <rst_source/guides/troubleshooting>
 
 .. toctree::
    :maxdepth: 2

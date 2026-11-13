@@ -7,11 +7,36 @@
    :alt: RPent
    :class: rpent-home-logo
 
-RPent（Recursive Physical Agent）是一个开源框架，用于构建在与物理世界的递归交互中持续演进的具身智能体。它不限定基础模型，将感知（perception）、推理（reasoning）、记忆（memory）、执行（execution）和自我演进（self-evolution）整合到统一的智能体框架中。智能体通过持续交互反思和调整行为，积累经验、获得新能力，并逐步拓展初始设计的能力边界。
+RPent（Recursive Physical Agent）是一个开源框架，用于构建在物理世界交互中积累经验、改进行为的具身智能体。它不限定基础模型，将感知（perception）、推理（reasoning）、记忆（memory）、执行（execution）和自我演进（self-evolution）整合到统一的智能体框架中。智能体通过持续交互反思和调整行为，积累经验、获得新能力，并逐步拓展初始设计的能力边界。
 
 RPent 面向机器人学与具身智能的研究者和工程师：用同一套评测流程比较基础模型、规划器和记忆策略，或在仿真与真机上运行同一个智能体循环。
 
-文档按首次运行的使用路径组织：先看快速开始，再读记忆、规划器与工具指南，然后进入各仿真环境和真实机器人页面。评测成绩与真机演示各自成组。
+侧栏按读者要做的事组织：开始、在仿真中运行、部署真机、观看演示、比较结果、配置功能或扩展框架。
+
+侧栏按读者要做的事组织，而不是按仓库目录：
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 76
+
+   * - 栏目
+     - 回答的问题
+   * - 开始使用
+     - RPent 是什么，怎样完成第一个任务？
+   * - 仿真环境
+     - 该运行哪个仿真平台，怎样复现它的结果？
+   * - 真实机器人
+     - 怎样安全地部署和操作一台真机？
+   * - 真实世界演示
+     - 任务在硬件上实际执行是什么样？
+   * - 排行榜
+     - 各方法如何比较，这些数字统计的是什么？
+   * - 使用指南
+     - 怎样配置记忆、规划器、工具、命令行、Dashboard 或远程服务？
+   * - 原理与开发
+     - RPent 内部如何工作，怎样扩展？
+   * - 项目资源
+     - 论文报告了什么，怎样贡献，v0.1 有哪些变化？
 
 .. button-ref:: rst_source/get_started/quickstart
    :ref-type: doc
@@ -71,34 +96,6 @@ RPent 面向机器人学与具身智能的研究者和工程师：用同一套�
    :includehidden:
    :titlesonly:
    :hidden:
-   :caption: 排行榜
-
-   评测成绩 <rst_source/leaderboard/performance>
-   评测协议 <rst_source/leaderboard/methodology>
-   耗时与 Token 开销 <rst_source/leaderboard/time-token-costs>
-
-.. toctree::
-   :maxdepth: 2
-   :includehidden:
-   :titlesonly:
-   :hidden:
-   :caption: 使用指南
-
-   记忆与探索 <rst_source/guides/memory>
-   动作原语与工具 <rst_source/guides/configure_primitives>
-   规划器配置 <rst_source/guides/configure_planner>
-   命令行参考 <rst_source/guides/cli>
-   交互使用 <rst_source/guides/dashboard>
-   Flash 模式 <rst_source/guides/flash>
-   数据飞轮 <rst_source/guides/flywheel>
-   远程服务与并行运行 <rst_source/guides/advanced_deployment>
-   问题排查 <rst_source/guides/troubleshooting>
-
-.. toctree::
-   :maxdepth: 2
-   :includehidden:
-   :titlesonly:
-   :hidden:
    :caption: 仿真环境
 
    LIBERO <rst_source/simulators/libero>
@@ -127,6 +124,34 @@ RPent 面向机器人学与具身智能的研究者和工程师：用同一套�
 
    双臂 Franka <rst_source/real_world_demos/franka>
    YAM <rst_source/real_world_demos/yam>
+
+.. toctree::
+   :maxdepth: 2
+   :includehidden:
+   :titlesonly:
+   :hidden:
+   :caption: 排行榜
+
+   评测成绩 <rst_source/leaderboard/performance>
+   评测协议 <rst_source/leaderboard/methodology>
+   耗时与 Token 开销 <rst_source/leaderboard/time-token-costs>
+
+.. toctree::
+   :maxdepth: 2
+   :includehidden:
+   :titlesonly:
+   :hidden:
+   :caption: 使用指南
+
+   记忆与探索 <rst_source/guides/memory>
+   动作原语与工具 <rst_source/guides/configure_primitives>
+   规划器配置 <rst_source/guides/configure_planner>
+   命令行参考 <rst_source/guides/cli>
+   交互使用 <rst_source/guides/dashboard>
+   Flash 模式 <rst_source/guides/flash>
+   数据飞轮 <rst_source/guides/flywheel>
+   远程服务与并行运行 <rst_source/guides/advanced_deployment>
+   问题排查 <rst_source/guides/troubleshooting>
 
 .. toctree::
    :maxdepth: 2

@@ -3,6 +3,12 @@
 
 RPent 通过 ``MemoryManager`` 管理每个机器人的经验文件、读取权限和探索草稿。日常操作见 :doc:`../guides/memory`；本页说明目录和发布过程。
 
+.. page-head::
+   :for: 要改动记忆存储、权限或发布方式的开发者
+   :outcome: 说明记忆目录结构、访问范围、合并与同步规则
+   :read-when: 修改 ``MemoryManager``，或发布记忆语料时
+   :skip-when: 只选择或使用记忆评测；见 :doc:`../guides/memory`
+
 **本文结构：** 目录与访问范围 → 探索与合并 → 同步与贡献。
 
 目录与访问范围
@@ -45,7 +51,7 @@ RPent 通过 ``MemoryManager`` 管理每个机器人的经验文件、读取权�
 
 使用记忆时，其适用前提和证据范围应与当前任务匹配。``MEMORY.md`` 是可选的 global 与 task-family 索引，不是额外的记忆层。RoboCasa 的 HF 发布语料使用 ``global/GLOBAL_MEMORY.md``，本地语料则可提供多份 ``global/*.md`` 文件。
 
-评测时，规划器只能读取当前机器人的 memory。各机器人的具体要求仍然适用：RoboCasa 始终同时提供 task-specific 与 global memory，并要求 global 文件存在；任务 JSON 和 recipe 必须同时存在或同时缺失。规划器按需查阅相关经验，机器人动作不要求先完整读取全部文件。
+评测时，规划器只能读取当前机器人的 memory。各机器人的具体要求仍然适用。RoboCasa 始终同时提供 task-specific 与 global memory，并要求 global 文件存在。任务 JSON 和 recipe 必须同时存在或同时缺失。规划器按需查阅相关经验，机器人动作不要求先完整读取全部文件。
 
 每个工具集（toolkit）根据运行配置构造 ``MemoryManager``：评测时只读，探索时允许写入当前任务的草稿目录（inbox）。实际可读范围还受各环境的工具与任务规则约束。LIBERO 本地评测会检查记忆数据是否存在。
 

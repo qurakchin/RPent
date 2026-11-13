@@ -20,6 +20,12 @@ coordinates.
 
 Complete the LIBERO-PRO installation and model setup in :doc:`../get_started/quickstart` first. Start by running an existing plan; plan generation is covered later.
 
+.. page-head::
+   :for: Readers replaying a recorded LIBERO plan on a new layout or generating plans
+   :outcome: You can run a plan, generate one, and explain how localization updates the recorded coordinates
+   :read-when: A task repeats a known plan, or you are evaluating Flash Mode
+   :skip-when: You need general planner configuration; see :doc:`configure_planner`
+
 **Page map:** plan files → Molmo and replay → multi-layout runs → replay mechanics → plan generation → results.
 
 Plan Files

@@ -4,6 +4,12 @@ Robot Integration Reference
 Runner hooks, runtime startup, and test coverage for a new robot integration.
 The integration steps are in :doc:`add_robot`.
 
+.. page-head::
+   :for: Developers who need the runner hooks, runtime startup, or test coverage for an integration
+   :outcome: You can implement the CLI and config hooks and runtime startup, and decide which tests to add
+   :read-when: The integration steps in :doc:`add_robot` point here, or runtime startup fails
+   :skip-when: You have not read the integration steps; start with :doc:`add_robot`
+
 **Page map:** runner hooks → runtime initialization → run-result finalizer → test details.
 
 .. _add-robot-config:

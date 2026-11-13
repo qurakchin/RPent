@@ -12,6 +12,12 @@
 
 RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械臂。
 
+.. page-head::
+   :for: 要部署单台 Franka Research 3 机械臂的操作用户
+   :outcome: 完成标定与配置、启动服务、运行一个有边界的任务，并在需要时安全停止
+   :read-when: 安装或操作单臂 Franka 时
+   :skip-when: 只运行仿真任务，或要操作双臂系统；见 :doc:`dual_franka`
+
 **本文结构：** 安全与停止 → 安装 → 标定 → 机器人配置 → 启动服务 → 运行一个任务 → 冒烟测试 → VLA 抓取演示 → 查看结果 → 工具与状态产物 → Flash 回放 → Agent 辅助选点。
 
 安全与停止
@@ -181,8 +187,8 @@ Flash 回放
 Agent 辅助选点
 ~~~~~~~~~~~~~~~
 
-在 Flash 模式下，Molmo 找不到目标、选点的像素或深度无效，或请求失败时，
-可以由 Agent 重新选点。
+在 Flash 模式下，Agent 可以重新选点。典型触发条件是 Molmo 找不到目标、
+选点像素或深度无效，或请求失败。
 
 开启后，RPent 会先刷新观测，再让 Agent 在同一目标部位重试一次。
 再次失败则停止回放，不执行本次运动。下一次平移仍先用 Molmo。

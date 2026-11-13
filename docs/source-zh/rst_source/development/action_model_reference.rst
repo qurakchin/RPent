@@ -3,6 +3,12 @@
 
 动作模型接入的协议与部署细节。接入步骤见 :doc:`add_action_model`；本页说明按客户端隔离状态、WAM 通信协议、平台兼容性检查和 worker 部署。
 
+.. page-head::
+   :for: 需要动作模型通信协议与部署细节的开发者
+   :outcome: 说明按客户端隔离的状态、WAM 协议、平台兼容性和 worker 部署
+   :read-when: 调试动作模型服务，或部署 WAM worker 时
+   :skip-when: 还没接入模型；先看 :doc:`add_action_model`
+
 **本文结构：** 按客户端隔离策略状态 → 通信与生命周期 → 平台兼容性 → 部署与任务运行。
 
 
@@ -28,7 +34,7 @@ RPC 路由为 ``wam.get_model_meta``、``wam.predict`` 和 ``wam.reset``。请�
 
 平台 client 用 ``predict()`` 返回动作，用 ``predict_result()`` 返回完整字典。回合复位同时清空环境与模型历史。RoboTwin 复用环境首次初始化的 reset，并在构造 toolkit 时清空模型历史。连接 client 不会复位已有回合；直接使用 client 时，在首次预测前调用 ``reset()``，结束后调用 ``close()``。带会话的 worker 实现 ``reset_native``；当前模型包均只声明一次 ``USES_SESSIONS = False``，供启动逻辑和能力声明共用。
 
-模型依赖安装在单独准备的环境中，RPent 的公共安装不会安装模型 worker 的依赖。自己启动的 worker 复用已有 daemon 生命周期；外部服务在 RPent 停止自己管理的服务后仍保持运行。
+模型依赖安装在单独准备的环境中，RPent 的公共安装不会安装模型 worker 的依赖。自己启动的 worker 复用已有 daemon 生命周期。外部服务在 RPent 停止自己管理的服务后仍保持运行。
 
 添加平台与检查兼容性
 --------------------
@@ -72,7 +78,7 @@ checkpoint 目录包含 ``Cosmos-Policy-LIBERO-Predict2-2B.pt``、``libero_datas
 
 LIBERO worker 的模型环境需要安装 RLinf ``release/v0.4`` 的 Fast-WAM 接入，以及其 ``requirements/install.sh`` 指定的 Fast-WAM 版本（目前为 ``45d8e1458921d83f8ad6cf9ce993d371208dabd0``）。在 RLinf 仓库执行 ``bash requirements/install.sh embodied --model fastwam`` 配套安装；其他 Fast-WAM 版本的 VAE 接口可能不兼容。worker 调用 RLinf 的 ``get_model`` 和 ``predict_action_batch``，图像缩放与拼接、状态归一化、推理及 LIBERO 动作还原均由 RLinf 负责。RPent 只将物理观测映射到 RLinf 输入字段，并从返回动作中移除单环境 batch 维度。RLinf 的该策略尚不支持 RoboTwin 的三相机/qpos14 接口，因此 RoboTwin 保留官方 Fast-WAM 推理路径。
 
-LIBERO 直接使用 RLinf 原生模型 YAML。RPent 从部署参数填入 checkpoint 和统计文件路径，由 RLinf 组合官方模型与 processor 配置并解析推理选项。例如：
+LIBERO 直接使用 RLinf 原生模型 YAML。RPent 从部署参数填入 checkpoint 和统计文件路径。RLinf 再组合官方模型与 processor 配置，并解析推理选项。例如：
 
 .. code-block:: yaml
 

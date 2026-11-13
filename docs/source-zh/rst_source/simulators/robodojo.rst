@@ -3,6 +3,12 @@ RoboDojo
 
 通过 RPent 在 RoboDojo 中执行双臂桌面操作任务。仿真器基于 Isaac Sim / IsaacLab，采用 ARX-X5 双机械臂平台。RPent 结合策略动作、原生运动 Primitive 和 SAM3 物体分割完成任务。策略动作可选择 VPP2 或 Awomo05。
 
+.. page-head::
+   :for: 要在 RoboDojo 中用 Isaac Sim 运行 ARX-X5 双臂任务的读者
+   :outcome: 安装 RoboDojo、选择 VPP2 或 Awomo05、运行任务，并检查结果
+   :read-when: 需要 Isaac Sim、选择策略，或使用 RoboDojo 专属参数时
+   :skip-when: 还没有安装 RPent；先完成 :doc:`../get_started/quickstart`
+
 **本文结构：** 概览 → 安装 → VLA 配置 → SAM3 配置 → 运行一个任务 → 查看结果 → 任务 → 验证状态 → 任务记忆 → 探索模式 → 常用参数 → 规划器可调用的工具。
 
 概览
@@ -253,7 +259,7 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 探索模式
 --------
 
-探索模式在同一任务、seed 组和 layout 上反复尝试，默认最多运行 3 个规划会话，每个会话最多尝试 5 次。工作笔记和待整理的经验保存在本地。环境判定任务成功后，不再启动后续会话。按前文配置服务后，执行：
+探索模式在同一任务、seed 组和 layout 上反复尝试。默认最多运行 3 个规划会话，每个会话最多尝试 5 次。工作笔记和待整理的经验保存在本地。环境判定任务成功后，不再启动后续会话。按前文配置服务后，执行：
 
 .. code-block:: bash
 

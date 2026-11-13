@@ -28,6 +28,7 @@ release = version
 
 extensions = [
     "leaderboard",
+    "pagehead",
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx_reredirects",

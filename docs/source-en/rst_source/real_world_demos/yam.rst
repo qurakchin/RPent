@@ -3,6 +3,12 @@ YAM
 
 Watch task execution on YAM. :doc:`YAM Installation and Usage <../real_world_robots/yam>` guide describes setup and operation.
 
+.. page-head::
+   :for: Readers checking what a YAM task looks like before deploying the hardware
+   :outcome: You can identify the task and follow the link to installation and operation
+   :read-when: You want to see the robot in action or choose a demo task
+   :skip-when: You need setup instructions; go to :doc:`../real_world_robots/yam`
+
 .. raw:: html
 
    <div class="rpent-demo-list">

@@ -3,6 +3,12 @@ RoboDojo Reference
 
 Model worker setup and offline assets for RoboDojo. Installation and the task loop are in :doc:`robodojo`.
 
+.. page-head::
+   :for: Developers preparing VPP2 or Awomo05 policy assets for RoboDojo
+   :outcome: You can prepare the policy client, checkpoint, and optional local NVIDIA scene assets
+   :read-when: The RoboDojo page points here for VPP2, Awomo05, or offline asset setup
+   :skip-when: You have not installed RoboDojo; start with :doc:`robodojo`
+
 **Page map:** VPP2 setup → Awomo05 setup → optional offline assets.
 
 

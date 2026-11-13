@@ -12,7 +12,13 @@ YAM
 
 RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :doc:`YAM 演示 <../real_world_demos/yam>`。
 
-**本文结构：** 安全与停止 → 安装 → 标定 → 机器人配置 → 任务选择 → VLA 配置 → 数据采集与训练 → Codex 配置 → 启动服务 → 手动技能测试 → 运行一个任务 → 查看结果 → 验证状态 → 工具与状态产物 → 探索模式 → 日志与记忆。
+.. page-head::
+   :for: 要部署双臂 YAM 系统的操作用户
+   :outcome: 完成安装、标定、配置和启动，运行任务，并找到结果与记忆目录
+   :read-when: 安装或操作 YAM 时
+   :skip-when: 只运行仿真任务，或操作 Franka 系统；见 :doc:`../simulators/index` 或 :doc:`franka`
+
+**本文结构：** 安全与停止 → 安装 → 标定 → 机器人配置 → VLA 配置 → 启动服务 → 运行一个任务 → 查看结果 → 验证状态 → 探索模式。
 
 .. _id1:
 .. _yam-installation:
@@ -123,33 +129,6 @@ ENV 返回 ``park_on_close`` 配置的待机姿态，确认到位后关闭电机
 
 如需使用其他文件，请传入 ``--robot-config /path/to/robot_config.yaml``。任务 ID、任务指令、seed 和步数上限通过命令行指定。
 
-.. _yam-tasks:
-
-任务选择
---------
-
-主要示例使用任务 ``1``。任务 ``0`` 用于规划器驱动的基本动作检查，包括小幅平移、腕部旋转和夹爪动作，不需要 VLA。任务通过 ``--task-id`` 选择，左右方向以顶视相机画面为准：
-
-.. list-table::
-   :header-rows: 1
-
-   * - ID
-     - 内容
-     - 是否需要 VLA
-   * - 0
-     - 规划器驱动的基本动作检查
-     - 否
-   * - 1
-     - 百事放左侧袋子，可口可乐放右侧袋子
-     - 是
-   * - 2
-     - 可口可乐放左侧袋子，百事放右侧袋子
-     - 是
-
-任务 ``1`` 和 ``2`` 均需分类三瓶饮料，还要求移开碗、取出被遮挡的勺子，将白勺放入白碗、粉勺放入粉碗，并将碗放回原标记位置：白碗在左、粉碗在右。
-
-以下示例使用任务 ``1``、seed ``0``、步数上限 ``1000``。ENV 与 RPent 需使用相同设置。
-
 .. _yam-vla:
 
 VLA 配置
@@ -174,16 +153,9 @@ VLA 服务使用 ``pi05_yam_joint`` 配置，相机顺序为 ``top/left/right``�
 .. _yam-training:
 
 数据采集与训练
---------------
+~~~~~~~~~~~~~~
 
 示教数据采集见\ `RLinf YAM 数据采集 <https://rlinf.readthedocs.io/zh-cn/latest/rst_source/examples/embodied/yam.html>`_，模型训练与评估见\ `YAM Pi0.5 训练与评估 <https://rlinf.readthedocs.io/zh-cn/latest/rst_source/examples/embodied/yam_openpi.html>`_。
-
-.. _yam-codex-isolation:
-
-Codex 配置
-----------------
-
-使用 Codex 时，先按\ :ref:`planner-codex-isolation`\ 配置独立的运行目录并登录。
 
 .. _id3:
 .. _yam-services:
@@ -265,11 +237,65 @@ Codex 配置
      --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
      --event start --note '场景已恢复，可以开始本回合'
 
+.. _dashboard:
+.. _yam-run:
+
+运行一个任务
+------------
+
+完成机器人配置和双机服务启动，并按\ :doc:`../guides/configure_planner`\ 配置规划器。使用 Codex 前，先完成\ :ref:`planner-codex-isolation`。将 ``MODEL_ID`` 替换为已配置的模型，并选择该模型支持的推理档位。在控制机的 RPent 终端运行：
+
+.. code-block:: bash
+
+   rpent --robot yam --task-id "$TASK_ID" --seed 0 \
+     --planner codex --model MODEL_ID --reasoning-effort low \
+     --robot-config robots/yam/config/example.yaml \
+     --env-endpoint socket://127.0.0.1:8110 \
+     --am-endpoint socket://127.0.0.1:8220 \
+     --max-episode-steps 1000 \
+     --memory-profile local --memory-dir ./memory/yam
+
+任务 ``0`` 只使用基本动作；运行该任务时，将 ENV 和 RPent 的任务 ID 均设为 ``0``，并将 RPent 的 VLA 地址参数替换为 ``--without-vla``。
+
+.. _yam-tasks:
+
+任务选择
+~~~~~~~~
+
+主要示例使用任务 ``1``。任务 ``0`` 用于规划器驱动的基本动作检查，包括小幅平移、腕部旋转和夹爪动作，不需要 VLA。任务通过 ``--task-id`` 选择，左右方向以顶视相机画面为准：
+
+.. list-table::
+   :header-rows: 1
+
+   * - ID
+     - 内容
+     - 是否需要 VLA
+   * - 0
+     - 规划器驱动的基本动作检查
+     - 否
+   * - 1
+     - 百事放左侧袋子，可口可乐放右侧袋子
+     - 是
+   * - 2
+     - 可口可乐放左侧袋子，百事放右侧袋子
+     - 是
+
+任务 ``1`` 和 ``2`` 均需分类三瓶饮料，还要求移开碗、取出被遮挡的勺子，将白勺放入白碗、粉勺放入粉碗，并将碗放回原标记位置：白碗在左、粉碗在右。
+
+以下示例使用任务 ``1``、seed ``0``、步数上限 ``1000``。ENV 与 RPent 需使用相同设置。
+
+.. _yam-codex-isolation:
+
+Codex 配置
+~~~~~~~~~~~~~~~~
+
+使用 Codex 时，先按\ :ref:`planner-codex-isolation`\ 配置独立的运行目录并登录。
+
 .. _id5:
 .. _yam-diagnostics:
 
 手动技能测试
-------------
+~~~~~~~~~~~~
 
 测试前停止 Agent，确认现场后，用当前回合 ID 执行上面的 ``start`` 命令。
 
@@ -296,27 +322,8 @@ Codex 配置
 
 退出测试后，确认现场并读取当前回合 ID，再执行一次 :ref:`start 命令 <yam-start-episode>`，然后启动 RPent。
 
-.. _dashboard:
-.. _yam-run:
-
-运行一个任务
-------------
-
-完成机器人配置和双机服务启动，并按\ :doc:`../guides/configure_planner`\ 配置规划器。使用 Codex 前，先完成\ :ref:`planner-codex-isolation`。将 ``MODEL_ID`` 替换为已配置的模型，并选择该模型支持的推理档位。在控制机的 RPent 终端运行：
-
-.. code-block:: bash
-
-   rpent --robot yam --task-id "$TASK_ID" --seed 0 \
-     --planner codex --model MODEL_ID --reasoning-effort low \
-     --robot-config robots/yam/config/example.yaml \
-     --env-endpoint socket://127.0.0.1:8110 \
-     --am-endpoint socket://127.0.0.1:8220 \
-     --max-episode-steps 1000 \
-     --memory-profile local --memory-dir ./memory/yam
-
-任务 ``0`` 只使用基本动作；运行该任务时，将 ENV 和 RPent 的任务 ID 均设为 ``0``，并将 RPent 的 VLA 地址参数替换为 ``--without-vla``。
-
-**使用网页**
+使用网页
+~~~~~~~~
 
 在同一条命令末尾追加 ``--dashboard --dashboard-host 127.0.0.1 --dashboard-port 8090``。从自己的电脑访问时，先转发网页端口：
 
@@ -353,15 +360,10 @@ Codex 配置
 
 ``eval_success=True`` 表示现场人员已确认当前回合成功。
 
-验证状态
---------
-
-v0.1 发布说明和\ :doc:`YAM 演示页 <../real_world_demos/yam>`\ 记录了以下演示：YAM 读取瓶身与袋子标签来分类饮料，通过小幅试抬检查抓取，在路径受阻时调整腕部姿态，并移开碗以取得被遮挡的勺子。这些是演示记录，不是成功率评测。本页不报告回合数或成功率；单次演示成功也不能证明在另一套设备上的表现。
-
 .. _yam-tools:
 
 工具与状态产物
---------------
+~~~~~~~~~~~~~~
 
 YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``render``、``status``，以及 ``move_to``、``rotate_wrist``、``set_gripper``、``release``。连接 VLA 后还提供 ``pi05_act``。
 
@@ -370,6 +372,11 @@ YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``r
 开合夹爪使用 ``set_gripper`` 或 ``release``。
 
 .. _yam-exploration:
+
+验证状态
+--------
+
+v0.1 发布说明和\ :doc:`YAM 演示页 <../real_world_demos/yam>`\ 记录了以下演示：YAM 读取瓶身与袋子标签来分类饮料；通过小幅试抬检查抓取；在路径受阻时调整腕部姿态；移开碗以取得被遮挡的勺子。这些是演示记录，不是成功率评测。本页不报告回合数或成功率；单次演示成功也不能证明在另一套设备上的表现。
 
 探索模式
 --------

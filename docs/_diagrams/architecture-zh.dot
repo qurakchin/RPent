@@ -1,7 +1,7 @@
 digraph architecture {
   graph [rankdir=TB, splines=ortho, nodesep=0.50, ranksep=0.55, pad=0.20,
          newrank=true, fontname="Hiragino Sans GB,Noto Sans CJK SC,sans-serif", bgcolor="white",
-         label="绿色：用户入口 · 蓝色：智能体 · 青色：服务 · 紫色：环境", labelloc="b", labeljust="l", fontsize=10,
+         label="绿色：用户入口 · 紫色：智能体 · 品红：服务 · 灰色：环境。实线：调用 · 虚线：输入 · 双向箭头：共享连接。", labelloc="b", labeljust="l", fontsize=10,
          fontcolor="#4b5563"];
   node [shape=box, style="rounded,filled", fontname="Hiragino Sans GB,Noto Sans CJK SC,sans-serif", fontsize=12,
         margin="0.16,0.09", penwidth=1.2];
@@ -12,43 +12,43 @@ digraph architecture {
     label="用户层"; labeljust="l"; labelloc="t";
     fontsize=14; margin=14;
     fontcolor="#3f6b1f"; style="rounded,filled";
-    fillcolor="#f2f8ea66"; color="#a9cf85";
+    fillcolor="#eef7e666"; color="#a5cc7f";
 {rank=same; dashboard; cli;}
-  dashboard [label=<<FONT POINT-SIZE="13"><B>Web Dashboard</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Session · TaskRun · SSE</FONT>>, fillcolor="#f2f8ea", color="#a9cf85"];
-  cli [label=<<FONT POINT-SIZE="13"><B>CLI / TUI</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">rpent --robot &lt;name&gt;</FONT>>, fillcolor="#f2f8ea", color="#a9cf85"];
+  dashboard [label=<<FONT POINT-SIZE="13"><B>Web Dashboard</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Session · TaskRun · SSE</FONT>>, fillcolor="#eef7e6", color="#a5cc7f"];
+  cli [label=<<FONT POINT-SIZE="13"><B>CLI / TUI</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">rpent --robot &lt;name&gt;</FONT>>, fillcolor="#eef7e6", color="#a5cc7f"];
   }
 
   subgraph cluster_agent {
     label="智能体层"; labeljust="l"; labelloc="t";
     fontsize=14; margin=14;
-    fontcolor="#1d4ed8"; style="rounded,filled";
-    fillcolor="#eaf1fd66"; color="#93b4f0";
+    fontcolor="#4527a0"; style="rounded,filled";
+    fillcolor="#ede7f666"; color="#9575cd";
 {rank=same; prompts; planner; toolkit; memory;}
-  prompts [label=<<FONT POINT-SIZE="13"><B>提示词</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">system · user 模板</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
-  planner [label=<<FONT POINT-SIZE="13"><B>Planner</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">api · claude_code · codex · flash</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
-  toolkit [label=<<FONT POINT-SIZE="13"><B>Toolkit</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">工具定义 · 调用分发 · ToolResult</FONT>>, fillcolor="#eaf1fd", color="#93b4f0", group=spine];
-  memory [label=<<FONT POINT-SIZE="13"><B>MemoryManager</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">读取 · 合并 · 索引</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
+  prompts [label=<<FONT POINT-SIZE="13"><B>提示词</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">system · user 模板</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  planner [label=<<FONT POINT-SIZE="13"><B>Planner</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">api · claude_code · codex · flash</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  toolkit [label=<<FONT POINT-SIZE="13"><B>Toolkit</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">工具定义 · 调用分发 · ToolResult</FONT>>, fillcolor="#ede7f6", color="#9575cd", group=spine];
+  memory [label=<<FONT POINT-SIZE="13"><B>MemoryManager</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">读取 · 合并 · 索引</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
   }
 
   subgraph cluster_service {
     label="模型与环境服务"; labeljust="l"; labelloc="b";
     fontsize=14; margin=14;
-    fontcolor="#0f766e"; style="rounded,filled";
-    fillcolor="#e7f7f566"; color="#7fd3c8";
+    fontcolor="#8e24aa"; style="rounded,filled";
+    fillcolor="#fce4f266"; color="#ce93d8";
 {rank=same; vla; perception; env_service;}
-  vla [label=<<FONT POINT-SIZE="13"><B>VLA / WAM 服务</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Pi0.5 · RLDX-1 · LingBot-VLA<BR/>VPP2 · Awomo05</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8"];
-  perception [label=<<FONT POINT-SIZE="13"><B>感知服务</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">SAM3 · Molmo2<BR/>（Flash 定位）</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8"];
-  env_service [label=<<FONT POINT-SIZE="13"><B>环境服务</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">仿真器或真机连接</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8", group=spine];
+  vla [label=<<FONT POINT-SIZE="13"><B>VLA / WAM 服务</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Pi0.5 · RLDX-1 · LingBot-VLA<BR/>VPP2 · Awomo05</FONT>>, fillcolor="#fce4f2", color="#ce93d8"];
+  perception [label=<<FONT POINT-SIZE="13"><B>感知服务</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">SAM3 · Molmo2<BR/>（Flash 定位）</FONT>>, fillcolor="#fce4f2", color="#ce93d8"];
+  env_service [label=<<FONT POINT-SIZE="13"><B>环境服务</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">仿真器或真机连接</FONT>>, fillcolor="#fce4f2", color="#ce93d8", group=spine];
   }
 
   subgraph cluster_env {
     label="环境层"; labeljust="l"; labelloc="t";
     fontsize=14; margin=14;
-    fontcolor="#6d28d9"; style="rounded,filled";
-    fillcolor="#f3ecfe66"; color="#b79bea";
+    fontcolor="#455a64"; style="rounded,filled";
+    fillcolor="#eceff166"; color="#b0bec5";
 {rank=same; sims; real;}
-  sims [label=<<FONT POINT-SIZE="13"><B>仿真环境</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">LIBERO · RoboCasa365<BR/>RoboTwin · RoboDojo</FONT>>, fillcolor="#f3ecfe", color="#b79bea"];
-  real [label=<<FONT POINT-SIZE="13"><B>真机</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">单臂 Franka · 双臂 Franka · YAM</FONT>>, fillcolor="#f3ecfe", color="#b79bea"];
+  sims [label=<<FONT POINT-SIZE="13"><B>仿真环境</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">LIBERO · RoboCasa365<BR/>RoboTwin · RoboDojo</FONT>>, fillcolor="#eceff1", color="#b0bec5"];
+  real [label=<<FONT POINT-SIZE="13"><B>真机</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">单臂 Franka · 双臂 Franka · YAM</FONT>>, fillcolor="#eceff1", color="#b0bec5"];
   }
 
   dashboard -> planner [xlabel="任务"];

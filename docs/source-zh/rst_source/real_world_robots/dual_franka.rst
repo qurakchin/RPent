@@ -10,7 +10,13 @@
 
 RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统。任务视频见 :doc:`双臂 Franka 演示 <../real_world_demos/franka>`。
 
-**本文结构：** 安全与停止 → 安装 → 标定 → 机器人配置 → 任务选择 → VLA 配置 → Codex 配置 → 启动服务 → 手动技能测试 → 独立 VLA 诊断控制台 → 运行一个任务 → 查看结果 → 验证状态。
+.. page-head::
+   :for: 要部署双节点 Franka 工作台的操作用户
+   :outcome: 完成安装、标定、配置和双节点启动，运行任务，并安全停止系统
+   :read-when: 安装或操作双臂 Franka 工作台时
+   :skip-when: 只操作单臂，或只运行仿真任务；见 :doc:`franka` 或 :doc:`../simulators/index`
+
+**本文结构：** 安全与停止 → 安装 → 标定 → 机器人配置 → VLA 配置 → 启动服务 → 运行一个任务 → 查看结果 → 验证状态。
 
 安全与停止
 ----------
@@ -198,37 +204,6 @@ RPent 会将该机器人配置转换成内部双节点 RLinf cluster 和环境�
 
 ``rotate_delta`` 调整末端朝向，并尽量保持旋转开始时的位置。``rotation_hold.max_drift_m`` 设置旋转时允许的位置偏移上限，默认 ``0.10`` m（10 cm）；超出上限时中止本次调用并报错。
 
-任务选择
---------
-
-主要示例使用任务 ``2``。首次连接时可先用任务 ``0`` 检查小幅平移、旋转和夹爪动作；该任务由规划器驱动，不是固定自动测试序列，也不需要 VLA。
-
-.. list-table::
-   :header-rows: 1
-
-   * - ID
-     - 内容
-     - 是否需要 VLA
-   * - 0
-     - 规划器驱动的单技能检查
-     - 否
-   * - 1
-     - 碗盘脏污分类，包含杯子和筷勺
-     - 是
-   * - 2
-     - 碗盘及两个杯子脏污分类，无筷勺
-     - 是
-
-.. note::
-
-   任务编号用于启动命令，分类任务使用任务名称生成 recipe 和记忆标识。修改任务时，请保持编号、名称与任务内容的对应关系，不要随意重排编号或将已有名称用于不同任务。
-
-任务 ``1`` 中，碗盘内的蛋挞或蛋挞锡盘标记脏污：脏碗盘放入金属筐，干净碗盘和杯子放入纸盒；筷勺插入杯中。
-
-任务 ``2`` 中，碗内的鸡块、盘子或杯子内的蛋挞锡盘标记脏污：脏物放入金属筐，干净物放入纸盒，不含筷勺。
-
-两个分类任务均提供 ``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place`` 技能。
-
 .. _dual-franka-vla:
 
 VLA 配置
@@ -263,13 +238,6 @@ VLA 配置
 
 	该 checkpoint 仅在我们的内部测试环境（机器人位姿、相机、工作空间布局和物体）上训练，切换到不同的环境时预计表现会较差。若要部署到你自己的机器上，请使用 RLinf 采集示教数据并微调你自己的 checkpoint，参见 `RLinf 双臂 Franka 指南 <https://rlinf.readthedocs.io/zh-cn/latest/rst_source/examples/embodied/dual_franka.html>`_ （采集 GELLO 示教数据、转换为 tcp_rot6d、运行 SFT，然后部署）。
 
-.. _dual-franka-codex-isolation:
-
-Codex 配置
-----------------
-
-使用 Codex 时，先按\ :ref:`planner-codex-isolation`\ 配置独立的运行目录并登录。
-
 启动服务
 --------
 
@@ -300,8 +268,70 @@ RLinf 按配置的节点创建相机句柄，不会跨节点搜索被移动的 U
    ray stop --force
    ray start --address=HEAD_IP:6379 --node-ip-address=WORKER_IP
 
-手动技能测试
+运行一个任务
 ------------
+
+完成相机标定、机器人配置和 Ray 集群启动，并按 :doc:`../guides/configure_planner` 配置规划器。使用 Codex 前，先完成 :ref:`planner-codex-isolation`。
+
+设置好上面的模型变量后，以下以任务 ``2`` 为例运行；可通过 ``--task-id`` 选择其他已注册任务。RPent 自动启动所需的环境和模型服务，无需另开终端手动启动 VLA：
+
+.. code-block:: bash
+
+   rpent --robot dual_franka --task-id 2 \
+     --planner codex --model gpt-6-astra --reasoning-effort xhigh \
+     --robot-config robots/dual_franka/config/example.yaml \
+     --memory-profile local --memory-dir ./memory/dual_franka
+
+连接环境会初始化控制器和夹爪，但不复位机器人姿态。智能体先调用 ``request_scene_reset``：处理夹持物、恢复桌面并确认双臂回位路径安全后回复 ``done``，工具才执行复位并采集新观测。未确认或复位失败时禁止运动，每次新运行或会话都需要重新确认。
+
+示例使用 Codex、``gpt-6-astra`` 和 ``xhigh`` 推理强度。也可将规划器和模型参数换为 ``--planner claude_code --model claude-opus-4-8``。模型与推理强度的配置见 :doc:`../guides/configure_planner`。
+
+在同一条命令中按需追加参数：
+
+* ``--explore``：探索并积累任务记忆，见下文。
+* ``--explore --tui``：探索时在终端输入反馈；普通任务不支持单独使用 ``--tui``。
+* ``--dashboard``：通过网页输入框提交任务、消息和确认；探索时同时加 ``--explore``。不能与 ``--tui`` 同用。界面操作见 :doc:`../guides/dashboard`。
+
+任务选择
+~~~~~~~~
+
+主要示例使用任务 ``2``。首次连接时可先用任务 ``0`` 检查小幅平移、旋转和夹爪动作；该任务由规划器驱动，不是固定自动测试序列，也不需要 VLA。
+
+.. list-table::
+   :header-rows: 1
+
+   * - ID
+     - 内容
+     - 是否需要 VLA
+   * - 0
+     - 规划器驱动的单技能检查
+     - 否
+   * - 1
+     - 碗盘脏污分类，包含杯子和筷勺
+     - 是
+   * - 2
+     - 碗盘及两个杯子脏污分类，无筷勺
+     - 是
+
+.. note::
+
+   任务编号用于启动命令，分类任务使用任务名称生成 recipe 和记忆标识。修改任务时，请保持编号、名称与任务内容的对应关系，不要随意重排编号或将已有名称用于不同任务。
+
+任务 ``1`` 中，碗盘内的蛋挞或蛋挞锡盘标记脏污：脏碗盘放入金属筐，干净碗盘和杯子放入纸盒；筷勺插入杯中。
+
+任务 ``2`` 中，碗内的鸡块、盘子或杯子内的蛋挞锡盘标记脏污：脏物放入金属筐，干净物放入纸盒，不含筷勺。
+
+两个分类任务均提供 ``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place`` 技能。
+
+.. _dual-franka-codex-isolation:
+
+Codex 配置
+~~~~~~~~~~~~~~~~
+
+使用 Codex 时，先按\ :ref:`planner-codex-isolation`\ 配置独立的运行目录并登录。
+
+手动技能测试
+~~~~~~~~~~~~
 
 可先列出可调用的技能，再查看某个技能接受的参数及其类型。在仓库根目录运行：
 
@@ -352,30 +382,6 @@ RLinf 按配置的节点创建相机句柄，不会跨节点搜索被移动的 U
 输入和预测保存为 JSON/NPZ。如果提示执行状态不确定，请检查现场后重启会话。
 
 每块动作步数自动从 VLA 服务读取，也可用 ``--expected-action-steps`` 显式指定。
-
-运行一个任务
-------------
-
-完成相机标定、机器人配置和 Ray 集群启动，并按 :doc:`../guides/configure_planner` 配置规划器。使用 Codex 前，先完成 :ref:`planner-codex-isolation`。
-
-设置好上面的模型变量后，以下以任务 ``2`` 为例运行；可通过 ``--task-id`` 选择其他已注册任务。RPent 自动启动所需的环境和模型服务，无需另开终端手动启动 VLA：
-
-.. code-block:: bash
-
-   rpent --robot dual_franka --task-id 2 \
-     --planner codex --model gpt-6-astra --reasoning-effort xhigh \
-     --robot-config robots/dual_franka/config/example.yaml \
-     --memory-profile local --memory-dir ./memory/dual_franka
-
-连接环境会初始化控制器和夹爪，但不复位机器人姿态。智能体先调用 ``request_scene_reset``：处理夹持物、恢复桌面并确认双臂回位路径安全后回复 ``done``，工具才执行复位并采集新观测。未确认或复位失败时禁止运动，每次新运行或会话都需要重新确认。
-
-示例使用 Codex、``gpt-6-astra`` 和 ``xhigh`` 推理强度。也可将规划器和模型参数换为 ``--planner claude_code --model claude-opus-4-8``。模型与推理强度的配置见 :doc:`../guides/configure_planner`。
-
-在同一条命令中按需追加参数：
-
-* ``--explore``：探索并积累任务记忆，见下文。
-* ``--explore --tui``：探索时在终端输入反馈；普通任务不支持单独使用 ``--tui``。
-* ``--dashboard``：通过网页输入框提交任务、消息和确认；探索时同时加 ``--explore``。不能与 ``--tui`` 同用。界面操作见 :doc:`../guides/dashboard`。
 
 查看结果
 --------

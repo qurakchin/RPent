@@ -10,7 +10,13 @@ RoboCasa365
 
 Run kitchen manipulation tasks with RPent in RoboCasa365, then reproduce Target50 experiments. This integration uses the PandaOmron mobile manipulator and the RLDX-1 action model; its CLI name is ``robocasa``.
 
-**Page map:** Overview → Installation → VLA Configuration → Run a Task → View Results → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Experiment Reproduction → environment checks, troubleshooting, and implementation notes.
+.. page-head::
+   :for: Readers running kitchen tasks in RoboCasa365 and reproducing Target50
+   :outcome: You can install RoboCasa365, prepare RLDX-1, run a task, and explain the success signal and reproduction settings
+   :read-when: You are moving beyond the Quick Start, or checking Target50 configuration and results
+   :skip-when: You have not installed RPent yet; complete :doc:`../get_started/quickstart` first
+
+**Page map:** Overview → Installation → VLA Configuration → Run a Task → View Results → Observation and Action → Validation Status → Task Memory → Exploration Mode → Experiment Reproduction → environment checks, troubleshooting, and implementation notes.
 
 .. _robocasa-overview:
 
@@ -169,15 +175,8 @@ You can also use ``--planner api`` or ``--planner codex``; see the planner guide
 
 .. _inspect-the-result:
 
-View Results
-------------
-
-Task success comes from the environment’s ``_check_success()`` result, exposed as ``state.success``. The planner’s ``finish`` status ends its conversation and is not an evaluation label. Inspect ``result.json``, ``transcript_*.json``, and ``run.log`` in the output directory; service startup errors are in ``env_server.log`` and ``vla_server.log``.
-
-Use ``--dashboard`` to watch cameras and planner output; see :doc:`../guides/dashboard` for the shared workflow.
-
 Tasks
------
+~~~~~
 
 Target50 covers the following categories. The reproduction section lists the complete task/seed matrix and run limits.
 
@@ -198,6 +197,13 @@ Target50 covers the following categories. The reproduction section lists the com
      - Composite tasks in unseen categories.
 
 .. _robocasa-observation-action:
+
+View Results
+------------
+
+Task success comes from the environment’s ``_check_success()`` result, exposed as ``state.success``. The planner’s ``finish`` status ends its conversation and is not an evaluation label. Inspect ``result.json``, ``transcript_*.json``, and ``run.log`` in the output directory; service startup errors are in ``env_server.log`` and ``vla_server.log``.
+
+Use ``--dashboard`` to watch cameras and planner output; see :doc:`../guides/dashboard` for the shared workflow.
 
 Observation and Action
 ----------------------

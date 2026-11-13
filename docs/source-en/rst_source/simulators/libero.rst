@@ -12,6 +12,12 @@ Run tabletop manipulation tasks with RPent in `LIBERO <https://libero-project.gi
 
 For a first run, follow :doc:`../get_started/quickstart`; this page covers variants, task selection, results, and reproduction.
 
+.. page-head::
+   :for: Readers running LIBERO, LIBERO-PRO, or LIBERO-plus tasks and reproducing published rates
+   :outcome: You can install a variant, prepare Pi0.5 and SAM3, run a task, and read its result against the native success signal
+   :read-when: You are moving beyond the Quick Start's single LIBERO-PRO task, or selecting variants and tasks
+   :skip-when: You have not installed RPent yet; complete :doc:`../get_started/quickstart` first
+
 **Page map:** Overview → Installation → VLA Configuration → SAM3 Configuration → Run a Task → View Results → Task Selection → WAM Evaluation → Tasks → Task Memory → Experiment Reproduction → Tools the Planner Can Call.
 
 .. _libero-overview:
@@ -165,6 +171,9 @@ A LIBERO run uses the following task settings:
 WAM Evaluation
 --------------
 
+A WAM backend predicts one chunk of actions per call, the environment executes
+the chunk, and the next call observes the updated scene.
+
 Prepare a worker with :doc:`../development/add_action_model` and keep the simulator
 and SAM3 setup above. Pi0.5 weights are not needed for WAM. With Cosmos on port 8116:
 
@@ -302,7 +311,7 @@ LIBERO tools fall into two groups: physical action tools and read-only tools.
 
 **Physical action tools:**
 
-- ``pi0_pick(prompt, ...)`` — use Pi0.5 to execute a closed-loop grasp.
+- ``pi0_pick(prompt, ...)`` — use Pi0.5 to predict and execute a grasp.
 - ``pi0_doubled(prompt, ...)`` — use Pi0.5 for a non-pick contact action.
 - ``move_to(xyz, ...)`` — move the end effector to a world-frame position.
 - ``move_pose(xyz, target_pitch=..., target_yaw=..., ...)`` — move position

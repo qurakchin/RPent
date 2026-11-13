@@ -10,7 +10,13 @@ RoboTwin
 
 Run bimanual tabletop tasks with RPent in `RoboTwin <https://robotwin-platform.github.io/>`_, then reproduce the C2R experiment in randomized scenes. RPent connects to the simulator through RLinf and uses LingBot-VLA to generate actions.
 
-**Page map:** Overview → Installation → VLA Configuration → Run a Task → View Results → WAM Evaluation → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Common Options → Experiment Reproduction → HF corpus selection.
+.. page-head::
+   :for: Readers running bimanual tasks in RoboTwin and reproducing the C2R experiment
+   :outcome: You can install RoboTwin, prepare LingBot-VLA, run a task, and reproduce C2R with the documented settings
+   :read-when: You are moving beyond the Quick Start, or checking randomized-scene reproduction
+   :skip-when: You have not installed RPent yet; complete :doc:`../get_started/quickstart` first
+
+**Page map:** Overview → Installation → VLA Configuration → Run a Task → View Results → WAM Evaluation → Observation and Action → Validation Status → Task Memory → Exploration Mode → Common Options → Experiment Reproduction.
 
 .. _robotwin-overview:
 
@@ -132,6 +138,24 @@ the complete option list.
    be initialized stably or did not pass the expert rollout were skipped.
    Other seeds can still be passed explicitly for custom runs.
 
+Task Configurations
+~~~~~~~~~~~~~~~~~~~
+
+C2R uses successful clean-scene trajectories as prior experience and evaluates in randomized scenes. The two task configurations serve these roles.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Configuration
+     - Scene
+     - Use
+   * - ``demo_clean``
+     - Clean scenes.
+     - Collect task experience.
+   * - ``demo_randomized``
+     - Random backgrounds, clutter, lighting, and table height.
+     - C2R evaluation: 50 tasks, each with five verified seeds.
+
 .. _view-the-result:
 
 View Results
@@ -176,24 +200,6 @@ WAM uses a required local memory manager and file tools, with a backend-specific
 directory that may be empty; ``--memory-dir`` selects a compatible local corpus.
 HF memory and exploration are unsupported. Native ``eval_success`` determines
 task success. The LingBot and HF memory workflows below apply to the VLA path.
-
-Tasks
------
-
-C2R uses successful clean-scene trajectories as prior experience and evaluates in randomized scenes. The two task configurations serve these roles.
-
-.. list-table::
-   :header-rows: 1
-
-   * - Configuration
-     - Scene
-     - Use
-   * - ``demo_clean``
-     - Clean scenes.
-     - Collect task experience.
-   * - ``demo_randomized``
-     - Random backgrounds, clutter, lighting, and table height.
-     - C2R evaluation: 50 tasks, each with five verified seeds.
 
 .. _robotwin-observation-action:
 
@@ -271,6 +277,17 @@ references from the public `RLinf/RPent-memory
 dataset. These references can improve planning by providing previously verified
 techniques; the run still starts if they are unavailable.
 
+HF Corpus Selection
+~~~~~~~~~~~~~~~~~~~
+
+By default, CLI and Dashboard keep using the unversioned ``robotwin/`` corpus
+from HF ``main``. To select a published subdirectory explicitly, add
+``--memory-profile hf --memory-version <corpus-directory>``; this reads
+``robotwin/<corpus-directory>/``. No model-to-corpus mapping is assumed.
+Use ``--memory-repo owner/dataset@revision`` to select another dataset or revision.
+For offline evaluation, download the subtree first and use
+``--memory-profile local --memory-dir <downloaded-corpus>`` without
+``--memory-version``. The selected directory must retain the RoboTwin memory layout.
 Exploration Mode
 ----------------
 
@@ -356,15 +373,3 @@ RoboTwin assets and LingBot-VLA checkpoint as described earlier on this page.
 An episode counts as successful only if the final value of
 ``TASK_ENV.eval_success`` is ``true``; the planner's ``finish`` call does not by
 itself indicate success.
-
-HF Corpus Selection
--------------------
-
-By default, CLI and Dashboard keep using the unversioned ``robotwin/`` corpus
-from HF ``main``. To select a published subdirectory explicitly, add
-``--memory-profile hf --memory-version <corpus-directory>``; this reads
-``robotwin/<corpus-directory>/``. No model-to-corpus mapping is assumed.
-Use ``--memory-repo owner/dataset@revision`` to select another dataset or revision.
-For offline evaluation, download the subtree first and use
-``--memory-profile local --memory-dir <downloaded-corpus>`` without
-``--memory-version``. The selected directory must retain the RoboTwin memory layout.

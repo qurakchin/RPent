@@ -3,6 +3,12 @@
 
 规划器负责接收提示词、选择工具并处理工具结果。接入自定义规划器时，继承 ``Planner`` 并实现 ``solve``，然后将其加入构建入口和 CLI 选项。
 
+.. page-head::
+   :for: 要新增规划器后端的开发者
+   :outcome: 实现 ``solve``、注册后端，并验证工具调用与运行限制
+   :read-when: 新增规划后端，或修改规划器契约时
+   :skip-when: 只配置已有后端；见 :doc:`../guides/configure_planner`
+
 **本文结构：** 实现 ``solve`` → 接入后端 → 验证。
 
 以下为接口示意，省略了模型请求和工具循环，不能直接作为实现运行。完整示例可参考 ``rpent/planner/api_loop.py``。

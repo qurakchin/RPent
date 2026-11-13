@@ -6,6 +6,12 @@ watch planner output, cameras, and actions in a browser. The examples use
 LIBERO after :doc:`../get_started/quickstart`; install other platforms through their
 environment guides first.
 
+.. page-head::
+   :for: Operators who want to type follow-up instructions or watch a run in a browser
+   :outcome: You can start a session, submit a task, inspect cameras and actions, and shut the session down
+   :read-when: You need interactive control, live camera views, or the Dashboard
+   :skip-when: You only run one batch task; the Quick Start command is enough
+
 **Page map:** terminal interaction → Dashboard session and task submission → result inspection and shutdown.
 
 .. _terminal-interaction:

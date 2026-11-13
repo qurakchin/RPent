@@ -3,6 +3,12 @@
 
 本页说明如何选择规划器、连接模型服务，并在正式运行任务前检查连接。RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 
+.. page-head::
+   :for: 要把 RPent 接到模型 API、Claude Code、Codex 或本地规划器的读者
+   :outcome: 选择后端、设置凭据与端点，并确认连接可用
+   :read-when: 首次配置规划器，或切换后端时
+   :skip-when: 要实现新的规划器后端；见 :doc:`../development/add_planner`
+
 **本文结构：** 选择后端（``api``、``claude_code``、``codex``）→ 验证连接 → 设置运行限制。
 
 .. code-block:: text

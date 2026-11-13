@@ -20,6 +20,21 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  structure:
+    name: Structure
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Check page headers, maps, and step numbering
+        working-directory: docs
+        run: python3 _checks/check_structure.py
+
   build:
     name: Build (${{ matrix.language }})
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

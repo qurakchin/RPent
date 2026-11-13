@@ -5,7 +5,13 @@ This guide walks through what you need to write to plug a new physical /
 simulated robot into RPent's LLM-in-the-loop runner. Use
 ``robots/libero/`` as the worked reference.
 
-**Page map:** integration rules → steps 1–6 → conventions → tests.
+.. page-head::
+   :for: Developers adding a physical or simulated robot integration
+   :outcome: You can register a ``RobotSpec``, implement the env RPC pair, prompts, and toolkit, and add tests
+   :read-when: You are adding a robot package or adapting an RLinf environment
+   :skip-when: You only operate a supported platform; use its page
+
+**Page map:** integration rules and conventions → steps 1–7 → test coverage.
 
 Integration Guidelines
 ----------------------
@@ -21,6 +27,21 @@ Integration Guidelines
 - **Explain when reuse is not possible.** If an existing RPent or RLinf
   Env / VLA cannot be reused, explain why in the PR description or open an
   issue so the existing abstraction can be improved.
+
+Conventions Worth Keeping
+-------------------------
+
+- ``output_dir`` is the working directory that the runner creates for each
+  run. Environment observations are owned by ``EnvState``; callers use logical
+  base names and never construct storage paths. Transcripts and other
+  run-management outputs share the same run directory.
+- Tools expose ``name``, ``description``, and ``input_schema``. Each planner
+  adapts registered tools to its model interface.
+- Server-side return values must be picklable and torch-free.
+- Each primitive tool dumps a fresh state snapshot after running so the next
+  ``view_env_state`` call reflects the post-action world.
+- Treat ``dump_state`` as the source of truth for what the agent sees — any new
+  modality (e.g. tactile, force) goes through it.
 
 Integration Steps
 -----------------
@@ -47,8 +68,8 @@ order:
 
 .. _add-robot-entry:
 
-Entry Point
------------
+1. Entry Point and Registration
+-------------------------------
 
 For a new robot named ``myrobot``, use the following directory layout:
 
@@ -57,10 +78,10 @@ For a new robot named ``myrobot``, use the following directory layout:
    robots/myrobot/
        __init__.py            # package entry point; re-exports the factories
        robot_spec.py          # RobotSpec, factories, Dashboard spec, runtime hooks
-       env_client.py          # MyEnvClient — agent-side RPC stub (§1)
-       prompt_bundle.py       # system()/user() prompt factories         (§2)
-       toolkit.py             # MyRobotToolkit + primitives + tool definitions (§3)
-       env_server.py          # server-side facade + RPC server (§1)
+       env_client.py          # MyEnvClient — agent-side RPC stub (step 2)
+       prompt_bundle.py       # system()/user() prompt factories         (step 3)
+       toolkit.py             # MyRobotToolkit + primitives + tool definitions (step 4)
+       env_server.py          # server-side facade + RPC server (step 2)
        vla_server.py          # (optional) VLA model server
 
 ``__init__.py`` is the robot package's entry point. Keep it small and
@@ -109,11 +130,11 @@ these two functions:
        )
 
    def _add_cli_args(parser, use_dashboard) -> None:
-       """Register robot flags on the shared parser. See §4."""
+       """Register robot flags on the shared parser. See step 5."""
        ...
 
    def _parse_config(args) -> RunConfig:
-       """Validate final `args`, return a RunConfig. See §4."""
+       """Validate final `args`, return a RunConfig. See step 5."""
        ...
 
    def _init_runtime(
@@ -124,7 +145,7 @@ these two functions:
    ):
        """Initialize all runtime components, or only the selected subset.
 
-       Returns (daemons, runtime_kwargs). See §5.
+       Returns (daemons, runtime_kwargs). See step 6.
        """
        ...
 
@@ -149,19 +170,19 @@ That's the entire registration step — ``_resolve_robot(name)`` does an
 ``robots/`` on disk is enough. No central list to update.
 
 The sections below describe what each referenced module must contain.
-``_add_cli_args`` / ``_parse_config`` are covered in §4 and the runtime hook
-in §5.
+``_add_cli_args`` and ``_parse_config`` are covered in
+:ref:`add-robot-config`, and the runtime hook in :ref:`add-robot-runtime`.
 
 .. _add-robot-env-rpc:
 
-1. ``env_client.py`` + ``env_server.py``
------------------------------------------
+2. Environment Client and Server
+--------------------------------
 
 These files connect the agent process to ``env_server``. The client converts
 method calls into RPC requests, and ``env_server`` handles those requests.
 
-1.1 Env Client (agent Side)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.1 Environment Client (Agent Side)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Subclass :class:`rpent.robots.components.env_client_base.BaseEnvClient`. It already
 validates ``env.get_env_meta`` at startup, performs the initial reset, caches
@@ -190,8 +211,8 @@ facade registers each name explicitly.
 
    env = MyEnvClient(rpc_client, expected_meta=expected_meta)
 
-1.2 Env Server (server Side)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.2 Environment Server (Server Side)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Mirror the client's API in a facade class on the server side (e.g.
 ``MyEnvFacade``). Subclass
@@ -240,8 +261,8 @@ teardown.
 
 .. _add-robot-prompts:
 
-2. ``prompt_bundle.py``
------------------------
+3. Prompts
+----------
 
 Define two prompt factories, ``system_prompt(variables)`` and
 ``user_prompt(variables)``, and build a ``PromptBundle(system=system_prompt,
@@ -291,8 +312,8 @@ render time.
 
 .. _add-robot-toolkit:
 
-3. ``toolkit.py``
-------------------
+4. Toolkit and Primitives
+-------------------------
 
 This module owns the tool schemas, primitives, per-step state records, and
 the list of tools available through MCP. LIBERO splits these between
@@ -340,24 +361,23 @@ filenames rather than maintaining a parallel observation index.
 the toolkit passes verbatim to your primitives' ``__init__`` — typically
 ``{"env": MyEnvClient(...), "model": VLAClient(...), ...}``.
 
-Conventions Worth Keeping
--------------------------
+5. CLI Arguments and RunConfig
+------------------------------
 
-- ``output_dir`` is the working directory that the runner creates for each
-  run. Environment observations are owned by ``EnvState``; callers use logical
-  base names and never construct storage paths. Transcripts and other
-  run-management outputs share the same run directory.
-- Tools expose ``name``, ``description``, and ``input_schema``. Each planner
-  adapts registered tools to its model interface.
-- Server-side return values must be picklable and torch-free.
-- Each primitive tool dumps a fresh state snapshot after running so the next
-  ``view_env_state`` call reflects the post-action world.
-- Treat ``dump_state`` as the source of truth for what the agent sees — any new
-  modality (e.g. tactile, force) goes through it.
+Register robot flags with ``_add_cli_args`` and return a ``RunConfig`` from
+``_parse_config``. The hook contract, validation rules, and the ``RunConfig``
+fields are in :ref:`add-robot-config`.
+
+6. Runtime Hook
+---------------
+
+``init_runtime`` starts or connects the robot services and returns owned
+daemons plus toolkit arguments. The component subsets used by the Dashboard
+and the spawn and readiness helpers are in :ref:`add-robot-runtime`.
 
 .. _add-robot-testing:
 
-6. Tests to Add
+7. Tests to Add
 ---------------
 
 When adding a robot, test each runtime component it uses separately, then run

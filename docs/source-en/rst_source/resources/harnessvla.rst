@@ -11,6 +11,12 @@ This page summarizes the Harness VLA paper and the results behind RPent's
 memory-guided planning; setup and run commands are in the platform tutorials
 linked below.
 
+.. page-head::
+   :for: Readers evaluating the Harness VLA paper and the evidence behind memory-guided planning
+   :outcome: You can state the method, the reported results, and where each result is reproduced
+   :read-when: You are reading the paper, citing its numbers, or checking a reproduction branch
+   :skip-when: You need to run a task; start with :doc:`../get_started/quickstart` or a platform page
+
 **Page map:** overview → framework → results → reproduction branches → citation.
 
 Overview

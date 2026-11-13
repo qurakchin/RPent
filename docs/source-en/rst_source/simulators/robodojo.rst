@@ -6,6 +6,12 @@ Isaac Sim / IsaacLab with an ARX-X5 dual-arm platform. RPent combines policy
 actions, native motion primitives and SAM3 object segmentation to complete tasks.
 Choose VPP2 or Awomo05 for policy actions.
 
+.. page-head::
+   :for: Readers running dual-arm ARX-X5 tasks in RoboDojo with Isaac Sim
+   :outcome: You can install RoboDojo, choose VPP2 or Awomo05, run a task, and inspect its result
+   :read-when: You need Isaac Sim, a policy choice, or RoboDojo-specific options
+   :skip-when: You have not installed RPent yet; complete :doc:`../get_started/quickstart` first
+
 **Page map:** Overview → Installation → VLA Configuration → SAM3 Configuration → Run a Task → View Results → Tasks → Validation Status → Task Memory → Exploration Mode → Common Options → Tools the Planner Can Call.
 
 Overview

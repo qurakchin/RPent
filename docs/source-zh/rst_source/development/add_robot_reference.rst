@@ -3,6 +3,12 @@
 
 机器人接入的运行时钩子、启动流程与测试覆盖。接入步骤见 :doc:`add_robot`。
 
+.. page-head::
+   :for: 需要查看运行器钩子、runtime 启动或测试覆盖的开发者
+   :outcome: 实现 CLI 与配置钩子、runtime 启动，并确定要补哪些测试
+   :read-when: 添加机器人时被 :doc:`add_robot` 引到这里，或 runtime 启动失败时
+   :skip-when: 还没读接入步骤；先看 :doc:`add_robot`
+
 **本文结构：** 运行时钩子 → runtime 初始化 → 运行结果 finalizer → 测试要点。
 
 .. _add-robot-config:

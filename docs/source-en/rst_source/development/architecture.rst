@@ -6,14 +6,22 @@ Architecture and Execution
 
 RPent separates task planning, tool execution, and environment operation. The planner chooses tools, the toolkit dispatches them to perception or action components, and the environment returns updated state. Environments connect to the shared runner through ``RobotSpec``.
 
+.. page-head::
+   :for: Engineers who need to know which component executes a call and where to change it
+   :outcome: You can trace one run through the CLI, planner, toolkit, and services, and choose the right extension page
+   :read-when: You are reviewing the execution path, planning an integration, or locating the code that owns a behavior
+   :skip-when: You only need to run a task; start with :doc:`../get_started/quickstart` or the page for your platform
+
 **Page map:** one run end to end → component responsibilities → repository layout → command entry points → environment discovery → Dashboard sessions → extension guides.
 
 .. figure:: ../../../_static/img/architecture-en.svg
    :alt: RPent layers: user, agent, model and environment services, and environments
    :width: 100%
 
-   RPent layers. The planner selects tools, the toolkit dispatches them, and
-   the service layer connects the agent to simulators and real robots.
+   Read from top to bottom. A user entry point sends a task to the planner;
+   the planner drives the toolkit, which calls services; services hold the
+   simulator or robot connection. Solid arrows are calls, dashed arrows are
+   inputs, and double arrows are shared connections.
 
 Task Execution
 --------------
@@ -35,9 +43,11 @@ the next decision. The sequence below follows one run from CLI setup to cleanup.
    :width: 85%
    :align: center
 
-   One run from CLI setup to saved artifacts. A failing or timed-out tool
-   returns an error result to the planner, which decides whether to retry.
-   Success is decided by the environment or the robot operator.
+   Read from top to bottom. The CLI builds a session, services start, the
+   planner loops until it stops, and artifacts are saved. A failing or
+   timed-out tool returns an error result to the planner, which decides
+   whether to retry. Success is decided by the environment or the robot
+   operator.
 
 ``finish`` marks the end of planning; success comes from the environment or a real-robot operator. See each environment guide for its criterion. The main entry point is ``rpent/cli/main.py``.
 
@@ -66,7 +76,7 @@ different robots.
    * - MemoryManager
      - Control memory reads and exploration writes, and manage merging and indexing.
 
-In LIBERO, the environment, Pi0.5, and SAM3 run in separate service processes. Action tools advance the environment; read tools such as ``view_env_state`` inspect recorded state. RPC supports HTTP and socket transports. See :doc:`interfaces` for contracts and :doc:`../guides/advanced_deployment` for standalone deployment.
+In LIBERO, the environment, Pi0.5, and SAM3 run in separate service processes. Action tools advance the environment; read tools such as ``view_env_state`` inspect recorded state. Remote procedure calls (RPC) support HTTP and socket transports. See :doc:`interfaces` for contracts and :doc:`../guides/advanced_deployment` for standalone deployment.
 
 Repository Layout
 -----------------

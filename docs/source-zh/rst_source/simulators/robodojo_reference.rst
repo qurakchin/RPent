@@ -3,6 +3,12 @@ RoboDojo 参考
 
 RoboDojo 的模型 worker 配置与离线资源。安装和任务运行见 :doc:`robodojo`。
 
+.. page-head::
+   :for: 要为 RoboDojo 准备 VPP2 或 Awomo05 策略素材的开发者
+   :outcome: 准备策略客户端、checkpoint，以及可选的本地 NVIDIA 场景素材
+   :read-when: RoboDojo 页面把你引到 VPP2、Awomo05 或离线素材配置时
+   :skip-when: 还没有安装 RoboDojo；先看 :doc:`robodojo`
+
 **Page map:** VPP2 配置 → Awomo05 配置 → 可选离线资源。
 
 

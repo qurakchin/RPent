@@ -3,6 +3,12 @@ Dual-Arm Franka Reference
 
 Tool surface, exploration, and Flash replay for the dual-arm deployment. Installation and the first run are in :doc:`dual_franka`.
 
+.. page-head::
+   :for: Operators who completed the Dual-Arm Franka setup and need the remaining reference material
+   :outcome: You can inspect the tool surface and state artifacts, use exploration, and replay a Flash plan
+   :read-when: The system is installed and you need tools, state files, exploration, or Flash replay
+   :skip-when: You have not completed installation and the first run; start with :doc:`dual_franka`
+
 **Page map:** tools and state artifacts → exploration mode → Flash replay.
 
 

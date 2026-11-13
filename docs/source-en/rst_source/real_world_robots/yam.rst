@@ -13,7 +13,13 @@ YAM
 RPent controls the dual-arm YAM system through RLinf's robot interface. For the task
 video, see :doc:`YAM demo <../real_world_demos/yam>`.
 
-**Page map:** Safety and Stopping → Installation → Calibration → Robot Configuration → Task Selection → VLA Configuration → Data Collection and Training → Codex Configuration → Start Services → Manual Skill Tests → Run a Task → View Results → Verification Status → Tools and State Artifacts → Exploration Mode → Logs and Memory.
+.. page-head::
+   :for: Operators deploying the dual-arm YAM system
+   :outcome: You can install, calibrate, configure, and start the system, run a task, and find its result and memory
+   :read-when: You are installing or operating YAM
+   :skip-when: You only run simulated tasks, or you operate a Franka system; see :doc:`../simulators/index` or :doc:`franka`
+
+**Page map:** Safety and Stopping → Installation → Calibration → Robot Configuration → VLA Configuration → Start Services → Run a Task → View Results → Verification Status → Exploration Mode.
 
 .. _id1:
 .. _yam-installation:
@@ -157,39 +163,6 @@ limits. Do not copy another robot's joint positions.
 To use another file, pass ``--robot-config /path/to/robot_config.yaml``. Specify the
 task ID, task instruction, seed and step limit through CLI arguments.
 
-.. _yam-tasks:
-
-Task Selection
---------------
-
-The main example uses task ``1``. Task ``0`` checks planner-driven basic actions,
-including small translations, wrist rotations and gripper actions, without VLA. Select
-tasks with ``--task-id``; left and right refer to the top camera view:
-
-.. list-table::
-   :header-rows: 1
-
-   * - ID
-     - Task
-     - VLA required
-   * - 0
-     - Planner-driven basic action checks
-     - No
-   * - 1
-     - Pepsi bottles into the left bag, Coca-Cola bottles into the right bag
-     - Yes
-   * - 2
-     - Coca-Cola bottles into the left bag, Pepsi bottles into the right bag
-     - Yes
-
-Tasks ``1`` and ``2`` both sort three bottles. They also require moving the bowls to
-uncover the spoons, putting the white spoon into the white bowl and the pink spoon into
-the pink bowl, and returning the bowls to their original marked positions: white on the
-left and pink on the right.
-
-The examples below use task ``1``, seed ``0`` and a step limit of ``1000``. ENV and
-RPent must use the same settings.
-
 .. _yam-vla:
 
 VLA Configuration
@@ -219,20 +192,12 @@ executes the first five action steps.
 .. _yam-training:
 
 Data Collection and Training
-----------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For demonstration collection, see the `RLinf YAM data collection guide
 <https://rlinf.readthedocs.io/en/latest/rst_source/examples/embodied/yam.html>`_.
 For model training and evaluation, see `Pi0.5 Training and Evaluation on YAM
 <https://rlinf.readthedocs.io/en/latest/rst_source/examples/embodied/yam_openpi.html>`_.
-
-.. _yam-codex-isolation:
-
-Codex Configuration
--------------------
-
-Before using Codex, configure separate runtime directories and log in by following
-:ref:`planner-codex-isolation`.
 
 .. _id3:
 .. _yam-services:
@@ -323,11 +288,78 @@ Restore the scene and confirm it is ready. Replace ``CURRENT_ID`` below with the
      --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
      --event start --note 'Scene restored; ready to start this episode'
 
+.. _dashboard:
+.. _yam-run:
+
+Run a Task
+----------
+
+Complete robot configuration and start the two-machine services, then configure the
+planner using :doc:`../guides/configure_planner`. Before using Codex, complete
+:ref:`planner-codex-isolation`. Replace ``MODEL_ID`` with a configured model and choose a
+reasoning setting supported by that model. In the RPent terminal on the control machine,
+run:
+
+.. code-block:: bash
+
+   rpent --robot yam --task-id "$TASK_ID" --seed 0 \
+     --planner codex --model MODEL_ID --reasoning-effort low \
+     --robot-config robots/yam/config/example.yaml \
+     --env-endpoint socket://127.0.0.1:8110 \
+     --am-endpoint socket://127.0.0.1:8220 \
+     --max-episode-steps 1000 \
+     --memory-profile local --memory-dir ./memory/yam
+
+Task ``0`` uses only basic actions. For this task, set the task ID to ``0`` in both ENV
+and RPent, and replace the VLA endpoint argument in the RPent command with
+``--without-vla``.
+
+.. _yam-tasks:
+
+Task Selection
+~~~~~~~~~~~~~~
+
+The main example uses task ``1``. Task ``0`` checks planner-driven basic actions,
+including small translations, wrist rotations and gripper actions, without VLA. Select
+tasks with ``--task-id``; left and right refer to the top camera view:
+
+.. list-table::
+   :header-rows: 1
+
+   * - ID
+     - Task
+     - VLA required
+   * - 0
+     - Planner-driven basic action checks
+     - No
+   * - 1
+     - Pepsi bottles into the left bag, Coca-Cola bottles into the right bag
+     - Yes
+   * - 2
+     - Coca-Cola bottles into the left bag, Pepsi bottles into the right bag
+     - Yes
+
+Tasks ``1`` and ``2`` both sort three bottles. They also require moving the bowls to
+uncover the spoons, putting the white spoon into the white bowl and the pink spoon into
+the pink bowl, and returning the bowls to their original marked positions: white on the
+left and pink on the right.
+
+The examples below use task ``1``, seed ``0`` and a step limit of ``1000``. ENV and
+RPent must use the same settings.
+
+.. _yam-codex-isolation:
+
+Codex Configuration
+~~~~~~~~~~~~~~~~~~~
+
+Before using Codex, configure separate runtime directories and log in by following
+:ref:`planner-codex-isolation`.
+
 .. _id5:
 .. _yam-diagnostics:
 
 Manual Skill Tests
-------------------
+~~~~~~~~~~~~~~~~~~
 
 Before testing, stop the Agent, confirm the physical setup, and run the ``start``
 command above with the current episode ID.
@@ -363,33 +395,8 @@ stop request.
 After leaving the test, confirm the physical setup, read the current episode ID and run
 the :ref:`start command <yam-start-episode>` again before starting RPent.
 
-.. _dashboard:
-.. _yam-run:
-
-Run a Task
-----------
-
-Complete robot configuration and start the two-machine services, then configure the
-planner using :doc:`../guides/configure_planner`. Before using Codex, complete
-:ref:`planner-codex-isolation`. Replace ``MODEL_ID`` with a configured model and choose a
-reasoning setting supported by that model. In the RPent terminal on the control machine,
-run:
-
-.. code-block:: bash
-
-   rpent --robot yam --task-id "$TASK_ID" --seed 0 \
-     --planner codex --model MODEL_ID --reasoning-effort low \
-     --robot-config robots/yam/config/example.yaml \
-     --env-endpoint socket://127.0.0.1:8110 \
-     --am-endpoint socket://127.0.0.1:8220 \
-     --max-episode-steps 1000 \
-     --memory-profile local --memory-dir ./memory/yam
-
-Task ``0`` uses only basic actions. For this task, set the task ID to ``0`` in both ENV
-and RPent, and replace the VLA endpoint argument in the RPent command with
-``--without-vla``.
-
-**Use the browser**
+Using the web interface
+~~~~~~~~~~~~~~~~~~~~~~~
 
 Append ``--dashboard --dashboard-host 127.0.0.1 --dashboard-port 8090`` to the same
 command. To access the page from your computer, first forward the web port:
@@ -436,20 +443,10 @@ provide the current ``--episode-id`` and a note.
 ``eval_success=True`` means the on-site operator has confirmed success for the current
 episode.
 
-Verification Status
--------------------
-
-The v0.1 release notes and :doc:`YAM demo page <../real_world_demos/yam>` record
-demos in which YAM reads bottle and bag labels to sort drinks, checks a grasp
-with a small test lift, adjusts its wrist when a path is obstructed, and moves
-bowls to reach a hidden spoon. These are demonstration records, not a
-success-rate evaluation. This page reports no episode count or success rate,
-and a successful demo does not establish performance on a different rig.
-
 .. _yam-tools:
 
 Tools and State Artifacts
--------------------------
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 YAM provides ``view_env_state``, ``sample_world_xyz``, ``query_world_map``, ``render``,
 ``status``, ``move_to``, ``rotate_wrist``, ``set_gripper`` and ``release``. Connecting
@@ -462,6 +459,16 @@ closes and ``val=1`` opens.
 Use ``set_gripper`` or ``release`` to open or close a gripper.
 
 .. _yam-exploration:
+
+Verification Status
+-------------------
+
+The v0.1 release notes and :doc:`YAM demo page <../real_world_demos/yam>` record
+demos in which YAM reads bottle and bag labels to sort drinks, checks a grasp
+with a small test lift, adjusts its wrist when a path is obstructed, and moves
+bowls to reach a hidden spoon. These are demonstration records, not a
+success-rate evaluation. This page reports no episode count or success rate,
+and a successful demo does not establish performance on a different rig.
 
 Exploration Mode
 ----------------

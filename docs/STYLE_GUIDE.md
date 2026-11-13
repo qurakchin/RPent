@@ -43,28 +43,34 @@ version-specific changes in release or migration notes.
 
 Keep the same sections and ordering in both languages:
 
-Group order follows the reader's path: start, published results, usage guides,
-environments, demos, development, and project resources.
+The navigation has one primary axis: the reader's task. Stage, evidence type,
+page type, and audience are secondary; never promote one of them to a
+top-level group. Each group answers one question:
 
-1. **Get Started / 开始使用**: Introduction to RPent and Quick Start.
-2. **Leaderboard / 排行榜**: performance, time and token costs, and the
-   evaluation protocol page.
-3. **Guides / 使用指南**: memory and exploration; action primitives and tools;
-   planner configuration; command-line reference; interactive usage
-   (terminal and Dashboard); Flash Mode;
-   trajectory collection and data flywheel; remote services and parallel runs;
-   troubleshooting.
-4. **Simulators / 仿真环境**: LIBERO, RoboCasa365, RoboTwin, and RoboDojo. Each
-   page owns its installation, first run, reproduction protocol, and
-   troubleshooting.
-5. **Real-World Robots / 真实机器人**: Single-Arm Franka, Dual-Arm Franka, YAM,
-   and SO-101. Preserve coming-soon pages and describe their actual status.
-6. **Real-World Demos / 真实世界演示**: direct robot demo pages, each linking to
-   the corresponding installation and usage guide. Keep demos next to the
-   robot pages they demonstrate.
-7. **Concepts & Development / 原理与开发**: architecture, interfaces, memory
-   design, and extension guides for environments, tools, and planners.
-8. **Resources / 项目资源**: Harness VLA, contributing, and release notes.
+1. **Get Started / 开始使用**: What is RPent, and how do I complete one task?
+   Introduction and Quick Start.
+2. **Simulators / 仿真环境**: Which simulated platform do I run, and how do I
+   reproduce its results? LIBERO, RoboCasa365, RoboTwin, and RoboDojo. Each page
+   owns its installation, first run, reproduction protocol, and troubleshooting.
+3. **Real-World Robots / 真实机器人**: How do I deploy and operate a physical
+   robot safely? Single-Arm Franka, Dual-Arm Franka, YAM, and SO-101. Preserve
+   coming-soon pages and describe their actual status.
+4. **Real-World Demos / 真实世界演示**: What does a task look like on the
+   hardware? Each demo links to the corresponding installation and operation
+   page.
+5. **Leaderboard / 排行榜**: How do the reported methods compare, and what do
+   the numbers count? Performance, time and token costs, and the evaluation
+   protocol.
+6. **Guides / 使用指南**: How do I configure a feature? Memory and exploration;
+   action primitives and tools; planner configuration; command-line reference;
+   interactive usage; Flash Mode; data flywheel; remote services; troubleshooting.
+7. **Concepts & Development / 原理与开发**: How does RPent work inside, and how
+   do I extend it? Architecture, interfaces, memory design, and extension guides.
+8. **Resources / 项目资源**: What does the paper report, how do I contribute, and
+   what changed in v0.1? Harness VLA, contributing, and release notes.
+
+If two groups can be described by the same question, merge them. If a group
+cannot be described in one question, the axis is wrong.
 
 Match source directories to the sidebar groups in both language trees:
 
@@ -125,20 +131,32 @@ from the four `pyproject.toml` commands.
 
 ### One opening, one route
 
-Every page except pure directory and demo pages opens in this order:
+Every page except pure directory and generated results pages opens in this
+order:
 
 1. H1 title.
 2. An optional overview figure.
-3. One or two sentences that state what the page is for and who should read
-   it.
-4. A **Page map** paragraph (`**Page map:**` in English, `**本文结构：**` in
+3. A ``page-head`` directive with four required options:
+   ``:for:`` (who the page is for), ``:outcome:`` (what the reader can do
+   afterwards), ``:read-when:`` (the situations that call for this page), and
+   ``:skip-when:`` (the situations that do not, with a link to the page that
+   does). Write applicability and non-applicability, not a table of contents.
+4. One or two sentences of context. Do not repeat the page-head fields.
+5. A **Page map** paragraph (`**Page map:**` in English, `**本文结构：**` in
    Chinese) that lists the page's top-level sections in the order they appear,
-   joined by `→`. The map is a route, not a repetition of the headings: name
-   the first-run path, then the reference sections, then diagnostics.
+   joined by `→`. The page writes this route; it is not the sidebar's "On this
+   page" list. List the H2 sections, and add an H3 only when it is a main route
+   choice such as WAM Evaluation. Name the first-run path first, then reference
+   sections, then diagnostics. When the page has a clear strategy, say so in
+   the map, for example "shortest runnable path → options → common problems".
 
-The page map makes the reading order predictable and keeps section names and
-their sequence consistent across pages with the same purpose. Omit it only on
-pages with a single section, such as a demo page or a generated results page.
+The page-head gives a reader the three facts needed to decide whether to stay:
+who it is for, what it produces, and when to leave. The page map then makes the
+reading order predictable. Update both when the section structure changes.
+Omit the page map only on pages with one or two sections, such as a demo page,
+a coming-soon page, or a generated results page. The structure checker
+(``_checks/check_structure.py``) requires a page-head on every page with two or
+more H2 sections and a page map on every page with three or more.
 
 Within a section, put the decision-relevant content first: the command or
 answer, then its explanation, then optional details. Move optional material to
@@ -228,9 +246,9 @@ Keep this order for every simulator page:
 | 4 | SAM3 Configuration | SAM3 配置 | H2 | Conditional: segmentation is used |
 | 5 | Run a Task | 运行一个任务 | H2 | Required |
 | 6 | View Results | 查看结果 | H2 | Required |
-| 7 | Task Selection | 任务选择 | H2 | Conditional: the environment has more than one task-selection flag |
-| 8 | WAM Evaluation | WAM 评测 | H2 | Conditional: a WAM backend is supported |
-| 9 | Tasks | 任务 | H2 reference section after the first-run path | Required |
+| 7 | Task Selection | 任务选择 | H3 under Run a Task | Conditional: the environment has more than one task-selection flag |
+| 8 | WAM Evaluation | WAM 评测 | H2 reference section after the first-run path | Conditional: a WAM backend is supported |
+| 9 | Tasks | 任务 | H3 under Run a Task | Required |
 | 10 | Observation and Action | 观测与动作 | H2 reference section after the first-run path | Required |
 | 11 | Validation Status | 验证状态 | H2 reference section after the first-run path | Required |
 | 12 | Task Memory | 任务记忆 | H2 | Conditional: memory is supported |
@@ -246,6 +264,17 @@ asset downloads form their own procedure, put them in a
 single table row covers them, keep them inline. VLA Configuration owns
 checkpoint download and model-specific settings; do not create separate
 **Download the Model** sections.
+
+Keep a platform page at or below 13 H2 sections. Short setup detail becomes an
+H3 under the step it supports instead of a new top-level chapter: task
+selection, planner-specific setup such as Codex login, manual skill checks, and
+data collection or training under VLA Configuration. Reference material that
+belongs with a step follows the same rule — put **Tools and State Artifacts**,
+**HF corpus selection**, and a tasks table under View Results, Task Memory, and
+Run a Task respectively. A section that answers a genuinely different question,
+such as Task Memory, Exploration Mode, or Experiment Reproduction, stays an H2.
+When a page still exceeds the limit, split it rather than nesting unrelated
+material. The structure checker enforces the limit.
 
 Use **Task Memory / 任务记忆** and **Exploration Mode / 探索模式** as separate
 H2 sections, even when one of them is short. Use **Experiment Reproduction /
@@ -269,6 +298,45 @@ backend subsection only when its installation, device options, rendering, run
 command, and limitations are documented and supported. Do not copy another
 project's accelerator claims.
 
+### Role sequences by family
+
+Define the role order once per family. A family page uses the same roles in the
+same order; only optional roles disappear. An entry page may add one
+**global route** section before the sequence, and must not change the order of
+the remaining roles.
+
+| Family | Role sequence |
+| --- | --- |
+| Simulator | Overview → Installation → model configuration → Run a Task → View Results → task/reference sections → memory and exploration → Experiment Reproduction → Common Problems |
+| Real-world robot | Safety and Stopping → Installation → Calibration → Robot Configuration → model configuration → Start Services → Run a Task (task selection, planner setup, and manual skill checks as H3) → View Results (tool reference as H3) → Verification Status → Exploration Mode and replay |
+| User guide | What this guide covers → prerequisites → the procedure → how to check the result → options and reference → Common Problems → next step |
+| Developer guide | Contract or purpose → numbered steps 1..n → conventions and reference → tests → next step |
+
+The platform and robot tables above are the authoritative role names for those
+two families. The guide and developer families use these role names:
+
+- **Procedure:** *Use Published Memory*, *Record a Trajectory*, *Run a Plan*,
+  *Start Services*; do not rename one guide's procedure to "Usage" or "Workflow".
+- **Result check:** *View Results*, *Verify Your Configuration*, *Validate the
+  Planner*; name the object being checked.
+- **Reference:** *Common Options*, *Command-Line Reference*, *Reference*; put
+  parameter tables here, not between procedure steps.
+- **Failure guidance:** *Common Problems* in a page; *Troubleshooting* only as
+  the shared guide's title.
+
+### One name per role
+
+Within a family, one role has one name. A second name for the same role is a
+defect: rename the page, do not add a synonym to the style guide. Across
+families, names may differ when the role differs; for example, a simulator's
+**Tasks** reference is not the same role as a robot's **Task Selection**
+procedure. Page-local sub-steps (H3) do not count as new role names.
+
+When a fact changes, update its owner page first, then the pages that link to
+it. The canonical-location table in `README.md` is the list of owners for
+commands, defaults, credentials, memory, results, and architecture; add a row
+there before repeating a fact on a second page.
+
 ### Real-world robots and demos
 
 Use a clear introductory robot photo with alt text, a short caption, and
@@ -279,23 +347,19 @@ in the RST; add a visible credit when the asset's terms require it.
 Deployment pages put safety first and then follow this order, omitting a
 section only when the robot does not need it:
 
-| # | English | Chinese | Purpose |
-| --- | --- | --- | --- |
-| 1 | Safety and Stopping | 安全与停止 | Operator responsibilities, emergency stop, and shutdown |
-| 2 | Installation | 安装 | Package, driver, and controller setup |
-| 3 | Calibration | 标定 | Hand-eye or arm calibration |
-| 4 | Robot Configuration | 机器人配置 | Robot file, workspace, and safety limits |
-| 5 | Task Selection | 任务选择 | Task and scene arguments |
-| 6 | VLA Configuration | VLA 配置 | Checkpoint and endpoint |
-| 7 | Codex Configuration | Codex 配置 | Codex login and runtime isolation, where the robot needs it |
-| 8 | Start Services | 启动服务 | Ray or two-machine startup |
-| 9 | Manual Skill Tests | 手动技能测试 | Primitives and diagnostics before an agent run |
-| 10 | Run a Task | 运行一个任务 | One runnable task |
-| 11 | View Results | 查看结果 | Artifacts and success criterion |
-| 12 | Verification Status | 验证状态 | What has actually been validated |
-| 13 | Tools and State Artifacts | 工具与状态产物 | Tool surface and captured state |
-| 14 | Exploration Mode | 探索模式 | Operator-assisted retries, when supported |
-| 15 | Flash Replay | Flash 回放 | Plan replay, when supported |
+| # | English | Chinese | Level | Purpose |
+| --- | --- | --- | --- | --- |
+| 1 | Safety and Stopping | 安全与停止 | H2 | Operator responsibilities, emergency stop, and shutdown |
+| 2 | Installation | 安装 | H2 | Package, driver, and controller setup |
+| 3 | Calibration | 标定 | H2 | Hand-eye or arm calibration |
+| 4 | Robot Configuration | 机器人配置 | H2 | Robot file, workspace, and safety limits |
+| 5 | VLA Configuration | VLA 配置 | H2 | Checkpoint and endpoint; data collection and training as H3 |
+| 6 | Start Services | 启动服务 | H2 | Ray or two-machine startup |
+| 7 | Run a Task | 运行一个任务 | H2 | One runnable task; task selection, Codex setup, and manual skill checks as H3 |
+| 8 | View Results | 查看结果 | H2 | Artifacts and success criterion; tools and state artifacts as H3 |
+| 9 | Verification Status | 验证状态 | H2 | What has actually been validated |
+| 10 | Exploration Mode | 探索模式 | H2 | Operator-assisted retries, when supported |
+| 11 | Flash Replay | Flash 回放 | H2 | Plan replay, when supported |
 
 Put **Safety and Stopping** before **Installation** and keep the hardware
 emergency stop distinct from software shutdown. Use **Start Services** rather
@@ -338,8 +402,19 @@ structure. Preserve code identifiers, model names, flags, and filenames.
 | checkpoint | 模型权重 or checkpoint, depending on context |
 | rollout / episode | 一次任务运行 / 一次尝试, when that is the intended meaning |
 | success criterion | 成功判定 |
-| Real-World Robots | 真实机器人 |
+| Real-World Robots | 真实机器人; in prose use 真机 for one physical robot |
 | Simulators | 仿真环境 |
+| evaluation | 评测; do not use 评估 for the same concept |
+| vision-language-action (VLA) | 视觉—语言—动作（VLA） at first use on a page, then VLA |
+| remote procedure call (RPC) | 远程过程调用（RPC） at first use on a page, then RPC |
+| WAM | a second action-model family alongside VLA; describe its role at first use, and do not invent an expansion |
+
+Write current behavior, not a summary of why the change matters. Remove
+sentences that raise the tone without adding a fact ("this closes the loop",
+"it is not just X but Y", "ultimately"). A technical page does not need a
+closing paragraph that restates its importance. Split a Chinese sentence longer
+than about 40 characters into an action, its object, and its condition; put a
+long condition first or in its own sentence.
 
 Use Chinese punctuation in Chinese prose and spaces between Chinese text and
 Latin identifiers. Chinese prose paragraphs and list items may stay on one
@@ -366,6 +441,36 @@ Use Chinese punctuation in prose while preserving exact command syntax.
 
 Use “RPent 简介” as the introduction title. Use “RoboCasa365” for the documented
 simulator version, while keeping the CLI identifier `robocasa` unchanged.
+
+## Figures and visual language
+
+Define the visual language before drawing a figure, and use the same one on
+every page:
+
+- **Color.** Four semantic colors, all at the same lightness: green for user
+  entry, the site's primary purple for the agent, the secondary magenta for
+  services, and neutral gray for environments. Take the purple and magenta from
+  `_static/css/custom.css`; do not introduce a second palette.
+- **Shape.** One node shape (rounded rectangle) and one title/detail type
+  scale. Do not mix default Graphviz shapes or fonts.
+- **Arrows.** Solid is a call, dashed is an input or an error return, and a
+  double arrow is a shared connection. State this in the legend and in the
+  caption.
+- **Size.** One figure answers one question and stays at or below 12 nodes. If
+  it needs more, split it into an overview and a detail figure. Labels are at
+  most two lines.
+- **Caption.** Write how to read the figure, not what it is called: start with
+  "Read from top to bottom" (从上往下读), then name the start, the path, and the
+  end. A reader who covers the details should still be able to state the main
+  flow in five seconds.
+- **Source.** Generate SVGs with `make diagrams` from `_diagrams/make_diagrams.py`;
+  do not hand-edit an SVG. The figure must remain readable at page width, and
+  its text must not shrink below body size when the page is scaled.
+
+Screenshots follow the same rule: show the current version, add a caption that
+names the version and what to look at, and keep the UI text readable at page
+width. Do not add a screenshot that cannot be reproduced from the documented
+steps.
 
 ## Formatting and media
 

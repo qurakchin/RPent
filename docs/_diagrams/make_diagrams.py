@@ -18,11 +18,14 @@ from pathlib import Path
 DOCS = Path(__file__).resolve().parents[1]
 OUTPUT = DOCS / "_static" / "img"
 
+# One hue per layer, all at the same lightness so the diagram reads as one
+# system. Agent uses the site's primary purple; services use its secondary
+# magenta; users keep a green entry cue; environments stay neutral.
 COLORS = {
-    "user": {"fill": "#f2f8ea", "border": "#a9cf85", "title": "#3f6b1f"},
-    "agent": {"fill": "#eaf1fd", "border": "#93b4f0", "title": "#1d4ed8"},
-    "service": {"fill": "#e7f7f5", "border": "#7fd3c8", "title": "#0f766e"},
-    "env": {"fill": "#f3ecfe", "border": "#b79bea", "title": "#6d28d9"},
+    "user": {"fill": "#eef7e6", "border": "#a5cc7f", "title": "#3f6b1f"},
+    "agent": {"fill": "#ede7f6", "border": "#9575cd", "title": "#4527a0"},
+    "service": {"fill": "#fce4f2", "border": "#ce93d8", "title": "#8e24aa"},
+    "env": {"fill": "#eceff1", "border": "#b0bec5", "title": "#455a64"},
 }
 
 LABELS = {
@@ -60,7 +63,7 @@ LABELS = {
         "f_fail": ("Tool failure / timeout", "error returned to the planner"),
         "f_error": "error / timeout",
         "f_obs": ("Observation", "images and state after each action"),
-        "legend": "Green: user entry · Blue: agent · Teal: services · Purple: environments",
+        "legend": "Green: user entry · Purple: agent · Magenta: services · Gray: environments. Solid arrow: call · dashed: input · double arrow: shared connection.",
     },
     "zh": {
         "font": "Hiragino Sans GB,Noto Sans CJK SC,sans-serif",
@@ -96,7 +99,7 @@ LABELS = {
         "f_fail": ("工具失败 / 超时", "错误返回规划器"),
         "f_error": "错误 / 超时",
         "f_obs": ("环境观测", "每次动作后的图像与状态"),
-        "legend": "绿色：用户入口 · 蓝色：智能体 · 青色：服务 · 紫色：环境",
+        "legend": "绿色：用户入口 · 紫色：智能体 · 品红：服务 · 灰色：环境。实线：调用 · 虚线：输入 · 双向箭头：共享连接。",
     },
 }
 

@@ -3,3 +3,9 @@ SO-101
 
 RPent 目前尚未接入 SO-101，因此没有该机器人的安装与运行指南。如需接入新的真机，请参见
 :doc:`../development/add_robot`。
+
+.. page-head::
+   :for: 想确认 RPent 是否支持 SO-101 的读者
+   :outcome: 了解当前接入状态，并知道从哪里开始接入新机器人
+   :read-when: 正在考虑使用 SO-101 硬件时
+   :skip-when: 需要已支持的平台；见 :doc:`index`

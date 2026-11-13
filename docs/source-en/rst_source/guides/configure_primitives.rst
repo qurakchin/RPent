@@ -3,6 +3,12 @@ Action Primitives and Tools
 
 This page describes the tools RPent exposes to the planner and the action model each platform uses. The planner operates through tool calls. Action primitives perform motions such as grasping, moving an end effector, or opening a gripper. Perception and state tools locate targets, read images, and inspect results.
 
+.. page-head::
+   :for: Readers choosing between VLA, scripted, perception, and state tools
+   :outcome: You can name the tool family a task uses and find the guide that adds or configures it
+   :read-when: You are deciding which action model or tool an environment should expose
+   :skip-when: You are adding the tool in code; continue with :doc:`../development/add_primitive`
+
 **Page map:** action tool types → models by platform → shared services and extensions.
 
 Choose Action Tools

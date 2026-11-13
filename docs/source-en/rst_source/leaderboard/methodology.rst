@@ -10,6 +10,12 @@ and per-environment success signals are in the simulator guides; this page
 covers counting and reporting. Results are rendered from
 ``docs/_static/leaderboard/results.json``.
 
+.. page-head::
+   :for: Readers comparing reported rates or adding a result to the leaderboard
+   :outcome: You can tell whether two rates are comparable and how counts and aggregates are derived
+   :read-when: You are reading a success rate, adding a result, or checking denominators
+   :skip-when: You only need to run a task; the platform page states its own success signal
+
 **Page map:** success → episodes and denominators → aggregation → counts and estimates → provenance → runtime and tokens → reproduction.
 
 Success

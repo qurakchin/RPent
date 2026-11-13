@@ -6,9 +6,15 @@ RPent v0.1 版本发布 🎉
 
 我们发布了 RPent 的首个公开版本 v0.1。
 
-RPent（Recursive Physical Agent）是面向真实物理世界的开源具身智能体基础设施。它连接通用大模型、VLA 模型、记忆与机器人接口，通过任务规划、执行反馈和经验复用完成物理世界任务。
+RPent（Recursive Physical Agent）是面向真实物理世界的开源具身智能体框架。它连接通用大模型、VLA 模型、记忆与机器人接口，通过任务规划、执行反馈和经验复用完成物理世界任务。
 
-v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划，接入 LIBERO 系列、RoboCasa365、RoboTwin、RoboDojo 等仿真环境，以及单臂 Franka、双臂 Franka 和 YAM 真机，提供 Memory、Flash Mode、交互式 CLI 与 Web Dashboard。RPent 已在多种仿真环境和真机任务中完成验证，并在 LIBERO-PRO 等仿真基准上取得榜单所列方法中的领先任务成功率。
+v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划，接入 LIBERO 系列、RoboCasa365、RoboTwin、RoboDojo 等仿真环境，以及单臂 Franka、双臂 Franka 和 YAM 真机，提供 Memory、Flash Mode、交互式 CLI 与 Web Dashboard。RPent 已在多种仿真环境和真机任务中完成验证，并在 LIBERO-PRO 等仿真基准上报告任务成功率；对比方法与统计口径见 :doc:`排行榜 <../leaderboard/index>`。
+
+.. page-head::
+   :for: 要确认 v0.1 包含什么、旧命令如何变化的读者
+   :outcome: 说明版本范围，并迁移已改名的命令
+   :read-when: 从旧命令升级，或核对版本范围时
+   :skip-when: 需要安装步骤；见 :doc:`../get_started/quickstart`
 
 **本文结构：** 版本亮点 → 功能特性 → 迁移与弃用 → 贡献者 → 评测结果 → 快速开始 → 测试结果。
 
@@ -120,9 +126,9 @@ RPent 评测结果
 RPent v0.1 测试结果
 ----------------------------------------------
 
-RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布版本测试、180 回合论文配置抽样复现及 15 回合 Memory 复用测试，并在双臂 Franka 和 YAM 上完成三项真机任务验证。
+RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布版本测试、180 回合论文配置抽样复现，以及 15 回合记忆复用测试。在双臂 Franka 和 YAM 上完成三项真机任务验证。
 
-每个任务在一个指定 seed 下运行一次，计为一个测试回合。仿真任务采用环境原生成功判定，失败及超时均计入测试回合数。成功率按成功回合数占比计算；发布版本测试与论文复现的耗时和 Token 用量为每回合平均值，汇总按回合数加权计算。本节为所选任务的发布验证结果，完整基准成绩见文末 Leaderboard。
+每个任务在一个指定 seed 下运行一次，计为一个测试回合。仿真任务采用环境原生成功判定，失败及超时均计入测试回合数。成功率按成功回合数占比计算。发布版本测试与论文复现的耗时和 Token 用量为每回合平均值，汇总按回合数加权计算。本节为所选任务的发布验证结果，完整基准成绩见文末 Leaderboard。
 
 1. 发布版本仿真测试
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -132,7 +138,7 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 1.1 LIBERO-PRO
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-使用 Codex + GPT-6 Astra（low）和 Pi0.5。覆盖 Spatial、Object、Goal 和 LIBERO-10 的 Task 与 Swap 共 8 个套件，每套件选择 2 个任务，每任务运行 seed 1 至 seed 5，共 80 回合。
+使用 Codex + GPT-6 Astra（low）和 Pi0.5。覆盖 Spatial、Object、Goal 和 LIBERO-10 的 Task 与 Swap，共 8 个套件。每套件选择 2 个任务，每任务运行 seed 1 至 seed 5，共 80 回合。
 
 .. list-table::
    :header-rows: 1
@@ -268,7 +274,7 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 1.2 RoboCasa365
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-使用 Codex + GPT-6 Astra（low）和 RLDX-1。覆盖 3 个 Atomic 任务，每个任务运行 seed 1 至 seed 10；4 个 Composite 任务，每任务运行 seed 1 至 seed 5，共 50 回合。
+使用 Codex + GPT-6 Astra（low）和 RLDX-1。覆盖 3 个 Atomic 任务，每个任务运行 seed 1 至 seed 10。另覆盖 4 个 Composite 任务，每任务运行 seed 1 至 seed 5，共 50 回合。
 
 .. list-table::
    :header-rows: 1
@@ -435,9 +441,9 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 2. 安装、探索与 Memory 复用验证
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上验证环境安装、探索生成记忆及重启后复用流程，每个环境使用 5 个 seed 测试，共 15 回合。成功率仅统计记忆复用阶段，探索回合单独记录。
+在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上验证环境安装、探索生成记忆及重启后复用流程。每个环境使用 5 个 seed 测试，共 15 回合。成功率仅统计记忆复用阶段，探索回合单独记录。
 
-LIBERO-PRO 与 RoboCasa365 使用 seed 0 探索、seed 1 至 seed 5 测试；RoboTwin 在 demo_clean 中探索，在 demo_randomized 的 seed 100000、100001、100003、100004、100005 上测试。表中耗时与 Token 用量对应探索阶段。
+LIBERO-PRO 与 RoboCasa365 使用 seed 0 探索、seed 1 至 seed 5 测试。RoboTwin 在 demo_clean 中探索，在 demo_randomized 的 seed 100000、100001、100003、100004、100005 上测试。表中耗时与 Token 用量对应探索阶段。
 
 .. list-table::
    :header-rows: 1
@@ -481,7 +487,7 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
 3. 论文配置抽样复现
 ~~~~~~~~~~~~~~~~~~~~~~
 
-采用 Harness VLA 配套代码与 Memory，在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上分别完成 80、50、50 回合测试，共 180 回合。各环境的任务及 seed 范围均与第 1 节一致，配置与结果如下。
+采用 Harness VLA 配套代码与记忆。在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上分别完成 80、50、50 回合测试，共 180 回合。各环境的任务及 seed 范围均与第 1 节一致，配置与结果如下。
 
 3.1 LIBERO-PRO
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -786,7 +792,7 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
      - **3,551,320.00**
      - **16,488.00**
 
-代码使用 reproduce/libero、reproduce/robocasa 和 reproduce/robotwin 分支，Memory 使用 Hugging Face 数据集的 reproduce/memory 分支。
+代码使用 reproduce/libero、reproduce/robocasa 和 reproduce/robotwin 分支。记忆使用 Hugging Face 数据集的 reproduce/memory 分支。
 
 4. 真机演示验证
 ~~~~~~~~~~~~~~~~~~

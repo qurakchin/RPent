@@ -10,7 +10,13 @@ RoboCasa365
 
 使用 RPent 在 RoboCasa365 中运行厨房操作任务，并复现 Target50 实验。当前集成使用 PandaOmron 移动机械臂和 RLDX-1 动作模型，CLI 名称为 ``robocasa``。
 
-**本文结构：** 概览 → 安装 → VLA 配置 → 运行一个任务 → 查看结果 → 任务 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 实验复现 → 环境自检、常见问题与实现说明。
+.. page-head::
+   :for: 要在 RoboCasa365 中运行厨房任务，并复现 Target50 的读者
+   :outcome: 安装 RoboCasa365、准备 RLDX-1、运行任务，并说明成功判定与复现配置
+   :read-when: 已经跑通快速开始，或需要核对 Target50 配置和结果时
+   :skip-when: 还没有安装 RPent；先完成 :doc:`../get_started/quickstart`
+
+**本文结构：** 概览 → 安装 → VLA 配置 → 运行一个任务 → 查看结果 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 实验复现 → 环境自检、常见问题与实现说明。
 
 .. _robocasa-overview:
 
@@ -69,7 +75,7 @@ RoboCasa365
 
 依赖以 ``pyproject.toml`` 为准，包含 RoboCasa、RLDX 和 Robosuite 的 ``rpent`` 分支源码；该 extra 安装的是 ``rpent-robocasa365``。不要在同一环境中另装上游 ``robocasa`` 或其他 RoboCasa365 包，它们提供相同的 ``robocasa`` 导入包。
 
-检查依赖后，将约 10 GB 的厨房资源放到 Python 包目录之外，并在启动 RPent 的终端设置资源路径：
+检查依赖后，把约 10 GB 的厨房资源放到 Python 包目录之外。在启动 RPent 的终端设置资源路径：
 
 .. code-block:: bash
 
@@ -141,15 +147,8 @@ RLDX-1 需要微调权重和基础模型的支持文件，两项都要下载。�
 
 也可使用 ``--planner api`` 或 ``--planner codex``，配置方式见上述规划器指南。
 
-查看结果
-------------
-
-任务是否成功由环境的 ``_check_success()`` 判定，其布尔结果记录在 ``state.success`` 中。规划器调用 ``finish`` 会结束对话，但其中声明的状态不作为评测结果。查看输出目录中的 ``result.json``、``transcript_*.json`` 和 ``run.log``；服务启动问题分别记录在 ``env_server.log``、``vla_server.log``。
-
-可使用 ``--dashboard`` 观察相机和规划器输出，通用操作见 :doc:`../guides/dashboard`。
-
 任务
-----~~~~~~~~
+~~~~~~~~
 
 Target50 包含以下任务类别，完整任务、seed 和运行限制见本页实验复现部分。
 
@@ -171,8 +170,15 @@ Target50 包含以下任务类别，完整任务、seed 和运行限制见本页
 
 .. _robocasa-observation-action:
 
+查看结果
+------------
+
+任务是否成功由环境的 ``_check_success()`` 判定，其布尔结果记录在 ``state.success`` 中。规划器调用 ``finish`` 会结束对话，但其中声明的状态不作为评测结果。查看输出目录中的 ``result.json``、``transcript_*.json`` 和 ``run.log``；服务启动问题分别记录在 ``env_server.log``、``vla_server.log``。
+
+可使用 ``--dashboard`` 观察相机和规划器输出，通用操作见 :doc:`../guides/dashboard`。
+
 观测与动作
-----------~~
+----------
 
 下表区分规划器使用的工具、模型输入及环境的成功判定。
 

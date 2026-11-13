@@ -6,6 +6,12 @@ Planner Configuration
 
 This page explains how to choose a planner, connect it to a model service, and verify that connection before running tasks.
 
+.. page-head::
+   :for: Readers connecting RPent to a model API, Claude Code, Codex, or a local planner
+   :outcome: You can select a backend, set credentials and endpoints, and confirm the connection
+   :read-when: You are configuring a planner for the first time or switching backends
+   :skip-when: You need a new backend implementation; see :doc:`../development/add_planner`
+
 **Page map:** choose a backend (``api``, ``claude_code``, ``codex``) → verify the connection → set run limits.
 
 Select the Agentic Planner backend with one CLI flag:

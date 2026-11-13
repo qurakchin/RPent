@@ -1,33 +1,15 @@
 添加动作原语
 ==================
 
-在 RPent 中，*动作原语* 负责将一次工具调用转换为环境可执行的动作。它既可以基于 VLA、WAM 或 Diffusion Policy，也可以是 ``move_to``、 ``open_gripper`` 等脚本化例程。本页介绍工具声明、注册与执行。
+在 RPent 中，*动作原语* 负责将一次工具调用转换为环境可执行的动作。它既可以基于 VLA、WAM 或 Diffusion Policy，也可以是 ``move_to``、 ``open_gripper`` 等脚本化例程。基于模型的原语在独立模型服务进程中运行，通过 model client 调用；脚本化原语在 agent 进程内运行。两类原语使用相同的工具定义。本页介绍声明、注册与执行。
 
-**本文结构：** 两类原语 → 脚本化原语 → 基于模型的工具 → serve 模式 → 设计原则。
+.. page-head::
+   :for: 要把新的动作或感知能力暴露为工具的开发者
+   :outcome: 声明、注册并验证脚本化或基于模型的动作原语
+   :read-when: 要给规划器新增一个可调用工具时
+   :skip-when: 要新增模型服务本身；见 :doc:`add_action_model`
 
-两类原语
---------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 25 40 35
-
-   * - 类别
-     - 运行位置
-     - 例子
-   * - **基于模型的**
-       （VLA / WAM / Diffusion Policy / …）
-     - 在独立模型服务进程中运行，通过 toolkit 持有的
-       *model client* 调用。
-     - Pi0.5（LIBERO）、RLDX-1（RoboCasa）
-   * - **脚本化**
-       （运动学 / 启发式）
-     - 在 agent 进程内运行；需要进行运动学计算时，可能通过一次
-       server 侧 RPC 完成。不需要加载模型权重。
-     - ``move_to``、``rotate_wrist``、``release``、
-       ``back_project``
-
-从 LLM 的视角看，两类原语采用相同的接口：一份工具定义、一个 primitives 方法，以及调用完成后的状态快照。区别仅在于方法的具体实现。
+**本文结构：** 脚本化原语 → 基于模型的工具 → serve 模式 → 原语类别与设计原则。
 
 添加一个脚本化原语
 ------------------
@@ -87,3 +69,27 @@ mixin 覆盖的 ``serve`` 与 :class:`~rpent.utils.rpc.RpcFacade` 的 ``serve`` 
 - **改变状态的工具在返回规划器前采集状态。** Toolkit 在处理函数执行后调用 ``get_env_state``，期间继续保持独占执行。``readonly`` 工具跳过这一步，并可与其他只读工具并行。
 - **保持结果数据简短。** 返回值会以文本形式提供给 LLM；图像、深度数据和其他大型观测应通过 ``EnvState.save`` 保存；``EnvState`` 会把每个逻辑基础文件名自动加入其持有的 ``StepRecord.artifacts`` 集合。图像通过 ``view_env_state`` 提供，几何数据通过环境工具访问，不返回原始路径。
 - **安全限制由 ``env_server`` 强制执行。** LLM 可能使用任意参数调用工具，因此工作空间边界和安全限制不能只依赖 toolkit。
+
+原语类别
+~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 40 35
+
+   * - 类别
+     - 运行位置
+     - 例子
+   * - **基于模型的**
+       （VLA / WAM / Diffusion Policy / …）
+     - 在独立模型服务进程中运行，通过 toolkit 持有的
+       *model client* 调用。
+     - Pi0.5（LIBERO）、RLDX-1（RoboCasa）
+   * - **脚本化**
+       （运动学 / 启发式）
+     - 在 agent 进程内运行；需要进行运动学计算时，可能通过一次
+       server 侧 RPC 完成。不需要加载模型权重。
+     - ``move_to``、``rotate_wrist``、``release``、
+       ``back_project``
+
+从 LLM 的视角看，两类原语采用相同的接口：一份工具定义、一个 primitives 方法，以及调用完成后的状态快照。区别仅在于方法的具体实现。

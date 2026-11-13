@@ -12,6 +12,12 @@ LIBERO
 
 首次运行请按 :doc:`../get_started/quickstart` 操作；本页介绍版本选择、任务选择、结果查看与实验复现。
 
+.. page-head::
+   :for: 要运行 LIBERO、LIBERO-PRO 或 LIBERO-plus 任务，并复现公开成功率的读者
+   :outcome: 安装所选版本、准备 Pi0.5 与 SAM3、运行任务，并按环境原生成功判定读取结果
+   :read-when: 已经跑通快速开始中的单个 LIBERO-PRO 任务，需要选择版本和任务时
+   :skip-when: 还没有安装 RPent；先完成 :doc:`../get_started/quickstart`
+
 **本文结构：** 概览 → 安装 → VLA 配置 → SAM3 配置 → 运行一个任务 → 查看结果 → 任务选择 → WAM 评测 → 任务 → 任务记忆 → 实验复现 → 规划器可调用的工具。
 
 .. _libero-overview:
@@ -47,7 +53,7 @@ LIBERO
 
 首次运行 LIBERO-PRO 时，请先完成 :doc:`../get_started/quickstart` 的安装、资源下载和模型配置；该页同时给出显存、磁盘和运行耗时的估算。
 
-其他 LIBERO 版本请在独立环境中安装对应 extra，再下载资源；每个 Python 环境只安装一种 LIBERO 版本：
+其他 LIBERO 版本请在独立环境中安装对应 extra，再下载资源。每个 Python 环境只安装一种 LIBERO 版本：
 
 .. list-table::
    :header-rows: 1
@@ -153,6 +159,8 @@ Dashboard
 
 WAM 评测
 --------
+
+WAM 是一类动作模型后端：每次调用预测一段动作块（chunk），环境按块执行，两次调用之间重新获取观测。
 
 按 :doc:`../development/add_action_model` 准备 worker，保留上面的仿真器和 SAM3 配置。WAM 不需要 Pi0.5 权重。Cosmos 在端口 8116 启动后：
 
@@ -264,7 +272,7 @@ LIBERO 工具分为物理动作工具和只读工具。
 
 **物理动作工具：**
 
-- ``pi0_pick(prompt, ...)`` —— 调用 Pi0.5 执行闭环抓取。
+- ``pi0_pick(prompt, ...)`` —— 调用 Pi0.5 预测并执行抓取。
 - ``pi0_doubled(prompt, ...)`` —— 调用 Pi0.5 执行非抓取类接触动作。
 - ``move_to(xyz, ...)`` —— 将末端执行器移动到世界坐标系中的目标位置。
 - ``move_pose(xyz, target_pitch=..., target_yaw=..., ...)`` —— 同时调整末端位置和姿态。
@@ -298,7 +306,7 @@ LIBERO 将仿真和模型推理分别放在独立服务器中运行，工具集�
 接入自定义 VLA
 ~~~~~~~~~~~~~~
 
-如果你有一个与 LIBERO 兼容、但并非 Pi0.5 的 VLA，可以在不修改机器人实现的情况下替换 model client：
+如果你有一个与 LIBERO 兼容、但并非 Pi0.5 的 VLA，可以直接替换 model client，不必修改机器人实现：
 
 1. 写一个新的 ``vla_server.py``，暴露相同的 ``predict`` RPC 契约（HTTP 或 socket 均可）。
 2. 用 ``--am-endpoint [protocol://]host:port`` 指向它。

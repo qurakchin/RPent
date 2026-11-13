@@ -3,7 +3,13 @@
 
 双臂部署的工具接口、探索模式与 Flash 回放。安装和首次运行见 :doc:`dual_franka`。
 
-**Page map:** 工具与状态产物 → 探索模式 → Flash 回放。
+.. page-head::
+   :for: 已完成双臂 Franka 安装、需要其余参考内容的操作用户
+   :outcome: 查看工具与状态产物、使用探索模式，并回放 Flash 计划
+   :read-when: 系统已经装好，需要工具、状态文件、探索或 Flash 回放时
+   :skip-when: 还没有完成安装和首次运行；先看 :doc:`dual_franka`
+
+**本文结构：** 工具与状态产物 → 探索模式 → Flash 回放。
 
 
 工具与状态产物

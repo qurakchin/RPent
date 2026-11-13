@@ -438,3 +438,31 @@ html[data-theme="dark"] .rpent-theme-icon-light {
   .bd-article h1 { margin-top: 3rem; }
   .bd-main .bd-content .bd-article-container { padding-inline: 1.25rem; }
 }
+
+/* Standard page header: who, outcome, when to read, when to skip. */
+.rpent-page-head {
+  background: var(--pst-color-surface);
+  border-left: 3px solid var(--pst-color-primary);
+  border-radius: 0 var(--rpent-card-radius) var(--rpent-card-radius) 0;
+  font-size: 0.95rem;
+  margin: 1rem 0 1.5rem;
+  padding: 0.75rem 1rem 0.55rem;
+}
+
+.rpent-page-head p {
+  margin: 0 0 0.3rem;
+}
+
+.rpent-page-head-label {
+  color: var(--pst-color-primary);
+  display: inline-block;
+  font-weight: 600;
+  min-width: 6.5rem;
+}
+
+@media (max-width: 575.98px) {
+  .rpent-page-head-label {
+    display: block;
+    min-width: 0;
+  }
+}

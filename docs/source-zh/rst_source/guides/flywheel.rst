@@ -6,6 +6,12 @@
 
 本页介绍轨迹采集、导出为 LeRobot 数据集，以及使用这些数据的微调流程。RPent 数据飞轮用于记录从任务规划到动作执行的轨迹，并从成功轨迹中生成训练数据。
 
+.. page-head::
+   :for: 要把运行记录转成 VLA 训练数据的读者
+   :outcome: 录制轨迹、导出 LeRobot 数据集，并进入 RLinf 训练流程
+   :read-when: 需要采集演示数据或微调动作模型时
+   :skip-when: 只需要运行或评测任务
+
 **本文结构：** 安装 → 采集轨迹 → 数据格式 → 导出 → RLinf 训练 → SFT 结果。
 
 使用 ``api``、``claude_code`` 或 ``codex`` 规划器时，开启 ``--record-trajectory`` 可记录视觉语言模型（VLM）的请求、回复、工具调用及其结果。在支持动作采集的环境中，还会记录视觉语言动作模型（VLA）的子任务指令、实际执行的动作及对应的观测。
@@ -162,7 +168,7 @@
 使用 RLinf 训练
 ---------------
 
-对于上述 LIBERO 示例，可使用导出的 LeRobot 数据集，在独立的 RLinf 环境中进行 Pi0.5 监督微调。RPent 负责采集和导出；模型训练、日志和权重保存由 RLinf 管理。
+对于上述 LIBERO 示例，可用导出的 LeRobot 数据集，在独立的 RLinf 环境中对 Pi0.5 做监督微调。RPent 负责采集和导出；模型训练、日志和权重保存由 RLinf 管理。
 
 环境安装和训练配置请参考 `RLinf OpenPI 监督微调指南 <https://rlinf.readthedocs.io/zh-cn/latest/rst_source/examples/embodied/sft_openpi.html>`_。将 ``data.train_data_paths`` 设为导出目录下的 ``train/`` 子目录，其中包含 ``meta/info.json``。
 
@@ -182,7 +188,7 @@
      actor.model.model_path=/path/to/pi05-checkpoint \
      runner.logger.log_path=/path/to/new-training-output
 
-根据可用 GPU 设置配置中的资源分配和 batch size，并使用与所选模型和数据集相匹配的 checkpoint 及归一化设置。
+根据可用 GPU 设置配置中的资源分配和 batch size。checkpoint 及归一化设置要与所选模型和数据集匹配。
 
 SFT 实验结果
 ------------

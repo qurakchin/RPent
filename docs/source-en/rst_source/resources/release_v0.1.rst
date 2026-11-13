@@ -6,15 +6,22 @@ RPent v0.1 Release 🎉
 
 We are releasing v0.1, the first public release of RPent.
 
-RPent (Recursive Physical Agent) is an open-source infrastructure for embodied agents in the
+RPent (Recursive Physical Agent) is an open-source framework for embodied agents in the
 physical world. It connects general-purpose models, VLA models, memory, and robot interfaces to
 carry out physical tasks through planning, execution feedback, and experience reuse.
 
 v0.1 supports agent harnesses such as Codex and Claude Code for task planning. It integrates the
 LIBERO family, RoboCasa365, RoboTwin, and RoboDojo simulators, as well as single-arm Franka,
 dual-arm Franka, and YAM robots, and provides Memory, Flash Mode, an interactive CLI, and a Web
-Dashboard. RPent has been evaluated in simulation and on real robots, with leading task success
-rates on benchmarks such as LIBERO-PRO among the methods listed on the leaderboard.
+Dashboard. RPent has been evaluated in simulation and on real robots and reports task success
+rates on benchmarks such as LIBERO-PRO; the compared methods and counting rules are on
+the :doc:`leaderboard <../leaderboard/index>`.
+
+.. page-head::
+   :for: Readers checking what v0.1 contains and how earlier commands changed
+   :outcome: You can describe the release scope and migrate commands that were renamed
+   :read-when: You are upgrading from an earlier command set or checking release scope
+   :skip-when: You need installation steps; see :doc:`../get_started/quickstart`
 
 **Page map:** highlights → features → migration → contributors → benchmark results → getting started → test results.
 
