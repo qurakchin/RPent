@@ -94,16 +94,21 @@ current behavior. Each design document starts with a status line, and
 implemented phases are rewritten to match the repository in the pull request
 that lands them.
 
-## Check links and commands
+## Check links and status tables
 
 [`scripts/check_docs.py`](../scripts/check_docs.py) verifies repository-relative
-links, Sphinx `:doc:` and `:ref:` targets, paths named in documented commands,
-and optional-dependency names. It runs as the `docs-check` pre-commit hook and
-fails on the first broken reference:
+Markdown links and images, same-file heading anchors, the Validation Status
+tables on simulator and robot pages, and the status lines of design documents.
+It runs as the `docs-check` pre-commit hook on the changed pages and fails on a
+broken reference. Run the full check with:
 
 ```bash
 python scripts/check_docs.py
 ```
+
+RST directives and cross-references are not duplicated in the checker: both
+documentation trees build in Read the Docs with `fail_on_warning: true`, so
+Sphinx decides `:doc:`, `:ref:`, `include`, and directive paths.
 
 ## Release
 

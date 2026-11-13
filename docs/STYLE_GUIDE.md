@@ -336,7 +336,8 @@ reader can tell an installation guide that has run from one that has not. Keep
 the same conclusion in the English and Chinese pages; the evidence commands and
 artifact paths may differ only when the platforms differ.
 
-Use these status words and do not strengthen them:
+The table keeps three independent axes apart. The **Status** column records
+the evidence level:
 
 | Status | Meaning | Allowed wording |
 | --- | --- | --- |
@@ -346,22 +347,29 @@ Use these status words and do not strengthen them:
 | Historical result | A run this repository recorded on a frozen snapshot that the current code or data does not reproduce | "Historical result on the frozen snapshot" |
 | CPU only | Contracts, configuration, or build checks passed | "Offline checks passed" |
 | Unverified | Implementation exists but no run is recorded | "Not verified yet" |
-| Experimental | The interface may change | "Experimental" |
-| Not applicable | The tier does not exist for this integration | "Not applicable" |
 
-Any "supported", "available", or "compatible" claim must map to one of these
-rows. If it does not, downgrade the claim to **Unverified**. A link to a CI
-workflow describes how a check can run; it is not evidence that the check
-passed. Record a date, commit, hardware, seed, or artifact path only when it is
-known. Do not label a published paper result **Verified** unless the repository
-records the run that produced it; use **External result** instead. Use
-**Historical result** when the repository did record the run, but the current
-code, data, or configuration cannot reproduce it; name the frozen snapshot and
-say what has not been reevaluated.
+**Not applicable** is an applicability value, not evidence: use it in the
+Status column only when the tier does not exist for this integration.
+
+Any "supported", "available", or "compatible" claim must map to one of the
+evidence rows or to **Not applicable**. If it does not, downgrade the claim to
+**Unverified**. A link to a CI workflow describes how a check can run; it is
+not evidence that the check passed. Record a date, commit, hardware, seed, or
+artifact path only when it is known. Do not label a published paper result
+**Verified** unless the repository records the run that produced it; use
+**External result** instead. Use **Historical result** when the repository did
+record the run, but the current code, data, or configuration cannot reproduce
+it; name the frozen snapshot and say what has not been reevaluated.
+
+**Experimental** describes interface stability, not evidence. Mark it at page
+level (for example, "Experimental" in the introduction) or append it in
+parentheses to a status, such as "CPU only (Experimental)"; it may combine with
+any row.
 
 Use the matching Chinese status words in Chinese pages: 已验证（多次）、
-已验证（单次）、外部结果、历史结果、仅 CPU、未验证、实验性、不适用. Do not write
-支持或可用 unless the page records evidence for the corresponding status.
+已验证（单次）、外部结果、历史结果、仅 CPU、未验证、不适用. Write 实验性 only as
+the stability tag, for example 仅 CPU（实验性）. Do not write 支持或可用 unless
+the page records evidence for the corresponding status.
 
 Use a small table so the tiers stay distinct:
 
@@ -400,20 +408,23 @@ defaults, support claims, and result definitions against their code consumers.
 Check that required content and existing placeholders remain reachable, that
 reproduction data is unchanged, and that demo links reach the right robot.
 
-Run the repository check for links and documented commands:
+Run the repository check for links and validation status:
 
 ```bash
 python scripts/check_docs.py
 ```
 
-It verifies repository-relative links (including reference-style links and
-link definitions), Sphinx `:doc:` and `:ref:` targets, RST directive and
-download paths (including tree-absolute paths), repository paths named by
-documented commands in code blocks and inline code spans, optional-dependency
-names, and the status vocabulary of the **Validation Status** table on
-simulator and robot pages. The `docs-check` pre-commit hook runs the same check
-and fails on a broken reference. External URLs, evidence quality, and the
-consistency of the English and Chinese conclusions still need a manual review.
+It verifies repository-relative Markdown links and images (including
+reference-style links and definitions), same-file heading anchors, the
+presence and vocabulary of the **Validation Status** table on simulator and
+robot pages, the repository paths cited by its evidence, and the status
+sequence of the paired English and Chinese pages. The `docs-check` pre-commit
+hook checks only the changed pages and fails on a broken reference. RST
+directives, `:doc:`, `:ref:`, and other RST references are left to Sphinx: both
+trees build in Read the Docs with `fail_on_warning: true`. Cross-file Markdown
+anchors are warnings because the checker approximates GitHub's slug algorithm.
+External URLs, evidence quality, and whether the Chinese conclusion matches the
+English one still need a manual review.
 
 Build both languages with warnings treated as errors:
 

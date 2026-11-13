@@ -47,26 +47,26 @@ HTML; a warning-free build does not establish correct rendering.
 ## Use existing validation
 
 Use [docs/Makefile](../../../docs/Makefile) for local targets. Run the
-repository check for links, references, and documented commands from the
-repository root:
+repository check for links and validation tables from the repository root:
 
 ```bash
 python scripts/check_docs.py
 ```
 
-It covers repository-relative Markdown links (including reference-style links
-and definitions) and headings, RST directive and download paths (including
-tree-absolute paths), Sphinx `:doc:` and `:ref:` targets, `cd` targets,
-repository paths named in code-block and inline commands, optional-dependency
-names, and the presence and vocabulary of the **Validation Status** table on
-simulator and robot pages, the repository paths cited by its evidence, and the
-status sequence of the paired English and Chinese pages. The `docs-check`
-pre-commit hook runs the same script. External URLs and whether the evidence
-actually supports the claim still need a manual check.
+It covers repository-relative Markdown links and images (including
+reference-style links and definitions), same-file heading anchors, the presence
+and vocabulary of the **Validation Status** table on simulator and robot pages,
+the repository paths cited by its evidence, and the status sequence of the
+paired English and Chinese pages. The `docs-check` pre-commit hook checks only
+the changed pages. RST directives and `:doc:` / `:ref:` targets are left to
+Sphinx, which builds both trees with `fail_on_warning: true`. Cross-file
+Markdown anchors are warnings because the checker approximates GitHub's slug
+algorithm. External URLs and whether the evidence actually supports the claim
+still need a manual check.
 
 See the [English](../../../docs/source-en/.readthedocs.yaml) and
 [Chinese](../../../docs/source-zh/.readthedocs.yaml) Read the Docs configurations
-for CI build settings. From the repository root, with
+for CI build settings (`fail_on_warning: true`). From the repository root, with
 [documentation dependencies](../../../docs/requirements.txt) installed:
 
 ```bash

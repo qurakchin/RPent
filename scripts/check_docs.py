@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
 # Copyright 2026 The RPent Authors.
-"""Check documentation links and commands that must resolve in this repository.
+"""Check documentation references that can be decided offline.
 
-The check covers references that can be decided offline:
+The check covers only rules that the repository owns:
 
-- repository-relative Markdown links and images, including reference-style
-  links, link definitions, and Markdown headings;
-- RST explicit links, ``image``/``figure``/``include``/``literalinclude``
-  paths (including Sphinx tree-absolute paths), and ``:download:`` roles;
-- Sphinx ``:doc:`` targets and ``:ref:`` labels, resolved inside the tree that
-  contains the referencing page;
-- repository paths named by common commands such as ``bash``, ``pytest``,
-  ``python -m``, and ``sphinx-build``, in code blocks and inline code spans;
-- optional-dependency names used by ``pip install -e ".[...]"``,
-  ``uv pip install``, and ``uv sync --extra ...``;
-- the presence and vocabulary of the **Validation Status** table on simulator
-  and real-world robot pages, the repository paths it cites, and the agreement
-  of its status rows with the paired English or Chinese page;
+- repository-relative Markdown links, images, reference-style links, link
+  definitions, and same-file heading anchors. Cross-file anchors are reported
+  as warnings because the GitHub slug algorithm is approximated here;
+- the **Validation Status** / **验证状态** table on simulator and real-world
+  robot pages: section presence and position, evidence-level vocabulary,
+  evidence cells, repository paths cited by evidence, paired English or
+  Chinese pages, and agreement of their status sequences;
 - the status line of each design document and the presence of its baseline
   commit (skipped with a warning when the checkout has no full history).
 
-External URLs are not fetched. A line containing ``docs-check: ignore`` is
-skipped, and the following line is skipped too, so an intentional example or
-unreleased path can be documented with a reason.
+RST structure is not parsed here. Both documentation trees build in Read the
+Docs with ``fail_on_warning: true``, so Sphinx decides directives, ``:doc:``,
+``:ref:``, and other RST references. External URLs are not fetched.
 
-Exit status is 1 when any reference is broken or a required status table is
-missing or uses an unknown status word.
+Markers use ``docs-check: ignore until YYYY-MM-DD: reason``. The marker hides
+its own line and, when it is a standalone comment, the next non-blank line.
+The expiry date is required; an expired marker is an error, so a documented
+exception cannot outlive the reason it was written for.
+
+Exit status is 1 when a reference is broken, a required status table is
+missing or uses an unknown status word, an exception expired, or a design
+document has no reachable status line.
 """
 
 from __future__ import annotations
@@ -58,32 +58,11 @@ MARKDOWN_DEFINITION = re.compile(
     r"(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^)]*\)))?\s*$"
 )
 MARKDOWN_REFERENCE = re.compile(r"!?\[([^\]]*)\]\[([^\]]*)\]")
-INLINE_CODE = re.compile(r"(`+)(.+?)\1")
-RST_LINK = re.compile(r"`[^`<>]*<([^<>]+)>`__?")
-RST_DIRECTIVE = re.compile(
-    r"^\s*\.\.\s+(?:image|figure|include|literalinclude)::\s*(\S+)"
-)
-RST_DOWNLOAD = re.compile(r":download:`([^`]+)`")
-DOC_ROLE = re.compile(r":doc:`([^`]+)`")
-REF_ROLE = re.compile(r":(?:ref|numref):`([^`]+)`")
-LABEL = re.compile(r"^\s*\.\.\s+_([^:]+):\s*$")
 IGNORE = "docs-check: ignore"
-COMMAND = re.compile(
-    r"(?:^|[\s`'\"(])(bash|sh|pytest|python3?|sphinx-build)\s+([^\n`'\"]+)"
-)
-PIP_EXTRA = re.compile(
-    r"(?:(?:uv|python3?\s+-m)\s+)?pip3?\s+install[^\n]*?"
-    r"(?:-e\s+[\"']?\.\[([^\]]+)\]|\.\[([^\]]+)\])"
-)
-SYNC_EXTRA = re.compile(r"uv\s+sync[^\n]*?--extra(?:=|\s+)([A-Za-z0-9_-]+)")
-PATH_OPTION = re.compile(
-    r"--(?:override|requirement|requirements)(?:=|\s+)([^\s`'\"]+)|-r\s+([^\s`'\"]+)"
-)
-MODULE_OPTION = re.compile(r"-m\s+([A-Za-z_][A-Za-z0-9_.]*)")
-PLACEHOLDERS = set("<>{}*?$|")
+IGNORE_EXPIRY = re.compile(r"docs-check:\s*ignore\b.*?\buntil\s+(\d{4}-\d{2}-\d{2})")
 TRAILING = ".,;:)]}'\"`"
 VALIDATION_HEADINGS = {"Validation Status": "en", "验证状态": "zh"}
-VALIDATION_STATUSES = {
+EVIDENCE_STATUSES = {
     "en": {
         "Verified (multiple)",
         "Verified (single)",
@@ -91,7 +70,6 @@ VALIDATION_STATUSES = {
         "Historical result",
         "CPU only",
         "Unverified",
-        "Experimental",
         "Not applicable",
     },
     "zh": {
@@ -101,10 +79,11 @@ VALIDATION_STATUSES = {
         "历史结果",
         "仅 CPU",
         "未验证",
-        "实验性",
         "不适用",
     },
 }
+STABILITY_TAGS = {"Experimental", "实验性"}
+STABILITY_SUFFIX = re.compile(r"^(.*?)\s*[（(]\s*(Experimental|实验性)\s*[)）]\s*$")
 STATUS_KEYS = {
     "Verified (multiple)": "verified-multiple",
     "已验证（多次）": "verified-multiple",
@@ -118,8 +97,6 @@ STATUS_KEYS = {
     "仅 CPU": "cpu",
     "Unverified": "unverified",
     "未验证": "unverified",
-    "Experimental": "experimental",
-    "实验性": "experimental",
     "Not applicable": "not-applicable",
     "不适用": "not-applicable",
 }
@@ -132,6 +109,7 @@ DESIGN_STATUS = re.compile(
     r".*?基线\s*`([0-9a-f]{7,40})`"
     r".*?最后更新\s*(\d{4}-\d{2}-\d{2})\s*$"
 )
+DESIGN_NAME = re.compile(r"^a_(?:\d+_[^/]+|global|summary)\.md$")
 
 
 @dataclass
@@ -154,7 +132,7 @@ class Report:
         self.errors.append(self._format(path, line, message, root))
 
     def warning(self, path: Path, line: int, message: str, root: Path) -> None:
-        """Record one skipped check that a full checkout would decide."""
+        """Record one item that a person still has to decide."""
         self.warnings.append(self._format(path, line, message, root))
 
 
@@ -260,57 +238,14 @@ class Checker:
     def __init__(self, root: Path) -> None:
         self.root = root
         self.report = Report()
-        self._labels: dict[Path, set[str]] = {}
         self._slugs: dict[Path, set[str]] = {}
-        self._extras = self._load_extras()
-        self._project_name = self._load_project_name()
-        self._shallow = self._is_shallow()
         self._ignored: set[int] = set()
         self._validation_rows: dict[Path, tuple[int, list[str]]] = {}
         self._has_en = (self.root / "docs/source-en").is_dir()
         self._has_zh = (self.root / "docs/source-zh").is_dir()
         self._warned_history = False
-
-    def _load_extras(self) -> set[str] | None:
-        """Return optional-dependency names, or None when unavailable."""
-        path = self.root / "pyproject.toml"
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
-            return None
-        try:
-            import tomllib  # type: ignore[import-not-found]
-        except ImportError:
-            try:
-                import tomli as tomllib  # type: ignore[import-not-found,no-redef]
-            except ImportError:
-                return self._extras_from_text(text)
-        try:
-            data = tomllib.loads(text)
-        except (ValueError, TypeError):
-            return self._extras_from_text(text)
-        optional = data.get("project", {}).get("optional-dependencies", {})
-        return set(optional) if isinstance(optional, dict) else None
-
-    @staticmethod
-    def _extras_from_text(text: str) -> set[str] | None:
-        """Parse extra names without a TOML parser."""
-        marker = "[project.optional-dependencies]"
-        if marker not in text:
-            return None
-        section = text.split(marker, 1)[1]
-        section = re.split(r"(?m)^\[", section, maxsplit=1)[0]
-        return set(re.findall(r"(?m)^([A-Za-z0-9_-]+)\s*=\s*\[", section))
-
-    def _load_project_name(self) -> str | None:
-        """Return the project name used for the clone directory in examples."""
-        path = self.root / "pyproject.toml"
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
-            return None
-        match = re.search(r"(?m)^\s*name\s*=\s*[\"']([^\"']+)[\"']", text)
-        return match.group(1) if match else None
+        self._top_level = {entry.name for entry in self.root.iterdir()}
+        self._shallow = self._is_shallow()
 
     def _is_shallow(self) -> bool:
         """Return whether the checkout lacks the history a baseline needs."""
@@ -324,35 +259,49 @@ class Checker:
         )
         return result.returncode == 0 and result.stdout.strip() == "true"
 
+    def with_counterparts(self, files: list[Path]) -> list[Path]:
+        """Add paired validation pages so subset checks can compare them."""
+        selected = list(files)
+        seen = set(selected)
+        for path in files:
+            if path.suffix.lower() != ".rst" or not self._is_validation_page(path):
+                continue
+            counterpart = self._language_counterpart(path)
+            if counterpart is not None and counterpart.is_file():
+                if counterpart not in seen:
+                    selected.append(counterpart)
+                    seen.add(counterpart)
+        return selected
+
     def check(self, files: list[Path]) -> Report:
         """Check every file and return the collected report."""
         for path in files:
             self.report.files += 1
             text = path.read_text(encoding="utf-8", errors="replace")
-            self._ignored = self._ignored_lines(text)
+            self._ignored = self._ignored_lines(path, text)
             if path.suffix.lower() == ".md":
                 self._check_markdown(path, text)
                 self._check_design_status(path, text)
             else:
-                self._check_rst(path, text)
-            self._check_commands(path, text)
-            self._check_inline_commands(path, text)
+                self._check_validation_status(path, text)
         self._check_validation_pairs()
         return self.report
 
-    @staticmethod
-    def _ignored_lines(text: str) -> set[int]:
+    def _ignored_lines(self, path: Path, text: str) -> set[int]:
         """Return line numbers hidden by ``docs-check: ignore`` markers.
 
         A marker on its own comment line hides the next non-blank line, so an
         RST comment can be followed by the required blank line. A marker
-        appended to content hides only that line.
+        appended to content hides only that line. Every marker must carry an
+        ``until YYYY-MM-DD`` date; an expired marker and an invalid date are
+        errors, and a missing date is a warning.
         """
         lines = text.splitlines()
         ignored: set[int] = set()
         for index, line in enumerate(lines):
             if IGNORE not in line:
                 continue
+            self._check_ignore_expiry(path, index + 1, line)
             ignored.add(index + 1)
             stripped = line.strip()
             if not stripped.startswith(("..", "<!--")):
@@ -363,6 +312,35 @@ class Checker:
             if following < len(lines):
                 ignored.add(following + 1)
         return ignored
+
+    def _check_ignore_expiry(self, path: Path, line: int, text: str) -> None:
+        """Require an unexpired ``until`` date on every exception marker."""
+        match = IGNORE_EXPIRY.search(text)
+        if match is None:
+            self.report.warning(
+                path,
+                line,
+                "docs-check exception has no 'until YYYY-MM-DD' date",
+                self.root,
+            )
+            return
+        try:
+            until = date.fromisoformat(match.group(1))
+        except ValueError:
+            self.report.error(
+                path,
+                line,
+                f"invalid docs-check exception date {match.group(1)!r}",
+                self.root,
+            )
+            return
+        if until < date.today():
+            self.report.error(
+                path,
+                line,
+                f"docs-check exception expired on {until.isoformat()}",
+                self.root,
+            )
 
     # Markdown ---------------------------------------------------------
 
@@ -407,19 +385,30 @@ class Checker:
             return
         if fragment and resolved.suffix.lower() == ".md" and resolved.is_file():
             slugs = self._slugs.setdefault(resolved, markdown_slugs(resolved))
-            if fragment.lower() not in slugs:
+            if fragment.lower() in slugs:
+                return
+            if resolved == path.resolve():
                 self.report.error(
                     path,
                     line,
                     f"missing heading anchor #{fragment} in {destination or path.name}",
                     self.root,
                 )
+            else:
+                self.report.warning(
+                    path,
+                    line,
+                    f"heading anchor #{fragment} not found in {destination} "
+                    "(slug approximation; confirm the rendered page)",
+                    self.root,
+                )
 
     def _check_design_status(self, path: Path, text: str) -> None:
         """Check the status line and reachable baseline of a design document."""
-        if path.parent.name != "design" or not path.name.startswith("a_"):
+        if path.parent.name != "design" or not DESIGN_NAME.match(path.name):
             return
         match = None
+        number = 1
         for number, line in enumerate(text.splitlines(), 1):
             match = DESIGN_STATUS.match(line)
             if match:
@@ -477,139 +466,31 @@ class Checker:
             self.root,
         )
 
-    # RST --------------------------------------------------------------
+    # Validation Status ------------------------------------------------
 
-    def _check_rst(self, path: Path, text: str) -> None:
-        tree = self._sphinx_root(path)
-        for number, line in enumerate(text.splitlines(), 1):
-            if number in self._ignored:
-                continue
-            for match in RST_DIRECTIVE.finditer(line):
-                self._check_rst_path(path, number, match.group(1), tree)
-            for match in RST_DOWNLOAD.finditer(line):
-                self._check_rst_path(path, number, match.group(1), tree)
-            for match in RST_LINK.finditer(line):
-                self._check_rst_link(path, number, match.group(1), tree)
-            for match in DOC_ROLE.finditer(line):
-                self._check_doc_role(path, number, match.group(1), tree)
-            for match in REF_ROLE.finditer(line):
-                self._check_ref_role(path, number, match.group(1), tree)
-        self._check_validation_status(path, text)
+    def _is_validation_page(self, path: Path) -> bool:
+        """Return whether a page must end with a Validation Status section."""
+        parts = path.parts
+        if "rst_source" not in parts:
+            return False
+        index = parts.index("rst_source")
+        if len(parts) <= index + 2 or parts[index + 1] not in VALIDATION_PAGE_DIRS:
+            return False
+        return path.name != "index.rst"
 
-    def _check_rst_path(
-        self, path: Path, line: int, target: str, tree: Path | None
-    ) -> None:
-        target = unquote(target.strip())
-        if not target or has_scheme(target):
-            return
-        destination, _ = split_target(target)
-        if destination.startswith("/"):
-            if tree is None:
-                return
-            resolved = (tree / destination.lstrip("/")).resolve()
-        else:
-            resolved = (path.parent / destination).resolve()
-        if not exact_exists(self.root, resolved):
-            self.report.error(path, line, f"broken RST path {target!r}", self.root)
-
-    def _check_rst_link(
-        self, path: Path, line: int, target: str, tree: Path | None
-    ) -> None:
-        target = unquote(target.strip())
-        if not target or has_scheme(target):
-            return
-        destination, _ = split_target(target)
-        # A bare name is an RST label or an implicit section target. Only
-        # path-like targets are decided here.
-        if "/" not in destination and not Path(destination).suffix:
-            return
-        if destination.startswith("/"):
-            if tree is None:
-                return
-            resolved = (tree / destination.lstrip("/")).resolve()
-        else:
-            resolved = (path.parent / destination).resolve()
-        if resolved.suffix == "":
-            resolved = resolved.with_suffix(".rst")
-        if not exact_exists(self.root, resolved):
-            self.report.error(path, line, f"broken RST link {target!r}", self.root)
-
-    def _check_doc_role(
-        self, path: Path, line: int, target: str, tree: Path | None
-    ) -> None:
-        target = target.strip()
-        if "<" in target and target.endswith(">"):
-            target = target[target.index("<") + 1 : -1].strip()
-        if has_scheme(target):
-            return
-        if tree is None:
-            self.report.error(
-                path,
-                line,
-                f":doc: target {target!r} is outside a Sphinx tree",
-                self.root,
-            )
-            return
-        if target.startswith("/"):
-            resolved = tree / target.lstrip("/")
-        else:
-            resolved = path.parent / target
-        resolved = resolved.resolve()
-        if resolved.suffix == "":
-            resolved = resolved.with_suffix(".rst")
-        if not exact_exists(self.root, resolved):
-            self.report.error(path, line, f"broken :doc: target {target!r}", self.root)
-
-    def _check_ref_role(
-        self, path: Path, line: int, target: str, tree: Path | None
-    ) -> None:
-        target = target.strip()
-        if "<" in target and target.endswith(">"):
-            target = target[target.index("<") + 1 : -1].strip()
-        if tree is None:
-            return
-        labels = self._tree_labels(tree)
-        if target not in labels:
-            self.report.error(path, line, f"unknown :ref: label {target!r}", self.root)
-
-    def _sphinx_root(self, path: Path) -> Path | None:
-        for parent in path.parents:
-            if (parent / "conf.py").is_file():
-                return parent
-            if parent == self.root:
-                break
+    def _validation_language(self, path: Path) -> str | None:
+        if "source-zh" in path.parts:
+            return "zh"
+        if "source-en" in path.parts:
+            return "en"
         return None
-
-    def _tree_labels(self, tree: Path) -> set[str]:
-        labels = self._labels.get(tree)
-        if labels is not None:
-            return labels
-        labels = set()
-        for path in tree.rglob("*.rst"):
-            if any(part in SKIP_PARTS for part in path.relative_to(tree).parts):
-                continue
-            for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
-                match = LABEL.match(line)
-                if match:
-                    labels.add(match.group(1).strip())
-        self._labels[tree] = labels
-        return labels
 
     def _check_validation_status(self, path: Path, text: str) -> None:
         """Check the status table on simulator and real-world robot pages."""
-        parts = path.parts
-        if "rst_source" not in parts:
+        if not self._is_validation_page(path):
             return
-        index = parts.index("rst_source")
-        if len(parts) <= index + 2 or parts[index + 1] not in VALIDATION_PAGE_DIRS:
-            return
-        if path.name == "index.rst":
-            return
-        if "source-zh" in parts:
-            language = "zh"
-        elif "source-en" in parts:
-            language = "en"
-        else:
+        language = self._validation_language(path)
+        if language is None:
             return
         lines = text.splitlines()
         heading: int | None = None
@@ -670,23 +551,32 @@ class Checker:
                 self.root,
             )
             return
-        allowed = VALIDATION_STATUSES[language]
+        allowed = EVIDENCE_STATUSES[language]
         statuses: list[str] = []
         for line_number, cells in rows[1:]:
             status = cells[status_column] if status_column < len(cells) else ""
-            statuses.append(status)
             if not status:
                 self.report.error(
                     path, line_number, "validation row has no status", self.root
                 )
                 continue
-            if status not in allowed:
+            base = self._evidence_status(status)
+            if base is None:
                 self.report.error(
                     path,
                     line_number,
                     f"unknown validation status {status!r}",
                     self.root,
                 )
+            else:
+                statuses.append(base)
+                if base not in allowed:
+                    self.report.error(
+                        path,
+                        line_number,
+                        f"unknown validation status {base!r}",
+                        self.root,
+                    )
             if evidence_column is not None:
                 evidence = (
                     cells[evidence_column] if evidence_column < len(cells) else ""
@@ -702,17 +592,33 @@ class Checker:
                     self._check_evidence_paths(path, line_number, evidence)
         self._validation_rows[path] = (heading + 1, statuses)
 
-    def _check_evidence_paths(self, path: Path, line: int, evidence: str) -> None:
-        """Reject evidence that names a repository path that does not exist.
+    @staticmethod
+    def _evidence_status(status: str) -> str | None:
+        """Split an optional ``(Experimental)`` stability tag from a status."""
+        match = STABILITY_SUFFIX.match(status)
+        if match:
+            return match.group(1).strip()
+        if status in STABILITY_TAGS:
+            return None
+        return status
 
-        Evidence often cites an artifact or guide by path. A path that cannot
-        resolve makes the row unverifiable, even when the cell is non-empty.
+    def _check_evidence_paths(self, path: Path, line: int, evidence: str) -> None:
+        """Reject evidence that names an in-repository path that does not exist.
+
+        A repository path that cannot resolve makes the row unverifiable.
+        Paths outside the repository (absolute paths, ``~``, variables, or
+        directories that are not top-level entries here) are left to the
+        reviewer: artifacts live outside the source tree (a_3 4.5).
         """
         if line in self._ignored:
             return
         for match in EVIDENCE_PATH.finditer(evidence):
+            if match.start() > 0 and evidence[match.start() - 1] == "/":
+                continue
             target = match.group(1).rstrip(TRAILING)
             if has_scheme(target) or target.startswith(("www.", "~", "$")):
+                continue
+            if target.split("/", 1)[0] not in self._top_level:
                 continue
             candidates = (self.root / target, path.parent / target)
             if any(
@@ -801,224 +707,17 @@ class Checker:
             rows.append((row_line, cells))
         return rows
 
-    # Commands ---------------------------------------------------------
-
-    def _check_commands(self, path: Path, text: str) -> None:
-        cwd = self.root
-        external = False
-        block = -1
-        for block_id, number, line in self._code_lines(path, text):
-            if block_id != block:
-                block = block_id
-                cwd = self.root
-                external = False
-            if number in self._ignored:
-                continue
-            cd = re.match(r"^\s*(?:\$ )?cd\s+([^\s;&|]+)", line)
-            if cd:
-                cwd, external = self._apply_cd(path, number, cd.group(1), cwd)
-            if external:
-                continue
-            self._check_command_text(path, number, line, cwd)
-
-    def _apply_cd(
-        self, path: Path, line: int, raw: str, cwd: Path
-    ) -> tuple[Path, bool]:
-        """Update the working directory for a documented ``cd`` command."""
-        target = raw.strip(TRAILING)
-        if (
-            not target
-            or has_scheme(target)
-            or target.startswith(("~", "$", "@"))
-            or PLACEHOLDERS.intersection(target)
-            or "..." in target
-        ):
-            return cwd, True
-        if target.startswith("/"):
-            absolute = Path(target).resolve()
-            if absolute.is_relative_to(self.root):
-                return absolute, False
-            return cwd, True
-        if (
-            self._project_name is not None
-            and target.lower() == self._project_name.lower()
-        ):
-            # Documentation clones the repository and then runs ``cd RPent``
-            # (or the project name as spelled by the host). The directory is
-            # the checkout root, not a subdirectory that must exist in the tree.
-            return self.root, False
-        candidate = (cwd / target).resolve()
-        if not candidate.is_relative_to(self.root):
-            return cwd, True
-        if candidate.is_dir():
-            return candidate, False
-        self.report.error(
-            path, line, f"documented cd target {target!r} does not exist", self.root
-        )
-        return cwd, True
-
-    def _check_command_text(self, path: Path, line: int, text: str, cwd: Path) -> None:
-        """Check command paths and optional extras named on one line."""
-        for match in PIP_EXTRA.finditer(text):
-            extras = match.group(1) or match.group(2) or ""
-            self._check_extras(path, line, extras)
-        for match in SYNC_EXTRA.finditer(text):
-            self._check_extras(path, line, match.group(1))
-        for match in PATH_OPTION.finditer(text):
-            self._check_command_path(path, line, match.group(1) or match.group(2), cwd)
-        for match in MODULE_OPTION.finditer(text):
-            self._check_module(path, line, match.group(1))
-        for match in COMMAND.finditer(text):
-            command, arguments = match.group(1), match.group(2)
-            if command.startswith("python"):
-                self._check_python_arguments(path, line, arguments, cwd)
-                continue
-            self._check_command_arguments(path, line, command, arguments, cwd)
-
-    def _check_inline_commands(self, path: Path, text: str) -> None:
-        """Check commands written in inline code spans outside code blocks."""
-        code_lines = {number for _, number, _ in self._code_lines(path, text)}
-        for number, line in enumerate(text.splitlines(), 1):
-            if number in code_lines or number in self._ignored:
-                continue
-            for match in INLINE_CODE.finditer(line):
-                span = match.group(2).strip()
-                if span:
-                    self._check_command_text(path, number, span, self.root)
-
-    def _code_lines(self, path: Path, text: str) -> list[tuple[int, int, str]]:
-        """Return ``(block, line number, line)`` for code and literal blocks."""
-        lines = text.splitlines()
-        if path.suffix.lower() == ".md":
-            return self._markdown_code_lines(lines)
-        return self._rst_code_lines(lines)
-
-    @staticmethod
-    def _markdown_code_lines(lines: list[str]) -> list[tuple[int, int, str]]:
-        result = []
-        block = 0
-        fence: str | None = None
-        indented = False
-        for number, line in enumerate(lines, 1):
-            stripped = line.strip()
-            if fence is not None:
-                if stripped.startswith(fence):
-                    fence = None
-                    continue
-                result.append((block, number, line))
-                continue
-            if stripped.startswith(("```", "~~~")):
-                fence = stripped[:3]
-                block += 1
-                indented = False
-                continue
-            if not stripped and indented:
-                result.append((block, number, line))
-                continue
-            is_code = line[:1].isspace() and len(line) - len(line.lstrip()) >= 4
-            if is_code and not indented:
-                block += 1
-            indented = is_code
-            if is_code:
-                result.append((block, number, line))
-        return result
-
-    @staticmethod
-    def _rst_code_lines(lines: list[str]) -> list[tuple[int, int, str]]:
-        result = []
-        block = 0
-        in_code = False
-        for number, line in enumerate(lines, 1):
-            if not line.strip() and in_code:
-                result.append((block, number, line))
-                continue
-            is_code = line[:1].isspace() and len(line) - len(line.lstrip()) >= 3
-            if is_code and not in_code:
-                block += 1
-            in_code = is_code
-            if is_code:
-                result.append((block, number, line))
-        return result
-
-    def _check_python_arguments(
-        self, path: Path, line: int, arguments: str, cwd: Path
-    ) -> None:
-        tokens = [token.strip(TRAILING) for token in arguments.split()]
-        for index, token in enumerate(tokens):
-            if token == "-m":
-                return
-            if token.startswith("-") or not token:
-                continue
-            if token.endswith(".py"):
-                self._check_command_path(path, line, token, cwd)
-            return
-
-    def _check_command_arguments(
-        self, path: Path, line: int, command: str, arguments: str, cwd: Path
-    ) -> None:
-        tokens = [token.strip(TRAILING) for token in arguments.split()]
-        # sphinx-build takes a source tree followed by a generated output
-        # directory; only the source tree must exist in the checkout.
-        limit = 1 if command == "sphinx-build" else len(tokens)
-        checked = 0
-        for token in tokens:
-            if token.startswith("-") or not token:
-                continue
-            if PLACEHOLDERS.intersection(token) or "..." in token:
-                continue
-            if command in {"bash", "sh", "sphinx-build"}:
-                if "/" not in token and not Path(token).suffix:
-                    break
-            elif not (token.endswith(".py") or "/" in token):
-                continue
-            self._check_command_path(path, line, token, cwd)
-            checked += 1
-            if checked >= limit:
-                break
-
-    def _check_command_path(self, path: Path, line: int, token: str, cwd: Path) -> None:
-        token = token.strip(TRAILING)
-        if not token or has_scheme(token) or token.startswith(("/", "~", "$", "@")):
-            return
-        if PLACEHOLDERS.intersection(token) or "..." in token:
-            return
-        for base in (cwd, self.root, path.parent):
-            candidate = (base / token).resolve()
-            if exact_exists(self.root, candidate):
-                return
-        self.report.error(
-            path, line, f"documented path {token!r} does not exist", self.root
-        )
-
-    def _check_module(self, path: Path, line: int, module: str) -> None:
-        parts = module.split(".")
-        if len(parts) < 2 or not all(part.isidentifier() for part in parts):
-            return
-        if parts[0] not in {"rpent", "robots", "tests", "calibration_tools"}:
-            return
-        base = self.root.joinpath(*parts)
-        candidates = [base.with_suffix(".py"), base / "__init__.py"]
-        if not any(exact_exists(self.root, candidate) for candidate in candidates):
-            self.report.error(
-                path, line, f"documented module {module!r} does not exist", self.root
-            )
-
-    def _check_extras(self, path: Path, line: int, extras: str) -> None:
-        if self._extras is None:
-            return
-        for extra in extras.split(","):
-            name = extra.strip()
-            if not name or PLACEHOLDERS.intersection(name) or "..." in name:
-                continue
-            if name not in self._extras:
-                self.report.error(
-                    path, line, f"unknown optional dependency {name!r}", self.root
-                )
-
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "files",
+        nargs="*",
+        help="Files to check, relative to the repository root. "
+        "Without arguments, every tracked or untracked Markdown and RST file "
+        "is checked.",
+    )
     parser.add_argument(
         "--root",
         type=Path,
@@ -1028,9 +727,35 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--quiet",
         action="store_true",
-        help="Print only the summary and errors.",
+        help="Print only the summary, warnings, and errors.",
     )
     return parser.parse_args(argv)
+
+
+def selected_files(root: Path, names: list[str]) -> list[Path]:
+    """Resolve command-line files, keeping only documentation documents."""
+    if not names:
+        return repository_files(root)
+    selected = []
+    seen = set()
+    for name in names:
+        path = Path(name)
+        if not path.is_absolute():
+            path = root / path
+        path = path.resolve()
+        if path in seen or not path.is_file():
+            continue
+        if path.suffix.lower() not in SUFFIXES:
+            continue
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
+            continue
+        if any(part in SKIP_PARTS for part in relative.parts):
+            continue
+        selected.append(path)
+        seen.add(path)
+    return sorted(selected)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1040,8 +765,9 @@ def main(argv: list[str] | None = None) -> int:
     if not root.is_dir():
         print(f"check_docs: {root} is not a directory", file=sys.stderr)
         return 2
-    files = repository_files(root)
-    report = Checker(root).check(files)
+    checker = Checker(root)
+    files = checker.with_counterparts(selected_files(root, args.files))
+    report = checker.check(files)
     for warning in report.warnings:
         print(f"warning: {warning}")
     for error in report.errors:

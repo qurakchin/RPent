@@ -19,9 +19,9 @@ repos:
   - repo: local
     hooks:
       - id: docs-check
-        name: Check documentation links, references, and commands
+        name: Check documentation links and validation status
         entry: python scripts/check_docs.py --quiet
         language: system
-        pass_filenames: false
-        files: '\.(md|rst)$|^scripts/check_docs\.py$'
+        pass_filenames: true
+        files: '\.(md|rst)$'
         stages: [pre-commit]

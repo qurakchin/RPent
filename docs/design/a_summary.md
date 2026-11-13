@@ -1,5 +1,5 @@
 # a_summary 改造后的目标形态
-> 状态：草案｜基线 `01e9cb3`｜最后更新 2026-11-13
+> 状态：草案｜基线 `01e9cb3`｜最后更新 2026-11-14
 
 > 汇总目标架构、模块对照、目录设计、代码量与文件量，以及改造本身的成本和取舍。
 >
@@ -26,7 +26,7 @@
 | 运行轴 | `run_mode`、`policy_mode`（tool / code，同一份工具声明）、`interactive`、`real_robot` | — | — | a_global 2.2、a_4 |
 | Prompt 拼装 | 片段库、`assemble_prompt`、`effective_prompt.md` + sha256 | — | 领域片段（两种调用模式共用） | a_2 |
 | 工具 | `Toolkit`（并发、取消、校验、finish 策略）、四层 `ToolResult`；Scene / Motion（+`vla_act`）/ Memory / File 四个族；Episode 会话（不确定态锁存、自动对账） | `toolkits/<name>/`：重实现与独立评估 | skill binding、原生特有工具、判据阈值配置 | a_3、a_6、a_7 |
-| 环境接入 | `rpent/env/`：契约、`BaseEnvClient`、`BaseEnvFacade`、`ReceiptLedger`、`EpisodeSession`、`rpent.env.serve`、`SingleEnvView`（仅方案 b） | — | adapter、能力声明 | a_5、a_6 |
+| 环境接入 | `rpent/env/`：契约、`BaseEnvClient`、`BaseEnvFacade`、`ReceiptLedger`、`EpisodeSession`、`rpent.env.serve`；`SingleEnvView` 仅方案 b，a_5 P2 选型前不计入交付清单 | — | adapter、能力声明 | a_5、a_6 |
 | 模型服务 | `rpent/robots/runtime.py`（进程拉起） | `capabilities/_base/` 与 `capabilities/<name>/` | 服务声明 | a_3 4.7、a_5 |
 | 安装 | `rpent-env`、`require()`、安装指纹 | 每个组件的 `component.toml`；共用依赖 `envs/deps/*.toml`（如 `rlinf`） | `component.toml` | a_1 |
 | 产物与外部交互 | `RunFinalizationContext`（run 级）；`run.json` / `result.json` / `transcript.json` / `events.jsonl`；`EventBus`，Dashboard 与 JSONL 是订阅者 | — | 真机 operator / HIL、Flash、数据导出 | a_7、a_8 |
@@ -64,7 +64,7 @@
 
 | 位置 | 新增 / 修改 | 文档 |
 |---|---|---|
-| `rpent/env/` | `contracts.py`、`client.py`、`facade.py`、`ledger.py`、`episode.py`、`serve.py`；`single_env.py`（仅方案 b） | a_5、a_6 |
+| `rpent/env/` | `contracts.py`、`client.py`、`facade.py`、`ledger.py`、`episode.py`、`serve.py`；`single_env.py` 仅方案 b，a_5 P2 选型前不纳入交付清单 | a_5、a_6 |
 | `rpent/tools/` | `{scene,motion,memory,file}_tools.py`、`motion/`（执行器、`vla_act`）；修改 `base.py`、`toolkit.py` | a_3、a_7 |
 | `rpent/prompt/` | `assembly.py`、`fragments/*.md`；`code_policy.py` 作为 `policy_mode` 片段 | a_2、a_4 |
 | `rpent/evaluation/`、`rpent/artifacts/` | `result.py`；`manifest.py`、`events.py` | a_7、a_8 |

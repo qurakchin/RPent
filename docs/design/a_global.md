@@ -1,5 +1,5 @@
 # RPent 改造全局规范
-> 状态：草案｜基线 `01e9cb3`｜最后更新 2026-11-13
+> 状态：草案｜基线 `01e9cb3`｜最后更新 2026-11-14
 
 本文件是改造系列的共同底座，包含术语与路径、运行轴与身份、分层职责、规则、开关、验收口径和文档地图。各主题文档只引用这里的条目，不再重复；**名字和路径以 2.1 节为唯一来源**，主题文档与之冲突时以本节为准。
 
@@ -42,7 +42,7 @@
 | 工具族 | Scene / Motion / Memory / File 族：`SceneTools` / `MotionTools` / `MemoryTools` / `FileTools` | `rpent/tools/{scene,motion,memory,file}_tools.py` | 拥有**模型可见的公共面**：工具名、schema、prompt 段、族级结果字段；按能力装配 |
 | 工具包 | `toolkits/<name>/` | `toolkits/<name>/` | 需要独立评估语料的重实现（首个是 `geometry`）；族引用它，它不 import 族或切片 |
 | 轻量工具实现 | — | 族文件旁，如 `rpent/tools/motion/` | 确定性动作、文件、记忆访问；评估用契约测试 |
-| Toolkit | `Toolkit` | `rpent/tools/toolkit.py` | 调度器：并发、取消、校验、finish 策略；「Toolkit」只指它 |
+| Toolkit | `Toolkit` | `rpent/tools/toolkit.py` | 调度器：并发、取消、校验、finish 策略；「Toolkit」只指它，`toolkits/` 只指工具包目录 |
 | 模型能力 | `BaseAMClient` / `BaseVLAClient` / `BaseWAMClient` / `BaseAMFacade` | `capabilities/_base/` | 由 `rpent/robots/components/am_*` 迁入 |
 | 模型服务 | `capabilities/<name>/` | `client.py`、`server.py`、`adapter/{encode,decode}.py` | **模型原生** I/O：契约输入 ↔ 模型张量；与机器人无关 |
 | 技能绑定 | `SkillBinding` | `robots/<name>/skills/<skill>.py` | **机器人侧**：VLA/WAM 技能的观测 → 能力契约输入、动作块 → `NativeChunk`、工具参数 schema、子目标判据 `judge`（阈值来自配置） |

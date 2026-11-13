@@ -23,10 +23,10 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "check_docs.py"
 
 
-def run(root: Path) -> subprocess.CompletedProcess[str]:
+def run(root: Path, *files: str) -> subprocess.CompletedProcess[str]:
     """Run the checker against a temporary repository root."""
     return subprocess.run(
-        [sys.executable, str(SCRIPT), "--root", str(root)],
+        [sys.executable, str(SCRIPT), "--root", str(root), *files],
         capture_output=True,
         text=True,
         check=False,
@@ -41,7 +41,23 @@ def write(root: Path, name: str, text: str = "") -> Path:
     return path
 
 
-def test_markdown_links_and_anchors(tmp_path: Path) -> None:
+def validation_page(status: str = "CPU only", evidence: str = "Ran.") -> str:
+    """Return an RST page with a minimal validation table."""
+    return (
+        "Demo\n====\n\n"
+        "Validation Status\n-----------------\n\n"
+        ".. list-table::\n"
+        "   :header-rows: 1\n\n"
+        "   * - Tier\n"
+        "     - Status\n"
+        "     - Evidence\n"
+        "   * - Offline checks\n"
+        f"     - {status}\n"
+        f"     - {evidence}\n"
+    )
+
+
+def test_markdown_links(tmp_path: Path) -> None:
     write(
         tmp_path,
         "docs/page.md",
@@ -56,9 +72,8 @@ def test_markdown_links_and_anchors(tmp_path: Path) -> None:
     assert "other.md" not in result.stdout
 
 
-def test_missing_markdown_heading_anchor(tmp_path: Path) -> None:
-    write(tmp_path, "docs/page.md", "[bad](other.md#no-such-heading)\n")
-    write(tmp_path, "docs/other.md", "## Validation status\n")
+def test_same_file_heading_anchor_is_an_error(tmp_path: Path) -> None:
+    write(tmp_path, "docs/page.md", "# Page\n\n[bad](#no-such-heading)\n")
 
     result = run(tmp_path)
 
@@ -66,102 +81,25 @@ def test_missing_markdown_heading_anchor(tmp_path: Path) -> None:
     assert "missing heading anchor #no-such-heading" in result.stdout
 
 
-def test_rst_doc_and_ref_roles(tmp_path: Path) -> None:
-    write(tmp_path, "docs/source-en/conf.py")
-    write(tmp_path, "docs/source-en/index.rst", "Index\n=====\n")
-    write(
-        tmp_path,
-        "docs/source-en/page.rst",
-        "Page\n====\n\n"
-        ".. _known-label:\n\n"
-        "See :doc:`index` and :ref:`known-label`.\n"
-        "Bad :doc:`missing` and :ref:`unknown-label`.\n",
-    )
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "broken :doc: target 'missing'" in result.stdout
-    assert "unknown :ref: label 'unknown-label'" in result.stdout
-    assert "known-label`" not in result.stdout
-
-
-def test_rst_directive_path(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "docs/source-en/page.rst",
-        "Page\n====\n\n.. figure:: missing.png\n   :alt: missing\n",
-    )
-    write(tmp_path, "docs/source-en/conf.py")
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "broken RST path 'missing.png'" in result.stdout
-
-
-def test_documented_command_paths(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "docs/run.md",
-        "```bash\npytest tests/missing -v\nbash docs/run.sh\n```\n",
-    )
-    write(tmp_path, "docs/run.sh")
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "documented path 'tests/missing' does not exist" in result.stdout
-    assert "docs/run.sh" not in result.stdout
-
-
-def test_external_checkout_commands_are_skipped(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "docs/setup.md",
-        "```bash\n"
-        "cd /path/to/other-checkout\n"
-        "bash requirements/install.sh embodied\n"
-        "```\n",
-    )
+def test_cross_file_heading_anchor_is_a_warning(tmp_path: Path) -> None:
+    write(tmp_path, "docs/page.md", "[maybe](other.md#no-such-heading)\n")
+    write(tmp_path, "docs/other.md", "## Validation status\n")
 
     result = run(tmp_path)
 
     assert result.returncode == 0, result.stdout
+    assert "warning: docs/page.md:1: heading anchor #no-such-heading" in result.stdout
 
 
-def test_optional_dependency_names(tmp_path: Path) -> None:
+def test_rst_references_are_left_to_sphinx(tmp_path: Path) -> None:
     write(
         tmp_path,
-        "pyproject.toml",
-        "[project]\nname = 'demo'\n\n"
-        "[project.optional-dependencies]\n"
-        "test = []\n"
-        "robot = []\n",
+        "docs/source-en/page.rst",
+        "Page\n====\n\n"
+        "See :doc:`missing`, :ref:`unknown-label`, and :download:`gone.txt`.\n\n"
+        ".. figure:: missing.png\n   :alt: missing\n",
     )
-    write(
-        tmp_path,
-        "docs/install.md",
-        "```bash\n"
-        'uv pip install -e ".[test,robot]"\n'
-        'uv pip install -e ".[missing]"\n'
-        "```\n",
-    )
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "unknown optional dependency 'missing'" in result.stdout
-    assert "unknown optional dependency 'test'" not in result.stdout
-
-
-def test_ignore_marker_and_external_urls(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "docs/page.md",
-        "[site](https://example.com/missing)\n"
-        "[planned](not-yet.md) <!-- docs-check: ignore: planned for the next release -->\n",
-    )
+    write(tmp_path, "docs/source-en/conf.py")
 
     result = run(tmp_path)
 
@@ -184,155 +122,26 @@ def test_markdown_reference_style_links(tmp_path: Path) -> None:
     assert "other.md" not in result.stdout
 
 
-def test_pip_install_extras(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "pyproject.toml",
-        "[project]\nname = 'demo'\n\n[project.optional-dependencies]\ntest = []\n",
-    )
-    write(
-        tmp_path,
-        "docs/install.md",
-        "```bash\n"
-        'pip install -e ".[missing]"\n'
-        'python -m pip install -e ".[test]"\n'
-        "```\n",
-    )
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "unknown optional dependency 'missing'" in result.stdout
-    assert "unknown optional dependency 'test'" not in result.stdout
-
-
-def test_inline_command_paths(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "docs/page.md",
-        "Run `bash docs/missing.sh` to start.\n",
-    )
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "documented path 'docs/missing.sh' does not exist" in result.stdout
-
-
-def test_ignore_marker_applies_to_the_next_line(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "docs/page.rst",
-        "Page\n====\n\n"
-        ".. docs-check: ignore: example command\n"
-        "\n"
-        "Run ``bash docs/missing.sh`` to start.\n",
-    )
-
-    result = run(tmp_path)
-
-    assert result.returncode == 0, result.stdout
-
-
-def test_ignore_marker_on_content_line_hides_only_that_line(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "docs/page.md",
-        "[site](https://example.com) <!-- docs-check: ignore: external -->\n"
-        "Run `bash docs/missing.sh` to start.\n",
-    )
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "documented path 'docs/missing.sh' does not exist" in result.stdout
-
-
-def test_rst_tree_absolute_paths(tmp_path: Path) -> None:
-    write(tmp_path, "docs/source-en/conf.py")
-    write(
-        tmp_path,
-        "docs/source-en/page.rst",
-        "Page\n====\n\n"
-        ".. image:: /_static/missing.png\n"
-        ".. image:: /_static/present.png\n",
-    )
-    write(tmp_path, "docs/source-en/_static/present.png")
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "broken RST path '/_static/missing.png'" in result.stdout
-    assert "present.png" not in result.stdout
-
-
-def test_missing_cd_target_is_reported(tmp_path: Path) -> None:
-    write(
-        tmp_path,
-        "docs/setup.md",
-        "```bash\ncd missing-dir\nbash requirements/install.sh\n```\n",
-    )
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "documented cd target 'missing-dir' does not exist" in result.stdout
-
-
-def test_clone_directory_name_resolves_to_repository_root(tmp_path: Path) -> None:
-    write(tmp_path, "pyproject.toml", "[project]\nname = 'demo'\n")
-    write(
-        tmp_path,
-        "docs/setup.md",
-        "```bash\ncd Demo\nbash docs/missing.sh\n```\n",
-    )
-
-    result = run(tmp_path)
-
-    assert result.returncode == 1
-    assert "documented cd target 'Demo' does not exist" not in result.stdout
-    assert "documented path 'docs/missing.sh' does not exist" in result.stdout
-
-
 def test_validation_status_vocabulary_and_evidence(tmp_path: Path) -> None:
-    prefix = (
-        "Demo\n====\n\n"
-        "Validation Status\n-----------------\n\n"
-        ".. list-table::\n"
-        "   :header-rows: 1\n\n"
-        "   * - Tier\n"
-        "     - Status\n"
-        "     - Evidence\n"
-    )
     write(
         tmp_path,
         "docs/source-en/rst_source/simulators/unsupported.rst",
-        prefix
-        + "   * - Offline checks\n"
-        + "     - Supported\n"
-        + "     - Some run.\n",
+        validation_page("Supported", "Some run."),
     )
     write(
         tmp_path,
         "docs/source-en/rst_source/simulators/no-evidence.rst",
-        prefix + "   * - Offline checks\n" + "     - CPU only\n" + "     -\n",
+        validation_page("CPU only", ""),
     )
     write(
         tmp_path,
         "docs/source-en/rst_source/simulators/valid.rst",
-        prefix
-        + "   * - Offline checks\n"
-        + "     - CPU only\n"
-        + "     - Offline checks passed.\n",
+        validation_page(),
     )
     write(
         tmp_path,
         "docs/source-en/rst_source/simulators/trailing.rst",
-        prefix
-        + "   * - Offline checks\n"
-        + "     - CPU only\n"
-        + "     - Offline checks passed.\n"
-        + "\nExtra\n-----\n",
+        validation_page() + "\nExtra\n-----\n",
     )
 
     result = run(tmp_path)
@@ -344,62 +153,73 @@ def test_validation_status_vocabulary_and_evidence(tmp_path: Path) -> None:
     assert "valid.rst" not in result.stdout
 
 
-def test_validation_evidence_paths_must_exist(tmp_path: Path) -> None:
-    prefix = (
-        "Demo\n====\n\n"
-        "Validation Status\n-----------------\n\n"
-        ".. list-table::\n"
-        "   :header-rows: 1\n\n"
-        "   * - Tier\n"
-        "     - Status\n"
-        "     - Evidence\n"
+def test_experimental_is_a_stability_tag_not_an_evidence_level(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/tagged.rst",
+        validation_page("CPU only (Experimental)", "Ran."),
     )
     write(
         tmp_path,
+        "docs/source-en/rst_source/simulators/bare.rst",
+        validation_page("Experimental", "Ran."),
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "unknown validation status 'Experimental'" in result.stdout
+    assert "tagged.rst" not in result.stdout
+
+
+def test_validation_evidence_paths_must_exist(tmp_path: Path) -> None:
+    write(
+        tmp_path,
         "docs/source-en/rst_source/simulators/fabricated.rst",
-        prefix
-        + "   * - Offline checks\n"
-        + "     - CPU only\n"
-        + "     - See ``missing/path/never-exists.md``.\n",
+        validation_page("CPU only", "See ``docs/missing/never-exists.md``."),
     )
     write(tmp_path, "docs/evidence.md")
     write(
         tmp_path,
         "docs/source-en/rst_source/simulators/present.rst",
-        prefix
-        + "   * - Offline checks\n"
-        + "     - CPU only\n"
-        + "     - See ``docs/evidence.md``.\n",
+        validation_page("CPU only", "See ``docs/evidence.md``."),
     )
 
     result = run(tmp_path)
 
     assert result.returncode == 1
     assert (
-        "evidence path 'missing/path/never-exists.md' does not exist" in result.stdout
+        "evidence path 'docs/missing/never-exists.md' does not exist" in result.stdout
     )
     assert "present.rst" not in result.stdout
 
 
-def test_validation_pages_require_language_counterpart(tmp_path: Path) -> None:
-    prefix = (
-        "Demo\n====\n\n"
-        "Validation Status\n-----------------\n\n"
-        ".. list-table::\n"
-        "   :header-rows: 1\n\n"
-        "   * - Tier\n"
-        "     - Status\n"
-        "     - Evidence\n"
+def test_evidence_paths_outside_the_repository_are_skipped(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/external.rst",
+        validation_page(
+            "CPU only",
+            "See ~/runs/out.json, /mnt/public/runs/out.json, and "
+            "``output_dir/run.json``.",
+        ),
     )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_validation_pages_require_language_counterpart(tmp_path: Path) -> None:
     write(
         tmp_path,
         "docs/source-en/rst_source/simulators/english_only.rst",
-        prefix + "   * - Offline checks\n" + "     - CPU only\n" + "     - Ran.\n",
+        validation_page(),
     )
     write(
         tmp_path,
         "docs/source-zh/rst_source/simulators/other.rst",
-        prefix + "   * - 离线检查\n" + "     - 仅 CPU\n" + "     - 已运行。\n",
+        validation_page("仅 CPU", "已运行。"),
     )
 
     result = run(tmp_path)
@@ -416,24 +236,15 @@ def test_validation_pages_require_language_counterpart(tmp_path: Path) -> None:
 
 
 def test_paired_validation_pages_must_agree_on_statuses(tmp_path: Path) -> None:
-    prefix = (
-        "Demo\n====\n\n"
-        "Validation Status\n-----------------\n\n"
-        ".. list-table::\n"
-        "   :header-rows: 1\n\n"
-        "   * - Tier\n"
-        "     - Status\n"
-        "     - Evidence\n"
-    )
     write(
         tmp_path,
         "docs/source-en/rst_source/simulators/demo.rst",
-        prefix + "   * - Offline checks\n" + "     - CPU only\n" + "     - Ran.\n",
+        validation_page(),
     )
     write(
         tmp_path,
         "docs/source-zh/rst_source/simulators/demo.rst",
-        prefix + "   * - 离线检查\n" + "     - 未验证\n" + "     - 未运行。\n",
+        validation_page("未验证", "未运行。"),
     )
 
     result = run(tmp_path)
@@ -442,23 +253,39 @@ def test_paired_validation_pages_must_agree_on_statuses(tmp_path: Path) -> None:
     assert "validation statuses differ from the Chinese counterpart" in result.stdout
 
 
-def test_historical_result_is_a_validation_status(tmp_path: Path) -> None:
-    prefix = (
-        "Demo\n====\n\n"
-        "Validation Status\n-----------------\n\n"
-        ".. list-table::\n"
-        "   :header-rows: 1\n\n"
-        "   * - Tier\n"
-        "     - Status\n"
-        "     - Evidence\n"
-    )
+def test_subset_check_loads_the_paired_page(tmp_path: Path) -> None:
     write(
         tmp_path,
         "docs/source-en/rst_source/simulators/demo.rst",
-        prefix
-        + "   * - Benchmark success\n"
-        + "     - Historical result\n"
-        + "     - Recorded on a frozen snapshot.\n",
+        validation_page(),
+    )
+    write(
+        tmp_path,
+        "docs/source-zh/rst_source/simulators/demo.rst",
+        validation_page("仅 CPU", "已运行。"),
+    )
+
+    result = run(tmp_path, "docs/source-en/rst_source/simulators/demo.rst")
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_subset_check_ignores_unselected_files(tmp_path: Path) -> None:
+    write(tmp_path, "docs/page.md", "[ok](other.md)\n")
+    write(tmp_path, "docs/other.md", "# Other\n")
+    write(tmp_path, "docs/broken.md", "[bad](missing.md)\n")
+
+    result = run(tmp_path, "docs/page.md")
+
+    assert result.returncode == 0, result.stdout
+    assert "broken.md" not in result.stdout
+
+
+def test_historical_result_is_a_validation_status(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/demo.rst",
+        validation_page("Historical result", "Recorded on a frozen snapshot."),
     )
 
     result = run(tmp_path)
@@ -526,6 +353,17 @@ def test_design_status_in_shallow_clone_warns(tmp_path: Path) -> None:
     assert "shallow checkout: design baseline commits were not checked" in result.stdout
 
 
+def test_design_status_applies_to_summary_documents(tmp_path: Path) -> None:
+    write(tmp_path, "docs/design/a_global.md", "# Global\n")
+    write(tmp_path, "docs/design/a_notes.md", "# Notes\n")
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "docs/design/a_global.md:1: missing design status line" in result.stdout
+    assert "a_notes.md" not in result.stdout
+
+
 def test_missing_validation_status_section(tmp_path: Path) -> None:
     write(
         tmp_path,
@@ -561,6 +399,62 @@ def test_design_status_requires_a_status_line(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "missing design status line" in result.stdout
+
+
+def test_ignore_marker_requires_an_expiry_date(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.md",
+        "[planned](not-yet.md) <!-- docs-check: ignore: planned later -->\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+    assert "docs-check exception has no 'until YYYY-MM-DD' date" in result.stdout
+
+
+def test_expired_ignore_marker_is_an_error(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.md",
+        "[planned](not-yet.md) "
+        "<!-- docs-check: ignore until 2000-01-01: planned later -->\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "docs-check exception expired on 2000-01-01" in result.stdout
+
+
+def test_unexpired_ignore_marker_hides_the_line(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.md",
+        "[planned](not-yet.md) "
+        "<!-- docs-check: ignore until 2999-12-31: planned later -->\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+    assert "not-yet.md" not in result.stdout
+
+
+def test_ignore_marker_applies_to_the_next_line(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Page\n====\n\n"
+        ".. docs-check: ignore until 2999-12-31: example command\n"
+        "\n"
+        "See :doc:`missing`.\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
 
 
 def test_valid_repository_is_clean(tmp_path: Path) -> None:
