@@ -360,7 +360,7 @@ class Toolkit:
                     )
                 )
 
-            if not tool.readonly:
+            if not tool.readonly and tool.captures_state:
                 elapsed_s = round(time.perf_counter() - started, 2)
                 # State records keep the domain payload; the call/execution
                 # layers travel in the captured ``rpent.tool_result`` record.

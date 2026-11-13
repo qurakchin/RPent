@@ -25,10 +25,7 @@
           },
           "maxItems": 2,
           "minItems": 2,
-          "type": [
-            "array",
-            "null"
-          ]
+          "type": "array"
         },
         "view": {
           "description": "Camera view; omit for the default view.",

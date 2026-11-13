@@ -134,7 +134,7 @@ class MemoryTools(ToolFamily):
             }
         )
 
-    @tool
+    @tool(captures_state=False)
     def remember(
         self,
         *,
@@ -197,7 +197,7 @@ class MemoryTools(ToolFamily):
             }
         )
 
-    @tool
+    @tool(captures_state=False)
     def corroborate(
         self,
         memory_id: str,

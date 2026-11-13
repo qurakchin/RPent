@@ -545,6 +545,31 @@ def test_planner_forwards_configured_service_tier(
     assert fake_codex.thread.turn_prompts[0][1]["service_tier"] == "fast"
 
 
+def test_planner_gives_builtin_tools_no_write_access(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    install_fake_backend(monkeypatch)
+    FakeCodex.events = [
+        {
+            "method": "turn/completed",
+            "payload": {"turn": {"status": "completed", "duration_ms": 10}},
+        },
+    ]
+
+    make_planner(tmp_path, RecordingSink()).solve(
+        system_prompt="system rules",
+        user_message="user task",
+        toolkit=FakeToolkit(),
+        max_turns=1,
+    )
+
+    fake_codex = FakeCodex.instances[0]
+    read_only = codex_module.openai_codex.Sandbox.read_only
+    assert fake_codex.thread_options["sandbox"] is read_only
+    assert fake_codex.thread.turn_prompts[0][1]["sandbox"] is read_only
+
+
 def test_successful_fake_codex_lifecycle_uses_fake_mcp_and_accounts_events(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

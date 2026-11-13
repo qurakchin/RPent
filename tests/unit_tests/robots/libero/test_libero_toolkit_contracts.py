@@ -38,6 +38,9 @@ from rpent.tools.common import CommonTools
 from rpent.utils import templates
 
 COMMON_TOOLS = {"read_text_file", "write_text_file", "list_dir", "finish"}
+# File writes are exclusive with the environment, so they are not readonly and
+# do not trigger an observation capture.
+READONLY_COMMON_TOOLS = COMMON_TOOLS - {"write_text_file"}
 
 EVALUATION_TOOLS = COMMON_TOOLS | {
     "view_env_state",
@@ -216,13 +219,18 @@ def test_toolkit_modes_construct_with_fake_primitives(
 
     assert _tool_names(evaluation) == EVALUATION_TOOLS
     assert _tool_names(exploration) == EVALUATION_TOOLS | {"reset"}
-    assert _readonly_names(evaluation) == COMMON_TOOLS | {
+    assert _readonly_names(evaluation) == READONLY_COMMON_TOOLS | {
         "view_env_state",
         "view_camera_meta",
         "back_project",
         "segment",
     }
     assert _readonly_names(exploration) == _readonly_names(evaluation)
+    write_text_file = next(
+        item for item in evaluation.list_tools() if item.name == "write_text_file"
+    )
+    assert write_text_file.readonly is False
+    assert write_text_file.captures_state is False
     assert len(dumped) == 2
     assert all(
         instance.reset_calls == 1 for instance in fake_single_arm_primitives.instances

@@ -35,6 +35,9 @@ from rpent.tools.common import CommonTools
 from rpent.utils import templates
 
 COMMON_TOOLS = {"read_text_file", "write_text_file", "list_dir", "finish"}
+# File writes are exclusive with the environment, so they are not readonly and
+# do not trigger an observation capture.
+READONLY_COMMON_TOOLS = COMMON_TOOLS - {"write_text_file"}
 
 EXPECTED_TOOLS = COMMON_TOOLS | {
     "move_to",
@@ -145,11 +148,16 @@ def test_toolkit_constructs_and_classifies_tools_with_a_fake(
     )
 
     assert _tool_names(robot_toolkit) == EXPECTED_TOOLS
-    assert _readonly_names(robot_toolkit) == COMMON_TOOLS | {
+    assert _readonly_names(robot_toolkit) == READONLY_COMMON_TOOLS | {
         "view_env_state",
         "back_project_batch",
         "query_world_map",
     }
+    write_text_file = next(
+        item for item in robot_toolkit.list_tools() if item.name == "write_text_file"
+    )
+    assert write_text_file.readonly is False
+    assert write_text_file.captures_state is False
     assert dumped == fake_single_arm_primitives.instances
     primitive = fake_single_arm_primitives.instances[0]
     assert primitive.reset_calls == (1 if mode == "evaluation" else 0)

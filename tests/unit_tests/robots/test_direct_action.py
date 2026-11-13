@@ -91,7 +91,25 @@ def make_primitive(robot, action_size=None):
         env.render_camera = lambda **kwargs: obs["main_images"]
     else:
         from robots.robotwin.primitives import RoboTwinPrimitives
+        from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES
 
+        # The real client copies these from the server handshake in ``__init__``;
+        # this fake is built with ``__new__``, so declare the same contract here.
+        env.server_meta = {
+            "task_name": "test_task",
+            "extensions": {
+                "render_camera": {
+                    "camera_names": list(ROBOTWIN_CAMERA_NAMES),
+                    "metric_depth": True,
+                },
+                "get_camera_meta": True,
+            },
+        }
+        env.execution_capabilities = {
+            "reset": True,
+            "step": True,
+            "chunk_step": True,
+        }
         primitive = RoboTwinPrimitives(
             env=env, model=None, seed=0, check_cancelled=lambda: None
         )

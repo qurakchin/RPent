@@ -26,7 +26,7 @@ from robots.robotwin.motion import RoboTwinMotionBackend
 from robots.robotwin.observation import dump_observation, world_from_depth
 from robots.robotwin.policy import RoboTwinPolicyBinding
 from robots.robotwin.primitives import RoboTwinPrimitives
-from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES
+from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES, env_runtime_contract
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
 from rpent.session.env_capture import CapturingEnvClient
@@ -63,6 +63,20 @@ _RECIPE_ACTIONS = {
     "set_gripper",
     "release",
 }
+
+
+def _declared_views(
+    server_meta: dict[str, Any],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Return the depth and calibrated camera views advertised by the server."""
+    extensions = server_meta.get("extensions")
+    extensions = extensions if isinstance(extensions, dict) else {}
+    render_camera = extensions.get("render_camera")
+    render_camera = render_camera if isinstance(render_camera, dict) else {}
+    names = tuple(render_camera.get("camera_names") or ())
+    depth_views = names if render_camera.get("metric_depth") is True else ()
+    calibrated_views = names if extensions.get("get_camera_meta") is True else ()
+    return depth_views, calibrated_views
 
 
 class RoboTwinToolkit(Toolkit):
@@ -146,10 +160,11 @@ class RoboTwinToolkit(Toolkit):
         sam3 = runtime_kwargs.get("sam3_client")
         grounder = MolmoGrounder(molmo) if molmo is not None else None
         segmenter = Sam3Segmenter(sam3) if sam3 is not None else None
-        views = tuple(ROBOTWIN_CAMERA_NAMES)
         binding = RoboTwinPolicyBinding(self._primitives)
+        server_meta = dict(getattr(self._primitives.env, "server_meta", {}) or {})
+        views, calibrated_views = _declared_views(server_meta)
         self._capabilities = Capabilities(
-            env=dict(getattr(self._primitives.env, "server_meta", {}) or {}),
+            env=server_meta,
             execution=dict(
                 getattr(self._primitives.env, "execution_capabilities", {}) or {}
             ),
@@ -158,7 +173,7 @@ class RoboTwinToolkit(Toolkit):
             policy_backends=(binding.backend,),
             real_robot=False,
             depth_views=views,
-            calibrated_views=views,
+            calibrated_views=calibrated_views,
             native_tools=("execute_action", "finish", "render", "reset"),
         )
         provider = EnvStateObservationProvider(
@@ -196,11 +211,15 @@ class RoboTwinToolkit(Toolkit):
         from rpent.tools.scene_tools import view_env_state
         from rpent.tools.world_coordinates import query_world_map
 
-        views = tuple(ROBOTWIN_CAMERA_NAMES)
+        views, calibrated_views = _declared_views(
+            env_runtime_contract(
+                task_name="declared", task_config="declared", seed=0
+            )
+        )
         geometry = GeometryTools(provider=object()).tools(
             Capabilities(
                 depth_views=views,
-                calibrated_views=views,
+                calibrated_views=calibrated_views,
                 grounding=False,
             )
         )

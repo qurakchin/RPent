@@ -19,10 +19,16 @@ from __future__ import annotations
 from dataclasses import replace
 from types import SimpleNamespace
 
+import pytest
+from pydantic import ValidationError
+
+from rpent.dashboard.events import NullDashboardEventSink
+from rpent.memory import MemoryManager
 from rpent.tools.capabilities import Capabilities
 from rpent.tools.motion_tools import MotionTools
 from rpent.tools.policy_tools import PolicyTools
 from rpent.tools.scene_tools import SceneTools
+from rpent.tools.toolkit import Toolkit
 from toolkits.geometry.tool import GeometryTools
 
 
@@ -58,24 +64,68 @@ def test_geometry_family_hides_target_without_a_grounder() -> None:
     schema = declaration.input_schema
     assert "target" not in schema["properties"]
     assert schema["required"] == ["pixel"]
+    assert schema["properties"]["pixel"]["type"] == "array"
     assert "no grounding service" in declaration.description
+    assert "target" not in declaration.args_schema.model_fields
 
     grounded = family.tools(replace(calibrated, grounding=True))[0]
     assert "target" in grounded.input_schema["properties"]
     assert grounded.input_schema.get("required", []) == []
 
 
+def test_published_geometry_schema_matches_runtime_validation() -> None:
+    family = GeometryTools(provider=SimpleNamespace())
+    declaration = family.tools(
+        Capabilities(depth_views=("head",), calibrated_views=("head",))
+    )[0]
+
+    with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
+        declaration.args_schema.model_validate(
+            {"target": "the red block", "pixel": [10, 20]}, strict=True
+        )
+    with pytest.raises(ValidationError, match="Field required"):
+        declaration.args_schema.model_validate({}, strict=True)
+    assert declaration.args_schema.model_validate(
+        {"pixel": [10, 20]}, strict=True
+    ).pixel == [10, 20]
+
+
+def test_toolkit_reports_a_rejected_target_as_a_call_failure(tmp_path) -> None:
+    toolkit = Toolkit(
+        dashboard_events=NullDashboardEventSink(),
+        memory=MemoryManager(tmp_path / "memory"),
+    )
+    toolkit.add_tools(
+        GeometryTools(provider=SimpleNamespace()),
+        capabilities=Capabilities(depth_views=("head",), calibrated_views=("head",)),
+    )
+
+    result = toolkit.execute_tool("geometry", {"target": "the red block"})
+
+    assert result.call_ok is False
+    assert result.error["code"] == "validation"
+    assert result.no_execution is True
+
+
 def test_motion_family_requires_a_declared_step_transport() -> None:
     family = MotionTools(SimpleNamespace())
 
-    assert _names(family, Capabilities()) == {
+    assert _names(family, Capabilities()) == set()
+    assert _names(family, Capabilities(execution={"reset": True})) == set()
+    assert _names(family, Capabilities(execution={"step": True})) == {
         "move_to",
         "rotate_wrist",
         "set_gripper",
         "release",
     }
-    assert _names(family, Capabilities(execution={"reset": True})) == set()
-    assert _names(family, Capabilities(execution={"step": True})) == {
+    assert _names(family, Capabilities(execution={"chunk_step": True})) == {
+        "move_to",
+        "rotate_wrist",
+        "set_gripper",
+        "release",
+    }
+    # Without a capability snapshot, the family keeps its legacy behaviour.
+    assert _names(family, None) == {
         "move_to",
         "rotate_wrist",
         "set_gripper",
@@ -86,8 +136,9 @@ def test_motion_family_requires_a_declared_step_transport() -> None:
 def test_policy_family_hides_a_backend_the_host_does_not_serve() -> None:
     binding = SimpleNamespace(backend="lingbot", tool_name="lingbot_act")
 
-    assert _names(PolicyTools(binding), Capabilities()) == {"lingbot_act"}
+    assert _names(PolicyTools(binding), Capabilities()) == set()
     assert _names(PolicyTools(binding), Capabilities(policy_backends=("wam",))) == set()
     assert _names(PolicyTools(binding), Capabilities(policy_backends=("lingbot",))) == {
         "lingbot_act"
     }
+    assert _names(PolicyTools(binding), None) == {"lingbot_act"}

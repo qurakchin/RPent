@@ -14,9 +14,13 @@
 
 """Independent analytic references for one synthetic case.
 
-The reference re-derives the visible surface from the stored scene parameters
-with its own ray casting. It does not read the corpus renderer's depth, mask,
-or world coordinates, and it never consumes tool output.
+The reference is a second renderer with a different construction from the
+corpus renderer: it intersects each pixel ray with the three camera-facing box
+faces, clips each intersection to that face's rectangle, and keeps the nearest
+visible face after table occlusion. The corpus renderer instead intersects the
+ray with the box as a whole through the slab method. Both read the same stored
+scene parameters; neither reads the other's output, and the reference never
+consumes tool output.
 """
 
 from __future__ import annotations
@@ -25,13 +29,6 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-
-from toolkits.geometry.evaluation.corpus import (
-    FOCAL,
-    IMAGE_HEIGHT,
-    IMAGE_WIDTH,
-    TABLE_BOUNDS,
-)
 
 
 @dataclass(frozen=True)
@@ -53,7 +50,7 @@ class Reference:
             "visible_points": self.visible_points,
             "box_center": self.box_center.tolist(),
             "box_size": self.box_size.tolist(),
-            "definition": "exact visible surface, independently ray-cast",
+            "definition": ("exact visible surface, camera-facing face rasterization"),
         }
 
 
@@ -74,52 +71,85 @@ def _camera_frame(
     return origin, rotation
 
 
-def _ray_directions() -> np.ndarray:
-    columns, rows = np.meshgrid(
-        np.arange(IMAGE_WIDTH, dtype=np.float64),
-        np.arange(IMAGE_HEIGHT, dtype=np.float64),
-    )
-    cx, cy = (IMAGE_WIDTH - 1) / 2.0, (IMAGE_HEIGHT - 1) / 2.0
-    return np.stack(
-        [(columns - cx) / FOCAL, (rows - cy) / FOCAL, np.ones_like(columns)],
+def _camera_directions(camera: dict[str, Any], rotation: np.ndarray) -> np.ndarray:
+    """Return one world-space ray direction per pixel."""
+    height, width = (int(value) for value in camera["image_shape"])
+    focal = float(camera["focal"])
+    centre_x, centre_y = (width - 1) / 2.0, (height - 1) / 2.0
+    rows, cols = np.mgrid[0:height, 0:width]
+    local = np.stack(
+        [
+            (cols - centre_x) / focal,
+            (rows - centre_y) / focal,
+            np.ones_like(cols, dtype=np.float64),
+        ],
         axis=-1,
     )
+    return local @ rotation.T
+
+
+def _face_distance(
+    origin: np.ndarray,
+    directions: np.ndarray,
+    center: np.ndarray,
+    half: np.ndarray,
+    axis: int,
+) -> np.ndarray:
+    """Return the ray distance to one camera-facing box face.
+
+    The camera lies on one side of ``center[axis]``, so that side's face is the
+    one the ray enters the box through. The intersection must also fall inside
+    the face rectangle on the other two axes; anything else is a miss.
+    """
+    step = half[axis] if origin[axis] >= center[axis] else -half[axis]
+    plane = center[axis] + step
+    with np.errstate(divide="ignore", invalid="ignore"):
+        distance = (plane - origin[axis]) / directions[..., axis]
+        points = origin + distance[..., None] * directions
+    inside = np.isfinite(distance) & (distance > 0.0)
+    for other in range(3):
+        if other == axis:
+            continue
+        inside &= (points[..., other] >= center[other] - half[other]) & (
+            points[..., other] <= center[other] + half[other]
+        )
+    return np.where(inside, distance, np.inf)
 
 
 def _box_distance(
     origin: np.ndarray,
     directions: np.ndarray,
-    minimum: np.ndarray,
-    maximum: np.ndarray,
+    center: np.ndarray,
+    half: np.ndarray,
 ) -> np.ndarray:
-    with np.errstate(divide="ignore", invalid="ignore"):
-        near = np.max(
-            np.minimum(
-                (minimum - origin) / directions, (maximum - origin) / directions
-            ),
-            axis=-1,
+    """Return the nearest camera-facing face hit along each ray."""
+    nearest = np.full(directions.shape[:-1], np.inf)
+    for axis in range(3):
+        nearest = np.minimum(
+            nearest,
+            _face_distance(origin, directions, center, half, axis),
         )
-        far = np.min(
-            np.maximum(
-                (minimum - origin) / directions, (maximum - origin) / directions
-            ),
-            axis=-1,
-        )
-    hit = (far >= np.maximum(near, 0.0)) & (near > 0.0)
-    return np.where(hit, near, np.inf)
+    return nearest
 
 
-def _table_distance(origin: np.ndarray, directions: np.ndarray) -> np.ndarray:
+def _table_distance(
+    origin: np.ndarray,
+    directions: np.ndarray,
+    table: dict[str, Any],
+) -> np.ndarray:
+    """Return the distance to the table plane inside its rectangle."""
+    plane = float(table["height"])
+    bounds = table["bounds"]
     with np.errstate(divide="ignore", invalid="ignore"):
-        distance = -origin[2] / directions[..., 2]
-    points = origin + distance[..., None] * directions
+        distance = (plane - origin[2]) / directions[..., 2]
+        points = origin + distance[..., None] * directions
     inside = (
-        (distance > 0)
-        & (points[..., 0] >= TABLE_BOUNDS[0][0])
-        & (points[..., 0] <= TABLE_BOUNDS[0][1])
-        & (points[..., 1] >= TABLE_BOUNDS[1][0])
-        & (points[..., 1] <= TABLE_BOUNDS[1][1])
-        & np.isfinite(distance)
+        np.isfinite(distance)
+        & (distance > 0.0)
+        & (points[..., 0] >= bounds[0][0])
+        & (points[..., 0] <= bounds[0][1])
+        & (points[..., 1] >= bounds[1][0])
+        & (points[..., 1] <= bounds[1][1])
     )
     return np.where(inside, distance, np.inf)
 
@@ -128,12 +158,11 @@ def visible_surface(case: dict[str, Any]) -> np.ndarray:
     """Return exact world points for the visible box surface."""
     camera = case["camera"]
     origin, rotation = _camera_frame(camera["position"], camera["target"])
-    directions = _ray_directions() @ rotation.T
+    directions = _camera_directions(camera, rotation)
     center = np.asarray(case["box"]["center"], dtype=np.float64)
-    size = np.asarray(case["box"]["size"], dtype=np.float64)
-    minimum, maximum = center - size / 2.0, center + size / 2.0
-    box = _box_distance(origin, directions, minimum, maximum)
-    table = _table_distance(origin, directions)
+    half = np.asarray(case["box"]["size"], dtype=np.float64) / 2.0
+    box = _box_distance(origin, directions, center, half)
+    table = _table_distance(origin, directions, case["table"])
     visible = np.isfinite(box) & (box <= table)
     return origin + box[visible, None] * directions[visible]
 

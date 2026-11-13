@@ -25,6 +25,7 @@ import numpy as np
 
 from robots.robodojo.access import CAMERAS, validate_rgb
 from rpent.robots.components.env_client_base import BaseEnvClient
+from rpent.tools.execution import mark_write_issued
 
 
 def _validate_receipt(feedback: dict, expected_step: int | None) -> None:
@@ -401,6 +402,7 @@ class RoboDojoEnvClient(BaseEnvClient):
                 kwargs["capture"] = True
             was_valid, self._history_valid = self._history_valid, False
             confirmed_feedback = None
+            mark_write_issued(method.removeprefix("env."))
             try:
                 response = self._client.call(
                     method, kwargs=kwargs, timeout_s=self._TIMEOUT_S["env.step"]

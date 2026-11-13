@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import threading
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rpent.tools.base import ToolResult, tool
@@ -29,15 +30,43 @@ if TYPE_CHECKING:
 class CommonTools:
     """Bind common tools to the current run's memory access policy."""
 
-    def __init__(self, *, memory: MemoryManager) -> None:
+    def __init__(
+        self,
+        *,
+        memory: MemoryManager,
+        output_dir: str | Path | None = None,
+    ) -> None:
         if memory is None:
             raise TypeError("memory must be a MemoryManager, not None")
         self._memory = memory
+        self._output_dir = None if output_dir is None else Path(output_dir).resolve()
         self._file_lock = threading.Lock()
+
+    def _require_writable_location(self, resolved: Path) -> None:
+        """Keep file writes inside the run output directory or the memory inbox.
+
+        ``MemoryManager.authorize_write`` only governs the memory corpus. File
+        tools are also the run's only sanctioned way to save artifacts, so a
+        path outside both boundaries is refused rather than written.
+        """
+        if resolved.is_relative_to(self._memory.root):
+            return
+        output_dir = self._output_dir
+        if output_dir is None:
+            try:
+                output_dir = Path(get_output_dir()).resolve()
+            except AssertionError:
+                raise PermissionError(
+                    "writing files requires an initialized run output directory"
+                ) from None
+        if not resolved.is_relative_to(output_dir):
+            raise PermissionError(
+                f"writing outside the run output directory is denied: {resolved}"
+            )
 
     @tool(readonly=True)
     def read_text_file(self, path: str, max_chars: int = 40000) -> ToolResult:
-        """Read a UTF-8 text file. Use for past recipe JSONLs, audit JSONs, and memory files. Large files are truncated. Published memory is read-only. During exploration, you may write only to your current memory inbox. Memory for other robots is unavailable.
+        """Read a UTF-8 text file. Use for past recipe JSONLs, audit JSONs, and memory files. Large files are truncated. Published memory is read-only; draft findings with the memory tools instead of editing memory files. Memory for other robots is unavailable.
 
         Args:
             path: Absolute or repo-relative path
@@ -60,10 +89,11 @@ class CommonTools:
             data={"path": str(resolved), "size": len(text), "content": content}
         )
 
-    @tool(readonly=True)
+    @tool(captures_state=False)
     def write_text_file(self, path: str, content: str) -> ToolResult:
-        """Write a UTF-8 text file (creates parent dirs). Use this to save the working recipe JSONL and the final audit JSON at the end of a successful run. Published memory is read-only. During exploration, you may write only to your current memory inbox. Memory for other robots is unavailable."""
+        """Write a UTF-8 text file inside the run output directory (creates parent dirs). Use this to save the working recipe JSONL and the final audit JSON at the end of a successful run. Paths outside the output directory are refused. Published memory is read-only; draft findings with the memory tools instead of editing memory files."""
         resolved = self._memory.authorize_write(path)
+        self._require_writable_location(resolved)
         resolved.parent.mkdir(parents=True, exist_ok=True)
         with self._file_lock:
             resolved.write_text(content, encoding="utf-8")
@@ -73,7 +103,7 @@ class CommonTools:
 
     @tool(readonly=True)
     def list_dir(self, path: str = "") -> ToolResult:
-        """List files in a directory (non-recursive). Default = {{output_dir}}. Use to inspect the working directory or discover existing resource files. Published memory is read-only. During exploration, you may write only to your current memory inbox. Memory for other robots is unavailable.
+        """List files in a directory (non-recursive). Default = {{output_dir}}. Use to inspect the working directory or discover existing resource files. Published memory is read-only; draft findings with the memory tools instead of editing memory files. Memory for other robots is unavailable.
 
         Args:
             path: Default: {{output_dir}}
