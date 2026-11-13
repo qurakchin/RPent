@@ -27,33 +27,17 @@ EVALUATE_WORKFLOW_STEPS = (
   `wrist_high.png` if useful, and call `view_camera_meta` if needed. Identify ALL target
 objects, destination surfaces, and relation landmarks named by task_language.
 """,
-    """READ MEMORY for the observed `task_language` and scene. The library contains
-operating wisdom, magic numbers, gotchas, and reusable manipulation patterns,
-indexed by:
-  `{{memory_dir}}/MEMORY.md`
-Scan the index, then `read_text_file` the few leaf memories most relevant to
-your cell. They are not all named `feedback_*`, and the index lines do not spell
-out every scene a memory covers — so SEARCH the library yourself rather than
-reading the index alone: `list_dir` `{{memory_dir}}/global/` and
-`{{memory_dir}}/task-family/` to see every memory file, and pick candidates by the
-objects, container, fixture or motion your scene involves (wording taken from
-your task description works as a search key too). If a shell / grep tool is
-available to you, `grep -rl "<keyword>" {{memory_dir}}/global/
-{{memory_dir}}/task-family/` jumps straight to the files that mention your objects
-— use it when you can; otherwise fall back to `list_dir` + `read_text_file`.
-A given theme often has several near-identical skill files (e.g. multiple
-stove / basket / mug patterns that differ only in WHICH objects or step
-order). When it does, do NOT pick from the one-line index or stop at the first
-name — `read_text_file` the top candidates and choose the one whose objects,
-spatial relation and step order actually match YOUR scene, deciding from the
-file body (not its index blurb). Entries are written as reusable patterns: take
-the technique and the parameter ranges as general know-how, and re-derive every
-coordinate by perception in YOUR scene.
+    """READ MEMORY for the observed `task_language` and scene. The index
+`{{memory_dir}}/MEMORY.md` does not name every scene a memory covers, so
+`list_dir` `{{memory_dir}}/global/` and `{{memory_dir}}/task-family/` and pick
+candidates by the objects, container,
+fixture or motion your scene involves. Several near-identical skill files may
+exist (e.g. multiple stove / basket / mug patterns); open the top candidates
+and choose by the file BODY, not the index line — do NOT stop at the first name.
 ⭐ MANDATORY — do this even when a seed-0 recipe exists: the recipe gives the
-commands, this memory gives the reasoning and failure-modes needed to adapt them,
-so you must consult the memory too, not skip straight to replaying the recipe. In
+commands, memory gives the reasoning and failure modes needed to adapt them. In
 your final `strategy_notes`, RECORD the exact memory file name(s) you read (or
-state "no matching task memory found") so memory consultation is auditable.
+state "no matching task memory found").
 """,
     """READ SEED-0 STRATEGY REFERENCES IF PRESENT, then solve from scratch.
 Strategy references live under:
@@ -191,8 +175,7 @@ STEP_READ_LOCAL_MEMORY = """READ EACH AVAILABLE LOCAL MEMORY LAYER for the obser
   `{{memory_dir}}/global/`
 
 If a layer is absent, state that explicitly and continue with the available
-validated layers. Record the exact files used in final `strategy_notes`. Treat
-absolute coordinates as stale and re-derive them from this scene."""
+validated layers. Record the exact files used in final `strategy_notes`."""
 
 
 LOCAL_WORKFLOW_STEPS = (
@@ -207,29 +190,18 @@ LOCAL_WORKFLOW_STEPS = (
 )
 
 
-STEP_READ_MEMORY = """READ MEMORY for the observed `task_language` and scene. Memory is layered by
-how widely a lesson holds; read it in order of specificity, because the most
-specific layer is also the cheapest to retrieve.
+STEP_READ_MEMORY = """READ MEMORY for the observed `task_language` and scene.
 
-a. **THIS TASK** — `read_text_file` the `task-family` write-up for this cell if one
-   exists (look for `task-family_*` under `{{memory_dir}}/task-family/`). It is the single
-   highest-value file you will read: the technique, per-entity `segment`
-   phrasings, the failure table with attempt numbers, and the fragility flags
-   for exactly this task. Its numbers are RANGES and its coordinates are
-   deliberately absent — re-derive every xyz from THIS scene. If it does not
-   exist, say so and continue; you will be creating it.
+a. **THIS TASK** — read the `task-family_*` write-up for this cell if one exists.
+   It carries the technique, per-entity `segment` phrasings, the failure table
+   with attempt numbers, and the fragility flags for exactly this task. If it
+   does not exist, say so and continue; you will be creating it.
 
-b. **GLOBAL** — `{{memory_dir}}/MEMORY.md` indexes the cross-task
-   library. Each line states *when* that memory applies, so use the index to
-   rule entries OUT fast, then read the few leaves that match your scene.
-   `list_dir` `{{memory_dir}}/global/` to see everything available; a keyword
-   often matches several near-identical files, so open the top candidates and
-   choose from the file BODY, not the index line.
+b. **GLOBAL** — use `{{memory_dir}}/MEMORY.md` to rule entries OUT fast, then
+   read the few leaves that match your scene. A keyword often matches several
+   near-identical files, so choose from the file BODY, not the index line.
 
-⭐ Do this even when a seed-0 reference exists: the reference gives commands,
-memory gives the reasoning and failure modes needed to adapt them. In your
-audit, RECORD the memory files you read (or state that none matched), so memory
-consultation is auditable."""
+RECORD the memory files you read in your audit (or state that none matched)."""
 
 EXPLORE_STEP_PRIMITIVES = """Also allowed: `reset` (🔁 allowed here —
 close out the attempt first, see below).
@@ -289,24 +261,9 @@ c. Call `finish`."""
 
 STEP_DISTIL = """DISTIL — consolidate this cell into memory. Budget ~25 tool calls.
 
-⚠ Write ONLY under `{{memory_inbox}}/` (via `write_text_file`). NEVER create,
-edit, rename or delete anything else under `{{memory_dir}}/` — it is a reviewed,
-shared corpus and other cells may be running against it. A human merges the
-inbox later.
-
-⚠ NAMING for every md file: the `id` is the BARE slug — the filename with the
-`new_`/`task-family_` prefix, the kind, and any `_draft` suffix stripped.
-  `new_global_strategy_diagonal-face-perpendicular-push.md`
-    -> `id: diagonal-face-perpendicular-push`                      ✅
-    -> `id: new-global-diagonal-face-perpendicular-push`           ❌
-`new_` marks "awaiting review" and scope/kind already have frontmatter fields;
-repeating them inside the id breaks every cross-reference once a human merges
-the file under its final name.
-
-⚠ FRONTMATTER MUST PARSE AS YAML. Never START a value with a quote unless the
-WHOLE value is quoted — `applies_when: "put X away" after X was dropped` is a
-parse error. Quote any value containing `: `. In frontmatter `related:` is a
-plain list of bare ids; `[[...]]` is BODY-only syntax.
+⚠ Write ONLY under `{{memory_inbox}}/` (via `write_text_file`). Use the shared
+proposal shape for field names, the bare `id`, and YAML quoting; in frontmatter
+`related:` is a plain list of bare ids and `[[...]]` is BODY-only syntax.
 
 ⚠ THIS PASS RUNS ONLY WHEN THE CELL IS SOLVED. If it is not, you write the
 unsolved audit (WORKFLOW), leave `wip/notes.md` and the attempt archives as they
@@ -341,25 +298,12 @@ a. TASK LAYER — **ONLY IF SOLVED.** The audit JSON and the recipe JSONL must b
 b. TASK-FAMILY LAYER -> `{{memory_inbox}}/task-family_{{recipe_tag}}_draft.md`. ONE file for
    this task, updated at every close-out so the failure table grows across
    attempts. This is what a future run on this task at another seed reads first.
-   Frontmatter EXACTLY in this shape — `regime` is the perturbation axis
-   (task|swap|lan|object), NOT the perception regime, and `cells` is a LIST of
-   cell tags, not a count:
-
-     ---
-     id: task-family_<suite family>_<regime>_t<task_id>   # e.g. task-family_libero10_swap_t3
-     scope: task-family
-     suite: <suite family, e.g. libero10>
-     regime: <task|swap|lan|object>
-     task_id: <n>
-     task_language: <verbatim from the initial state>
-     evidence:
-       cells: [{{recipe_tag}}]
-       attempts: <N>
-       solved_seeds: [<seed>]
-       failed_seeds: []
-     confidence: single-shot
-     related: []
-     ---
+   Use the shared task-family shape with
+   `id: task-family_<suite family>_<regime>_t<task_id>`
+   (for example `task-family_libero10_swap_t3`), `suite: <suite family>` such as
+   `libero10`, `regime` set to the perturbation axis (task|swap|lan|object), the
+   verbatim initial `task_language`, `evidence.cells: [{{recipe_tag}}]`, and the
+   attempt/seed evidence.
 
    Headings VERBATIM — this structure is what has worked in this corpus:
 
@@ -403,10 +347,9 @@ c. GLOBAL LAYER -> `{{memory_inbox}}/new_global_<kind>_<slug>.md`, ONE lesson
    stated conditions, promote it WITH those conditions in `applies_when`.
    `<kind>` is one of primitive|perception|strategy|failure. `<slug>` is 2-5
    kebab-case words naming the LESSON — not the task, not the objects.
-   Frontmatter: `id`, `scope: global`, `kind`, `title` (one imperative
-   sentence), `applies_when` (the trigger — when should a future agent bother
-   opening this?), `symptom: [...]` (words a stuck agent would search for),
-   `evidence`, `confidence: single-shot`, `related`. Body:
+   Frontmatter: the shared global shape, with `title` as one imperative
+   sentence, `symptom: [...]` (words a stuck agent would search for), and
+   `related`. Body:
 
      <one-sentence claim>
 

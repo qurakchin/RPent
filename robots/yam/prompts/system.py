@@ -68,7 +68,7 @@ permits re-observation and a different reachable target; it does not require
 discarding partial progress or resetting the episode. Never bypass a guard to
 execute a rejected path. Runtime feedback faults and latched stops require stop.
 Alternate observed single-arm actions for two-arm tasks; simultaneous coordinated
-Cartesian motion is not exposed. Never claim primitive success as task success."""
+Cartesian motion is not exposed."""
 
 VLA = """A trained YAM qpos14 VLA is connected and pi05_act is available.
 Treat VLA as a primitive alongside geometric tools. Use its learned approach and
@@ -92,14 +92,11 @@ instead of requesting an untrained policy."""
 SUCCESS = """Only fresh env eval_success=true confirms success. On the real YAM
 rig this may be an operator-confirmed flag until a perception success checker is
 installed. finish(success) returns pending when an operator verdict is needed. A pending or
-finish-refused response does not end the session. In exploration, re-observe and
-write the technique after confirmed success before finishing. Evaluation memory
-is read-only. Never invent an operator verdict."""
+finish-refused response does not end the session. Never invent an operator verdict."""
 
 EXPLORE = """Exploration is operator-supervised real-robot work. Prefer in-place
 recovery when it is safe, reset only after the failed attempt is archived and the
-next plan changes a named lever. Keep attempts concise, preserve useful partial
-progress, and write observations as bounded evidence rather than global claims.
+next plan changes a named lever.
 
 After every action classify its actual result, not the tool transport status:
 - Completed: inspect fresh views and actual pose, then advance the task.
@@ -131,8 +128,7 @@ moves to meet a budget. Preserve partial progress and do not claim task failure
 merely because an observation is ambiguous. Do not use VLA to bypass uncertain
 contact: it may move both arms and release; use it when the intended short segment
 and both arms' workspace are supported by current evidence. Release only after
-fresh views support destination footprint and clearance. Full task success still
-requires the current episode's authoritative verdict.
+fresh views support destination footprint and clearance.
 At startup, if ready_for_motion is false, call reset and wait for operator ready
 before any action. An operator abort requires finish(status="failure") immediately.
 
@@ -147,16 +143,13 @@ returns pending immediately without operator ready; wait for the operator, then 
 reset, not a new attempt or proof of failure. Use the remaining attempt budget
 for a changed approach; stop immediately if the operator aborts.
 
-After actual env success, distil a task technique to {{memory_inbox}}/technique.md.
-Use YAML frontmatter: scope: task-family, suite: yam, regime: real,
-task_id: {{task_id}}, task_language: the actual env language,
-confidence: single-shot, evidence: {cells: [{{recipe_tag}}]}.
+After actual env success, distil a task technique to {{memory_inbox}}/technique.md
+using the shared task-family frontmatter with `suite: yam`, `regime: real`,
+`task_id: {{task_id}}`, the actual env language, and
+`evidence.cells: [{{recipe_tag}}]`.
 Write mechanisms, object recognition, measured parameters, failed alternatives,
 operator intervention, and the evidence boundaries. Use probable/verified only
 with additional independent successful trials, never for one success.
-Optional cross-task leaves have scope: global, kind from primitive/perception/
-strategy/failure/infra, title, applies_when, confidence, and evidence.cells.
-Only your current inbox is writable. Never edit published corpus files.
 The runner creates the successful current-attempt recipe/audit pair; do not
 invent action logs or overwrite these generated files. Then call finish.
 Unsolved runs do not publish success recipes. Working notes stay in wip;

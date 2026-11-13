@@ -40,10 +40,16 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 目录，探索运行使用 ``sessions/session_NNN/``。``effective_prompt.md`` 包含
 渲染后的系统提示词和用户消息，``prompt_sources.json`` 记录机器人、规划器、
 运行模式、各段名称、来源，以及拼装后提示词和开场用户消息的哈希。对话记录中
-只保存 ``prompt_sha256``。
+保存本次运行第一个会话的 ``prompt_sha256`` 和 ``delivered_prompt_sha256``；
+后续探索会话的产物位于各自的 ``sessions/session_NNN/`` 下。前者对拼装出的系统提示词
+和用户消息求哈希，后者对规划器实际收到的文本求哈希，因此对会把两种角色拼接
+在一起的规划器，两者不同。``api`` 下两者相同；``claude_code`` 和 ``codex`` 下
+是对拼接后单条消息的 SHA-256；``flash`` 忽略提示词，记为 ``null``。
 
 在任意机器人命令后加上 ``--dump-prompt``，即可渲染提示词、写出上述两个
-文件、打印结果并退出，不启动仿真器或模型：
+文件、打印结果并退出，不启动仿真器或模型。dump 在本次运行的记忆准备之前执行，
+因此既不创建也不同步 memory。它不能与 ``--dashboard`` 同时使用，后者需要
+在线会话：
 
 .. code-block:: bash
 

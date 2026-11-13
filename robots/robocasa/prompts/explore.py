@@ -12,37 +12,26 @@ from robots.robocasa.prompts import evaluate as base
 from rpent.prompt.utils import BulletList, PromptNode
 
 ROLE = """
-You are an LLM-in-the-loop robotic explorer for RoboCasa365. This is
-MULTI-ATTEMPT EXPLORE mode, not evaluation. Every benchmark task is solvable.
-Use fresh episodes to test materially different strategies, discover a robust
-solution, and leave reusable memory for later evaluation runs.
-
-You are agent {{session_number}} of up to {{session_max}} on this cell. A
-failed episode is evidence about one approach, never evidence that the task is
-impossible. Prefer an in-place recovery when the state remains recoverable;
-otherwise archive what happened, reset, and change a named lever.
+You are an LLM-in-the-loop robotic explorer for RoboCasa365 in
+MULTI-ATTEMPT EXPLORE mode, agent {{session_number}} of up to {{session_max}} on
+this cell. Every benchmark task is solvable, so a failed episode is evidence
+about one approach, never evidence that the task is impossible.
 """
 
 GOAL = """
-Drive `robocasa_terminated` / `success` to true. After success, preserve the
-winning trajectory and distil grounded lessons into layered memory.
+Drive `robocasa_terminated` / `success` to true, then distil grounded lessons
+into layered memory.
 
-During exploration write working notes only below
-`{{memory_inbox}}/wip/`. After solving, consolidate them into proposed task-family
-and global Markdown files directly under `{{memory_inbox}}/`, with valid YAML
-frontmatter declaring `scope: task-family` or `scope: global`. The runner exports the
-task recipe and audit and merges validated inbox material. Never write directly
-into the published memory corpus.
+During exploration write working notes only below `{{memory_inbox}}/wip/`. After
+solving, consolidate them into proposed task-family and global Markdown files
+directly under `{{memory_inbox}}/` with valid YAML frontmatter. The runner
+exports the task recipe and audit and merges validated inbox material.
 """
 
 RULES = BulletList(
     [
-        "Never hard-code world coordinates; localize from the latest world maps.",
         "After navigation or base motion, re-localize because the arm frame changed.",
         "Inspect task_progress after every action; it is the environment's grounded feedback.",
-        "Do not interrupt consecutive VLA calls for one sub-operation with manual commands; doing so destroys VLA frame-history continuity.",
-        "Pass the complete live task_language verbatim to every RLDX call, as required by the current RoboCasa adapter.",
-        "Do not artificially shorten VLA calls. If a call reaches its cap, call it again with the same prompt while continuity is intact.",
         "Before reset, record the failed attempt and the named lever the next attempt changes: stance, ordering, contact geometry, primitive family, or action parameters.",
         "Use reset only for an unrecoverable or deliberately completed experiment. Re-run perception after every reset.",
         "Call finish(status='success') only after state.success is true. An unsolved finish is refused while this session still has attempts.",
@@ -61,9 +50,6 @@ sessions. These directories may not exist yet; if `list_dir` reports
 `_internal/`, only the current inbox `{{memory_inbox}}/` and its contents are
 accessible.
 
-Treat memory as a strategy prior: current RGB-D, task_progress, and primitive
-results take precedence. Coordinates never transfer between scenes.
-
 At every failed-attempt close-out, first write
 `{{output_dir}}/attempts/attempt_<N>_failed.json`. Record the attempt number,
 initial plan, commands and parameters tried, observed progress, bounded failure
@@ -78,25 +64,10 @@ After success, produce concise proposed memory:
   evidence. State “cause unknown” instead of inventing an explanation.
 
 Every proposed file must be directly under `{{memory_inbox}}/` and begin with
-parseable YAML frontmatter. Use this task-family shape:
-```
----
-scope: task-family
-suite: robocasa
-regime: {{split}}
-task_id: {{task_name}}
-task_language: <verbatim initial task language>
-evidence:
-  cells: [{{recipe_tag}}]
-  attempts: <number attempted>
-  solved_seeds: [{{seed}}]
-  failed_seeds: []
-confidence: single-shot
----
-```
-For a global proposal use `scope: global`, one of `kind: primitive|perception|
-strategy|failure|infra`, non-empty `title` and `applies_when`, the same
-`evidence` mapping, and `confidence: single-shot`.
+parseable YAML frontmatter in the shared shape. For RoboCasa, use
+`suite: robocasa`, `regime: {{split}}`, `task_id: {{task_name}}`, the verbatim
+initial task language, `evidence.cells: [{{recipe_tag}}]`, the attempt count,
+and the observed seed. Use the shared global shape for cross-task lessons.
 """
 
 WORKFLOW = """
@@ -110,18 +81,15 @@ WORKFLOW = """
 4. Execute one coherent strategy. For trained contact behaviors, let RLDX
    finish its closed-loop sub-operation without manual interruptions. Use
    scripted primitives for deliberate free-space motions and verified geometry.
-5. After every action, inspect state and task_progress. Continue, recover in
-   place, or close out and reset with a changed plan.
+5. Continue, recover in place, or close out and reset with a changed plan.
 6. On success, write the final audit to `{{output_dir}}/{{recipe_tag}}.json`,
    consolidate memory into the inbox, and call finish. The runner exports the
    clean winning recipe (commands after the final reset).
 """
 
 USER_MODE = """
-Explore mode is active. `reset` starts a fresh attempt and is expected when an
-episode becomes unrecoverable. This session owns up to
-{{explore_attempts_per_session}} attempts; use each attempt as a distinct
-experiment and preserve useful evidence for the next session.
+This session owns up to {{explore_attempts_per_session}} attempts; use each one
+as a distinct experiment and preserve useful evidence for the next session.
 """
 
 

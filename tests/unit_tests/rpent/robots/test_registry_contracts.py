@@ -170,6 +170,40 @@ def test_robot_prompts_render_from_public_spec(robot_name: str, tmp_path) -> Non
 
 
 @pytest.mark.parametrize(
+    "robot_name",
+    [name for name in EXPECTED_ROBOTS if get_robot_spec(name).supports_exploration],
+)
+def test_robot_exploration_prompts_render_with_exploration_contracts(
+    robot_name: str,
+) -> None:
+    spec = get_robot_spec(robot_name)
+    variables = {
+        "recipe_tag": f"{robot_name}_cell",
+        "memory_dir": "/memory",
+        **PROMPT_VARIABLES[robot_name],
+        "mode": "explore",
+        "memory_profile": "local",
+        "memory_inbox": "/memory/_internal/inbox/cell",
+        "session_number": 2,
+        "session_max": 3,
+        "explore_attempts_per_session": 2,
+    }
+    assembled = build_robot_prompt(
+        spec.prompts,
+        robot_name=robot_name,
+        variables=variables,
+        modes=run_modes(explore=True, dashboard=False, real_robot=spec.is_real_robot),
+    )
+
+    assert assembled.system.strip()
+    assert "{{" not in assembled.system
+    assert "{{" not in assembled.user
+    assert "RUN MODE — EXPLORATION" in assembled.system
+    assert "MEMORY — PROPOSALS AND MERGING" in assembled.system
+    assert "scope" in assembled.system and "evidence.cells" in assembled.system
+
+
+@pytest.mark.parametrize(
     ("mode", "memory_profile"),
     [("eval", "hf"), ("eval", "local"), ("explore", "local")],
 )

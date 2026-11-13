@@ -65,10 +65,9 @@ DURING exploration, archive each failed attempt as
 {{output_dir}}/attempts/attempt_s<session>_a<attempt>_failed.json. Include task,
 actual commands, observation references, operator feedback, changed lever and
 what failed. Never overwrite a previous archive. Write working observations to
-{{memory_inbox}}/wip/notes.md with session/attempt headings. Describe observed
-limits of the tested approach, not universal impossibility. Keep unknown causes
-explicit. If unsolved or aborted, leave only working notes and an unsolved audit;
-do not create final task-family/global drafts or claim a winning recipe.
+{{memory_inbox}}/wip/notes.md with session/attempt headings. If unsolved or
+aborted, leave only working notes and an unsolved audit; do not create final
+task-family/global drafts or claim a winning recipe.
 
 ONLY AFTER OPERATOR-CONFIRMED SUCCESS, re-read all working notes and distill:
 
@@ -78,39 +77,25 @@ ONLY AFTER OPERATOR-CONFIRMED SUCCESS, re-read all working notes and distill:
    scene reset and adds operator evidence to the audit. This is an audit of
    issued commands, not a promise that replaying old coordinates is safe.
 2. task-family: one task-specific draft at
-   {{memory_inbox}}/task-family_{{recipe_tag}}_draft.md. Use YAML frontmatter:
-   ---
-   id: task-family_dual_franka_real_t{{task_id}}
-   scope: task-family
-   suite: dual_franka
-   regime: real
-   task_id: {{task_id}}
-   task_language: <quote the full task instruction as valid YAML>
-   evidence:
-     cells: [{{recipe_tag}}]
-     attempts: <count>
-   confidence: single-shot
-   related: []
-   ---
+   {{memory_inbox}}/task-family_{{recipe_tag}}_draft.md in the shared
+   task-family shape, with `id: task-family_dual_franka_real_t{{task_id}}`,
+   `suite: dual_franka`, `regime: real`, the full task instruction, and
+   `evidence.cells: [{{recipe_tag}}]`.
    Explain Applicable pattern, Winning technique, Magic numbers, Failure modes,
    Fragility flags and Recognition. Cite session/attempt/step evidence. State
    which setup, camera, checkpoint and object assumptions limit transfer.
 3. global: read existing candidates first. For a new cross-task lesson write
-   {{memory_inbox}}/new_global_<kind>_<slug>.md, with valid YAML fields:
-   id: <bare slug>; scope: global; kind: primitive|perception|strategy|failure|infra;
-   title: <title>; applies_when: <condition>; confidence: single-shot;
-   evidence: {cells: [{{recipe_tag}}]}; related: []. These are separate YAML
-   fields, not a literal semicolon-separated line. Quote values containing ': '.
-   Give measured evidence, applicability and exceptions. Do not invent tested
-   parameter ranges from one sample. Conflicting observations go into a
-   conflict_<id>.md draft, with the old claim and new evidence.
+   {{memory_inbox}}/new_global_<kind>_<slug>.md in the shared global shape with
+   `evidence.cells: [{{recipe_tag}}]`. Give measured evidence, applicability and
+   exceptions. Do not invent tested parameter ranges from one sample.
+   Conflicting observations go into a conflict_<id>.md draft, with the old claim
+   and new evidence.
 
-WRITE memory only under {{memory_inbox}}/. Never directly edit the published
-task-family/, global/, task-specific/ or MEMORY.md. The existing memory merge/validation/
-index workflow publishes valid drafts at normal TaskRun completion unless disabled
-with --no-auto-merge-memory. Successful audit/recipe pairs require confirmed success.
-A physical robot setup needs fresh localization even when memory describes a
-previously successful sequence."""
+The existing memory merge/validation/index workflow publishes valid drafts at
+normal TaskRun completion unless disabled with --no-auto-merge-memory.
+Successful audit/recipe pairs require confirmed success. A physical robot setup
+needs fresh localization even when memory describes a previously successful
+sequence."""
 
 
 def system_prompt():

@@ -6,10 +6,10 @@ from __future__ import annotations
 from robots.robotwin.prompts import evaluate as base
 from rpent.prompt.utils import PromptNode
 
-ROLE = """You control a RoboTwin task in MULTI-ATTEMPT EXPLORE mode. Use fresh
-episodes to test materially different strategies, find a successful sequence,
-and leave grounded memory for later evaluation runs. You are agent
-{{session_number}} of up to {{session_max}} on this cell."""
+ROLE = """You control a RoboTwin task in exploration, agent {{session_number}} of
+up to {{session_max}} on this cell. Use fresh episodes to test materially
+different strategies, find a successful sequence, and leave grounded memory for
+later evaluation runs."""
 
 READ_ORDER = """Before the first robot mutation:
 1. Read robots/robotwin/guides/GUIDE_RPENT.md completely.
@@ -17,7 +17,6 @@ READ_ORDER = """Before the first robot mutation:
 3. Read relevant published task, task-family, and global memory.
 4. Read {{memory_inbox}}/wip/ for notes from earlier attempts or sessions.
 
-Fresh observations and the current task_language override historical memory.
 Never replay stored coordinates across episodes."""
 
 MEMORY = """During exploration, write working notes only below
@@ -26,42 +25,14 @@ MEMORY = """During exploration, write working notes only below
 approach, commands and parameters tried, observed progress, bounded failure
 mechanism, and one meaningful change for the next attempt. Also append a
 concise handoff note to {{memory_inbox}}/wip/notes.md. After success, write
-concise task-family or global proposals directly under {{memory_inbox}}/. Never
-write directly into published memory directories.
+concise task-family or global proposals directly under {{memory_inbox}}/.
 
-Every proposed file must begin with parseable YAML frontmatter.
-
-Task-family proposal template:
-
-    ---
-    id: task-family_robotwin_<task-name>
-    scope: task-family
-    suite: robotwin
-    regime: {{task_config}}
-    task_id: {{task_name}}
-    task_language: <verbatim initial task language>
-    evidence:
-      cells: [{{recipe_tag}}]
-      attempts: <number attempted>
-      solved_seeds: [{{seed}}]
-      failed_seeds: []
-    confidence: single-shot
-    related: []
-    ---
-
-Global proposal template:
-
-    ---
-    id: global_<kind>_<short-name>
-    scope: global
-    kind: <primitive|perception|strategy|failure|infra>
-    title: <short descriptive title>
-    applies_when: <specific applicability conditions>
-    evidence:
-      cells: [{{recipe_tag}}]
-    confidence: single-shot
-    related: []
-    ---"""
+Every proposed file must begin with parseable YAML frontmatter in the shared
+task-family or global shape. For RoboTwin, use `suite: robotwin`,
+`regime: {{task_config}}`, `task_id: {{task_name}}`, `cells: [{{recipe_tag}}]`,
+and the observed seed. Name a task-family `id`
+`task-family_robotwin_<task-name>` and a global `id` `global_<kind>_<slug>`;
+add `related: []` when no cross-reference applies."""
 
 RUNTIME = """The registered RoboTwin Toolkit is the only control surface. Do
 not use shell, Python, network clients, hidden environment state, evaluator
@@ -70,15 +41,13 @@ episode and may resample the layout. Re-run perception and rebind all geometry
 after every reset."""
 
 BUDGET_AND_SUCCESS = """This session owns up to
-{{explore_attempts_per_session}} attempts. Prefer in-place recovery while the
-episode remains recoverable; otherwise record what happened, reset, and change
-the plan. Only fresh TASK_ENV.eval_success=true confirms success. An unsolved
-finish is refused while attempts remain. After native success, stop robot
-actions, save the audit and memory proposals, and call finish exactly once."""
+{{explore_attempts_per_session}} attempts. Only fresh
+TASK_ENV.eval_success=true confirms success. An unsolved finish is refused while
+attempts remain. After native success, stop robot actions, save the audit and
+memory proposals, and call finish exactly once."""
 
-USER_MODE = """Explore mode is active. Use reset for a fresh attempt when the
-current episode is unrecoverable. The runner keeps session traces, exports the
-successful commands after the final reset, and merges validated memory."""
+USER_MODE = """Explore mode is active. The runner keeps session traces, exports
+the successful commands after the final reset, and merges validated memory."""
 
 OUTPUT = """Before calling finish, write the final audit to
 {{output_dir}}/{{recipe_tag}}.json. Include task_name, task_config, seed,

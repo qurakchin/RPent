@@ -62,12 +62,14 @@ from rpent.planner.base import (
 )
 from rpent.planner.check import BASE_URL_ENV_BY_PLANNER
 from rpent.prompt.artifacts import (
+    delivered_prompt_sha256,
     effective_prompt_markdown,
     write_prompt_artifacts,
 )
 from rpent.prompt.assembly import build_robot_prompt, run_modes
 from rpent.robots import enumerate_robots, get_robot_spec, get_toolkit
 from rpent.session.planner_capture import end_planner_task, start_planner_task
+from rpent.utils.config import get_memory_dir
 from rpent.utils.logging import get_logger, init_output_dir
 
 logger = get_logger("agent")
@@ -327,12 +329,15 @@ def _assemble_robot_prompt(
     robot_name: str,
     variables,
     explore: bool,
-    dashboard: bool = False,
 ):
-    """Assemble this run's prompt and return it with the modes that shaped it."""
+    """Assemble this run's prompt and return it with the modes that shaped it.
+
+    Dashboard runs assemble their prompt in :mod:`rpent.cli.dashboard`, so this
+    session path never carries the dashboard mode.
+    """
     modes = run_modes(
         explore=explore,
-        dashboard=dashboard,
+        dashboard=False,
         real_robot=bool(robot_spec.is_real_robot),
     )
     assembled = build_robot_prompt(
@@ -441,6 +446,8 @@ def main() -> int:
     )
     if args.dashboard and args.tui:
         parser.error("--dashboard and --tui cannot be used together")
+    if getattr(args, "dump_prompt", False) and args.dashboard:
+        parser.error("--dump-prompt cannot be used with --dashboard")
     try:
         external_env_dashboard = (
             robot_spec.is_real_robot
@@ -534,26 +541,24 @@ def main() -> int:
     output_dir = init_output_dir(output_dir, verbose=args.verbose)
     logger.info("physical agent cmd: %s", shlex.join([sys.executable, *sys.argv]))
 
-    prepare_run_memory(args, robot_spec, run_config)
-
     prompt_bundle = robot_spec.prompts
-    prompt_vars = {**prompt_vars, "output_dir": output_dir}
-    assembled, modes = _assemble_robot_prompt(
-        robot_spec,
-        robot_name=robot_name,
-        variables=prompt_vars,
-        explore=bool(getattr(args, "explore", False)),
-        dashboard=bool(getattr(args, "dashboard", False)),
-    )
-    system_prompt, user_msg = assembled.system, assembled.user
     if getattr(args, "dump_prompt", False):
+        # Dumping renders the prompt; it must not sync or create memory.
+        dump_vars = {**prompt_vars, "output_dir": output_dir}
+        dump_vars.setdefault("memory_dir", str(get_memory_dir(robot_name)))
+        assembled, modes = _assemble_robot_prompt(
+            robot_spec,
+            robot_name=robot_name,
+            variables=dump_vars,
+            explore=bool(getattr(args, "explore", False)),
+        )
         write_prompt_artifacts(
             Path(output_dir),
             assembled=assembled,
             robot_name=robot_name,
             planner=args.planner,
             modes=modes,
-            user_message=user_msg,
+            user_message=assembled.user,
         )
         print(
             effective_prompt_markdown(
@@ -561,10 +566,21 @@ def main() -> int:
                 robot_name=robot_name,
                 planner=args.planner,
                 modes=modes,
-                user_message=user_msg,
+                user_message=assembled.user,
             )
         )
         return 0
+
+    prepare_run_memory(args, robot_spec, run_config)
+
+    prompt_vars = {**prompt_vars, "output_dir": output_dir}
+    assembled, modes = _assemble_robot_prompt(
+        robot_spec,
+        robot_name=robot_name,
+        variables=prompt_vars,
+        explore=bool(getattr(args, "explore", False)),
+    )
+    system_prompt, user_msg = assembled.system, assembled.user
 
     dashboard_events = NullDashboardEventSink()
     planner = build_planner(
@@ -647,6 +663,8 @@ def main() -> int:
     environment_success: bool | None = None
     environment_metrics: dict = {}
     memory_manager: MemoryManager | None = None
+    first_prompt_sha: str | None = None
+    first_delivered_sha: str | None = None
     try:
         if first_user_msg is not None:
             dashboard_events.emit(RunStartedEvent())
@@ -682,6 +700,12 @@ def main() -> int:
                     planner=args.planner,
                     modes=modes,
                     user_message=session_msg,
+                )
+                first_prompt_sha = assembled.prompt_sha256
+                first_delivered_sha = delivered_prompt_sha256(
+                    args.planner,
+                    system=assembled.system,
+                    user=session_msg,
                 )
             if getattr(robot_spec, "supports_exploration", False):
                 toolkit = get_toolkit(
@@ -829,7 +853,8 @@ def main() -> int:
         "error": agent_error,
         "environment_success": environment_success,
         "stats": stats,
-        "prompt_sha256": assembled.prompt_sha256,
+        "prompt_sha256": first_prompt_sha or assembled.prompt_sha256,
+        "delivered_prompt_sha256": first_delivered_sha,
         "messages": _serialize_messages(messages),
     }
     with open(transcript_path, "a") as f:

@@ -21,9 +21,8 @@ from collections.abc import Mapping
 from rpent.prompt.utils import PromptNode
 
 ROLE = """You control one dual-arm RoboTwin demo_randomized episode through the
-registered RPent tools. Satisfy the complete current task_language in one
-no-restart episode. Prefer one accurate, recipe-supported sequence over broad
-exploration, and protect every achieved subgoal."""
+registered RPent tools. Prefer one accurate, recipe-supported sequence over
+broad exploration, and protect every achieved subgoal."""
 
 READ_ORDER = """Before the first robot mutation:
 1. Read robots/robotwin/guides/GUIDE_RPENT.md completely.
@@ -32,7 +31,6 @@ READ_ORDER = """Before the first robot mutation:
    {{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl when present.
 4. Read {{memory_dir}}/MEMORY.md and at most one to three relevant leaves.
 
-The current task_language and fresh observation override historical memory.
 Use the semantic JSON as the phase plan and the JSONL as evidence for action
 type and VLA cadence, never as a coordinate replay."""
 
@@ -43,11 +41,10 @@ height, clearance, grasp point, and release/contact point from this episode.
 Use a supported recipe as the default skeleton when current evidence agrees;
 treat an experimental recipe as a weak prior."""
 
-ACCURACY_LOOP = """Issue one registered action, inspect fresh before/after
-evidence, then decide again. Maintain a compact internal ledger: current phase,
+ACCURACY_LOOP = """Maintain a compact internal ledger: current phase,
 achieved/protected relations, held object and arm, first unmet postcondition,
 blocker, and next observable gate. Advance only when the current gate is visibly
-satisfied. Primitive success is not task success.
+satisfied.
 
 If an action makes useful progress but stops mid-phase, continue the same phase
 with the shortest suitable action. LingBot-VLA may be called repeatedly as the
@@ -104,8 +101,7 @@ strategy. Also preserve enough Planner turns and wall time to verify and finish.
 
 Only fresh TASK_ENV.eval_success=true confirms success. Stop robot actions
 immediately after native success or budget exhaustion. Every exit must call
-finish exactly once after a fresh status check, reporting failure honestly when
-native success remains false."""
+finish exactly once after a fresh status check."""
 
 USER_MODE = """Solve the current episode now using registered tools and current
 evidence. Do not ask for clarification or defer the next determined action."""

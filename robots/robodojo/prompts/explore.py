@@ -36,25 +36,23 @@ READ_ORDER = """Before the first robot action:
    Consult matching global lessons and successful task-specific JSON/JSONL pairs.
 4. Read {{memory_inbox}}/wip/notes.md when present.
 
-Current instructions and observations override memory. Use a successful JSON
-audit for its phase plan and reasoning, and its JSONL recipe for action order,
-parameters and {{policy_name}} cadence. Transfer supported phase order, observable gates,
-controller division and recovery ideas. Preserve arm roles required by the
-current instruction; reconsider roles chosen only for a previous layout.
-Rebind object identities, destinations, pixels, poses, heights, clearances and
-grasp offsets from this scene. If memory is absent, proceed from observation."""
+Use a successful JSON audit for its phase plan and reasoning, and its JSONL
+recipe for action order, parameters and {{policy_name}} cadence. Transfer
+supported phase order, observable gates, controller division and recovery
+ideas. Preserve arm roles required by the current instruction; reconsider roles
+chosen only for a previous layout. If memory is absent, proceed from
+observation."""
 
 RULES = """This session allows {{explore_attempts_per_session}} attempts including the
 initial episode (0 means no attempt-count limit; other run limits still apply).
 
-Prefer in-place recovery when possible. reset restores the same task, seed
-group and layout. Re-run perception and do not reuse stale pixels or coordinates.
-Before each reset or unsolved finish, save the attempt number, actual commands,
-observed progress, failure evidence and next changed strategy variable under
+reset restores the same task, seed group and layout. Re-run perception and do
+not reuse stale pixels or coordinates. Before each reset or unsolved finish,
+save the attempt number, actual commands, observed progress, failure evidence
+and next changed strategy variable under
 {{output_dir}}/attempts/attempt_<N>_failed.json. Never overwrite an earlier
 attempt. Append bounded observations to {{memory_inbox}}/wip/notes.md.
-{{retry_strategy}} Do not infer that a task is
-impossible from one unsuccessful approach; record unknown causes as unknown.
+{{retry_strategy}}
 An unsolved finish is refused while a finite attempt budget remains. After
 native success, stop motion; reset is refused. Use the remaining turns to
 record what worked and the uncertainties before calling finish."""
@@ -96,38 +94,25 @@ compact reference that helps evaluation adapt the strategy to a new scene:
 - Recovery and limits: failure evidence, changes tried, what subsequently
   worked, unresolved causes and situations where the strategy may not apply.
 
-Separate observed outcomes from explanations. A successful retry does not prove
-which change caused improvement. Do not invent causes or parameter ranges.
 Keep scene coordinates in the audit, not reusable guidance. One seed/layout
 supports single-shot confidence, even after several attempts; it does not
 establish robustness across scenes. Use the recorded evidence after success,
 not additional robot motion, to prepare memory.
-Task-family frontmatter must be valid YAML delimited by --- lines:
----
-scope: task-family
-suite: robodojo
-regime: {{env_cfg_type}}
-task_id: {{task}}
-task_language: >-
-  <observed native instruction>
-evidence:
-  cells: [{{recipe_tag}}]
-  attempts: <number of attempts>
-confidence: single-shot
----
+Use the shared task-family frontmatter with `suite: robodojo`,
+`regime: {{env_cfg_type}}`, `task_id: {{task}}`, the observed native
+instruction, `evidence.cells: [{{recipe_tag}}]`, and the attempt count.
 
 When evidence supports a cross-task lesson, write a separate
-{{memory_inbox}}/new_global_<lesson-id>.md. Use scope: global, a bare descriptive
-id, title, applies_when, kind (one of primitive, perception, strategy, failure,
-infra), and the same evidence and confidence fields. State the observation,
-how to apply it, its limits and what would falsify it. A single layout warrants
-single-shot confidence only. Read existing relevant leaves before proposing
-a lesson; avoid duplicates and record contradicting evidence explicitly.
-If no new global lesson is supported, say so rather than inventing one.
+{{memory_inbox}}/new_global_<lesson-id>.md in the shared global shape, with its
+limits and what would falsify it. A
+single layout warrants single-shot confidence only. Read existing relevant
+leaves before proposing a lesson; avoid duplicates and record contradicting
+evidence explicitly. If no new global lesson is supported, say so rather than
+inventing one.
 
-During failed attempts, write lessons only in wip/. Never write directly to
-published memory. The shared finalizer merges valid inbox proposals and updates
-MEMORY.md after the run; do not claim publication before it completes."""
+During failed attempts, write lessons only in wip/. The shared finalizer merges
+valid inbox proposals and updates MEMORY.md after the run; do not claim
+publication before it completes."""
 
 
 def system_prompt(
