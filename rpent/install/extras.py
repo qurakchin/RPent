@@ -22,6 +22,7 @@ after the compatibility release, delete the generated block and this module.
 from __future__ import annotations
 
 import itertools
+from collections.abc import Mapping
 from dataclasses import dataclass
 
 from rpent.install.discovery import Catalog
@@ -80,8 +81,17 @@ def _profile_extra(
     return tuple(sorted(dict.fromkeys(dependencies))), members
 
 
-def generate(catalog: Catalog) -> GeneratedExtras:
-    """Build the compatibility extras and conflict matrix."""
+def generate(
+    catalog: Catalog,
+    *,
+    aliases: Mapping[str, str] | None = None,
+) -> GeneratedExtras:
+    """Build the compatibility extras and conflict matrix.
+
+    ``aliases`` maps a legacy extra name to the current one so a repository
+    rename does not break instructions users already have. Aliases share the
+    target's dependencies and component membership.
+    """
     extras: dict[str, tuple[str, ...]] = {}
     members: dict[str, frozenset[str]] = {}
     covered: set[str] = set()
@@ -104,6 +114,11 @@ def generate(catalog: Catalog) -> GeneratedExtras:
             continue
         extras[extra] = _component_closure(component, catalog)
         members[extra] = frozenset({name})
+
+    for alias, extra in sorted((aliases or {}).items()):
+        if extra in extras:
+            extras.setdefault(alias, extras[extra])
+            members.setdefault(alias, members[extra])
 
     dev_extras = {
         profile.extra

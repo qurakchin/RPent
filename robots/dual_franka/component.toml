@@ -1,7 +1,7 @@
 schema = 1
 name = "dual_franka"
 kind = "robot"
-probe = "robots.dual_franka.robot_spec"
+probe = "robots.dual_franka"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
 # Dual Franka extends the single-arm integration instead of duplicating its

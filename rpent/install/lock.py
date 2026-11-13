@@ -101,6 +101,24 @@ def compile_profile(
     return output.read_text(encoding="utf-8")
 
 
+def resolve_profile(
+    profile: Profile,
+    catalog: Catalog,
+    *,
+    root: Path,
+    uv: str,
+) -> str:
+    """Compile ``profile`` into a temporary file and return the uv output.
+
+    ``rpent-env check --resolve`` uses this to prove that the declared
+    dependencies have a solution; it delegates to :func:`compile_profile` so
+    there is only one resolver.
+    """
+    with tempfile.TemporaryDirectory(prefix="rpent-resolve-") as directory:
+        output = Path(directory) / f"{profile.name}.txt"
+        return compile_profile(profile, catalog, root=root, uv=uv, output=output)
+
+
 def lock_profiles(
     targets: list[str],
     *,

@@ -165,12 +165,18 @@ def component_profile(
     catalog: Catalog,
     *,
     root: Path,
+    python: str | None = None,
 ) -> Profile:
-    """Build a development-only profile for one component."""
+    """Build a development-only profile for one component.
+
+    ``python`` pins the interpreter used for an installed diagnostic
+    environment; ``doctor`` passes the version recorded in the fingerprint so
+    the profile hashes the same no matter which interpreter runs the check.
+    """
     return Profile(
         name=component_name,
         path=root / "envs" / f"{component_name}.toml",
-        python=_supported_python(catalog.components[component_name]),
+        python=python or _supported_python(catalog.components[component_name]),
         platform=runtime_platform(),
         components={component_name: Selection()},
         dependencies=(),
@@ -227,6 +233,10 @@ def install(
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
     profile = resolution.profile
+    # A component install is a development diagnostic: its synthetic profile
+    # comes from the host interpreter rather than a declared envs/<name>.toml,
+    # so the fingerprint must say so.
+    install_kind = "profile" if target in catalog.profiles else "component"
     core = read_core_dependencies(repo_root) if profile.core else ()
     main_requirements = render_requirements(
         resolution, profile.name, core_dependencies=core
@@ -255,13 +265,17 @@ def install(
             raise InstallError("\n".join(problems))
 
     existing = read_fingerprint(destination)
-    if existing is not None and existing.get("profile") != profile.name:
-        raise InstallError(
-            f"{destination} is already installed for profile "
-            f"{existing.get('profile')!r}; profiles cannot share a virtualenv "
-            f"because their dependencies differ. Install {profile.name!r} into "
-            f"its own environment, for example `--venv {default_venv(repo_root, profile)}`"
-        )
+    if existing is not None:
+        existing_kind = existing.get("install_kind", "profile")
+        existing_name = existing.get("profile") or existing.get("component")
+        if (existing_kind, existing_name) != (install_kind, profile.name):
+            raise InstallError(
+                f"{destination} is already installed for {existing_kind} "
+                f"{existing_name!r}; environments cannot share a virtualenv "
+                f"because their dependencies differ. Install "
+                f"{profile.name!r} into its own environment, for example "
+                f"`--venv {default_venv(repo_root, profile)}`"
+            )
 
     requirements_path.parent.mkdir(parents=True, exist_ok=True)
     requirements_path.write_text(main_requirements, encoding="utf-8")
@@ -327,7 +341,14 @@ def install(
     commit, dirty = source_state(repo_root)
     fingerprint = {
         "schema": 1,
-        "profile": profile.name,
+        "install_kind": install_kind,
+        # A component diagnostic has no declared profile; record the component
+        # instead so `doctor` can rebuild the same synthetic profile.
+        "profile": profile.name if install_kind == "profile" else None,
+        "component": profile.name if install_kind == "component" else None,
+        # Only a lock pins the transitive closure; `--dev` and component
+        # diagnostics install resolved versions that a later run may change.
+        "reproducible": using_lock,
         "python": _python_version(python),
         "platform": runtime_platform(),
         "source_commit": commit,
@@ -392,6 +413,35 @@ def _python_version(python: Path) -> str:
         return "unknown"
 
 
+def probe_source(probe: str) -> str:
+    """Return the source an install probe runs for ``probe``.
+
+    Importing the package alone is a weak check: slice entries stay lazy so a
+    missing optional dependency does not break discovery. Probe the slice's
+    role module too, preferring the a_5 name ``adapter`` and falling back to
+    the current ``robot_spec`` until S2 renames it, so the probe verifies real
+    dependencies without pinning the manifest to a file name.
+    """
+    candidates = "".join(
+        f'    "{probe}.{name}",\n' for name in ("adapter", "robot_spec")
+    )
+    return (
+        "import importlib\n"
+        "import importlib.util\n"
+        f"import {probe}\n"
+        "for name in (\n"
+        f"{candidates}"
+        "):\n"
+        "    try:\n"
+        "        found = importlib.util.find_spec(name)\n"
+        "    except (ImportError, AttributeError, ValueError):\n"
+        "        found = None\n"
+        "    if found is not None:\n"
+        "        importlib.import_module(name)\n"
+        "        break\n"
+    )
+
+
 def _probe_components(
     resolution: Resolution,
     python: Path,
@@ -406,7 +456,9 @@ def _probe_components(
             print(f"probe {name}: import {probe}")
         try:
             run_command(
-                [str(python), "-c", f"import {probe}"], env=environment, capture=True
+                [str(python), "-c", probe_source(probe)],
+                env=environment,
+                capture=True,
             )
         except InstallError as exc:
             raise InstallError(

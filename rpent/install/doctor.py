@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from rpent.install.discovery import discover
+from rpent.install.discovery import Catalog, discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     FINGERPRINT_NAME,
@@ -33,11 +33,14 @@ from rpent.install.fingerprint import (
     runtime_platform,
 )
 from rpent.install.installer import (
+    component_profile,
     find_uv,
+    probe_source,
     resolve_install_target,
     venv_python,
 )
 from rpent.install.requirements import read_core_dependencies, requirements_sha256
+from rpent.install.resolve import resolve
 from rpent.utils.config import get_repo_root
 
 OK = "ok"
@@ -86,6 +89,35 @@ def _probe_endpoint(endpoint: str) -> str | None:
         return f"endpoint {endpoint!r} is not reachable: {exc}"
 
 
+def _installed_minor(fingerprint: dict[str, Any]) -> str | None:
+    """Return the major.minor interpreter version recorded at install time."""
+    parts = str(fingerprint.get("python", "")).split(".")
+    if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
+        return f"{parts[0]}.{parts[1]}"
+    return None
+
+
+def _resolve_component(
+    name: str,
+    catalog: Catalog,
+    *,
+    root: Path,
+    fingerprint: dict[str, Any],
+):
+    """Resolve a component diagnostic with its install-time interpreter."""
+    if name not in catalog.components:
+        known = ", ".join(sorted(catalog.components))
+        raise InstallError(f"unknown component {name!r}; known: {known}")
+    profile = component_profile(
+        name,
+        catalog,
+        root=root,
+        python=_installed_minor(fingerprint),
+    )
+    core = read_core_dependencies(root) if profile.core else ()
+    return resolve(profile, catalog, core_dependencies=core)
+
+
 def check_installation(
     venv: Path,
     *,
@@ -107,17 +139,26 @@ def check_installation(
                 f"install it with `rpent-env install <profile> --venv {venv}`",
             )
         ]
-    name = profile_name or fingerprint.get("profile")
+    kind = fingerprint.get("install_kind", "profile")
+    name = profile_name or fingerprint.get("profile") or fingerprint.get("component")
+    if name is None:
+        return [*checks, Check(FAIL, "fingerprint records no profile or component")]
     include_dev = bool(fingerprint.get("include_dev", False))
-    checks.append(Check(OK, f"profile: {name}"))
+    label = "component" if kind == "component" else "profile"
+    checks.append(Check(OK, f"{label}: {name}"))
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
     try:
         catalog = discover(repo_root)
-        resolution = resolve_install_target(
-            str(name), catalog, root=repo_root, include_dev=include_dev
-        )
+        if kind == "component":
+            resolution = _resolve_component(
+                str(name), catalog, root=repo_root, fingerprint=fingerprint
+            )
+        else:
+            resolution = resolve_install_target(
+                str(name), catalog, root=repo_root, include_dev=include_dev
+            )
     except (InstallError, ValueError) as exc:
-        checks.append(Check(FAIL, f"cannot resolve profile {name!r}: {exc}"))
+        checks.append(Check(FAIL, f"cannot resolve {label} {name!r}: {exc}"))
         return checks
     if not resolution.ok:
         checks.append(Check(FAIL, "\n".join(resolution.errors)))
@@ -195,7 +236,7 @@ def check_installation(
     for component in resolution.main_components().values():
         probe = component.component.probe
         result = _run(
-            [str(python), "-c", f"import {probe}"],
+            [str(python), "-c", probe_source(probe)],
             env=environment,
         )
         if result.returncode != 0:

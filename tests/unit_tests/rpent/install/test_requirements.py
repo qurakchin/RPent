@@ -124,6 +124,21 @@ def test_requirements_hash_tracks_manifests_and_options(
     assert inputs["core_dependencies"] == ["packaging"]
 
 
+def test_requirements_inputs_record_deps_environment_membership(
+    make_component, make_profile, make_catalog
+):
+    rlinf = make_component("rlinf", kind="deps")
+    alpha = make_component("alpha", requires=["rlinf"])
+    profile = make_profile("sim", {"alpha": Selection()})
+    catalog = make_catalog([rlinf, alpha], {"sim": profile})
+
+    resolution = resolve(profile, catalog)
+
+    inputs = requirements_inputs(resolution)
+    assert inputs["environment_deps"] == {"sim": ["rlinf"]}
+    assert inputs["profile"]["components"]["rlinf"]["placement"] == "in-env"
+
+
 def test_read_core_dependencies(write_toml, tmp_path):
     write_toml(
         "pyproject.toml",

@@ -122,6 +122,13 @@ def requirements_inputs(
         }
     return {
         "schema": 1,
+        # A deps component installs into every environment whose component
+        # requires it, so its membership is recorded separately from the
+        # single-environment ``env`` field below.
+        "environment_deps": {
+            environment: sorted(names)
+            for environment, names in sorted(resolution.environment_deps.items())
+        },
         "profile": {
             "name": profile.name,
             "python": profile.python,

@@ -1,7 +1,7 @@
 schema = 1
 name = "robocasa"
 kind = "robot"
-probe = "robots.robocasa.robot_spec"
+probe = "robots.robocasa"
 python = ">=3.10,<3.11"
 platforms = ["linux-x86_64"]
 requires = ["rlinf"]
