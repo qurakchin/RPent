@@ -1,7 +1,18 @@
 Command-Line Reference
 ======================
 
-Run ``rpent --robot <name> --help`` for the full options of an environment. RPent supplies shared options; each environment adds task selection, resource paths, and service settings.
+This page is the reference for options shared by every robot and for the
+action-model settings that select and connect a model service. Run
+``rpent --robot <name> --help`` for the full options of an environment; each
+environment adds task selection, resource paths, and service settings.
+
+.. page-head::
+   :for: Readers looking up a flag, default, environment variable, or output file
+   :outcome: You can find the option that controls a run and know which page owns its full explanation
+   :read-when: A command in a tutorial needs a flag you have not used
+   :skip-when: You are following a tutorial for the first time; its commands are complete for that path
+
+**Page map:** shared options → environment options → action-model compatibility → model-service environment variables → output files.
 
 .. code-block:: bash
 
@@ -42,7 +53,7 @@ These options control the planner, memory, output directory, and Dashboard.
      - Reasoning effort for ``api``, ``claude_code``, and ``codex``:
        ``none``, ``low``, ``medium``, ``high``, or ``xhigh``. Disabling
        reasoning reduced the average runtime from approximately 13.2 to
-       7.9 minutes (about 40%) in our LIBERO Pro Long evaluations.
+       7.9 minutes (about 40%) in our LIBERO-PRO Long evaluations.
        Higher effort may improve task success rate. Supported levels
        ultimately depend on the selected model.
    * - ``--planner-timeout-s``
@@ -64,10 +75,11 @@ These options control the planner, memory, output directory, and Dashboard.
      - ``false``
      - With ``api``, ``claude_code``, or ``codex``, record the task, model requests and responses, and tool calls. In evaluation mode, supported environments also record executed actions and their observations. See :doc:`flywheel` for collection and export.
    * - ``--memory-profile``
-     - ``—``
-     - Evaluation normally defaults to ``hf``; exploration and WAM evaluation use ``local``.
+     - ``hf`` / ``local``
+     - Defaults to ``hf`` for evaluation and ``local`` for exploration, WAM
+       evaluation, and YAM.
    * - ``--memory-dir``
-     - ``—``
+     - environment default
      - Local memory directory; use with the local profile or exploration.
    * - ``--memory-repo``
      - ``—``
@@ -97,12 +109,13 @@ These options control the planner, memory, output directory, and Dashboard.
 Environment Options
 -------------------
 
-LIBERO selects tasks with ``--suite``, ``--task``, ``--seed``, and ``--libero-type``; the variant defaults to ``LIBERO_TYPE`` or ``pro``. RoboCasa365 and RoboTwin use ``--task-name``. Franka uses ``--task-id`` and ``--robot-config``. See :doc:`../simulators/libero`, :doc:`../simulators/robocasa`, :doc:`../simulators/robotwin`, :doc:`../real_world_robots/franka`, and :doc:`../real_world_robots/dual_franka` for details.
+LIBERO selects tasks with ``--suite``, ``--task``, ``--seed``, and ``--libero-type``; the variant is inferred from the suite name (``standard`` for base suites, ``pro`` for perturbation suites), and ``--libero-type`` or ``LIBERO_TYPE`` overrides the inference. Perturbation suites require ``pro``. RoboCasa365 and RoboTwin use ``--task-name``. Franka uses ``--task-id`` and ``--robot-config``. See :doc:`../simulators/libero`, :doc:`../simulators/robocasa`, :doc:`../simulators/robotwin`, :doc:`../real_world_robots/franka`, and :doc:`../real_world_robots/dual_franka` for details.
 
 ``--env-endpoint``, ``--am-endpoint``, and LIBERO’s ``--sam3-endpoint`` connect to existing environment, action-model (VLA or WAM), and SAM3 services respectively. RPent RPC addresses use ``[protocol://]host:port``, defaulting to ``http``. LingBot uses native WebSocket; see :doc:`../simulators/robotwin`. See :doc:`advanced_deployment` for GPU assignment and remote services.
 
-``--am-backend`` selects one action model supported by the platform. LIBERO
-defaults to ``pi05`` and RoboTwin to ``lingbot``. VLA and WAM share
+``--am-backend`` selects one action model supported by the platform. The
+default is ``pi05`` for LIBERO, Franka, dual-Franka, and YAM; ``lingbot`` for
+RoboTwin; ``rldx`` for RoboCasa; and ``vpp2`` for RoboDojo. VLA and WAM share
 ``--am-endpoint`` for existing workers, and ``--am-checkpoint``, ``--am-python``,
 ``--am-root`` and ``--am-cuda-device`` for local deployment. Explicit local
 deployment options are rejected with an endpoint.

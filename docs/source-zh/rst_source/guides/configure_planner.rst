@@ -1,7 +1,15 @@
 规划器配置
 ==========
 
-RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
+本页说明如何选择规划器、连接模型服务，并在正式运行任务前检查连接。RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
+
+.. page-head::
+   :for: 要把 RPent 接到模型 API、Claude Code、Codex 或本地规划器的读者
+   :outcome: 选择后端、设置凭据与端点，并确认连接可用
+   :read-when: 首次配置规划器，或切换后端时
+   :skip-when: 要实现新的规划器后端；见 :doc:`../development/add_planner`
+
+**本文结构：** 选择后端（``api``、``claude_code``、``codex``）→ 验证连接 → 设置运行限制。
 
 .. code-block:: text
 
@@ -28,28 +36,20 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
        Streamable HTTP MCP 服务，把 toolkit 接入 Codex。
      - 通过 Codex SDK 运行任务，复用已有的 Codex 认证或配置独立 API。
    * - ``flash``
-     - **Flash Mode**，仅用于评测。重放 memory 中保存的成功执行计划，并对每个路点
-       的锚点重新定位，使方案能跟随移动过的物体。参见
+     - **Flash Mode**，仅用于评测。不调用 LLM，直接重放已保存的计划。参见
        :doc:`flash`。
      - 想在新布局上低成本地重跑一个已知可行的方案，无需 LLM 在线规划；仍需要感知和 VLA 服务。
 
 .. _planner-direct-actions:
 
-直接执行动作
---------------------
-
-使用 LIBERO、RoboCasa 或 RoboTwin 时，在启动命令中添加
+**直接执行动作。** 使用 LIBERO、RoboCasa 或 RoboTwin 时，在启动命令中添加
 ``--enable-direct-action``，即可让 planner 调用
-``execute_action(values=[...])``。planner 传入一组控制数值，环境将其作为
-一个动作执行，RPent 随后记录执行后的状态。
-
-具体需要传入哪些数值，取决于机器人和控制器。planner 收到的工具说明会列出
-数值的个数及各自允许的范围。启用后，planner 仍可使用 VLA 和脚本工具。
+``execute_action(values=[...])``。planner 传入一组控制数值，环境将其作为一个动作执行。具体数值取决于机器人和控制器，工具说明会列出个数和允许范围；启用后仍可使用 VLA 和脚本工具。
 
 ``api`` 规划器（直接调用模型 API）
 -------------------------------------
 
-``--planner api`` 是默认选项。它使用 Pydantic AI 原生工具调用循环，并要求 ``--model`` 带有模型提供商前缀。当前项目安装的依赖包含 Anthropic 和 OpenAI 集成，因此可以直接使用 Anthropic Messages API、OpenAI Responses API，以及 OpenAI 兼容的 Chat Completions API。
+``--planner api`` 是默认选项。它使用 Pydantic AI 原生工具调用循环，并要求 ``--model`` 带有模型提供商前缀。当前项目安装的依赖包含 Anthropic 和 OpenAI 集成。因此可以直接使用 Anthropic Messages API 和 OpenAI Responses API。OpenAI 兼容的 Chat Completions API 也可用。
 
 通过 ``--model`` 前缀选择模型提供商：
 
@@ -75,7 +75,7 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 - ``--max-tokens`` —— 单次 LLM 回复的 token 上限（默认 ``8192``）。
 - ``--no-images`` —— 不向模型发送图片字节；纯文本模型必须加此参数。此时智能体只依赖文本状态推理，任务表现可能不够理想。
 
-终端交互方式见 :ref:`终端交互 <quickstart-interactive>`。
+终端交互方式见 :ref:`终端交互 <terminal-interaction>`。
 
 .. _planner-claude-code:
 
@@ -117,10 +117,10 @@ Claude Code 可以连接兼容 Anthropic Messages API 的本地模型服务。�
 
 .. _planner-codex:
 
-``codex`` planner
+``codex`` 规划器
 ------------------
 
-``--planner codex`` 使用 OpenAI Codex Python SDK。每次运行时，RPent 会在当前进程的后台线程中启动本地 Streamable HTTP MCP 服务，Codex 通过该服务调用同一个 toolkit；无需预先启动 ``scripts/codex_proxy/``。
+``--planner codex`` 使用 OpenAI Codex Python SDK。每次运行时，RPent 在当前进程的后台线程中启动本地 Streamable HTTP MCP 服务。Codex 通过该服务调用同一个工具集，无需预先启动 ``scripts/codex_proxy/``。
 
 Codex 规划会话不会自动加载仓库的 ``AGENTS.md`` 和 ``.agents/skills/`` 中的开发 skills。工作目录仍为仓库根目录，机器人指南和 memory 仍可通过已有工具读取。
 
@@ -218,7 +218,7 @@ RPent 的 ``--model`` 必须与 vLLM 的 ``--served-model-name`` 保持一致。
    rpent-check-llm --planner claude_code
    rpent-check-llm --planner codex --json
 
-成功时退出码为 ``0``，任何失败为 ``1``，并将失败归类为 ``missing_config``、``unsupported_provider``、``missing_api_key``、 ``auth_failed``、``network_error``、``provider_error``、``sdk_error`` 之一。脚本与 CI 建议使用 ``--json``。``--base-url`` 覆盖后端端点， ``--timeout-s`` 覆盖诊断超时（``api`` 为 30 秒，两个 SDK 后端为 90 秒；运行时的 ``1200`` 秒默认值不会被复用）。
+成功时退出码为 ``0``，任何失败为 ``1``，并将失败归类为 ``missing_config``、``unsupported_provider``、``missing_api_key``、``auth_failed``、``invalid_model``、``network_error``、``provider_error``、``sdk_error`` 之一。脚本与 CI 建议使用 ``--json``。``--base-url`` 仅用于 ``api``；两个 SDK 规划器分别读取 ``ANTHROPIC_BASE_URL`` 或 ``CODEX_BASE_URL``，传入该参数会报错。``--timeout-s`` 覆盖诊断超时。``api`` 为 30 秒，两个 SDK 后端为 90 秒。SDK 后端仅靠 CLI 登录、未设置凭据环境变量时为 25 秒。运行时的 ``1200`` 秒默认值不会被复用。
 
 使用 Dashboard 时，也请先在终端运行上述检查，并使用准备运行任务的规划器与模型配置。Dashboard 从命令行接收配置，打开后直接显示运行监控页面。启动方法见 :doc:`dashboard`。
 
@@ -226,15 +226,12 @@ RPent 的 ``--model`` 必须与 vLLM 的 ``--served-model-name`` 保持一致。
 
 .. _planner-custom:
 
-添加规划器
----------------
-
 自定义规划器的接口、接入步骤和验证要求见 :doc:`../development/add_planner`。
 
 设置规划器的运行限制
 -----------------------
 
-``--max-turns N`` 设置规划轮数上限，默认 ``100``。一轮不是一次机器人动作：模型的一次回复可以要求调用多个工具。各后端的计数规则不同：
+``--max-turns N`` 设置规划轮数上限，默认值见 :doc:`cli`。一轮不是一次机器人动作：模型的一次回复可以要求调用多个工具。各后端的计数规则不同：
 
 - **API：** 整段对话中，每次模型请求算一轮，包含重试和用户后续输入产生的请求。Pydantic AI 负责执行这个上限，RPent 将请求次数记为 ``turns_used``。达到上限时正常停止，不记为规划器错误，也不代表任务成功。探索模式仍可继续下一会话，并在满足其他条件时合并记忆。
 - **Codex：** 模型每回复一次算一轮。只有推理或工具调用、没有文字的回复也计数；同一次回复中的多个工具调用不会分别计数。RPent 负责执行这个上限。

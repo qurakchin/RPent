@@ -1,3 +1,4 @@
+
 .. _system-internals:
 
 Architecture and Execution
@@ -5,9 +6,26 @@ Architecture and Execution
 
 RPent separates task planning, tool execution, and environment operation. The planner chooses tools, the toolkit dispatches them to perception or action components, and the environment returns updated state. Environments connect to the shared runner through ``RobotSpec``.
 
-.. image:: https://raw.githubusercontent.com/RLinf/misc/main/pic/rpent_framework.png
-   :alt: RPent system architecture
+.. page-head::
+   :for: Engineers who need to know which component executes a call and where to change it
+   :outcome: You can trace one run through the CLI, planner, toolkit, and services, and choose the right extension page
+   :read-when: You are reviewing the execution path, planning an integration, or locating the code that owns a behavior
+   :skip-when: You only need to run a task; start with :doc:`../get_started/quickstart` or the page for your platform
+
+**Page map:** one run end to end → component responsibilities → repository layout → command entry points → environment discovery → Dashboard sessions → extension guides.
+
+.. figure:: ../../../_static/img/architecture-en.svg
+   :alt: RPent layers: user, agent, model and environment services, and environments
    :width: 100%
+   :target: ../../../_static/img/architecture-en.svg
+
+   Read from top to bottom. A user entry point sends a task to the planner;
+   the planner drives the toolkit, which calls services; services hold the
+   simulator or robot connection. Solid arrows are calls, dashed arrows are
+   inputs, and double arrows are shared connections. In the figure, SSE is
+   server-sent events; VLA is a vision-language-action model; WAM is a backend
+   that predicts one chunk of actions per call, such as Cosmos Policy and
+   Fast-WAM. Click the figure for the full-size image.
 
 Task Execution
 --------------
@@ -23,6 +41,18 @@ the next decision. The sequence below follows one run from CLI setup to cleanup.
 5. The planner obtains schemas through ``list_tools``, dispatches calls through ``execute_tool``, and consumes text and image results.
 6. Action tools call a VLA or scripted motion. The environment records updated state and observations for the next planning turn.
 7. ``finish``, a run limit, or an error ends planning. The runner saves the transcript, finalizes recordings, and cleans up. Environments that publish evaluation artifacts use their finalization hook.
+
+.. figure:: ../../../_static/img/execution-flow-en.svg
+   :alt: One RPent run from the CLI to saved run artifacts
+   :width: 85%
+   :align: center
+   :target: ../../../_static/img/execution-flow-en.svg
+
+   Read from top to bottom. The CLI builds a session, services start, the
+   planner loops until it stops, and artifacts are saved. A failing or
+   timed-out tool returns an error result to the planner, which decides
+   whether to retry. Success is decided by the environment or the robot
+   operator.
 
 ``finish`` marks the end of planning; success comes from the environment or a real-robot operator. See each environment guide for its criterion. The main entry point is ``rpent/cli/main.py``.
 
@@ -51,7 +81,7 @@ different robots.
    * - MemoryManager
      - Control memory reads and exploration writes, and manage merging and indexing.
 
-In LIBERO, the environment, Pi0.5, and SAM3 run in separate service processes. Action tools advance the environment; read tools such as ``view_env_state`` inspect recorded state. RPC supports HTTP and socket transports. See :doc:`interfaces` for contracts and :doc:`../guides/advanced_deployment` for standalone deployment.
+In LIBERO, the environment, Pi0.5, and SAM3 run in separate service processes. Action tools advance the environment; read tools such as ``view_env_state`` inspect recorded state. Remote procedure calls (RPC) support HTTP and socket transports. See :doc:`interfaces` for contracts and :doc:`../guides/advanced_deployment` for standalone deployment.
 
 Repository Layout
 -----------------
@@ -75,8 +105,53 @@ Shared execution and interfaces live under ``rpent/``. Each package under
      libero/
      robocasa/
      robotwin/
+     robodojo/
      franka/
      dual_franka/
+     yam/
+   docs/
+     source-en/    # English pages
+     source-zh/    # Chinese pages at matching paths
+     _diagrams/    # Diagram sources; make diagrams regenerates the SVGs
+     _ext/         # Sphinx extensions, including the leaderboard renderer
+     _static/      # Images, styles, and leaderboard data
+
+Command Entry Points
+--------------------
+
+``pyproject.toml`` declares four RPent commands. Simulator and asset commands
+are installed by the dependency packages that each extra pulls in; they are not
+defined in this repository.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 34 32
+
+   * - Command
+     - Defined by
+     - Purpose
+   * - ``rpent``
+     - ``pyproject.toml`` (``rpent.cli.main:main``)
+     - Run a task or start the Dashboard.
+   * - ``rpent-memory``
+     - ``pyproject.toml`` (``rpent.cli.memory:main``)
+     - Validate, index, and merge a memory directory.
+   * - ``rpent-check-llm``
+     - ``pyproject.toml`` (``rpent.cli.check_llm:main``)
+     - Check planner credentials and connectivity.
+   * - ``rpent-flywheel``
+     - ``pyproject.toml`` (``rpent.flywheel.cli:main``)
+     - Export recorded trajectories for VLA training.
+   * - ``libero-download-assets``, ``liberopro-download-assets``,
+       ``liberoplus-download-assets``
+     - ``rpent-libero``, ``rpent-liberopro``, ``rlinf-liberoplus``
+     - Download scene assets for the selected LIBERO variant.
+   * - ``robocasa-download-assets``
+     - ``rpent-robocasa365``
+     - Download kitchen assets.
+   * - ``robotwin-download-assets``
+     - ``rlinf-robotwin-runtime``
+     - Download RoboTwin assets.
 
 Environment Discovery
 ---------------------
@@ -94,7 +169,7 @@ Environment Discovery
 Dashboard Sessions
 ------------------
 
-The Dashboard uses a long-lived Session to manage services and creates a TaskRun for each task. ``DashboardSpec`` defines task commands, cameras, controls, and runtime components marked ``shared`` or ``unique``.
+The Dashboard uses a long-lived Session to manage services and creates a TaskRun for each task. ``DashboardSpec`` defines the task command and its fields, runtime components marked ``shared`` or ``unique``, and primitive controls.
 
 A LIBERO Session reuses Pi0.5 and SAM3, while each sequential TaskRun owns its environment, toolkit, and planner conversation. The owning session or task cleans up its components.
 

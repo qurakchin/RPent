@@ -1,16 +1,24 @@
 远程服务与并行运行
 ===========================
 
-以下示例使用 LIBERO、Pi0.5 VLA 和 SAM3。默认情况下，RPent 随每次运行启动并关闭这些服务和环境。服务分布在不同主机或需要跨任务复用时，可配置外部 endpoint。WAM worker 的部署见 :ref:`action-model-deployment`。
+本页说明如何把环境和模型服务部署到不同主机，或在多个任务和进程之间复用这些服务。以下示例使用 LIBERO、Pi0.5 视觉语言动作模型（VLA）和 SAM3。默认情况下，RPent 随每次运行启动并关闭这些服务和环境。服务分布在不同主机或需要跨任务复用时，可配置外部 endpoint。WAM worker 的部署见 :ref:`action-model-deployment`。
 
-三个参数分别设置对应服务的 endpoint：LIBERO 环境用 ``--env-endpoint``，所选动作模型用 ``--am-endpoint``，SAM3 用 ``--sam3-endpoint``。每个都取 ``[protocol://]HOST:PORT``，省略 protocol 时默认 HTTP，也可用 ``socket://`` 改走 socket RPC。
+三个参数分别设置对应服务的 endpoint：LIBERO 环境用 ``--env-endpoint``，所选动作模型用 ``--am-endpoint``，SAM3 用 ``--sam3-endpoint``。每个都取 ``[protocol://]HOST:PORT``，省略 protocol 时默认 HTTP，也可用 ``socket://`` 改走基于 socket 的远程过程调用（RPC）。
 
-Dashboard Session 不支持 ``--env-endpoint``，因为每个 TaskRun 都需要使用新的环境服务；Dashboard 模式仍可使用 ``--am-endpoint`` 和 ``--sam3-endpoint``。
+Dashboard Session 可用的 endpoint 参数见 :doc:`dashboard`。
+
+.. page-head::
+   :for: 要在多台主机上运行服务，或在多次任务间复用服务的操作用户
+   :outcome: 分别启动各服务、通过端点连接 RPent，并并行评测
+   :read-when: 服务已经在运行，或单机放不下整套服务时
+   :skip-when: 默认的单机启动方式已经够用
+
+**本文结构：** LIBERO 环境服务 → Pi0.5 与 APXInf VLA 服务 → SAM3 → 连接 RPent → 自定义 RLinf 源码 → 并行评测 → 远程 Dashboard。
 
 LIBERO 环境服务
 ---------------
 
-一个环境服务固定对应一组 suite、task、seed 和最大 episode 步数，这些参数必须与 RPent 客户端完全一致。在环境主机上运行：
+一个环境服务固定对应一组 suite、task、seed 和最大 episode 步数。这些参数必须与 RPent 客户端完全一致。在环境主机上运行：
 
 .. code-block:: bash
 
@@ -26,7 +34,7 @@ LIBERO 环境服务
 Pi0.5 VLA 服务
 --------------
 
-在 VLA 主机上设置 checkpoint 路径并启动 HTTP 服务：
+在 VLA 主机上设置 checkpoint 路径并启动 HTTP 服务。权重下载见 :ref:`quickstart-download`：
 
 .. code-block:: bash
 
@@ -59,10 +67,10 @@ APXInf 适配器可以替代 Pi0.5 服务。在已安装 RPent 的环境中，�
      --precision bf16 \
      --transport http --host 127.0.0.1 --port 8220
 
-在 LIBERO 命令中增加 ``--vla-endpoint http://127.0.0.1:8220``。跨主机访问时，将服务绑定到可访问的网络接口，并使用服务端地址。用完后需自行停止这个外部服务；省略 endpoint 会启动 OpenPI。
+在 LIBERO 命令中增加 ``--am-endpoint http://127.0.0.1:8220``。跨主机访问时，将服务绑定到可访问的网络接口，并使用服务端地址。用完后需自行停止这个外部服务；省略 endpoint 会启动 OpenPI。
 APXInf-robo 原生的 OpenPI WebSocket 服务不是 RPent RPC endpoint，请使用上述适配器。
 
-适配器仅支持 eval 模式，模型配置如下：
+适配器只接受 eval 模式请求，并为以下模型配置提供了预设：
 
 - ``libero``：两个视角、五次流匹配迭代、十步动作预测；返回前五步动作，使用环境单位和 float32 类型。
 - ``dual_franka``：采用本体坐标系增量 TCP rot6d 的模型，输入三个视角；返回 20 步绝对位姿动作，每步 20 维。

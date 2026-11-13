@@ -1,4 +1,12 @@
 SO-101
 ======
 
-Content coming soon.
+RPent does not yet include a SO-101 integration, so there is no setup or
+operation guide for this robot. To connect a new real robot, see
+:doc:`../development/add_robot`.
+
+.. page-head::
+   :for: Readers checking whether RPent supports the SO-101
+   :outcome: You know the current integration status and where to start a new robot integration
+   :read-when: You are considering SO-101 hardware
+   :skip-when: You need a supported platform; see :doc:`index`

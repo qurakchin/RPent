@@ -7,6 +7,18 @@ Memory-Guided Agents*
 **Resources:** `Paper <https://arxiv.org/abs/2607.08448>`_ | `Project Page
 <https://harnessvla.github.io/>`_ | `Code <https://github.com/RLinf/RPent>`_
 
+This page summarizes the Harness VLA paper and the results behind RPent's
+memory-guided planning; setup and run commands are in the platform tutorials
+linked below.
+
+.. page-head::
+   :for: Readers evaluating the Harness VLA paper and the evidence behind memory-guided planning
+   :outcome: You can state the method, the reported results, and where each result is reproduced
+   :read-when: You are reading the paper, citing its numbers, or checking a reproduction branch
+   :skip-when: You need to run a task; start with :doc:`../get_started/quickstart` or a platform page
+
+**Page map:** overview → framework → results → reproduction branches → citation.
+
 Overview
 --------
 
@@ -69,10 +81,10 @@ within a unified framework:
   Memory captures reusable success patterns, failure modes, and recovery
   strategies across tasks to guide subsequent planning.
 
-During exploration, the Agentic Planner starts from a single seed task instance
-to discover an effective division of labor between Analytic Primitives and the
-VLA, then distills successful execution strategies and recovery experience into
-Task-Specific Memory and Global Memory. At deployment time, the Agentic Planner
+During exploration, the Agentic Planner starts from a single seed task instance.
+It discovers an effective division of labor between Analytic Primitives and the
+VLA. It then distills successful execution strategies and recovery experience
+into Task-Specific Memory and Global Memory. At deployment time, the Agentic Planner
 combines these memories with live observations to dynamically rebind targets
 and spatial parameters, allowing validated strategies to adapt to changes in
 target bindings and spatial layouts.
@@ -117,12 +129,12 @@ complementary mechanisms: semantic re-grounding by the planner, sparse and
 targeted VLA retries after restaging, and Analytic Primitives that isolate
 non-contact execution.
 
-Quick Start
------------
+Reproduction Branches
+---------------------
 
-The following links identify the documented code entry points. See each
-tutorial for setup and commands, and retain the code/data pairing of historical
-reproduction runs.
+The reproduction branches and memory record below identify the code and data
+entry points for the historical runs. See each tutorial for setup and commands,
+and retain the code/data pairing of historical reproduction runs.
 
 * **LIBERO:** :doc:`Tutorial <../simulators/libero>` —
   `reproduce/libero <https://github.com/RLinf/RPent/tree/reproduce/libero>`_

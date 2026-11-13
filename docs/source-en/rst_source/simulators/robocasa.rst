@@ -10,6 +10,14 @@ RoboCasa365
 
 Run kitchen manipulation tasks with RPent in RoboCasa365, then reproduce Target50 experiments. This integration uses the PandaOmron mobile manipulator and the RLDX-1 action model; its CLI name is ``robocasa``.
 
+.. page-head::
+   :for: Readers running kitchen tasks in RoboCasa365 and reproducing Target50
+   :outcome: You can install RoboCasa365, prepare RLDX-1, run a task, and explain the success signal and reproduction settings
+   :read-when: You are moving beyond the Quick Start, or checking Target50 configuration and results
+   :skip-when: You have not installed RPent yet; complete :doc:`../get_started/quickstart` first
+
+**Page map:** Overview → Installation → VLA Configuration → Run a Task → View Results → Observation and Action → Validation Status → Task Memory → Exploration Mode → Experiment Reproduction → environment checks, troubleshooting, and implementation notes.
+
 .. _robocasa-overview:
 
 Overview
@@ -36,67 +44,31 @@ Check the model, task, and runtime requirements before following the installatio
 
       Linux, NVIDIA GPU; Python 3.10; CUDA and EGL.
 
-Tasks
-~~~~~~~~~~~~
-
-Target50 covers the following categories. The reproduction section lists the complete task/seed matrix and run limits.
-
-.. list-table::
-   :header-rows: 1
-
-   * - Category
-     - Tasks
-     - Scope
-   * - Atomic
-     - 18
-     - Individual kitchen operations.
-   * - Composite-Seen
-     - 16
-     - Composite tasks in seen categories.
-   * - Composite-Unseen
-     - 16
-     - Composite tasks in unseen categories.
-
-.. _robocasa-observation-action:
-
-Observation and Action
-~~~~~~~~~~~~~~~~~~~~~~
-
-The table distinguishes planner tools, model inputs, and the environment’s success criterion.
-
-.. list-table::
-   :header-rows: 1
-
-   * - Item
-     - Description
-   * - Observation
-     - Camera views, depth/world coordinates, and mobile-base, end-effector, and gripper state. RLDX-1 receives three camera histories plus state and task text.
-   * - Action
-     - The planner calls ``rldx_skill`` and motion primitives. RLDX-1 predicts end-effector, gripper, base-motion, and control-mode commands.
-   * - Reward / success
-     - Evaluate success using the environment’s ``_check_success()`` result exposed as ``state.success``.
-   * - Task prompt
-     - Use the current environment’s complete ``task_language``; historical memory does not replace it.
-
-Installation and Resources
---------------------------
+Installation
+------------
 
 Use Linux, an NVIDIA GPU, working CUDA/EGL, ``git``, and
-`uv <https://docs.astral.sh/uv/getting-started/installation/>`_. Create a separate
-Python 3.10 environment. If you already have the repository, enter it and start
-at the third line:
+`uv <https://docs.astral.sh/uv/getting-started/installation/>`_. Complete
+:ref:`quickstart-install`, then create a separate Python 3.10 environment for
+RoboCasa:
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
    uv venv --python 3.10 .venv-robocasa
    source .venv-robocasa/bin/activate
 
-First install a matching CUDA-enabled Torch and torchvision pair for your driver
-using the `PyTorch instructions <https://pytorch.org/get-started/locally/>`_
-(replace ``pip`` with ``uv pip``). RLDX requires Torch >= 2.7 and
-torchvision >= 0.22, with mutually compatible versions. Then install RoboCasa:
+First install a matching CUDA-enabled Torch and torchvision pair for your driver.
+RLDX requires Torch >= 2.7 and torchvision >= 0.22, with mutually compatible
+versions. The CUDA 12.8 build is:
+
+.. code-block:: bash
+
+   uv pip install "torch>=2.7" "torchvision>=0.22" \
+     --index-url https://download.pytorch.org/whl/cu128
+
+For another CUDA version, replace ``cu128`` with the matching index from the
+`PyTorch previous-versions page
+<https://pytorch.org/get-started/previous-versions/>`_. Then install RoboCasa:
 
 .. list-table::
    :header-rows: 1
@@ -109,8 +81,9 @@ torchvision >= 0.22, with mutually compatible versions. Then install RoboCasa:
      - ``robocasa-download-assets`` (command below)
 
 Dependencies come from ``pyproject.toml``, including the ``rpent`` source branches
-of RoboCasa, RLDX and Robosuite. Do not also install ``rlinf-robocasa365``, which
-provides the same import package.
+of RoboCasa, RLDX and Robosuite; this extra installs ``rpent-robocasa365``. Do not
+also install upstream ``robocasa`` or another RoboCasa365 package, which provide
+the same ``robocasa`` import package.
 
 Check dependencies, download the kitchen assets (~10 GB) outside the Python
 package directory, and set their path in the shell used to launch RPent:
@@ -202,12 +175,63 @@ You can also use ``--planner api`` or ``--planner codex``; see the planner guide
 
 .. _inspect-the-result:
 
+Tasks
+~~~~~
+
+Target50 covers the following categories. The reproduction section lists the complete task/seed matrix and run limits.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Category
+     - Tasks
+     - Scope
+   * - Atomic
+     - 18
+     - Individual kitchen operations.
+   * - Composite-Seen
+     - 16
+     - Composite tasks in seen categories.
+   * - Composite-Unseen
+     - 16
+     - Composite tasks in unseen categories.
+
+.. _robocasa-observation-action:
+
 View Results
 ------------
 
 Task success comes from the environment’s ``_check_success()`` result, exposed as ``state.success``. The planner’s ``finish`` status ends its conversation and is not an evaluation label. Inspect ``result.json``, ``transcript_*.json``, and ``run.log`` in the output directory; service startup errors are in ``env_server.log`` and ``vla_server.log``.
 
 Use ``--dashboard`` to watch cameras and planner output; see :doc:`../guides/dashboard` for the shared workflow.
+
+Observation and Action
+----------------------
+
+The table distinguishes planner tools, model inputs, and the environment’s success criterion.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Item
+     - Description
+   * - Observation
+     - Camera views, depth/world coordinates, and mobile-base, end-effector, and gripper state. RLDX-1 receives three camera histories plus state and task text.
+   * - Action
+     - The planner calls ``rldx_skill`` and motion primitives. RLDX-1 predicts end-effector, gripper, base-motion, and control-mode commands.
+   * - Reward / success
+     - Evaluate success using the environment’s ``_check_success()`` result exposed as ``state.success``.
+   * - Task prompt
+     - Use the current environment’s complete ``task_language``; historical memory does not replace it.
+
+Validation Status
+-----------------
+
+- Verified (multiple runs): the v0.1 release report covers the Target50
+  protocol; see :doc:`../resources/release_v0.1` for the task/seed matrix and
+  the :doc:`leaderboard <../leaderboard/index>` for published scores.
+- CPU only: offline unit tests cover configuration, tools, and evaluation
+  result contracts.
 
 Task Memory
 -----------
@@ -333,10 +357,10 @@ at most five attempts per session by default:
 
 .. _reproduce-target50:
 
-Experiment Reproduction (Target50)
-----------------------------------
+Experiment Reproduction
+-----------------------
 
-Target50 covers 50 kitchen tasks and 340 runs. The example below uses Codex,
+This reproduction targets Target50, which covers 50 kitchen tasks and 340 runs. The example below uses Codex,
 GPT-5.5 and xhigh with task-specific and global memory.
 
 .. _run-and-check-results:
@@ -591,7 +615,7 @@ network access.
 
 .. _robocasa-troubleshooting:
 
-Troubleshooting
+Common Problems
 ---------------
 
 Start with the output directory's logs: ``env_server.log`` for environment

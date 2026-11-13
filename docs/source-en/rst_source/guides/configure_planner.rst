@@ -1,7 +1,18 @@
+
 .. _planners-and-model-services:
 
 Planner Configuration
 =====================
+
+This page explains how to choose a planner, connect it to a model service, and verify that connection before running tasks.
+
+.. page-head::
+   :for: Readers connecting RPent to a model API, Claude Code, Codex, or a local planner
+   :outcome: You can select a backend, set credentials and endpoints, and confirm the connection
+   :read-when: You are configuring a planner for the first time or switching backends
+   :skip-when: You need a new backend implementation; see :doc:`../development/add_planner`
+
+**Page map:** choose a backend (``api``, ``claude_code``, ``codex``) → verify the connection → set run limits.
 
 Select the Agentic Planner backend with one CLI flag:
 
@@ -37,26 +48,19 @@ loop is orchestrated, and which model SDK is used.
        Streamable HTTP MCP server that connects the toolkit to Codex.
      - Run tasks through the Codex SDK, using existing authentication or a configured API.
    * - ``flash``
-     - **Flash Mode**, for evaluation only. Replays a plan from memory,
-       recorded from an earlier
-       run, re-localizing each waypoint's anchor so the plan follows
-       objects that moved. See :doc:`flash`.
+     - **Flash Mode**, for evaluation only. Replays a stored plan without an
+       LLM. See :doc:`flash`.
      - You want to re-run a known-good plan on new layouts, without online
        LLM planning. Perception and VLA services are still required.
 
 .. _planner-direct-actions:
 
-Direct actions
---------------------
-
-For LIBERO, RoboCasa, and RoboTwin, add ``--enable-direct-action`` to the launch
-command to let the planner call ``execute_action(values=[...])``. The planner
-supplies a list of control values, which the environment executes as one action.
-RPent then records the resulting state.
-
-The required values depend on the robot and controller. The tool description
-provided to the planner lists the expected number of values and their allowed
-ranges. VLA and scripted tools remain available when direct actions are enabled.
+**Direct actions.** For LIBERO, RoboCasa, and RoboTwin, add
+``--enable-direct-action`` to the launch command to let the planner call
+``execute_action(values=[...])``. The planner supplies a list of control values,
+which the environment executes as one action. The required values depend on the
+robot and controller; the tool description lists the expected count and allowed
+ranges. VLA and scripted tools remain available.
 
 The ``api`` Planner (direct Model API)
 ---------------------------------------
@@ -94,7 +98,7 @@ Relevant ``api`` planner knobs:
   text-only models. The agent then reasons from textual state alone,
   so task performance may not be satisfactory.
 
-For ``--tui`` usage, see :ref:`Terminal interaction <quickstart-interactive>`.
+For ``--tui`` usage, see :ref:`Terminal interaction <terminal-interaction>`.
 
 .. _planner-claude-code:
 
@@ -292,13 +296,15 @@ robot runtime:
    rpent-check-llm --planner claude_code
    rpent-check-llm --planner codex --json
 
-It exits ``0`` on success and ``1`` on any failure, and classifies the
-failure as one of ``missing_config``, ``unsupported_provider``,
-``missing_api_key``, ``auth_failed``, ``network_error``,
-``provider_error``, or ``sdk_error``. Use ``--json`` for scripting and
-CI. ``--base-url`` overrides the backend's endpoint, and ``--timeout-s``
-overrides the diagnostic timeout (30 s for ``api``, 90 s for the two SDK
-backends; the ``1200`` s run default is never reused).
+It exits ``0`` on success and ``1`` on any failure. The failure is classified
+as one of ``missing_config``, ``unsupported_provider``, ``missing_api_key``,
+``auth_failed``, ``invalid_model``, ``network_error``, ``provider_error``, or
+``sdk_error``. Use ``--json`` for scripting and CI. ``--base-url`` applies to
+``api`` only. The SDK planners read ``ANTHROPIC_BASE_URL`` or
+``CODEX_BASE_URL``, and passing the flag with either is an error.
+``--timeout-s`` overrides the diagnostic timeout: 30 s for ``api``, 90 s for
+the two SDK backends, or 25 s when an SDK backend runs on a CLI login without
+its credential variable. The ``1200`` s run default is never reused.
 
 Before using the Dashboard, run the same check in a terminal with the
 planner and model settings you intend to use for the task. The Dashboard
@@ -313,15 +319,13 @@ schemas, or your context length.
 
 .. _planner-custom:
 
-Add a Planner
--------------
-
-See :doc:`../development/add_planner` for the interface, integration steps, and validation requirements.
+To add a backend, see :doc:`../development/add_planner` for the interface,
+integration steps, and validation requirements.
 
 Configure Planner Limits
 ------------------------
 
-``--max-turns N`` sets the planner's turn limit; the default is ``100``.
+``--max-turns N`` sets the planner's turn limit; :doc:`cli` lists the default.
 A turn is not a robot action: one model response can request several tools.
 The counting rule depends on the backend:
 

@@ -1,3 +1,4 @@
+
 .. _release-v0-1:
 
 RPent v0.1 版本发布 🎉
@@ -5,9 +6,17 @@ RPent v0.1 版本发布 🎉
 
 我们发布了 RPent 的首个公开版本 v0.1。
 
-RPent（Recursive Physical Agent）是面向真实物理世界的开源具身智能体基础设施。它连接通用大模型、VLA 模型、记忆与机器人接口，通过任务规划、执行反馈和经验复用完成物理世界任务。
+RPent（Recursive Physical Agent）是面向真实物理世界的开源具身智能体框架。它连接通用大模型、VLA 模型、记忆与机器人接口，通过任务规划、执行反馈和经验复用完成物理世界任务。
 
-v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划，接入 LIBERO 系列、RoboCasa365、RoboTwin、RoboDojo 等仿真环境，以及单臂 Franka、双臂 Franka 和 YAM 真机，提供 Memory、Flash Mode、交互式 CLI 与 Web Dashboard。RPent 已在多种仿真环境和真机任务中完成验证，并在 LIBERO-PRO 等仿真基准上取得榜单所列方法中的领先任务成功率。
+v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划。它接入 LIBERO 系列、RoboCasa365、RoboTwin 和 RoboDojo 等仿真环境。真机侧支持单臂 Franka、双臂 Franka 和 YAM。它还提供 Memory、Flash Mode、交互式 CLI 与 Web Dashboard。RPent 已在多种仿真环境和真机任务中完成验证，并在 LIBERO-PRO 等仿真基准上报告任务成功率。对比方法与统计口径见 :doc:`排行榜 <../leaderboard/index>`。
+
+.. page-head::
+   :for: 要确认 v0.1 包含什么、旧命令如何变化的读者
+   :outcome: 说明版本范围，并迁移已改名的命令
+   :read-when: 从旧命令升级，或核对版本范围时
+   :skip-when: 需要安装步骤；见 :doc:`../get_started/quickstart`
+
+**本文结构：** 版本亮点 → 功能特性 → 迁移与弃用 → 贡献者 → 评测结果 → 快速开始 → 测试结果。
 
 版本亮点
 --------------------
@@ -20,12 +29,12 @@ v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划，接
 仿真评测
 ~~~~~~~~~~~~
 
-- **多仿真环境评测与公开榜单**\ ：使用 GPT-6 Astra 的 RPent 在 LIBERO-PRO（low reasoning）、RoboCasa365 Target50（high reasoning）上分别达到 92.63%、59.20% 成功率；使用 GPT-5.5 的 RPent 在 RoboTwin C2R 上达到 62.4%。公开榜单提供评测配置、成功率、耗时与 Token 开销数据。 :doc:`Leaderboard </rst_source/leaderboard/index>`
+- **多仿真环境评测与公开榜单**\ ：RPent 在 LIBERO-PRO（GPT-6 Astra，low reasoning）、RoboCasa365 Target50（GPT-6 Astra，high reasoning）和 RoboTwin C2R（GPT-5.5）上报告了成功率。:doc:`排行榜 </rst_source/leaderboard/index>` 记录具体数值、评测配置、耗时、Token 开销与数据来源。
 
 系统设计
 ~~~~~~~~~~~~
 
-- **模块化**\ ：采用开放的模块化设计，将系统划分为用户层、智能层、接口层和环境层四大层级。
+- **模块化**\ ：采用开放的模块化设计，将用户界面、规划与工具层、模型与环境服务以及环境本身分开。 :doc:`系统架构 </rst_source/development/architecture>`
 
 - **统一接口**\ ：将 VLA 模型与解析式原语封装为统一工具，通过 MCP 或原生工具调用接入规划器，通过 RPC 连接模型、机器人与仿真服务。 :doc:`核心接口 </rst_source/development/interfaces>`
 
@@ -34,7 +43,7 @@ Memory 设计
 
 - **积累与复用任务经验**\ ：探索模式积累经验，评测模式只读复用分层保存的通用经验、任务策略和执行记录。 :doc:`Memory </rst_source/development/memory>`
 
-- **用任务卡加快执行**\ ：Flash Mode 将成功流程整理为任务卡，根据当前视觉定位更新动作目标，减少逐步规划开销。在 LIBERO-PRO 的 800 回合评测中，成功率为 **72.63%**\ ，平均耗时 **60.19 秒**\ ，较 Codex + GPT-6 Astra（low reasoning）实现约 **6.8 倍加速**\ 。该评测使用官方公开的 GPT-5.5 探索记忆，成绩采用 seed 0–9 中的最佳评测结果。 :doc:`Flash Mode </rst_source/guides/flash>` ｜ :doc:`评测数据 </rst_source/leaderboard/time-token-costs>`
+- **用任务卡加快执行**\ ：Flash Mode 将成功流程整理为任务卡，根据当前视觉定位更新动作目标，减少逐步规划开销。在 LIBERO-PRO 的 800 回合评测中，成功率为 **72.63%**\ ，平均耗时 **60.19 秒**\ ，较 Codex + GPT-6 Astra（low reasoning）实现约 **6.8 倍加速**\ 。该评测使用官方公开的 GPT-5.5 探索记忆。 :doc:`Flash Mode </rst_source/guides/flash>` ｜ :doc:`评测数据 </rst_source/leaderboard/time-token-costs>`
 
 论文
 ~~~~~~~~~~~~
@@ -60,14 +69,14 @@ Memory 设计
 
 - **RoboTwin**\ ：接入双臂仿真，支持 ``demo_clean``、``demo_randomized`` 场景、多相机观测和 50 个任务的评测配置。 :doc:`文档 </rst_source/simulators/robotwin>`
 
-- **RoboDojo**\ ：仿真器基于 Isaac Sim / IsaacLab，采用 ARX-X5 双机械臂平台。当前支持安装。 :doc:`文档 </rst_source/simulators/robodojo>`
+- **RoboDojo**\ ：仿真器基于 Isaac Sim / IsaacLab，采用 ARX-X5 双机械臂平台，策略动作可选 VPP2 或 Awomo05。发布验证完成了环境安装与 ``put_bottles_into_dustbin`` 单次任务运行检查，验证范围为安装与运行流程，不包含任务成功率评测。 :doc:`文档 </rst_source/simulators/robodojo>`
 
 模型
 ~~~~~~~~~~~~
 
 - **规划器与模型**\ ：支持 Codex、Claude Code 和 RPent 内置规划器，可接入 Claude、GPT、Qwen 等模型，并按规划器配置推理强度、规划轮数上限和超时时间。在 LIBERO、RoboCasa365 和 RoboTwin 中，规划器还可直接输出动作控制数值，由环境执行。 :doc:`配置指南 </rst_source/guides/configure_planner>`
 
-- **VLA 模型**\ ：支持 Pi0.5（LIBERO、RoboDojo、双臂 Franka、YAM）、RLDX-1（RoboCasa365）和 LingBot-VLA（RoboTwin）。 :doc:`Pi0.5 </rst_source/simulators/libero>` ｜ :doc:`RLDX-1 </rst_source/simulators/robocasa>` ｜ :doc:`LingBot-VLA </rst_source/simulators/robotwin>`
+- **VLA 与动作模型**\ ：Pi0.5 用于 LIBERO、单臂与双臂 Franka 和 YAM；RoboDojo 使用 VPP2 或 Awomo05；RoboCasa365 使用 RLDX-1；RoboTwin 使用 LingBot-VLA 或 Fast-WAM。 :doc:`Pi0.5 </rst_source/simulators/libero>` ｜ :doc:`RLDX-1 </rst_source/simulators/robocasa>` ｜ :doc:`LingBot-VLA </rst_source/simulators/robotwin>`
 
 - **感知模型**\ ：支持 SAM3 目标分割和 Molmo2-8B 视觉定位，结合深度与相机信息确定目标位置。 :doc:`视觉定位指南 </rst_source/guides/flash>`
 
@@ -82,7 +91,17 @@ Memory 设计
 
 - **Memory**\ ：提供公开的任务经验与任务卡数据集，支持本地记忆校验、合并和索引更新，方便不同智能体复用已有经验。 :doc:`使用指南 </rst_source/guides/memory>` ｜ `数据集 <https://huggingface.co/datasets/RLinf/RPent-memory>`__
 
-Contributors
+迁移与弃用
+----------
+
+v0.1 没有移除任何命令行参数；有两处改名，旧写法仍可使用，但会打印弃用警告：
+
+- ``--env`` → ``--robot``\ ：两者都用于选择机器人或环境，同时传入会报错。脚本请改用机器人名称，例如 ``--robot yam``。
+- ``--interactive``（``-i``）→ ``--tui``（``-t``）。
+
+文档网址从 ``usage/`` 迁到 ``guides/``、``simulators/``、``real_world_robots/`` 和 ``real_world_demos/``，线上站点会重定向旧链接。
+
+贡献者
 ------------------------
 
 感谢所有贡献者，排名不分先后。
@@ -104,12 +123,12 @@ RPent 评测结果
 
 - **真机部署**\ ：按平台指南安装机器人控制软件、配置相机、完成手眼标定，并获取和配置所需模型权重。 :doc:`Franka </rst_source/real_world_robots/franka>` ｜ :doc:`双臂 Franka </rst_source/real_world_robots/dual_franka>` ｜ :doc:`YAM </rst_source/real_world_robots/yam>`
 
-RPent v0.1 Test Results
+RPent v0.1 测试结果
 ----------------------------------------------
 
-RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布版本测试、180 回合论文配置抽样复现及 15 回合 Memory 复用测试，并在双臂 Franka 和 YAM 上完成三项真机任务验证。
+RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成三项测试。发布版本测试 180 回合，论文配置抽样复现 180 回合，记忆复用 15 回合。在双臂 Franka 和 YAM 上完成三项真机任务验证。
 
-每个任务在一个指定 seed 下运行一次，计为一个测试回合。仿真任务采用环境原生成功判定，失败及超时均计入测试回合数。成功率按成功回合数占比计算；发布版本测试与论文复现的耗时和 Token 用量为每回合平均值，汇总按回合数加权计算。本节为所选任务的发布验证结果，完整基准成绩见文末 Leaderboard。
+每个任务在一个指定 seed 下运行一次，计为一个测试回合。仿真任务采用环境原生成功判定，失败及超时均计入测试回合数。成功率按成功回合数占比计算。发布版本测试与论文复现的耗时和 Token 用量为每回合平均值，汇总按回合数加权计算。本节为所选任务的发布验证结果，完整基准成绩见文末 Leaderboard。
 
 1. 发布版本仿真测试
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -119,12 +138,11 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 1.1 LIBERO-PRO
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-使用 Codex + GPT-6 Astra（low）和 Pi0.5。覆盖 Spatial、Object、Goal 和 LIBERO-10 的 Task 与 Swap 共 8 个套件，每套件选择 2 个任务，每任务运行 seed 1 至 seed 5，共 80 回合。
+使用 Codex + GPT-6 Astra（low）和 Pi0.5。覆盖 Spatial、Object、Goal 和 LIBERO-10 的 Task 与 Swap，共 8 个套件。每套件选择 2 个任务，每任务运行 seed 1 至 seed 5，共 80 回合。
 
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - 套件与任务
      - 成功回合
@@ -256,12 +274,11 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 1.2 RoboCasa365
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-使用 Codex + GPT-6 Astra（low）和 RLDX-1。覆盖 3 个 Atomic 任务，每个任务运行 seed 1 至 seed 10；4 个 Composite 任务，每任务运行 seed 1 至 seed 5，共 50 回合。
+使用 Codex + GPT-6 Astra（low）和 RLDX-1。覆盖 3 个 Atomic 任务，每个任务运行 seed 1 至 seed 10。另覆盖 4 个 Composite 任务，每任务运行 seed 1 至 seed 5，共 50 回合。
 
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - 套件与任务
      - 成功回合
@@ -335,7 +352,6 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - 套件与任务
      - 成功回合
@@ -425,14 +441,13 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 2. 安装、探索与 Memory 复用验证
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上验证环境安装、探索生成记忆及重启后复用流程，每个环境使用 5 个 seed 测试，共 15 回合。成功率仅统计记忆复用阶段，探索回合单独记录。
+在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上验证环境安装、探索生成记忆及重启后复用流程。每个环境使用 5 个 seed 测试，共 15 回合。成功率仅统计记忆复用阶段，探索回合单独记录。
 
-LIBERO-PRO 与 RoboCasa365 使用 seed 0 探索、seed 1 至 seed 5 测试；RoboTwin 在 demo_clean 中探索，在 demo_randomized 的 seed 100000、100001、100003、100004、100005 上测试。表中耗时与 Token 用量对应探索阶段。
+LIBERO-PRO 与 RoboCasa365 使用 seed 0 探索、seed 1 至 seed 5 测试。RoboTwin 在 demo_clean 中探索。测试使用 demo_randomized 的 seed 100000、100001、100003、100004、100005。表中耗时与 Token 用量对应探索阶段。
 
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results rpent-memory-results
-
 
    * - 环境与验证任务
      - 流程验证
@@ -472,7 +487,7 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
 3. 论文配置抽样复现
 ~~~~~~~~~~~~~~~~~~~~~~
 
-采用 Harness VLA 配套代码与 Memory，在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上分别完成 80、50、50 回合测试，共 180 回合。各环境的任务及 seed 范围均与第 1 节一致，配置与结果如下。
+采用 Harness VLA 配套代码与记忆。在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上分别完成 80、50、50 回合测试，共 180 回合。各环境的任务及 seed 范围均与第 1 节一致，配置与结果如下。
 
 3.1 LIBERO-PRO
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -482,7 +497,6 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - 套件与任务
      - 成功回合
@@ -620,7 +634,6 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
    :header-rows: 1
    :class: rpent-release-results
 
-
    * - 套件与任务
      - 成功回合
      - 测试回合
@@ -693,7 +706,6 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - 套件与任务
      - 成功回合
@@ -780,7 +792,7 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
      - **3,551,320.00**
      - **16,488.00**
 
-代码使用 reproduce/libero、reproduce/robocasa 和 reproduce/robotwin 分支，Memory 使用 Hugging Face 数据集的 reproduce/memory 分支。
+代码使用 reproduce/libero、reproduce/robocasa 和 reproduce/robotwin 分支。记忆使用 Hugging Face 数据集的 reproduce/memory 分支。
 
 4. 真机演示验证
 ~~~~~~~~~~~~~~~~~~
@@ -790,7 +802,6 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results rpent-demo-results
-
 
    * - 平台与任务
      - 规划配置
@@ -811,7 +822,7 @@ RoboDojo 完成环境安装与 ``put_bottles_into_dustbin`` 单次任务运行�
      - 14,163,904
      - 24,159
    * - YAM · demo02：饮料标签识别与分拣
-     - GPT-6 Sol (medium)
+     - GPT-5.6 Sol (medium)
      - 已完成
      - 1,886.85
      - 12,026,547

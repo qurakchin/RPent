@@ -4,6 +4,14 @@ Core Interfaces
 When you wire a new robot or primitive into RPent, you implement the interfaces below.
 Walkthroughs: :doc:`add_robot`, :doc:`add_primitive`. Repo layout: :doc:`architecture`.
 
+.. page-head::
+   :for: Developers implementing a robot package, primitive, or planner adapter
+   :outcome: You can find the contract each extension point must satisfy and where the runner calls it
+   :read-when: You are wiring a new robot, tool, or planner into the runner
+   :skip-when: You only operate an existing platform; start with its page
+
+**Page map:** robot entry → planner → toolkit → inter-process communication.
+
 Robot Entry
 -----------
 
@@ -33,10 +41,11 @@ functions implemented in ``robot_spec.py`` for ``main.py`` to call:
    * - ``prompts``
      - A ``PromptBundle`` with ``system`` and ``user`` prompt factories (see
        ``robots/<robot>/prompt_bundle.py``).
-   * - ``dashboard``
-     - Optional Dashboard description. ``None`` disables Dashboard control for
-       the robot. Otherwise, the spec defines its task command and
-       fields, runtime components, and frame channels.
+   * - ``resolve_dashboard``
+     - Optional hook that maps session arguments to a ``DashboardSpec``.
+       ``None`` disables Dashboard control for the robot. The returned spec
+       defines the task command and fields, runtime components, and primitive
+       controls.
    * - ``add_cli_args``
      - Register this robot's CLI flags (e.g. ``--suite``, ``--env-endpoint``).
    * - ``parse_config``
@@ -130,13 +139,12 @@ normal-CLI or Dashboard runtime hook:
    [protocol://]host:port    # defaults to http when protocol is omitted
 
 Common flags: ``--env-endpoint``, ``--am-endpoint``. The default ``http`` sends
-JSON over ``POST /call``, encoding NumPy arrays as
+JSON over ``POST /call``. It encodes NumPy arrays as
 ``{"__ndarray__": <base64>, "dtype": ..., "shape": ...}`` and NumPy scalars as
-``{"__npscalar__": <value>, "dtype": ...}`` so dtypes survive the round trip;
-switch to ``socket``
-for large or history-stacked nested-NumPy observations to move length-prefixed
-pickle frames and skip repeated JSON encoding. Pickle is unsafe on untrusted
-input, so only point ``socket`` at trusted endpoints.
+``{"__npscalar__": <value>, "dtype": ...}``, so dtypes survive the round trip.
+Switch to ``socket`` for large or history-stacked nested-NumPy observations. It
+moves length-prefixed pickle frames and skips repeated JSON encoding. Pickle is
+unsafe on untrusted input, so only point ``socket`` at trusted endpoints.
 
 Environment and VLA clients should normally subclass ``BaseEnvClient`` and
 ``BaseVLAClient``; their servers should subclass ``BaseEnvFacade`` and

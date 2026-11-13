@@ -3,6 +3,14 @@ Memory Design
 
 RPent uses ``MemoryManager`` to manage each robot’s experience files, access permissions, and exploration drafts. See :doc:`../guides/memory` for commands; this page describes storage and publication.
 
+.. page-head::
+   :for: Developers changing memory storage, permissions, or publication
+   :outcome: You can explain the memory layout, access scope, merging, and synchronization rules
+   :read-when: You are modifying ``MemoryManager`` or publishing a memory corpus
+   :skip-when: You only select or evaluate with memory; see :doc:`../guides/memory`
+
+**Page map:** layout and access scope → exploration and merging → synchronization and contribution.
+
 Layout and Access Scope
 -----------------------
 
@@ -78,7 +86,7 @@ Exploration and Merging
 
 Exploration preserves state and tool records for its attempts and produces experience drafts with provenance. The runner determines success from the environment and calls ``MemoryManager.merge_memory`` to merge drafts and update the index; successful task audits and action sequences have separate publication conditions.
 
-Simulation environments merge automatically by default; ``--no-auto-merge-memory`` retains drafts for review. Dual-arm Franka disables automatic merging by default and relies on operator judgments. In a manual ``rpent-memory merge``, ``--solved`` is a caller-supplied success flag; use it only after verifying the environment or operator result.
+Environments merge automatically by default; ``--no-auto-merge-memory`` retains drafts for review. Real-robot runs also default to automatic merging after the operator confirms the result. In a manual ``rpent-memory merge``, ``--solved`` is a caller-supplied success flag; use it only after verifying the environment or operator result.
 
 ``rpent-memory validate`` checks file structure, not real task success. See ``rpent/memory/manager.py`` for permissions and merging, and each robot’s ``robot_spec.py`` plus ``rpent/cli/main.py`` for run modes and result handling.
 

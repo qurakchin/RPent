@@ -3,6 +3,14 @@
 
 本页展示双臂 Franka 的任务执行过程。安装、标定、自检与运行步骤见 :doc:`双臂 Franka 部署与运行 <../real_world_robots/dual_franka>`。
 
+.. page-head::
+   :for: 要在部署硬件前查看双臂任务效果的读者
+   :outcome: 认出任务类型，并转到对应的安装与操作页面
+   :read-when: 想先看机器人实际执行，或选择演示任务时
+   :skip-when: 需要安装步骤；转到 :doc:`../real_world_robots/dual_franka`
+
+本页使用 ``real_world_demos/franka`` 路径，但视频展示的是双臂配置；单臂部署说明见 :doc:`单臂 Franka <../real_world_robots/franka>`。
+
 .. raw:: html
 
    <div class="rpent-demo-list">

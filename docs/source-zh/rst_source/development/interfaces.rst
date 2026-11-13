@@ -3,6 +3,14 @@
 
 将新机器人或动作原语接入 RPent 时，需要实现以下接口。具体操作见 :doc:`add_robot`、:doc:`add_primitive`；代码目录与模块职责见 :doc:`architecture`。
 
+.. page-head::
+   :for: 要实现机器人包、动作原语或规划器适配的开发者
+   :outcome: 找到每个扩展点必须满足的契约，以及运行器调用它的位置
+   :read-when: 要把新的机器人、工具或规划器接入运行器时
+   :skip-when: 只使用已有平台；先看对应平台页面
+
+**本文结构：** 机器人入口 → Planner → 工具集 → 进程间通信。
+
 机器人入口
 ----------
 
@@ -31,9 +39,8 @@
    * - ``prompts``
      - ``PromptBundle``：``system`` 与 ``user`` 两套 prompt 工厂（见
        ``robots/<robot>/prompt_bundle.py``）。
-   * - ``dashboard``
-     - 可选的 Dashboard 描述。设为 ``None`` 时，该机器人不支持 Dashboard 控制；
-       否则由该配置定义任务命令与字段、运行组件和图像通道。
+   * - ``resolve_dashboard``
+     - 可选的钩子：从会话参数解析出 ``DashboardSpec``。设为 ``None`` 时，该机器人不支持 Dashboard 控制；否则由返回的配置定义任务命令与字段、运行组件和动作原语控件。
    * - ``add_cli_args``
      - 注册本机器人的 CLI 参数（如 ``--suite``、``--env-endpoint``）。
    * - ``parse_config``
@@ -98,7 +105,7 @@ Planner
 
    [protocol://]host:port    # 未写协议时默认为 http
 
-常见：``--env-endpoint``、``--am-endpoint``。``http`` 为默认，走 ``POST /call`` 传 JSON，其中 NumPy 数组编码为 ``{"__ndarray__": <base64>, "dtype": ..., "shape": ...}``； NumPy 标量编码为 ``{"__npscalar__": <value>, "dtype": ...}`` 以保留精确 dtype；观测数据很大、或是多帧堆叠的嵌套 NumPy 字典时可改 ``socket``，用带长度前缀的 pickle 数据帧传输，省掉反复的 JSON 编解码。pickle 不适合不可信输入，socket 只应连接可信端点。
+常见：``--env-endpoint``、``--am-endpoint``。``http`` 为默认，走 ``POST /call`` 传 JSON。NumPy 数组编码为 ``{"__ndarray__": <base64>, "dtype": ..., "shape": ...}``，NumPy 标量编码为 ``{"__npscalar__": <value>, "dtype": ...}``，以保留精确 dtype。观测数据很大，或是多帧堆叠的嵌套 NumPy 字典时，可改用 ``socket``。它用带长度前缀的 pickle 数据帧传输，省掉反复的 JSON 编解码。pickle 不适合不可信输入，socket 只应连接可信端点。
 
 环境和 VLA client 通常应分别继承 ``BaseEnvClient``、``BaseVLAClient``；服务端分别继承 ``BaseEnvFacade``、``BaseVLAFacade``，并通过 ``_register_rpc`` 注册扩展路由。这些基类在 ``RpcFacade`` 之上提供公共路由和锁。只有尚无专用基类的服务类型才直接继承 ``RpcFacade``。业务子类不必实现 ``healthz`` / ``shutdown``。
 

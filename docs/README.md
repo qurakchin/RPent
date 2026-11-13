@@ -84,3 +84,91 @@ the other language.
 - English: `source-en/rst_source/`
 - Chinese: `source-zh/rst_source/`
 - RST syntax reference: <https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html>
+
+## Single-source rules
+
+State each fact once and link to it from other pages. The table lists where the
+canonical explanation lives; when a fact changes, update the owner first, then
+check the pages that link to it.
+
+| Fact | Canonical location |
+| --- | --- |
+| Installation commands, Python version, and the base environment | `source-{en,zh}/rst_source/get_started/quickstart.rst` |
+| Platform extra, driver, and system packages | The matching page under `simulators/` or `real_world_robots/` |
+| Checkpoint names and download commands | The matching page under `simulators/` or `real_world_robots/` |
+| Success criterion and result files | The matching page under `simulators/` or `real_world_robots/` |
+| Default flag values and retry/turn limits | `source-{en,zh}/rst_source/guides/cli.rst` and `configure_planner.rst` |
+| Command-line flags, defaults, and run output | `source-{en,zh}/rst_source/guides/cli.rst` |
+| Planner backends, credentials, and limits | `source-{en,zh}/rst_source/guides/configure_planner.rst` |
+| Memory versions, caching, and exploration | `source-{en,zh}/rst_source/guides/memory.rst` |
+| Flash plan format and replay | `source-{en,zh}/rst_source/guides/flash.rst` |
+| Success signals and reproduction commands | Each page under `source-{en,zh}/rst_source/simulators/` and `real_world_robots/` |
+| Reported results, sources, and denominators | `_static/leaderboard/results.json` |
+| Published benchmark rates and counts | `source-{en,zh}/rst_source/leaderboard/performance.rst` |
+| Counting and reporting conventions | `source-{en,zh}/rst_source/leaderboard/methodology.rst` |
+| Execution flow and component boundaries | `source-{en,zh}/rst_source/development/architecture.rst` |
+| Command entry points and their owners | `source-{en,zh}/rst_source/development/architecture.rst` |
+
+Do not restate a full explanation on a second page. Use a one-sentence summary
+and a `:doc:` or `:ref:` link instead. In particular, keep headline success
+rates, episode counts, and aggregates on the leaderboard pages; other pages
+name the configuration and link to them.
+
+Write **LIBERO-PRO** in prose and keep `libero-pro` for code identifiers such
+as the extra name and suite names.
+
+## Architecture diagrams
+
+`source-{en,zh}/rst_source/development/architecture.rst` and
+`source-{en,zh}/rst_source/get_started/overview.rst` use the SVG files in
+`_static/img/`. Their source is `_diagrams/make_diagrams.py`:
+
+```bash
+cd docs
+make diagrams
+```
+
+The script writes `architecture-{en,zh}.svg` and
+`execution-flow-{en,zh}.svg`, plus their `.dot` files, and requires Graphviz
+(`dot`) on `PATH`. Update the labels or edges in the script rather than editing
+SVG files by hand, and keep the diagrams aligned with the code layout: do not
+show robots, layers, or components that do not exist in the repository.
+
+## Leaderboard data
+
+`_static/leaderboard/results.json` (schema version 4) is the only source for
+leaderboard pages and README charts. The `leaderboard` extension validates
+references and renders the tables, notes, and Sources section at build time.
+
+When adding a result:
+
+- Reference an existing `source_ids` entry or add a source record with a URL,
+  note, and `commit` when the record identifies a repository revision. The
+  build rejects a `commit` that is not a 7–40 character lowercase hex revision.
+- Set `episodes` and `successes` only when the source reports them. When only a
+  rounded rate is published, set `successes_estimated: true` and let the
+  extension display the derived count with `≈`.
+- Use `status: "derived"` for aggregates computed from other rows, and record
+  the calculation.
+- Update `leaderboard/methodology.rst` if the counting rule changes.
+
+## Before you submit
+
+```bash
+cd docs
+python3 _checks/check_structure.py
+sphinx-build -E -W --keep-going source-en build/html-en
+sphinx-build -E -W --keep-going source-zh build/html-zh
+sphinx-build -W --keep-going -b linkcheck -q source-en build/linkcheck-en
+git diff --check
+```
+
+The `Docs` workflow (`.github/workflows/docs.yml`) runs the two builds and the
+link check on every change under `docs/`. Link checking needs network access, so
+run it locally before editing external URLs; add an entry to `linkcheck_ignore`
+in both `conf.py` files only for pages that block automated clients.
+
+English and Chinese pages must keep matching relative paths under
+`rst_source/`. When a page moves or is renamed, add a redirect in both
+`source-en/conf.py` and `source-zh/conf.py`. Check that local images and
+`:doc:` targets resolve in both builds; warnings fail the strict build.

@@ -1,31 +1,28 @@
 添加动作原语
 ==================
 
-在 RPent 中，*动作原语* 负责将一次工具调用转换为环境可执行的动作。它既可以基于 VLA、WAM 或 Diffusion Policy，也可以是 ``move_to``、 ``open_gripper`` 等脚本化例程。本页介绍工具声明、注册与执行。
+在 RPent 中，*动作原语* 负责将一次工具调用转换为环境可执行的动作。它既可以基于 VLA、WAM 或 Diffusion Policy，也可以是 ``move_to``、 ``open_gripper`` 等脚本化例程。基于模型的原语在独立模型服务进程中运行，通过 model client 调用；脚本化原语在 agent 进程内运行。两类原语使用相同的工具定义。本页介绍声明、注册与执行。
 
-两类原语
+.. page-head::
+   :for: 要把新的动作或感知能力暴露为工具的开发者
+   :outcome: 声明、注册并验证脚本化或基于模型的动作原语
+   :read-when: 要给规划器新增一个可调用工具时
+   :skip-when: 要新增模型服务本身；见 :doc:`add_action_model`
+
+**本文结构：** 何时新增原语 → 前置条件 → 脚本化原语 → 基于模型的工具 →
+运行时接线 → 测试 → 设计原则 → 原语类别 → 排查与下一步。
+
+何时新增原语
+------------
+
+当规划器需要现有工具未提供的动作或观测时，才新增原语。行为已能匹配时，优先重命名或包装现有工具；新原语会成为模型可见的新工具 schema，因此应保持工具集精简，名称描述意图。
+
+前置条件
 --------
 
-.. list-table::
-   :header-rows: 1
-   :widths: 25 40 35
-
-   * - 类别
-     - 运行位置
-     - 例子
-   * - **基于模型的**
-       （VLA / WAM / Diffusion Policy / …）
-     - 在独立模型服务进程中运行，通过 toolkit 持有的
-       *model client* 调用。
-     - Pi0.5（LIBERO）、RLDX-1（RoboCasa）
-   * - **脚本化**
-       （运动学 / 启发式）
-     - 在 agent 进程内运行；需要进行运动学计算时，可能通过一次
-       server 侧 RPC 完成。不需要加载模型权重。
-     - ``move_to``、``rotate_wrist``、``release``、
-       ``back_project``
-
-从 LLM 的视角看，两类原语采用相同的接口：一份工具定义、一个 primitives 方法，以及调用完成后的状态快照。区别仅在于方法的具体实现。
+- 已有可用的机器人包和 toolkit；还没有的话，先按 :doc:`add_robot` 接入。
+- 原语要调用的环境 client 方法（``step``、``chunk_step``、``get_obs`` 或自定义 RPC）。
+- 用于离线工具测试的 test extra（``pip install -e ".[test]"``）。
 
 添加一个脚本化原语
 ------------------
@@ -59,12 +56,12 @@
 
 VLA/WAM 的服务、客户端、adapter 与会话生命周期见 :doc:`add_action_model`。平台工具调用模型客户端，通过环境执行返回的原生动作块，再返回 ``ToolResult``。工具声明与注册仍使用上文的 ``@tool`` 和 ``iter_tools``。
 
-单线程 serve（EGL 渲染后端）
-----------------------------
+运行时接线：单线程 serve（EGL 渲染后端）
+----------------------------------------
 
-大多数后端直接使用基类继承的 ``serve``：transport server 为每个请求开一个工作线程并发处理。但如果你的服务器进程用 EGL 渲染（如 robosuite / MuJoCo 的 offscreen 渲染，见 ``render_camera``），EGL context 必须留在同一线程，并发 dispatch 会破坏 context 亲和。
+大多数后端直接使用基类继承的 ``serve``。transport server 为每个请求开一个工作线程并发处理。如果服务器进程用 EGL 渲染，EGL context 必须留在同一线程。robosuite / MuJoCo 的 offscreen 渲染就是一例，见 ``render_camera``。并发 dispatch 会破坏 context 亲和。
 
-这时把 :class:`~rpent.utils.rpc.main_thread_serve.MainThreadServeMixin` 混入你的 facade 类（**先于** ``BaseEnvFacade`` / ``BaseVLAFacade``），直接继承它覆盖的 ``serve`` 即可——它在守护线程跑 transport server，但在调用 ``serve`` 的线程（通常是主线程）串行执行每个 dispatch，通过 work queue 把请求从 transport 线程交给该线程：
+这时把 :class:`~rpent.utils.rpc.main_thread_serve.MainThreadServeMixin` 混入你的 facade 类，位置在 ``BaseEnvFacade`` / ``BaseVLAFacade`` 之前，并继承它覆盖的 ``serve``。它把 transport server 放在守护线程上运行。每个 dispatch 仍串行执行在调用 ``serve`` 的线程上，通常是主线程。请求通过 work queue 从 transport 线程交给该线程：
 
 .. code-block:: python
 
@@ -78,6 +75,11 @@ VLA/WAM 的服务、客户端、adapter 与会话生命周期见 :doc:`add_actio
 
 mixin 覆盖的 ``serve`` 与 :class:`~rpent.utils.rpc.RpcFacade` 的 ``serve`` 契约一致：同样支持 ``healthz`` / ``shutdown``、父进程退出检测和会话管理（构造时传入 ``enable_sessions=True``，则调用 ``serve`` 时仍须传入 ``session_sweep_s``）。子类直接继承即可，无需重写 ``serve`` 再转发调用，参考 ``robots/robocasa/env_server.py`` 中的 ``RoboCasaEnvFacade``。没有 EGL 单线程要求的后端直接使用基类默认的 ``serve``。
 
+测试
+----
+
+新增一个离线测试：构造 toolkit、列出工具 schema，并用桩环境调用新原语。复用 ``tests/unit_tests/rpent/tools/test_tool_schema_contracts.py`` 和 ``tests/unit_tests/robots/<robot>/`` 下的平台测试。基于模型的原语还需要模型服务或桩客户端；任务是否成功仍要在目标环境上做集成运行。
+
 新原语的设计原则
 ----------------
 
@@ -85,3 +87,37 @@ mixin 覆盖的 ``serve`` 与 :class:`~rpent.utils.rpc.RpcFacade` 的 ``serve`` 
 - **改变状态的工具在返回规划器前采集状态。** Toolkit 在处理函数执行后调用 ``get_env_state``，期间继续保持独占执行。``readonly`` 工具跳过这一步，并可与其他只读工具并行。
 - **保持结果数据简短。** 返回值会以文本形式提供给 LLM；图像、深度数据和其他大型观测应通过 ``EnvState.save`` 保存；``EnvState`` 会把每个逻辑基础文件名自动加入其持有的 ``StepRecord.artifacts`` 集合。图像通过 ``view_env_state`` 提供，几何数据通过环境工具访问，不返回原始路径。
 - **安全限制由 ``env_server`` 强制执行。** LLM 可能使用任意参数调用工具，因此工作空间边界和安全限制不能只依赖 toolkit。
+
+原语类别
+~~~~~~~~
+
+.. list-table::
+   :header-rows: 1
+   :widths: 25 40 35
+
+   * - 类别
+     - 运行位置
+     - 例子
+   * - **基于模型的**
+       （VLA / WAM / Diffusion Policy / …）
+     - 在独立模型服务进程中运行，通过 toolkit 持有的
+       *model client* 调用。
+     - Pi0.5（LIBERO）、RLDX-1（RoboCasa）
+   * - **脚本化**
+       （运动学 / 启发式）
+     - 在 agent 进程内运行；需要进行运动学计算时，可能通过一次
+       server 侧 RPC 完成。不需要加载模型权重。
+     - ``move_to``、``rotate_wrist``、``release``、
+       ``back_project``
+
+从 LLM 的视角看，两类原语采用相同的接口：一份工具定义、一个 primitives 方法，以及调用完成后的状态快照。区别仅在于方法的具体实现。
+
+排查与下一步
+------------
+
+- **``list_tools()`` 中没有新工具**：确认 primitives 对象创建后，用 ``add_tools`` 或 ``add_tool`` 注册了绑定方法。
+- **参数被拒绝**：schema 来自函数签名和 docstring；保持类型注解与 Google 风格 ``Args`` 段和实现一致。
+- **调用后状态是旧的**：确认工具没有标记 ``readonly``，并且处理函数返回前环境已经推进。
+- **并发调用时 EGL 渲染失败**：改用上面的单线程 ``serve``，不要用默认并发分发。
+
+下一步：按 :doc:`add_action_model` 接入模型服务，或在 :doc:`interfaces` 中查看工具契约。

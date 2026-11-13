@@ -6,6 +6,14 @@ watch planner output, cameras, and actions in a browser. The examples use
 LIBERO after :doc:`../get_started/quickstart`; install other platforms through their
 environment guides first.
 
+.. page-head::
+   :for: Operators who want to type follow-up instructions or watch a run in a browser
+   :outcome: You can start a session, submit a task, inspect cameras and actions, and shut the session down
+   :read-when: You need interactive control, live camera views, or the Dashboard
+   :skip-when: You only run one batch task; the Quick Start command is enough
+
+**Page map:** terminal interaction → Dashboard session and task submission → result inspection and shutdown.
+
 .. _terminal-interaction:
 
 Terminal Interaction (TUI)
@@ -44,9 +52,11 @@ For physical robot setup and human confirmation, see the
 Dashboard
 ---------
 
-The Dashboard supports the ``api``, ``claude_code``, and ``codex`` planners.
-Configure ``--planner`` and ``--model`` on the command line as for a normal
-run; see :doc:`configure_planner`.
+The Dashboard supports the ``api``, ``claude_code``, ``codex``, and ``flash``
+planners. Configure ``--planner`` and ``--model`` on the command line as for a
+normal run; see :doc:`configure_planner`. Flash Mode replays a stored plan
+without an LLM and is available for LIBERO, Franka, and Dual-Arm Franka (see
+:doc:`flash`).
 
 Start a Session and Submit a Task
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -71,10 +81,10 @@ reused by the Session. Submit a new ``/rpent-task`` to start or switch tasks;
 during a run, normal messages steer the agent and Esc requests an interruption.
 Press Ctrl+C in the terminal to stop the Session.
 
-``--dashboard`` cannot be combined with ``--interactive`` or
-``--env-endpoint``. External ``--am-endpoint`` and ``--sam3-endpoint``
-services remain supported. Use ``--dashboard-language zh-cn`` for the
-Chinese UI.
+``--dashboard`` cannot be combined with ``--tui``. Sessions that start a fresh
+environment for each TaskRun cannot use ``--env-endpoint``; external
+``--am-endpoint`` and ``--sam3-endpoint`` services remain supported. Use
+``--dashboard-language zh-cn`` for the Chinese UI.
 
 Inspect Results and End the Session
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

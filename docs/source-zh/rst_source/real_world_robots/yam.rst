@@ -12,8 +12,44 @@ YAM
 
 RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :doc:`YAM 演示 <../real_world_demos/yam>`。
 
+.. page-head::
+   :for: 要部署双臂 YAM 系统的操作用户
+   :outcome: 完成安装、标定、配置和启动，运行任务，并找到结果与记忆目录
+   :read-when: 安装或操作 YAM 时
+   :skip-when: 只运行仿真任务，或操作 Franka 系统；见 :doc:`../simulators/index` 或 :doc:`franka`
+
+**本文结构：** 安全与停止 → 安装 → 标定 → 机器人配置 → VLA 配置 → 启动服务 → 运行一个任务 → 查看结果 → 验证状态 → 探索模式。
+
 .. _id1:
 .. _yam-installation:
+
+安全与停止
+----------
+
+.. warning::
+
+   运动期间必须由现场操作员值守硬件急停。下文的软件停止只会保持当前位姿或结束当前回合，不会切断电机电源，不能替代硬件急停。
+
+要停止正在运行的任务，请携带当前回合 ID 发送 abort 回执：
+
+.. code-block:: bash
+
+   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
+     --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
+     --event abort --note '停止任务并保持机械臂'
+
+``--event abort`` 会写入 abort 回执并调用 ``env.request_stop``。该请求会设置停止锁存，并在下一个安全的写入边界保持实测关节位置；调用会在保持动作确认前返回（``hold_confirmed: false``）。在机械臂停止前，请远离机械臂并保持急停可触及。``abort`` 不会执行 ``park_on_close`` 的待机回位动作。
+
+在手动诊断控制台中，``{"tool":"stop"}`` 会发送同样的停止请求，``quit`` 也会在退出前发送停止请求；两者都不会回位或释放夹爪。如果控制台提示操作结果不确定，请检查现场并重启控制台，不要重复执行该命令。
+
+停止任务后，先将夹爪中的物体放稳或取下，确认返回待机姿态的路径安全，再在人工操作终端执行：
+
+.. code-block:: bash
+
+   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
+     --endpoint socket://127.0.0.1:8110 --event shutdown
+
+ENV 返回 ``park_on_close`` 配置的待机姿态，确认到位后关闭电机输出。未能到位时，保留进程并检查现场，不要强行结束。ENV 正常退出后，再关闭 VLA 服务和 SSH 转发。
 
 安装
 ----
@@ -23,14 +59,9 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 * **控制机**：连接双臂的 CAN 接口和三路 RealSense 相机，运行 ENV 服务及 RPent。
 * **推理机**：使用 NVIDIA GPU 运行 Pi0.5 VLA 服务。
 
-两台机器使用同一份 RPent 代码和相同的 RLinf 提交。先按\ :doc:`../get_started/quickstart`\ 安装 uv，再在两台机器上分别准备环境：
+两台机器使用同一份 RPent 代码和相同的 RLinf 提交。两台机器都先按 :ref:`quickstart-install` 完成 Python 3.11 环境，再检出相同的 RLinf 提交：
 
 .. code-block:: bash
-
-   git clone https://github.com/RLinf/RPent.git /path/to/RPent
-   cd /path/to/RPent
-   uv venv --python 3.11
-   source .venv/bin/activate
 
    git clone --branch main https://github.com/RLinf/RLinf.git /path/to/RLinf
    git -C /path/to/RLinf checkout --detach 196d40b6dec6f7a4063edee31cfeaa6ca0ee435a
@@ -94,36 +125,9 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 * 桌面几何、关节限位与碰撞设置：按真机环境的实测值填写。
 * ``reset`` 和 ``park_on_close``：分别设置复位姿态和待机姿态；每种姿态均需填写双臂实测关节位置 ``left_qpos/right_qpos``，每侧各 7 维。
 
-配置好两种姿态后，启用 ``reset.enabled`` 和 ``park_on_close.enabled``。待机姿态未配置时，ENV 无法启动。不要照搬其他真机的关节位置。
+配置好两种姿态后，启用 ``reset.enabled`` 和 ``park_on_close.enabled``。``park_on_close.enabled`` 未启用时 ENV 无法启动；每个启用的姿态都要给出双臂共 14 维关节位置，且位于配置的关节限位内。不要照搬其他真机的关节位置。
 
 如需使用其他文件，请传入 ``--robot-config /path/to/robot_config.yaml``。任务 ID、任务指令、seed 和步数上限通过命令行指定。
-
-.. _yam-tasks:
-
-任务选择
---------
-
-主要示例使用任务 ``1``。任务 ``0`` 用于规划器驱动的基本动作检查，包括小幅平移、腕部旋转和夹爪动作，不需要 VLA。任务通过 ``--task-id`` 选择，左右方向以顶视相机画面为准：
-
-.. list-table::
-   :header-rows: 1
-
-   * - ID
-     - 内容
-     - 是否需要 VLA
-   * - 0
-     - 规划器驱动的基本动作检查
-     - 否
-   * - 1
-     - 百事放左侧袋子，可口可乐放右侧袋子
-     - 是
-   * - 2
-     - 可口可乐放左侧袋子，百事放右侧袋子
-     - 是
-
-任务 ``1`` 和 ``2`` 均需分类三瓶饮料，还要求移开碗、取出被遮挡的勺子，将白勺放入白碗、粉勺放入粉碗，并将碗放回原标记位置：白碗在左、粉碗在右。
-
-以下示例使用任务 ``1``、seed ``0``、步数上限 ``1000``。ENV 与 RPent 需使用相同设置。
 
 .. _yam-vla:
 
@@ -149,22 +153,15 @@ VLA 服务使用 ``pi05_yam_joint`` 配置，相机顺序为 ``top/left/right``�
 .. _yam-training:
 
 数据采集与训练
---------------
+~~~~~~~~~~~~~~
 
 示教数据采集见\ `RLinf YAM 数据采集 <https://rlinf.readthedocs.io/zh-cn/latest/rst_source/examples/embodied/yam.html>`_，模型训练与评估见\ `YAM Pi0.5 训练与评估 <https://rlinf.readthedocs.io/zh-cn/latest/rst_source/examples/embodied/yam_openpi.html>`_。
-
-.. _yam-codex-isolation:
-
-Codex 配置
-----------------
-
-使用 Codex 时，先按\ :ref:`planner-codex-isolation`\ 配置独立的运行目录并登录。
 
 .. _id3:
 .. _yam-services:
 
-启动双机服务
-------------
+启动服务
+--------
 
 在两台机器分别激活安装好的 ``.venv``，按以下分工启动服务：
 
@@ -240,37 +237,6 @@ Codex 配置
      --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
      --event start --note '场景已恢复，可以开始本回合'
 
-.. _id5:
-.. _yam-diagnostics:
-
-手动技能测试
-------------
-
-测试前停止 Agent，确认现场后，用当前回合 ID 执行上面的 ``start`` 命令。
-
-**基础动作检查**
-
-.. code-block:: bash
-
-   python -m robots.yam.manual --task-id "$TASK_ID" --mode primitives \
-     --env-endpoint socket://127.0.0.1:8110 --max-episode-steps 1000
-
-每行输入一个 JSON，例如 ``{"tool":"status"}``。支持 ``move_to``、``rotate_wrist``、``set_gripper`` 和 ``release``，通过 ``arguments`` 传参。
-
-**VLA 预测与执行检查**
-
-.. code-block:: bash
-
-   python -m robots.yam.manual --task-id "$TASK_ID" --mode vla \
-     --env-endpoint socket://127.0.0.1:8110 --max-episode-steps 1000 \
-     --am-endpoint socket://127.0.0.1:8220 --output-dir /path/to/diagnostics
-
-先输入 ``{"tool":"infer"}`` 保存预测，此时机械臂不动。人工检查后，再输入 ``{"tool":"execute","arguments":{"use_length":5}}``，执行前五步；每份预测最多执行一次。
-
-预测超过 30 秒，或回合、机器人状态改变时，需要重新预测。执行结果不确定时，先检查现场，不要重复执行。输入 ``quit`` 退出测试并发送停止指令。
-
-退出测试后，确认现场并读取当前回合 ID，再执行一次 :ref:`start 命令 <yam-start-episode>`，然后启动 RPent。
-
 .. _dashboard:
 .. _yam-run:
 
@@ -291,7 +257,73 @@ Codex 配置
 
 任务 ``0`` 只使用基本动作；运行该任务时，将 ENV 和 RPent 的任务 ID 均设为 ``0``，并将 RPent 的 VLA 地址参数替换为 ``--without-vla``。
 
-**使用网页**
+.. _yam-tasks:
+
+任务选择
+~~~~~~~~
+
+主要示例使用任务 ``1``。任务 ``0`` 用于规划器驱动的基本动作检查，包括小幅平移、腕部旋转和夹爪动作，不需要 VLA。任务通过 ``--task-id`` 选择，左右方向以顶视相机画面为准：
+
+.. list-table::
+   :header-rows: 1
+
+   * - ID
+     - 内容
+     - 是否需要 VLA
+   * - 0
+     - 规划器驱动的基本动作检查
+     - 否
+   * - 1
+     - 百事放左侧袋子，可口可乐放右侧袋子
+     - 是
+   * - 2
+     - 可口可乐放左侧袋子，百事放右侧袋子
+     - 是
+
+任务 ``1`` 和 ``2`` 均需分类三瓶饮料，还要求移开碗、取出被遮挡的勺子，将白勺放入白碗、粉勺放入粉碗，并将碗放回原标记位置：白碗在左、粉碗在右。
+
+以下示例使用任务 ``1``、seed ``0``、步数上限 ``1000``。ENV 与 RPent 需使用相同设置。
+
+.. _yam-codex-isolation:
+
+Codex 配置
+~~~~~~~~~~~~~~~~
+
+使用 Codex 时，先按\ :ref:`planner-codex-isolation`\ 配置独立的运行目录并登录。
+
+.. _id5:
+.. _yam-diagnostics:
+
+手动技能测试
+~~~~~~~~~~~~
+
+测试前停止 Agent，确认现场后，用当前回合 ID 执行上面的 ``start`` 命令。
+
+**基础动作检查**
+
+.. code-block:: bash
+
+   python -m robots.yam.manual --task-id "$TASK_ID" --mode primitives \
+     --env-endpoint socket://127.0.0.1:8110 --max-episode-steps 1000
+
+每行输入一个 JSON，例如 ``{"tool":"status"}``。支持 ``status``、``stop``、``move_to``、``rotate_wrist``、``set_gripper`` 和 ``release``；动作参数通过 ``arguments`` 传入，``status`` 和 ``stop`` 不需要参数。
+
+**VLA 预测与执行检查**
+
+.. code-block:: bash
+
+   python -m robots.yam.manual --task-id "$TASK_ID" --mode vla \
+     --env-endpoint socket://127.0.0.1:8110 --max-episode-steps 1000 \
+     --am-endpoint socket://127.0.0.1:8220 --output-dir /path/to/diagnostics
+
+先输入 ``{"tool":"infer"}`` 保存预测，此时机械臂不动。人工检查后，再输入 ``{"tool":"execute","arguments":{"use_length":5}}``，执行前五步；每份预测最多执行一次。
+
+预测超过 30 秒，或回合、机器人状态改变时，需要重新预测。执行结果不确定时，先检查现场，不要重复执行。输入 ``quit`` 退出测试并发送停止指令。
+
+退出测试后，确认现场并读取当前回合 ID，再执行一次 :ref:`start 命令 <yam-start-episode>`，然后启动 RPent。
+
+使用网页
+~~~~~~~~
 
 在同一条命令末尾追加 ``--dashboard --dashboard-host 127.0.0.1 --dashboard-port 8090``。从自己的电脑访问时，先转发网页端口：
 
@@ -324,14 +356,14 @@ Codex 配置
      --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
      --event success --note '现场已确认本回合任务完成'
 
-失败或中止时，分别使用 ``--event failure`` 或 ``--event abort``，并填写说明。
+失败或中止时，分别使用 ``--event failure`` 或 ``--event abort``，并提供当前 ``--episode-id`` 和说明。
 
 ``eval_success=True`` 表示现场人员已确认当前回合成功。
 
 .. _yam-tools:
 
 工具与状态产物
---------------
+~~~~~~~~~~~~~~
 
 YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``render``、``status``，以及 ``move_to``、``rotate_wrist``、``set_gripper``、``release``。连接 VLA 后还提供 ``pi05_act``。
 
@@ -341,8 +373,13 @@ YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``r
 
 .. _yam-exploration:
 
-探索模式（人工复位与判定）
---------------------------
+验证状态
+--------
+
+v0.1 发布说明和\ :doc:`YAM 演示页 <../real_world_demos/yam>`\ 记录了以下演示：YAM 读取瓶身与袋子标签来分类饮料；通过小幅试抬检查抓取；在路径受阻时调整腕部姿态；移开碗以取得被遮挡的勺子。这些是演示记录，不是成功率评测。本页不报告回合数或成功率；单次演示成功也不能证明在另一套设备上的表现。
+
+探索模式
+--------
 
 在任务命令后追加 ``--explore``，即可探索并积累任务记忆。``--explore-attempts-per-session`` 设置每个会话的尝试次数，``--explore-sessions`` 设置会话数。
 
@@ -368,15 +405,3 @@ YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``r
 任务经验保存在 ``--memory-dir`` 指定的目录，默认自动合并任务记忆。使用 ``--no-auto-merge-memory`` 可关闭自动合并。目录结构和记忆用法见\ :doc:`../guides/memory`。
 
 .. _yam-shutdown:
-
-停止与退出
-----------
-
-停止任务后，先将夹爪中的物体放稳或取下，确认返回待机姿态的路径安全，再在人工操作终端执行：
-
-.. code-block:: bash
-
-   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
-     --endpoint socket://127.0.0.1:8110 --event shutdown
-
-ENV 返回 ``park_on_close`` 配置的待机姿态，确认到位后关闭电机输出。未能到位时，保留进程并检查现场，不要强行结束。ENV 正常退出后，再关闭 VLA 服务和 SSH 转发。

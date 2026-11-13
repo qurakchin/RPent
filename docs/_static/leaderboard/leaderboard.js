@@ -110,7 +110,7 @@
   }
   const allRows = view => [...rowsByView.get(view.id)].sort((a,b)=>
     a.rate===null?b.rate===null?a.id.localeCompare(b.id):1:b.rate===null?-1:Number(b.rate)-Number(a.rate)||a.id.localeCompare(b.id));
-  const count = r => r.successes!=null?`${r.successes}/${r.episodes}`:r.episodes!=null?`${t('countsOnly')}: ${r.episodes}`:'—';
+  const count = r => r.successes!=null?`${r.successes_estimated?'≈':''}${r.successes}/${r.episodes}`:r.episodes!=null?`${t('countsOnly')}: ${r.episodes}`:'—';
   function headline(id) {
     const view=views.get(id);
     const benchmark=d.benchmarks.find(b=>b.id===view.benchmark_id);
@@ -185,11 +185,11 @@
     d.benchmarks.forEach(renderSection);renderCosts();updateSection();observeNavigation();
   }
   function downloadCSV(rows, name) {
-    const keys=['record_id','benchmark','view','method','model','planner','perception_model','reasoning','effort','success_rate_percent','successes','episodes','status','evaluation_note'];
+    const keys=['record_id','benchmark','view','method','model','planner','perception_model','reasoning','effort','success_rate_percent','successes','successes_estimated','episodes','status','evaluation_note'];
     const quote=x=>'"'+String(x??'').replaceAll('"','""')+'"';
     const body=[keys.join(','),...rows.map(r=>{
       const c=configs.get(r.configuration_id),v=views.get(r.view_id);
-      return [r.id,v.benchmark_id,r.view_id,label(r),c.model,c.backend,c.perception_model,c.reasoning,c.effort,r.rate,r.successes,r.episodes,r.status??'reported',tr(r.evaluation_note)].map(quote).join(',');
+      return [r.id,v.benchmark_id,r.view_id,label(r),c.model,c.backend,c.perception_model,c.reasoning,c.effort,r.rate,r.successes,r.successes_estimated??false,r.episodes,r.status??'reported',tr(r.evaluation_note)].map(quote).join(',');
     })].join('\r\n');
     const url=URL.createObjectURL(new Blob(['\uFEFF'+body],{type:'text/csv;charset=utf-8'}));
     const a=globalThis.document.createElement('a');a.href=url;a.download=name+'.csv';(document.body??document).append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);

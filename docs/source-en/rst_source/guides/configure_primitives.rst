@@ -1,7 +1,15 @@
 Action Primitives and Tools
 ===========================
 
-The planner operates through tool calls. Action primitives perform motions such as grasping, moving an end effector, or opening a gripper. Perception and state tools locate targets, read images, and inspect results.
+This page describes the tools RPent exposes to the planner and the action model each platform uses. The planner operates through tool calls. Action primitives perform motions such as grasping, moving an end effector, or opening a gripper. Perception and state tools locate targets, read images, and inspect results.
+
+.. page-head::
+   :for: Readers choosing between VLA, scripted, perception, and state tools
+   :outcome: You can name the tool family a task uses and find the guide that adds or configures it
+   :read-when: You are deciding which action model or tool an environment should expose
+   :skip-when: You are adding the tool in code; continue with :doc:`../development/add_primitive`
+
+**Page map:** action tool types → models by platform → shared services and extensions.
 
 Choose Action Tools
 -------------------
@@ -20,7 +28,7 @@ Models by Platform
    :header-rows: 1
 
    * - Environment / robot
-     - Action model and configuration
+     - Action model
    * - :doc:`../simulators/libero`
      - Pi0.5
    * - :doc:`../simulators/robocasa`
@@ -33,8 +41,10 @@ Models by Platform
      - Pi0.5 / openpi
    * - :doc:`../real_world_robots/dual_franka`
      - Pi0.5 / openpi
+   * - :doc:`../real_world_robots/yam`
+     - Pi0.5
 
-Each platform page provides checkpoint paths, available tools, and task requirements. SO-101 content is pending; see :doc:`../real_world_robots/yam` and :doc:`../real_world_robots/so101`.
+Each platform page provides checkpoint paths, available tools, and task requirements. The YAM integration uses Pi0.5. SO-101 is not yet integrated; see :doc:`../real_world_robots/so101`.
 
 Services and Extensions
 -----------------------

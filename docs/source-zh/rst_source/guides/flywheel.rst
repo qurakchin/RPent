@@ -1,9 +1,18 @@
+
 .. _libero-data-flywheel:
 
-采集轨迹与数据飞轮
-========================
+数据飞轮
+========
 
-RPent 数据飞轮用于记录从任务规划到动作执行的轨迹，并从成功轨迹中生成训练数据。
+本页介绍轨迹采集、导出为 LeRobot 数据集，以及使用这些数据的微调流程。RPent 数据飞轮用于记录从任务规划到动作执行的轨迹，并从成功轨迹中生成训练数据。
+
+.. page-head::
+   :for: 要把运行记录转成 VLA 训练数据的读者
+   :outcome: 录制轨迹、导出 LeRobot 数据集，并进入 RLinf 训练流程
+   :read-when: 需要采集演示数据或微调动作模型时
+   :skip-when: 只需要运行或评测任务
+
+**本文结构：** 安装 → 采集轨迹 → 数据格式 → 导出 → RLinf 训练 → SFT 结果。
 
 使用 ``api``、``claude_code`` 或 ``codex`` 规划器时，开启 ``--record-trajectory`` 可记录视觉语言模型（VLM）的请求、回复、工具调用及其结果。在支持动作采集的环境中，还会记录视觉语言动作模型（VLA）的子任务指令、实际执行的动作及对应的观测。
 
@@ -159,7 +168,7 @@ RPent 数据飞轮用于记录从任务规划到动作执行的轨迹，并从�
 使用 RLinf 训练
 ---------------
 
-对于上述 LIBERO 示例，可使用导出的 LeRobot 数据集，在独立的 RLinf 环境中进行 Pi0.5 监督微调。RPent 负责采集和导出；模型训练、日志和权重保存由 RLinf 管理。
+对于上述 LIBERO 示例，可用导出的 LeRobot 数据集，在独立的 RLinf 环境中对 Pi0.5 做监督微调。RPent 负责采集和导出；模型训练、日志和权重保存由 RLinf 管理。
 
 环境安装和训练配置请参考 `RLinf OpenPI 监督微调指南 <https://rlinf.readthedocs.io/zh-cn/latest/rst_source/examples/embodied/sft_openpi.html>`_。将 ``data.train_data_paths`` 设为导出目录下的 ``train/`` 子目录，其中包含 ``meta/info.json``。
 
@@ -179,7 +188,7 @@ RPent 数据飞轮用于记录从任务规划到动作执行的轨迹，并从�
      actor.model.model_path=/path/to/pi05-checkpoint \
      runner.logger.log_path=/path/to/new-training-output
 
-根据可用 GPU 设置配置中的资源分配和 batch size，并使用与所选模型和数据集相匹配的 checkpoint 及归一化设置。
+根据可用 GPU 设置配置中的资源分配和 batch size。checkpoint 及归一化设置要与所选模型和数据集匹配。
 
 SFT 实验结果
 ------------
@@ -189,7 +198,7 @@ LIBERO-PRO VLA 微调结果
 
 使用 RPent 采集的成功轨迹，对 ``RLinf-Pi05-LIBERO-130-fullshot-SFT`` 进行微调，并在 RPent 中替换 VLA 模型进行对比评测。
 
-评测使用 ``libero_goal_swap`` 的 task 0–9、seed 25–34，每组共 100 场。两组使用相同的 DeepSeek-V4.1-Flash-1017 规划器（reasoning effort 为 ``none``）并加载 Hugging Face 数据集 ``RLinf/RPent-memory`` 中的 ``libero/GPT_5.5_xhigh`` 任务记忆。
+评测使用 ``libero_goal_swap`` 的 task 0–9、seed 25–34，每组共 100 场。两组使用相同的 DeepSeek-V4.1-Flash-1017 规划器，reasoning effort 为 ``none``。两组都加载 Hugging Face 数据集 ``RLinf/RPent-memory`` 中的 ``libero/GPT_5.5_xhigh`` 任务记忆。
 
 成功率如下：
 
@@ -213,7 +222,7 @@ RoboTwin VLA 微调结果
 
 使用 RPent 采集的成功轨迹，对 ``LingBot-VLA-RoboTwin-EEF-ckpt1500`` 进行微调，并在 RPent 中替换 VLA 模型进行对比评测。
 
-评测覆盖 RoboTwin ``demo_randomized`` 中与训练相同的 10 个任务，每任务 5 个固定测试场景，每组共 50 场。两组使用相同的 DeepSeek-V4.1-Flash-1017 规划器（reasoning effort 为 ``none``）并加载 Hugging Face 数据集 ``RLinf/RPent-memory`` 中的 ``robotwin/`` 任务记忆（GPT-5.5 生成，推理强度为 ``xhigh``）。
+评测覆盖 RoboTwin ``demo_randomized`` 中与训练相同的 10 个任务，每任务 5 个固定测试场景，每组共 50 场。两组使用相同的 DeepSeek-V4.1-Flash-1017 规划器，reasoning effort 为 ``none``。两组都加载 Hugging Face 数据集 ``RLinf/RPent-memory`` 中的 ``robotwin/`` 任务记忆，该记忆由 GPT-5.5 以 ``xhigh`` 推理强度生成。
 
 成功率如下：
 

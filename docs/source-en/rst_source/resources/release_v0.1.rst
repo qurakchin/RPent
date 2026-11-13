@@ -1,3 +1,4 @@
+
 .. _release-v0-1:
 
 RPent v0.1 Release 🎉
@@ -5,15 +6,24 @@ RPent v0.1 Release 🎉
 
 We are releasing v0.1, the first public release of RPent.
 
-RPent (Recursive Physical Agent) is an open-source infrastructure for embodied agents in the
+RPent (Recursive Physical Agent) is an open-source framework for embodied agents in the
 physical world. It connects general-purpose models, VLA models, memory, and robot interfaces to
 carry out physical tasks through planning, execution feedback, and experience reuse.
 
 v0.1 supports agent harnesses such as Codex and Claude Code for task planning. It integrates the
 LIBERO family, RoboCasa365, RoboTwin, and RoboDojo simulators, as well as single-arm Franka,
 dual-arm Franka, and YAM robots, and provides Memory, Flash Mode, an interactive CLI, and a Web
-Dashboard. RPent has been evaluated in simulation and on real robots, with leading task success
-rates on benchmarks such as LIBERO-PRO among the methods listed on the leaderboard.
+Dashboard. RPent has been evaluated in simulation and on real robots and reports task success
+rates on benchmarks such as LIBERO-PRO; the compared methods and counting rules are on
+the :doc:`leaderboard <../leaderboard/index>`.
+
+.. page-head::
+   :for: Readers checking what v0.1 contains and how earlier commands changed
+   :outcome: You can describe the release scope and migrate commands that were renamed
+   :read-when: You are upgrading from an earlier command set or checking release scope
+   :skip-when: You need installation steps; see :doc:`../get_started/quickstart`
+
+**Page map:** highlights → features → migration → contributors → benchmark results → getting started → test results.
 
 Highlights
 --------------------
@@ -29,16 +39,17 @@ Real-World Demos
 Simulation Benchmarks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- **Multi-environment evaluation and a public leaderboard**: RPent with GPT-6 Astra achieves success
-  rates of 92.63% on LIBERO-PRO (low reasoning) and 59.20% on RoboCasa365 Target50 (high reasoning).
-  RPent with GPT-5.5 achieves 62.4% on RoboTwin C2R. The leaderboard includes evaluation configurations, success rates, runtime,
-  and token usage. :doc:`Leaderboard </rst_source/leaderboard/index>`
+- **Multi-environment evaluation and a public leaderboard**: RPent reports success rates on
+  LIBERO-PRO (GPT-6 Astra, low reasoning), RoboCasa365 Target50 (GPT-6 Astra, high reasoning),
+  and RoboTwin C2R (GPT-5.5). The :doc:`Leaderboard </rst_source/leaderboard/index>` records the
+  values, evaluation configurations, runtime, token usage, and sources.
 
 System Design
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- **Modular architecture**: An open, modular design separates the system into user, intelligence,
-  interface, and environment layers.
+- **Modular architecture**: An open, modular design separates the user interface, the planning and
+  tool layer, model and environment services, and the environments themselves. :doc:`Architecture
+  </rst_source/development/architecture>`
 
 - **Unified interfaces**: VLA models and analytical primitives are exposed as tools through MCP or
   native tool calling. RPC connects model, robot, and simulator services. :doc:`Core interfaces
@@ -55,8 +66,7 @@ Memory
   updates action targets using current visual observations, reducing step-by-step planning overhead.
   Across 800 LIBERO-PRO episodes, it achieves a **\ 72.63%** success rate with an average runtime of
   **\ 60.19 seconds**, approximately **\ 6.8× faster** than Codex + GPT-6 Astra (low reasoning).
-  It uses the officially released GPT-5.5 exploration memory; the reported scores are the best
-  evaluation results from seeds 0–9.
+  It uses the officially released GPT-5.5 exploration memory.
   :doc:`Flash Mode </rst_source/guides/flash>` | :doc:`Evaluation data
   </rst_source/leaderboard/time-token-costs>`
 
@@ -99,8 +109,10 @@ Simulators
   observations, and evaluation configurations for 50 tasks. :doc:`Guide
   </rst_source/simulators/robotwin>`
 
-- **RoboDojo**: An Isaac Sim / IsaacLab simulator with the ARX-X5 dual-arm platform. Installation is
-  currently supported. :doc:`Guide </rst_source/simulators/robodojo>`
+- **RoboDojo**: An Isaac Sim / IsaacLab simulator with the ARX-X5 dual-arm platform, supporting
+  VPP2 and Awomo05 policy actions. The release checked installation and one
+  ``put_bottles_into_dustbin`` execution, which validates the installation and execution workflow,
+  not a task success rate. :doc:`Guide </rst_source/simulators/robodojo>`
 
 Models
 ~~~~~~~~~~~~
@@ -110,9 +122,10 @@ Models
   In LIBERO, RoboCasa365, and RoboTwin, planners can also output action control values for the
   environment to execute directly. :doc:`Configuration guide </rst_source/guides/configure_planner>`
 
-- **VLA models**: Pi0.5 for LIBERO, RoboDojo, Dual Franka, and YAM; RLDX-1 for RoboCasa365; and
-  LingBot-VLA for RoboTwin. :doc:`Pi0.5 </rst_source/simulators/libero>` | :doc:`RLDX-1
-  </rst_source/simulators/robocasa>` | :doc:`LingBot-VLA </rst_source/simulators/robotwin>`
+- **VLA and action models**: Pi0.5 for LIBERO, single-arm and dual-arm Franka, and YAM; VPP2
+  or Awomo05 for RoboDojo; RLDX-1 for RoboCasa365; and LingBot-VLA or Fast-WAM for RoboTwin.
+  :doc:`Pi0.5 </rst_source/simulators/libero>` | :doc:`RLDX-1 </rst_source/simulators/robocasa>` |
+  :doc:`LingBot-VLA </rst_source/simulators/robotwin>`
 
 - **Perception models**: SAM3 for object segmentation and Molmo2-8B for visual grounding, combined
   with depth and camera information to locate targets. :doc:`Visual grounding guide
@@ -136,6 +149,20 @@ System
 - **Memory**: Public datasets of task experience and task cards, with local memory validation,
   merging, and index updates, allow agents to reuse existing experience. :doc:`User guide
   </rst_source/guides/memory>` | `Dataset <https://huggingface.co/datasets/RLinf/RPent-memory>`__
+
+Migrating from Earlier Commands
+-------------------------------
+
+No command-line flag was removed in v0.1. Two names changed, and the old
+spellings still work with a deprecation warning:
+
+- ``--env`` → ``--robot``. Both select the robot or environment; passing both
+  is an error. Update scripts to the robot names, such as ``--robot yam``.
+- ``--interactive`` (``-i``) → ``--tui`` (``-t``).
+
+Documentation URLs moved from ``usage/`` to ``guides/``, ``simulators/``,
+``real_world_robots/`` and ``real_world_demos/``; the published site redirects
+old links.
 
 Contributors
 ------------------------
@@ -212,7 +239,6 @@ LIBERO-10. Each suite includes two selected tasks, each run with seeds 1 through
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - Suite and Task
      - Succeeded
@@ -351,7 +377,6 @@ tasks use seeds 1 through 5, for 50 episodes.
    :header-rows: 1
    :class: rpent-release-results
 
-
    * - Suite and Task
      - Succeeded
      - Episodes
@@ -425,7 +450,6 @@ scene seeds per task, for 50 episodes.
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - Suite and Task
      - Succeeded
@@ -527,7 +551,6 @@ LIBERO-PRO and RoboCasa365 explore with seed 0 and test with seeds 1 through 5. 
    :header-rows: 1
    :class: rpent-release-results rpent-memory-results
 
-
    * - Environment and Task
      - Workflow
      - Succeeded
@@ -580,7 +603,6 @@ setup and run guide </rst_source/simulators/libero>`
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - Suite and Task
      - Succeeded
@@ -719,7 +741,6 @@ run guide <reproduce-target50>`
    :header-rows: 1
    :class: rpent-release-results
 
-
    * - Suite and Task
      - Succeeded
      - Episodes
@@ -793,7 +814,6 @@ Planner: Codex + GPT-5.5 (xhigh). VLA: LingBot-VLA. Ten tasks, 50 episodes, in `
 .. list-table::
    :header-rows: 1
    :class: rpent-release-results
-
 
    * - Suite and Task
      - Succeeded
@@ -894,7 +914,6 @@ refer to a single successful execution of each task.
    :header-rows: 1
    :class: rpent-release-results rpent-demo-results
 
-
    * - Platform and Task
      - Planner Configuration
      - Result
@@ -914,7 +933,7 @@ refer to a single successful execution of each task.
      - 14,163,904
      - 24,159
    * - YAM · demo02: Drink Label Recognition and Sorting
-     - GPT-6 Sol (medium)
+     - GPT-5.6 Sol (medium)
      - Completed
      - 1,886.85
      - 12,026,547

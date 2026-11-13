@@ -3,6 +3,12 @@ YAM
 
 本页展示 YAM 的任务执行过程。:doc:`YAM 安装与使用 <../real_world_robots/yam>` 文档说明安装与运行。
 
+.. page-head::
+   :for: 要在部署硬件前查看 YAM 任务效果的读者
+   :outcome: 认出任务类型，并转到对应的安装与操作页面
+   :read-when: 想先看机器人实际执行，或选择演示任务时
+   :skip-when: 需要安装步骤；转到 :doc:`../real_world_robots/yam`
+
 .. raw:: html
 
    <div class="rpent-demo-list">

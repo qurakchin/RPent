@@ -1,16 +1,26 @@
+
 .. _memory-management:
 
 Memory and Exploration
 ======================
 
-Memory lets runs reuse task experience; exploration builds local experience through repeated attempts. Complete :doc:`../get_started/quickstart` before following these LIBERO examples. See each environment’s page for its task arguments and success criterion.
+This page covers selecting published memory, running exploration, and evaluating or merging a local corpus. Memory lets runs reuse task experience; exploration builds local experience through repeated attempts. Complete :doc:`../get_started/quickstart` before following these LIBERO examples. See each environment’s page for its task arguments and success criterion.
+
+.. page-head::
+   :for: Readers reusing published task experience or building a local memory corpus
+   :outcome: You can select a memory revision, run exploration, evaluate with local memory, and merge or validate a corpus
+   :read-when: A run reads or writes task memory, or you are comparing memory strategies
+   :skip-when: You need the memory layout and permissions; see :doc:`../development/memory`
+
+**Page map:** published memory → local exploration → evaluation with local memory → manual validation and merge → other environments.
 
 Evaluation reads memory without updating it. Exploration can reset and retry. Formal reproduction must use the specified memory revision and evaluation mode.
 
 Use Published Memory
 --------------------
 
-Evaluation defaults to ``--memory-profile hf`` and downloads memory from the public
+Unless the environment overrides it, evaluation defaults to
+``--memory-profile hf`` and downloads memory from the public
 `RLinf/RPent-memory dataset <https://huggingface.co/datasets/RLinf/RPent-memory>`_.
 LIBERO selects one version with ``--memory-version auto`` (the default):
 
@@ -125,51 +135,24 @@ for each independent exploration.
 Versioned downloads are a LIBERO-specific command. The shared ``rpent-memory``
 command continues to provide ``merge``, ``validate`` and ``build-index``.
 
-Release Provenance and Compatibility
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The dataset's ``libero/README.md`` and ``libero/manifest.json`` document the
-versions, original source snapshots and published files. Each version's
-``files`` mapping contains paths relative to that version's root and SHA-256
-hashes of the published bytes; the loader verifies this mapping. Source
-revisions and source hashes describe the original snapshots and remain separate
-from published hashes after directory, index and reference changes.
+Versioned Memory Layout
+~~~~~~~~~~~~~~~~~~~~~~~
 
 Both version roots use ``MEMORY.md``, ``global/``, ``task-family/`` and
-``task-specific/``. GPT-5.5 additionally includes 78 plan/anchor pairs in
-``flash/``, copied unchanged from the merged Flash release. Flash reads that
-directory within the selected corpus. Astra has no replay assets; selecting it
-for Flash reports an error.
+``task-specific/``. GPT-5.5 also includes plan/anchor files under ``flash/``;
+Astra has no replay assets, so selecting it for Flash reports an error.
 
-The Astra release merges Long and Spatial/Object/Goal exploration memory,
-preserving both versions of three conflicting global notes with source
-suffixes. Its 79 task-specific audit/recipe pairs retain their original
-content; Long Swap task 6 has no task-specific pair. The historical **741/800**
-result used the two original frozen snapshots separately by suite. **The merged
-release has not been reevaluated.** Memory was generated at runtime commit
-``014a0fa``, before the scene-seed fix. The original source revisions are
-``cf5d14ce9b3ec6c72de5477ec0fea806a3884efa`` (Long) and
+The Astra release merges the Long and Spatial/Object/Goal exploration batches;
+three conflicting global notes keep both versions with source suffixes. The
+published LIBERO-PRO result (:doc:`Performance <../leaderboard/performance>`)
+was measured on the two frozen snapshots separately, not on the merged release. The snapshots are pinned at dataset
+revisions ``cf5d14ce9b3ec6c72de5477ec0fea806a3884efa`` (Long) and
 ``984c57f7c6caf48b572f5926851dd9134ae041d8`` (Spatial/Object/Goal).
 
-The current loader requires a versioned Hub layout and does not convert or
-fall back to the historical unversioned corpus. Update code and data together.
-The current directory names require the shared memory naming update in
-`RPent #190 <https://github.com/RLinf/RPent/pull/190>`_ and the corresponding
-`dataset update <https://huggingface.co/datasets/RLinf/RPent-memory/discussions/13>`_.
-Dataset ``main`` evolves; ``reproduce/memory`` keeps its historical contents
-and layout for the matching historical robot reproduction branches.
-Historical GPT-5.5 reproduction uses the matching historical client and the
-original dataset revision ``21a62795fe3b7e500c8381ac47938f6d713ebe18``:
-
-.. code-block:: bash
-
-   hf download RLinf/RPent-memory --repo-type dataset \
-     --revision 21a62795fe3b7e500c8381ac47938f6d713ebe18 \
-     --include 'libero/*' --local-dir /path/to/legacy-download
-   # With an older RPent client:
-   rpent --robot libero --suite libero_goal_swap --task 1 --seed 1 \
-     --planner codex --model gpt-5.5 --memory-profile local \
-     --memory-dir /path/to/legacy-download/libero
+The loader requires a versioned Hub layout and does not convert or fall back to
+the unversioned corpus. Update code and data together. Dataset ``main``
+continues to evolve, while ``reproduce/memory`` keeps its historical contents
+and layout for matching historical robot reproduction branches.
 
 Explore and Build Local Memory
 ------------------------------
@@ -226,5 +209,6 @@ Other Environments
 ------------------
 
 - :doc:`../simulators/robocasa` and :doc:`../simulators/robotwin` support exploration; see their pages for task arguments, resets, and memory scope.
-- :doc:`../real_world_robots/dual_franka` exploration requires an operator to reset the scene and judge results. Automatic merging is disabled by default. Complete deployment and motion checks first.
+- :doc:`../real_world_robots/yam` supports exploration and defaults to local memory; it connects to an external environment service.
+- :doc:`../real_world_robots/dual_franka` exploration requires an operator to reset the scene and judge results; merging follows that verdict. Complete deployment and motion checks first.
 - :doc:`../real_world_robots/franka` does not currently support exploration.

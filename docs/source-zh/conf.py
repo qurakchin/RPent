@@ -28,6 +28,7 @@ release = version
 
 extensions = [
     "leaderboard",
+    "pagehead",
     "sphinx_copybutton",
     "sphinx_design",
     "sphinx_reredirects",
@@ -70,6 +71,22 @@ root_doc = "index"
 templates_path = ["_templates"]
 exclude_patterns = ["**/_*.rst"]
 default_role = "code"
+
+# The Codex auth page answers 403 to non-browser clients, so linkcheck cannot
+# distinguish a live page from a removed one. The README fragments below are
+# rendered client-side; linkcheck reports them missing even though they resolve
+# in a browser. All five were checked by hand on 2026-11-13. Everything else is
+# checked.
+linkcheck_ignore = [
+    r"https://developers\.openai\.com/codex/auth/",
+    r"https://docs\.ros\.org/en/humble/p/libfranka/",
+    r"https://frankarobotics\.github\.io/docs/doc/libfranka/README\.html",
+    r"https://github\.com/Dao-AILab/flash-attention#",
+    r"https://github\.com/RLinf/APXinf-robo#",
+    r"https://github\.com/roboterax/video-prediction-policy-2/",
+]
+linkcheck_retries = 2
+linkcheck_timeout = 20
 
 language = "zh"
 html_search_language = "zh"

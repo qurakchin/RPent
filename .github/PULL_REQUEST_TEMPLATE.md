@@ -1,25 +1,47 @@
-## Description
+## Problem
 
 <!--
-Describe the background, motivation, and main changes. Include compatibility
-changes, migrations, new dependencies, and runtime impact when applicable.
+What user-visible or developer-visible problem does this change solve? Cite the
+issue, failing case, or missing behavior.
 -->
 
-## Testing
-
-<!-- List the checks run and their results. -->
-
-## Manual verification
+## Change
 
 <!--
-Describe any GPU, simulator, model-service, or real-robot verification,
-including the environment, command or configuration, and result. Write
-"Not needed" when offline tests fully cover the change.
+What changed, and why this approach? Describe current behavior, not review
+exchanges or implementation history.
+-->
+
+## Contract and migration
+
+<!--
+Which public behavior, CLI flag, configuration key, RPC field, tool schema, or
+artifact format changes? Describe the migration path, or write "No user-visible
+contract change".
+-->
+
+## Validation
+
+<!--
+State what actually ran and its result. Keep levels separate; do not claim a
+higher level than you ran. Remove empty lines instead of leaving them blank.
+
+- CPU / offline tests:
+- Simulator:
+- Real robot:
+- Model services:
+-->
+
+## Limitations
+
+<!--
+Known gaps, unverified platforms, or behavior that needs follow-up. Write
+"None known" when applicable.
 -->
 
 ## Checklist
 
-- [ ] My code follows the code style of this project.
-- [ ] I have updated related documentation when needed.
-- [ ] I have added tests to cover my changes when needed.
-- [ ] All new and existing tests passed.
+- [ ] The change follows the repository conventions in `CONTRIBUTING.md`.
+- [ ] Both language versions of affected documentation are updated.
+- [ ] Tests cover the changed observable behavior.
+- [ ] The validation section states what ran and what remains unverified.

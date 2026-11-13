@@ -43,21 +43,34 @@ version-specific changes in release or migration notes.
 
 Keep the same sections and ordering in both languages:
 
-1. **Get Started / 开始使用**: Introduction to RPent and Quick Start.
-2. **Leaderboard / 排行榜**: the existing performance and time/token pages.
-3. **Real-World Demos / 真实世界演示**: direct robot demo pages, each linking to
-   the corresponding installation and usage guide.
-4. **Guides / 使用指南**: memory and exploration; action primitives and tools;
-   planner configuration; command-line reference; interactive usage
-   (terminal and Dashboard); Flash Mode;
-   trajectory collection and data flywheel; remote services and parallel runs.
-5. **Simulators / 仿真环境**: LIBERO, RoboCasa365, and RoboTwin. Each page owns
-   its installation, first run, reproduction protocol, and troubleshooting.
-6. **Real-World Robots / 真实机器人**: Single-Arm Franka, Dual-Arm Franka, YAM,
-   and SO-101. Preserve coming-soon pages and describe their actual status.
-7. **Concepts & Development / 原理与开发**: architecture, interfaces, memory
-   design, and extension guides for environments, tools, and planners.
-8. **Resources / 项目资源**: Harness VLA, contributing, and release notes.
+The navigation has one primary axis: the reader's task. Stage, evidence type,
+page type, and audience are secondary; never promote one of them to a
+top-level group. Each group answers one question:
+
+1. **Get Started / 开始使用**: What is RPent, and how do I complete one task?
+   Introduction and Quick Start.
+2. **Simulators / 仿真环境**: Which simulated platform do I run, and how do I
+   reproduce its results? LIBERO, RoboCasa365, RoboTwin, and RoboDojo. Each page
+   owns its installation, first run, reproduction protocol, and troubleshooting.
+3. **Real-World Robots / 真实机器人**: How do I deploy and operate a physical
+   robot safely? Single-Arm Franka, Dual-Arm Franka, YAM, and SO-101. Preserve
+   coming-soon pages and describe their actual status.
+4. **Real-World Demos / 真实世界演示**: What does a task look like on the
+   hardware? Each demo links to the corresponding installation and operation
+   page.
+5. **Leaderboard / 排行榜**: How do the reported methods compare, and what do
+   the numbers count? Performance, time and token costs, and the evaluation
+   protocol.
+6. **Guides / 使用指南**: How do I configure a feature? Memory and exploration;
+   action primitives and tools; planner configuration; command-line reference;
+   interactive usage; Flash Mode; data flywheel; remote services; troubleshooting.
+7. **Concepts & Development / 原理与开发**: How does RPent work inside, and how
+   do I extend it? Architecture, interfaces, memory design, and extension guides.
+8. **Resources / 项目资源**: What does the paper report, how do I contribute, and
+   what changed in v0.1? Harness VLA, contributing, and release notes.
+
+If two groups can be described by the same question, merge them. If a group
+cannot be described in one question, the axis is wrong.
 
 Match source directories to the sidebar groups in both language trees:
 
@@ -65,10 +78,10 @@ Match source directories to the sidebar groups in both language trees:
 | --- | --- |
 | Get Started | `get_started/` |
 | Leaderboard | `leaderboard/` |
-| Real-World Demos | `real_world_demos/` |
 | Guides | `guides/` |
 | Simulators | `simulators/` |
 | Real-World Robots | `real_world_robots/` |
+| Real-World Demos | `real_world_demos/` |
 | Concepts & Development | `development/` |
 | Resources | `resources/` |
 
@@ -79,8 +92,8 @@ in both `conf.py` files. Keep the same relative page paths in both languages.
 The home page is a short introduction with task-oriented links. Installation
 and the first LIBERO-PRO task form one Quick Start. Keep reproduction inside
 each environment page; logs, success criteria, and common failures belong
-next to the procedure they explain. Keep the leaderboard's published data and
-two-page organization intact when reorganizing prose.
+next to the procedure they explain. Keep the leaderboard's published data, its
+protocol page, and the two results pages intact when reorganizing prose.
 
 Preserve important commands, reported data, figures, and their experimental
 conditions when moving content. Record their destination during a restructure;
@@ -92,7 +105,63 @@ URLs where practical. If content moves, preserve useful anchors and provide a
 clear route from the old page. Do not delete an integration or placeholder
 solely because it is incomplete.
 
+## Terms and single sources
+
+Write **LIBERO-PRO** in prose, headings, and table labels. Keep lowercase
+`libero-pro` only in code identifiers: the `.[libero-pro]` extra, suite names,
+and `--libero-type pro`. Do not use “LIBERO Pro” or “LIBERO-Pro” in prose;
+preserve an upstream repository or dataset name that is genuinely spelled that
+way.
+
+Keep each published benchmark number in one place: `results.json` and the
+leaderboard pages that render it. Other pages state the configuration and link
+to **Performance** or **Evaluation Protocol** instead of repeating rates,
+counts, or aggregates. When a page must explain an aggregate, describe the
+rule (mean of suite rates, pooled episodes) rather than restating the headline
+value. The same rule applies to model, branch, and reasoning settings: keep the
+complete reproduction configuration on the simulator page and let the
+leaderboard own the resulting numbers.
+
+Declare new command-line entry points in the **Command Entry Points** table on
+the architecture page, including the distribution that defines them. Keep
+dependency-package scripts (asset downloaders and simulator helpers) distinct
+from the four `pyproject.toml` commands.
+
 ## Page structure
+
+### One opening, one route
+
+Every page except pure directory and generated results pages opens in this
+order:
+
+1. H1 title.
+2. An optional overview figure.
+3. A ``page-head`` directive with four required options:
+   ``:for:`` (who the page is for), ``:outcome:`` (what the reader can do
+   afterwards), ``:read-when:`` (the situations that call for this page), and
+   ``:skip-when:`` (the situations that do not, with a link to the page that
+   does). Write applicability and non-applicability, not a table of contents.
+4. One or two sentences of context. Do not repeat the page-head fields.
+5. A **Page map** paragraph (`**Page map:**` in English, `**本文结构：**` in
+   Chinese) that lists the page's top-level sections in the order they appear,
+   joined by `→`. The page writes this route; it is not the sidebar's "On this
+   page" list. List the H2 sections, and add an H3 only when it is a main route
+   choice such as WAM Evaluation. Name the first-run path first, then reference
+   sections, then diagnostics. When the page has a clear strategy, say so in
+   the map, for example "shortest runnable path → options → common problems".
+
+The page-head gives a reader the three facts needed to decide whether to stay:
+who it is for, what it produces, and when to leave. The page map then makes the
+reading order predictable. Update both when the section structure changes.
+Omit the page map only on pages with one or two sections, such as a demo page,
+a coming-soon page, or a generated results page. The structure checker
+(``_checks/check_structure.py``) requires a page-head on every page with two or
+more H2 sections and a page map on every page with three or more.
+
+Within a section, put the decision-relevant content first: the command or
+answer, then its explanation, then optional details. Move optional material to
+the end of the section or a `dropdown` directive. Never open a section with a
+history note or a list of unsupported cases.
 
 ### Home and directory pages
 
@@ -139,11 +208,14 @@ List supported configurations, and link special modes to their prerequisites.
 RPent coordinates task execution, so these cards describe planners rather
 than RL training algorithms.
 
-Under Overview, add **Tasks / 任务** and **Observation and Action / 观测与动作**
-as H3 sections. Show these subsections in the right-hand table of contents.
-Use tables for both. The task table identifies suites or task
-categories and their scope; keep detailed task/seed matrices with reproduction.
-The interface table uses the same rows: **Observation / 观测**, **Action / 动作**,
+After Overview, put the first-run path first: installation and resources,
+model and planner configuration, **Run a Task / 运行一个任务**, and
+**View Results / 查看结果**. Place reference sections — **Tasks / 任务** and
+**Observation and Action / 观测与动作** — after that path, so task and option
+tables do not push installation and the first command below the fold. Use
+tables for both. The task table identifies suites or task categories and their
+scope; keep detailed task/seed matrices with reproduction. The interface table
+uses the same rows: **Observation / 观测**, **Action / 动作**,
 **Reward / success / 奖励与成功判定**, and **Task prompt / 任务指令**. Distinguish
 what the planner sees from model inputs or native control commands where it
 matters. State the native success signal without inventing a training reward
@@ -154,49 +226,70 @@ After Overview, cover:
 1. System and Python requirements, installation, and resource downloads.
 2. Model and planner configuration, with one concrete runnable task.
 3. Result files and the environment's native success criterion.
-4. Environment-specific options, memory, and exploration.
-5. Reproduction: code version, resource revisions, task/seed matrix, model
+4. Task selection and other environment-specific options, then the Tasks and
+   Observation and Action reference tables.
+5. Memory and exploration.
+6. Reproduction: code version, resource revisions, task/seed matrix, model
    settings, limits, retry policy, and aggregation method where available.
-6. Common failures and relevant diagnostics.
+7. Common failures and relevant diagnostics.
 
 Use the same headings and levels for sections with the same purpose.
 Required sections apply to each supported simulator; include conditional
 sections when the stated feature is supported or results are published.
+Keep this order for every simulator page:
 
-| English | Chinese | Level | Requirement |
-| --- | --- | --- | --- |
-| Overview | 概览 | H2 | Required |
-| Tasks | 任务 | H3 under Overview | Required |
-| Observation and Action | 观测与动作 | H3 under Overview | Required |
-| Installation and Resources | 安装与资源准备 | H2 | Required |
-| Run a Task | 运行一个任务 | H2 | Required |
-| View Results | 查看结果 | H2 | Required |
-| Task Memory | 任务记忆 | H2 | Conditional: memory is supported |
-| Exploration Mode | 探索模式 | H2 | Conditional: exploration is supported |
-| Experiment Reproduction | 实验复现 | H2 | Conditional: benchmark results are published |
+| # | English | Chinese | Level | Requirement |
+| --- | --- | --- | --- | --- |
+| 1 | Overview | 概览 | H2 | Required |
+| 2 | Installation | 安装 | H2 | Required |
+| 3 | VLA Configuration | VLA 配置 | H2 | Conditional: a VLA checkpoint must be prepared |
+| 4 | SAM3 Configuration | SAM3 配置 | H2 | Conditional: segmentation is used |
+| 5 | Run a Task | 运行一个任务 | H2 | Required |
+| 6 | View Results | 查看结果 | H2 | Required |
+| 7 | Task Selection | 任务选择 | H3 under Run a Task | Conditional: the environment has more than one task-selection flag |
+| 8 | WAM Evaluation | WAM 评测 | H2 reference section after the first-run path | Conditional: a WAM backend is supported |
+| 9 | Tasks | 任务 | H3 under Run a Task | Required |
+| 10 | Observation and Action | 观测与动作 | H2 reference section after the first-run path | Required |
+| 11 | Validation Status | 验证状态 | H2 reference section after the first-run path | Required |
+| 12 | Task Memory | 任务记忆 | H2 | Conditional: memory is supported |
+| 13 | Exploration Mode | 探索模式 | H2 | Conditional: exploration is supported |
+| 14 | Common Options | 常用参数 | H2 | Conditional: the environment adds run options |
+| 15 | Experiment Reproduction | 实验复现 | H2 | Conditional: benchmark results are published |
+| 16 | Tools the Planner Can Call | 规划器可调用的工具 | H2 | Conditional: the tool surface needs explanation |
+| 17 | Page-specific sections | 页面专属章节 | H2 | Conditional: Dashboard, deployment, diagnostics, implementation notes |
 
-An introductory figure is optional. Configuration and diagnostic sections
-depend on the environment's setup; include instructions needed to run it.
+Installation owns both the environment setup and its asset downloads. When
+asset downloads form their own procedure, put them in a
+**Download Assets / 下载资源** H3 and keep the install prose above it; when a
+single table row covers them, keep them inline. VLA Configuration owns
+checkpoint download and model-specific settings; do not create separate
+**Download the Model** sections.
 
-Keep installation and downloads before Run a Task, followed immediately by
-View Results. Put memory, exploration, reproduction, diagnostics, and developer
-details after this first-run path. Keep the same order for shared sections;
-preserve environment-specific steps and their prerequisites.
+Keep a platform page at or below 13 H2 sections. Short setup detail becomes an
+H3 under the step it supports instead of a new top-level chapter: task
+selection, planner-specific setup such as Codex login, manual skill checks, and
+data collection or training under VLA Configuration. Reference material that
+belongs with a step follows the same rule — put **Tools and State Artifacts**,
+**HF corpus selection**, and a tasks table under View Results, Task Memory, and
+Run a Task respectively. A section that answers a genuinely different question,
+such as Task Memory, Exploration Mode, or Experiment Reproduction, stays an H2.
+When a page still exceeds the limit, split it rather than nesting unrelated
+material. The structure checker enforces the limit.
 
-Keep headings accurate to their contents. A section covering only package
-installation can remain **Installation / 安装** when downloads have separate
-sections. A combined memory and exploration section can use **Task Memory and
-Exploration Mode / 任务记忆与探索模式**. Use **Experiment Reproduction /
-实验复现** as the shared heading. A benchmark qualifier is optional and must
-belong to that environment: **Experiment Reproduction (Target50) /
-实验复现（Target50）** applies only to RoboCasa365. Keep published results and
-environment-specific diagnostics where they help the reader; do not add
-empty sections to match another page. Preserve existing named anchors when
-renaming headings.
+Use **Task Memory / 任务记忆** and **Exploration Mode / 探索模式** as separate
+H2 sections, even when one of them is short. Use **Experiment Reproduction /
+实验复现** as the shared heading without qualifiers; state the benchmark name
+(Target50, for example) in the first sentence of that section. Keep
+environment-specific diagnostics after the reproduction section. Preserve
+existing named anchors when renaming headings.
 
 Use links to shared guides instead of repeating generic planner, memory, or
 Dashboard instructions. Preserve environment-specific requirements. Never
 present a single successful task as validation of a complete benchmark.
+
+Name an overview section **Overview / 概览** on every page that has one. Name
+in-page failure guidance **Common Problems / 常见问题**; only the shared guide
+uses the page title **Troubleshooting / 问题排查**.
 
 State software and accelerator requirements from the supported setup. Report
 verified GPU models and memory usage only when there is evidence; distinguish
@@ -205,6 +298,62 @@ backend subsection only when its installation, device options, rendering, run
 command, and limitations are documented and supported. Do not copy another
 project's accelerator claims.
 
+### Role sequences by family
+
+Define the role order once per family. A family page uses the same roles in the
+same order; only optional roles disappear. An entry page may add one
+**global route** section before the sequence, and must not change the order of
+the remaining roles.
+
+| Family | Role sequence |
+| --- | --- |
+| Simulator | Overview → Installation → model configuration → Run a Task → View Results → task/reference sections → memory and exploration → Experiment Reproduction → Common Problems |
+| Real-world robot | Safety and Stopping → Installation → Calibration → Robot Configuration → model configuration → Start Services → Run a Task (task selection, planner setup, and manual skill checks as H3) → View Results (tool reference as H3) → Verification Status → Exploration Mode and replay |
+| User guide | What this guide covers → prerequisites → the procedure → how to check the result → options and reference → Common Problems → next step |
+| Developer guide | Purpose or contract → Prerequisites (extension pages) → numbered steps 1..n → conventions and reference → tests → troubleshooting and next step |
+
+The platform and robot tables above are the authoritative role names for those
+two families. The guide and developer families use these role names:
+
+- **Procedure:** *Use Published Memory*, *Record a Trajectory*, *Run a Plan*,
+  *Start Services*; do not rename one guide's procedure to "Usage" or "Workflow".
+- **Result check:** *View Results*, *Verify Your Configuration*, *Validate the
+  Planner*; name the object being checked.
+- **Reference:** *Common Options*, *Command-Line Reference*, *Reference*; put
+  parameter tables here, not between procedure steps.
+- **Failure guidance:** *Common Problems* in a page; *Troubleshooting* only as
+  the shared guide's title. Extension pages end with *Troubleshooting and next
+  steps*, which covers only failures caused by the new extension and links to
+  the next guide the reader may need.
+
+The extension pages (`add_robot`, `add_primitive`, `add_action_model`,
+`add_planner`) use one sequence so a reader can move between them:
+
+| Role | Heading |
+| --- | --- |
+| Purpose | *When to add …*; name who needs the change and what it enables |
+| Prerequisites | *Prerequisites*; list packages, access, and pages to read first |
+| Add or register | one section per code area, in the order the reader edits them |
+| Runtime wiring | *Runtime wiring*; behavior and defaults that the new code relies on |
+| Test | *Test*; name the test file or command that proves the change |
+| Troubleshooting and next steps | *Troubleshooting and next steps* |
+
+Keep the same role names in both languages: 何时新增、前置条件、实现或注册、运行时接线、
+测试、排查与下一步.
+
+### One name per role
+
+Within a family, one role has one name. A second name for the same role is a
+defect: rename the page, do not add a synonym to the style guide. Across
+families, names may differ when the role differs; for example, a simulator's
+**Tasks** reference is not the same role as a robot's **Task Selection**
+procedure. Page-local sub-steps (H3) do not count as new role names.
+
+When a fact changes, update its owner page first, then the pages that link to
+it. The canonical-location table in `README.md` is the list of owners for
+commands, defaults, credentials, memory, results, and architecture; add a row
+there before repeating a fact on a second page.
+
 ### Real-world robots and demos
 
 Use a clear introductory robot photo with alt text, a short caption, and
@@ -212,9 +361,28 @@ Use a clear introductory robot photo with alt text, a short caption, and
 proportions and check desktop and narrow-screen layouts. Keep the source URL
 in the RST; add a visible credit when the asset's terms require it.
 
-Deployment pages cover hardware and controller requirements, calibration,
-configuration, motion checks, task execution, result inspection, and stopping.
-Keep operator responsibilities and physical safety constraints explicit.
+Deployment pages put safety first and then follow this order, omitting a
+section only when the robot does not need it:
+
+| # | English | Chinese | Level | Purpose |
+| --- | --- | --- | --- | --- |
+| 1 | Safety and Stopping | 安全与停止 | H2 | Operator responsibilities, emergency stop, and shutdown |
+| 2 | Installation | 安装 | H2 | Package, driver, and controller setup |
+| 3 | Calibration | 标定 | H2 | Hand-eye or arm calibration |
+| 4 | Robot Configuration | 机器人配置 | H2 | Robot file, workspace, and safety limits |
+| 5 | VLA Configuration | VLA 配置 | H2 | Checkpoint and endpoint; data collection and training as H3 |
+| 6 | Start Services | 启动服务 | H2 | Ray or two-machine startup |
+| 7 | Run a Task | 运行一个任务 | H2 | One runnable task; task selection, Codex setup, and manual skill checks as H3 |
+| 8 | View Results | 查看结果 | H2 | Artifacts and success criterion; tools and state artifacts as H3 |
+| 9 | Verification Status | 验证状态 | H2 | What has actually been validated |
+| 10 | Exploration Mode | 探索模式 | H2 | Operator-assisted retries, when supported |
+| 11 | Flash Replay | Flash 回放 | H2 | Plan replay, when supported |
+
+Put **Safety and Stopping** before **Installation** and keep the hardware
+emergency stop distinct from software shutdown. Use **Start Services** rather
+than naming Ray or the machine count in the heading; state the topology in the
+section's first sentence. Do not keep a second **Safety** section later on the
+page. Keep operator responsibilities and physical safety constraints explicit.
 
 Demo pages describe the task, embed the video, and link to the corresponding
 installation and usage guide. Clearly mark pending instructions and coming-soon
@@ -251,8 +419,27 @@ structure. Preserve code identifiers, model names, flags, and filenames.
 | checkpoint | 模型权重 or checkpoint, depending on context |
 | rollout / episode | 一次任务运行 / 一次尝试, when that is the intended meaning |
 | success criterion | 成功判定 |
-| Real-World Robots | 真实机器人 |
+| Real-World Robots | 真实机器人; in prose use 真机 for one physical robot |
 | Simulators | 仿真环境 |
+| evaluation | 评测; do not use 评估 for the same concept |
+| vision-language-action (VLA) | 视觉—语言—动作（VLA） at first use on a page, then VLA |
+| remote procedure call (RPC) | 远程过程调用（RPC） at first use on a page, then RPC |
+| WAM | a second action-model family alongside VLA; describe its role at first use, and do not invent an expansion |
+
+Write current behavior, not a summary of why the change matters. Remove
+sentences that raise the tone without adding a fact ("this closes the loop",
+"it is not just X but Y", "ultimately"). A technical page does not need a
+closing paragraph that restates its importance.
+
+One sentence carries one action. The soft limit is 40 Chinese characters or 35
+English words; at 80 Chinese characters or 60 English words, split the sentence
+before review. Split into an action, its object, and its condition, and put a
+long condition first or in its own sentence. Replace a semicolon chain,
+parenthetical, and em-dash aside with separate sentences rather than shortening
+the facts. `python3 _checks/check_prose.py` reports sentences above the soft
+limit; `--strict` fails only above the hard limit, so the report is advisory.
+Fix the sentence, or, when the length is required by a quotation or a list of
+identifiers, put `# noqa: long-sentence` on the paragraph's first source line.
 
 Use Chinese punctuation in Chinese prose and spaces between Chinese text and
 Latin identifiers. Chinese prose paragraphs and list items may stay on one
@@ -279,6 +466,36 @@ Use Chinese punctuation in prose while preserving exact command syntax.
 
 Use “RPent 简介” as the introduction title. Use “RoboCasa365” for the documented
 simulator version, while keeping the CLI identifier `robocasa` unchanged.
+
+## Figures and visual language
+
+Define the visual language before drawing a figure, and use the same one on
+every page:
+
+- **Color.** Four semantic colors, all at the same lightness: green for user
+  entry, the site's primary purple for the agent, the secondary magenta for
+  services, and neutral gray for environments. Take the purple and magenta from
+  `_static/css/custom.css`; do not introduce a second palette.
+- **Shape.** One node shape (rounded rectangle) and one title/detail type
+  scale. Do not mix default Graphviz shapes or fonts.
+- **Arrows.** Solid is a call, dashed is an input or an error return, and a
+  double arrow is a shared connection. State this in the legend and in the
+  caption.
+- **Size.** One figure answers one question and stays at or below 12 nodes. If
+  it needs more, split it into an overview and a detail figure. Labels are at
+  most two lines.
+- **Caption.** Write how to read the figure, not what it is called: start with
+  "Read from top to bottom" (从上往下读), then name the start, the path, and the
+  end. A reader who covers the details should still be able to state the main
+  flow in five seconds.
+- **Source.** Generate SVGs with `make diagrams` from `_diagrams/make_diagrams.py`;
+  do not hand-edit an SVG. The figure must remain readable at page width, and
+  its text must not shrink below body size when the page is scaled.
+
+Screenshots follow the same rule: show the current version, add a caption that
+names the version and what to look at, and keep the UI text readable at page
+width. Do not add a screenshot that cannot be reproduced from the documented
+steps.
 
 ## Formatting and media
 

@@ -1,13 +1,28 @@
+
 .. _system-internals:
 
 系统架构与执行流程
 ===========================
 
-RPent 将任务规划、工具执行和环境运行分开：规划器选择工具，toolkit 将调用交给感知或动作组件，环境返回执行后的状态。各环境通过 ``RobotSpec`` 接入共同的运行器。
+RPent 将任务规划、工具执行和环境运行分开。规划器选择工具，工具集把调用交给感知或动作组件，环境返回执行后的状态。各环境通过 ``RobotSpec`` 接入共同的运行器。
 
-.. image:: https://raw.githubusercontent.com/RLinf/misc/main/pic/rpent_framework.png
-   :alt: RPent 系统架构
+.. page-head::
+   :for: 需要弄清一次工具调用由哪个组件执行、应该改哪里的工程师
+   :outcome: 能沿着 CLI、规划器、工具集和服务追踪一次运行，并找到对应的扩展页面
+   :read-when: 阅读执行路径、规划集成方案，或定位某项行为的代码归属时
+   :skip-when: 只想运行任务时；从 :doc:`../get_started/quickstart` 或所用平台页面入手即可
+
+**本文结构：** 一次运行的全过程 → 组件职责 → 代码目录 → 命令入口 → 环境发现 → Dashboard 会话 → 扩展入口。
+
+.. figure:: ../../../_static/img/architecture-zh.svg
+   :alt: RPent 分层结构：用户层、智能体层、模型与环境服务以及环境层
    :width: 100%
+   :target: ../../../_static/img/architecture-zh.svg
+
+   从上往下读：用户入口把任务交给规划器，规划器驱动工具集，工具集调用服务，服务持有仿真器或真机连接。
+   实线箭头表示调用，虚线表示输入，双向箭头表示共享连接。图中 SSE 指服务器发送事件
+   （Server-Sent Events）；VLA 指视觉语言动作模型；WAM 指每次预测一段动作块的模型后端，
+   例如 Cosmos Policy 与 Fast-WAM。点击图可查看原尺寸。
 
 一次任务的执行过程
 ---------------------------
@@ -21,6 +36,14 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 5. 规划器通过 ``list_tools`` 获取工具定义，通过 ``execute_tool`` 执行调用，再读取工具返回的文本和图像，继续规划。
 6. 动作工具调用 VLA 或程序化动作，环境执行后记录状态和观测，供下一轮规划使用。
 7. 规划器调用 ``finish``、达到运行限制或发生错误时结束。运行器保存对话，完成录像及清理；需要评测产物的环境通过结束钩子输出结果。
+
+.. figure:: ../../../_static/img/execution-flow-zh.svg
+   :alt: 一次 RPent 运行从 CLI 到保存运行产物的流程
+   :width: 85%
+   :align: center
+   :target: ../../../_static/img/execution-flow-zh.svg
+
+   从上往下读：CLI 建立会话、启动服务，规划器循环直到结束，最后保存产物。工具失败或超时时，错误作为结果返回规划器，由规划器决定是否重试。成功由环境或真机操作员判定。
 
 ``finish`` 表示规划器结束，成功标准由具体环境或真机操作员提供。对应关系见各环境页。主入口为 ``rpent/cli/main.py``。
 
@@ -46,7 +69,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
    * - MemoryManager
      - 控制记忆读取与探索草稿写入，管理经验合并和索引。
 
-以 LIBERO 为例，环境、Pi0.5 和 SAM3 各自运行在服务进程中。动作工具会推进环境；``view_env_state`` 等读取工具查看已记录状态。RPC 支持 HTTP 和 socket，接口详见 :doc:`interfaces`，独立部署方法见 :doc:`../guides/advanced_deployment`。
+以 LIBERO 为例，环境、Pi0.5 和 SAM3 各自运行在服务进程中。动作工具会推进环境；``view_env_state`` 等读取工具查看已记录状态。远程过程调用（RPC）支持 HTTP 和 socket，接口详见 :doc:`interfaces`，独立部署方法见 :doc:`../guides/advanced_deployment`。
 
 代码目录
 ------------
@@ -69,8 +92,50 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      libero/
      robocasa/
      robotwin/
+     robodojo/
      franka/
      dual_franka/
+     yam/
+   docs/
+     source-en/    # 英文页面
+     source-zh/    # 中文页面，与英文保持相对路径一致
+     _diagrams/    # 图表源文件；make diagrams 重新生成 SVG
+     _ext/         # Sphinx 扩展，包括排行榜渲染器
+     _static/      # 图片、样式和排行榜数据
+
+命令入口
+--------
+
+``pyproject.toml`` 声明四个 RPent 命令。仿真资源下载命令由各 extra 引入的依赖包安装，不在本仓库中定义。
+
+.. list-table::
+   :header-rows: 1
+   :widths: 34 34 32
+
+   * - 命令
+     - 定义位置
+     - 用途
+   * - ``rpent``
+     - ``pyproject.toml``（``rpent.cli.main:main``）
+     - 运行任务或启动 Dashboard。
+   * - ``rpent-memory``
+     - ``pyproject.toml``（``rpent.cli.memory:main``）
+     - 校验、建立索引和合并记忆目录。
+   * - ``rpent-check-llm``
+     - ``pyproject.toml``（``rpent.cli.check_llm:main``）
+     - 检查规划器凭据与连通性。
+   * - ``rpent-flywheel``
+     - ``pyproject.toml``（``rpent.flywheel.cli:main``）
+     - 将录制的轨迹导出为 VLA 训练数据。
+   * - ``libero-download-assets``、``liberopro-download-assets``、``liberoplus-download-assets``
+     - ``rpent-libero``、``rpent-liberopro``、``rlinf-liberoplus``
+     - 下载对应 LIBERO 版本的场景资源。
+   * - ``robocasa-download-assets``
+     - ``rpent-robocasa365``
+     - 下载厨房场景资源。
+   * - ``robotwin-download-assets``
+     - ``rlinf-robotwin-runtime``
+     - 下载 RoboTwin 资源。
 
 环境发现与接入
 ---------------------
@@ -88,11 +153,11 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 Dashboard 会话
 ----------------
 
-Dashboard 使用长期运行的 Session 管理服务，每次任务创建新的 TaskRun。``DashboardSpec`` 定义任务命令、可见相机、可用控件，以及标记为 ``shared`` 或 ``unique`` 的运行组件。
+Dashboard 使用长期运行的 Session 管理服务，每次任务创建新的 TaskRun。``DashboardSpec`` 定义任务命令及其字段、标记为 ``shared`` 或 ``unique`` 的运行组件，以及动作原语控件。
 
 LIBERO 会话复用 Pi0.5 和 SAM3，每个任务拥有独立环境并按顺序执行。任务创建新的工具集和规划器对话；组件由创建它的会话或任务清理。
 
-浏览器通过 ``/api/session/stream`` 接收服务器发送的事件（SSE），并在新的对话事件产生后读取内容，更新对话、相机画面和动作时间线。直接操作动作原语的控件使用机器人声明的参数定义，后端会在调用工具前校验参数。使用方法见 :doc:`../guides/dashboard`，Dashboard 接入方式见 :doc:`add_robot`。
+浏览器通过 ``/api/session/stream`` 接收服务器发送的事件（SSE）。新的对话事件产生后，浏览器读取内容并刷新对话、相机画面和动作时间线。直接操作动作原语的控件使用机器人声明的参数定义，后端会在调用工具前校验参数。使用方法见 :doc:`../guides/dashboard`，Dashboard 接入方式见 :doc:`add_robot`。
 
 扩展入口
 ------------

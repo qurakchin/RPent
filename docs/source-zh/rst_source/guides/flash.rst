@@ -1,7 +1,7 @@
-使用 Flash Mode
-=================
+Flash 模式
+============
 
-**Flash 计划** 保存一个 LIBERO 任务的动作序列，并标出这些动作依赖的关键物体或位置。重放时，RPent 从相机画面中找到它们在当前场景里的坐标，更新动作坐标，然后按顺序执行计划中的动作。
+本页说明 Flash Mode 如何在新布局上重放已记录的计划，以及如何生成计划。**Flash 计划** 保存一个 LIBERO 任务的动作序列，并标出这些动作依赖的关键物体或位置。重放时，RPent 从相机画面中找到它们在当前场景里的坐标，更新动作坐标，然后按顺序执行计划中的动作。
 
 整个过程可以概括为：
 
@@ -13,10 +13,18 @@
 
 先完成 :doc:`../get_started/quickstart` 的 LIBERO-PRO 安装与模型配置。以下流程执行已有计划；生成新计划的方法在后文。
 
+.. page-head::
+   :for: 要在新场景中回放已记录的 LIBERO 计划，或生成计划的读者
+   :outcome: 运行计划、生成计划，并说明定位如何更新记录中的坐标
+   :read-when: 任务会重复执行已知计划，或需要评测 Flash 模式时
+   :skip-when: 要做通用规划器配置；见 :doc:`configure_planner`
+
+**本文结构：** 计划文件 → Molmo 与回放 → 多场景运行 → 执行原理 → 生成计划 → 评测结果。
+
 计划文件
 ------------
 
-计划不随 Git 仓库提交，而是通过 Hugging Face 上的 `GPT-5.5 memory 目录 <https://huggingface.co/datasets/RLinf/RPent-memory/tree/main/libero/GPT_5.5_xhigh>`_ 分发。Flash 默认选择 ``--memory-version GPT_5.5_xhigh``，使用该版本的独立缓存。发布目录 ``GPT_5.5_xhigh/flash/`` 包含 78 对 plan/anchor 文件：Spatial 20 对、 Object 20 对、Goal 19 对、Long 19 对。``goal_swap_t0`` 和 ``10_swap_t9`` 没有成功源计划，仍然缺失。文件正文与已合入的 Hugging Face Flash 发布版本一致；将文件归入版本目录不代表重新进行了模拟器评测。
+计划不随 Git 仓库提交，而是通过 Hugging Face 上的 `GPT-5.5 memory 目录 <https://huggingface.co/datasets/RLinf/RPent-memory/tree/main/libero/GPT_5.5_xhigh>`_ 分发。Flash 默认选择 ``--memory-version GPT_5.5_xhigh``，使用该版本的独立缓存。发布目录 ``GPT_5.5_xhigh/flash/`` 包含 78 对 plan/anchor 文件：Spatial 20 对、 Object 20 对、Goal 19 对、Long 19 对。``goal_swap_t0`` 和 ``10_swap_t9`` 没有成功源计划，仍然缺失。
 
 使用 ``--memory-profile local --memory-dir /path/to/memory/libero/GPT_5.5_xhigh`` 时，从所选根目录下的 ``flash/`` 读取计划，不下载数据。本地生成的语料同样可以使用任意包含 ``flash/`` 的根目录。缺少计划或锚点文件时会报错。 Astra memory 没有重放资产，不能用于 Flash。详见 :ref:`使用记忆与探索模式 <memory-management>`。
 
@@ -37,12 +45,12 @@
 
    uv venv --python 3.11 /path/to/molmo-venv
 
-接着在该环境中安装 PyTorch 和匹配的 torchvision。按 `PyTorch 安装指南 <https://pytorch.org/get-started/locally/>`_ 选择兼容 GPU 和 NVIDIA 驱动的构建，将下方 ``<CUDA_TAG>`` 替换为所选构建（如 ``cu126`` 或 ``cu128``）。此命令使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_：
+接着在该环境中安装 PyTorch 和匹配的 torchvision。按 `PyTorch 安装指南 <https://pytorch.org/get-started/locally/>`_ 选择兼容 GPU 和 NVIDIA 驱动的构建，将下方 ``<CUDA_TAG>`` 替换为所选构建（如 ``cu126`` 或 ``cu128``）：
 
 .. code-block:: bash
 
    uv pip install --python /path/to/molmo-venv/bin/python \
-     torch torchvision --index-url "https://mirror.sjtu.edu.cn/pytorch-wheels/<CUDA_TAG>/"
+     torch torchvision --index-url "https://download.pytorch.org/whl/<CUDA_TAG>/"
 
 PyTorch 安装完成后，再安装 Molmo extra：
 
@@ -116,7 +124,7 @@ RPent 将实时锚点位置与计划保存的偏移组合成新的路点，再�
 
 audit 必须包含非空的 ``task_language`` （或 ``perturbed_task_language``）以及 ``libero_terminated: true``。audit 和 recipe 的文件名，以及 audit 中存在的 suite/task/seed 字段，必须指向同一次运行。
 
-如果运行中保存了 ``segment_*.json`` 分割结果，可通过 ``--segments`` 指定目录；否则生成器会根据任务指令以及 recipe 中按顺序记录的抓取、释放或可动机构操作，生成供 Molmo 使用的语义锚点。相邻的 ``move_to`` 和 ``move_pose`` 坐标会被保存成相对锚点的 XY 偏移，供 Flash 执行时使用。
+如果运行中保存了 ``segment_*.json`` 分割结果，可通过 ``--segments`` 指定目录。否则生成器根据任务指令和 recipe 中的操作顺序，生成供 Molmo 使用的语义锚点。操作包括抓取、释放和可动机构动作。相邻的 ``move_to`` 和 ``move_pose`` 坐标会被保存成相对锚点的 XY 偏移，供 Flash 执行时使用。
 
 关系解析覆盖 LIBERO-PRO 全部 80 个任务：Spatial、Object、Goal、Long（``10``）各自的 task 和 swap suite。Long 任务的操作顺序会被保留，例如先打开炉灶再放置物体，或者先把物体放进设备再关闭设备。
 
@@ -132,18 +140,18 @@ audit 必须包含非空的 ``task_language`` （或 ``perturbed_task_language``
 LIBERO-PRO 评测结果
 -----------------------
 
-在 LIBERO-PRO 完整的 800 次运行中（Spatial、Object、Goal 和 Long；task/swap；每个任务 10 个 seed），Flash Mode 成功 581 次（72.63%）。两个没有成功源轨迹、因而没有计划的任务按 0/10 保守计入。八项评测成绩见 :doc:`评测成绩 <../leaderboard/performance>`。
+LIBERO-PRO 的完整评测共 800 次运行。它覆盖 Spatial、Object、Goal 和 Long 四个套件，含 task 与 swap，每个任务 10 个 seed。Flash Mode 成功 581 次（72.63%）。两个没有成功源轨迹、因而没有计划的任务按 0/10 保守计入。八项评测成绩见 :doc:`评测成绩 <../leaderboard/performance>`。
 
-:doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>` 报告 Flash Mode 每个评测回合平均耗时 60.19 秒，输出 token 为 0。均值包含成功、失败和超时的评测回合；token 仅统计评测阶段的输出。
+:doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>` 报告 Flash Mode 的平均每回合耗时和输出 token。均值包含成功、失败和超时的评测回合；token 仅统计评测阶段的输出。
 
-RPent Flash Mode 直接使用官方发布的 GPT-5.5 探索记忆，Molmo2-8B 用于视觉定位，动作执行使用与 π_RLinf 相同的 VLA。展示成绩采用 s0-s9 中的最佳评测结果。
+RPent Flash Mode 直接使用官方发布的 GPT-5.5 探索记忆。Molmo2-8B 负责视觉定位，动作执行使用与 π_RLinf 相同的 VLA。排行榜的每个分项都包含全部 100 个预期回合（task 0–9、seed 0–9）。没有 Flash 计划的回合仍计入分母。
 
 历史对比
 ~~~~~~~~
 
 下图保留早期 Flash/Codex 对比。图中的 Flash 耗时取每个计划对应的成功源回合，与上方统计全部评测回合的平均耗时口径不同。
 
-在 LIBERO-PRO 完整的 800 次运行中（Spatial、Object、Goal 和 Long；task/swap；每个任务 10 个 seed），Flash Mode 成功 581 次（72.63%）。不使用 reasoning 的 Codex 成功 500 次（62.50%），high reasoning Codex 成功 628 次（78.50%）。两个没有成功源轨迹、因而没有计划的任务按 0/10 保守计入。
+图中对比三种配置：Flash Mode、不使用 reasoning 的 Codex，以及 high reasoning Codex。后两者分别为 500/800（62.50%）和 628/800（78.50%）。成功率与上方使用同一套 800 次运行口径。
 
 .. image:: https://raw.githubusercontent.com/RLinf/misc/main/rpent/flash/flash_libero_pro_performance_time.png
    :alt: Flash Mode 与 Codex 在 LIBERO-PRO 全系列上的逐任务成功率和执行时间对比

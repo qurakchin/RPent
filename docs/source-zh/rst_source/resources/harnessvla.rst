@@ -6,14 +6,24 @@ Memory-Guided Agents*
 
 **资源：** `论文 <https://arxiv.org/abs/2607.08448>`_ | `项目主页 <https://harnessvla.github.io/>`_ | `代码 <https://github.com/RLinf/RPent>`_
 
-概述
+本页概述 Harness VLA 论文及其支撑 RPent 记忆引导规划的评测结果；安装与运行命令见文末链接的各平台教程。
+
+.. page-head::
+   :for: 要了解 Harness VLA 论文，以及记忆引导规划证据的读者
+   :outcome: 说明方法、已报告结果，并指出每个结果在哪里复现
+   :read-when: 阅读论文、引用其中的数字，或核对复现分支时
+   :skip-when: 要运行任务；从 :doc:`../get_started/quickstart` 或平台页面开始
+
+**本文结构：** 概览 → 框架 → 实验结果 → 复现分支 → 引用。
+
+概览
 ----
 
-当前的视觉—语言—动作（Vision-Language-Action，VLA）模型在标准机器人基准上表现出色，但当任务指令、目标绑定或空间布局发生变化时，性能可能明显下降。π\ :sub:`RLinf` 在标准 LIBERO 上的成功率为 95.3%，面对 LIBERO-PRO 扰动时则降至 50.0%。许多失败并不是因为 VLA 不会抓取或放置，而是因为它在错误的目标、不合适的状态或长时序任务的错误阶段，执行了局部上看似合理的动作。
+当前的视觉—语言—动作（Vision-Language-Action，VLA）模型在标准机器人基准上表现出色。当任务指令、目标绑定或空间布局发生变化时，性能可能明显下降。π\ :sub:`RLinf` 在标准 LIBERO 上的成功率为 95.3%，面对 LIBERO-PRO 扰动时则降至 50.0%。许多失败不是因为 VLA 不会抓取或放置。它会在错误的目标、不合适的状态，或长时序任务的错误阶段，执行局部上看似合理的动作。
 
-Harness VLA 将问题的重点从“如何训练更大的 VLA”转向“应该如何组织和调用已有的 VLA”。它把冻结的 VLA 封装为可重试的接触密集型 Action Primitive，并由 Agentic Planner 将其与一组规模较小且固定的 Analytic Primitives 组合。Planner 负责重新理解当前任务、为 VLA 创造合适的局部接管条件、检查实际执行结果，并在失败后重新组织后续操作；整个过程中，VLA 权重始终保持冻结。
+Harness VLA 将问题的重点从“如何训练更大的 VLA”转向“应该如何组织和调用已有的 VLA”。它把冻结的 VLA 封装为可重试的接触密集型 Action Primitive。Agentic Planner 再把它与一组规模较小且固定的 Analytic Primitives 组合。Planner 重新理解当前任务，为 VLA 创造合适的局部接管条件，检查执行结果，并在失败后重新组织后续操作。整个过程中 VLA 权重保持冻结。
 
-Harness VLA 是 RPent 的首篇论文。在部署阶段不更新 VLA、也不扩展 Action Primitive library 的条件下，它使用 Opus-4.7 在 LIBERO-PRO 上取得 **82.4%**，使用 GPT-5.5 在 RoboCasa365 上取得 **57.1%**，使用 Opus-4.7 在 RoboTwin C2R 上取得 **58.4%** 的成功率。
+Harness VLA 是 RPent 的首篇论文。部署阶段不更新 VLA，也不扩展 Action Primitive library。在此条件下，Opus-4.7 在 LIBERO-PRO 上取得 **82.4%**，在 RoboTwin C2R 上取得 **58.4%**。GPT-5.5 在 RoboCasa365 上取得 **57.1%**。
 
 .. figure:: https://raw.githubusercontent.com/RLinf/misc/main/pic/harnessvla_scheme.png
    :alt: Harness VLA 框架概览
@@ -34,19 +44,19 @@ Harness VLA 将 Agentic Planner、Action Primitives 与两类记忆组织在同�
   * **VLA Primitive。** Harness VLA 将冻结的 VLA 转化为可由 Agentic Planner 灵活调用的 Action Primitive，负责不规则物体抓取、受约束放置、按钮按压，以及抽屉和门等铰接机构交互中的接触密集型操作。每次执行后，Agentic Planner 会结合最新的 RGB-D 观测检查结果，并在必要时调整机器人状态，发起更有针对性的尝试。
 * **Memory。** Task-Specific Memory 将经过验证的执行策略沉淀为可参数化的 Action Primitive 组合，使 Agentic Planner 能够结合当前观测重新绑定目标与空间参数；Global Memory 则提炼可跨任务复用的成功经验、失败模式和恢复策略，为后续规划提供指导。
 
-在探索阶段，Agentic Planner 从一个 seed 任务实例出发，探索 Analytic Primitives 与 VLA 的合理分工，并将有效的执行策略和恢复经验沉淀到 Task-Specific Memory 与 Global Memory 中。部署时，Agentic Planner 将这些记忆与实时观测结合，动态重新绑定目标与空间参数，使经过验证的策略能够适应目标绑定和空间布局的变化。
+在探索阶段，Agentic Planner 从一个 seed 任务实例出发，探索 Analytic Primitives 与 VLA 的合理分工。有效的执行策略和恢复经验会沉淀到 Task-Specific Memory 与 Global Memory。部署时，Agentic Planner 把这些记忆与实时观测结合，重新绑定目标与空间参数。经过验证的策略因此能适应目标绑定和空间布局的变化。
 
 实验结果
 --------
 
-Harness VLA 的评估覆盖标准和扰动后的桌面操作、家庭厨房长时序任务，以及 RoboTwin C2R 双臂操作。代表性论文结果如下；当前模型对比与更新的复现结果见 :doc:`排行榜 <../leaderboard/performance>`。
+Harness VLA 的评测覆盖三类场景：标准与扰动后的桌面操作、家庭厨房长时序任务，以及 RoboTwin C2R 双臂操作。代表性论文结果如下。当前模型对比与更新的复现结果见 :doc:`排行榜 <../leaderboard/performance>`。
 
 .. list-table:: Harness VLA 代表性实验结果
    :header-rows: 1
    :widths: 24 34 42
 
    * - 基准
-     - 评估设置
+     - 评测设置
      - 报告的成功率
    * - LIBERO
      - 标准任务套件
@@ -61,12 +71,12 @@ Harness VLA 的评估覆盖标准和扰动后的桌面操作、家庭厨房长�
      - 双臂操作（Clean to Random）
      - Harness VLA / Opus-4.7：**58.4%**；LingBot-VLA：50.4%
 
-Harness VLA / Opus-4.7 在标准 LIBERO 上取得 96.0% 的成功率，与 π\ :sub:`RLinf` 的 95.3% 相当；在 LIBERO-PRO 上达到 82.4%，超过 π\ :sub:`RLinf` 的 50.0%。Cap-X 和 RATS 仅报告六项评测，其有效分项成绩在排行榜的完整结果表中单独列出。在 RoboCasa365 上，Harness VLA / GPT-5.5 将任务加权总体成功率从 RLDX-1 的 30.0% 提升至 57.1%。在 RoboTwin C2R 上，Harness VLA / Opus-4.7 达到 58.4%，超过 LingBot-VLA 的 50.4%。这些提升来自三种相互配合的机制：Planner 完成语义重新定位，在重新预置位后对 VLA 进行稀疏且有针对性的重试，以及使用 Analytic Primitives 隔离非接触执行。
+Harness VLA / Opus-4.7 在标准 LIBERO 上取得 96.0% 的成功率，与 π\ :sub:`RLinf` 的 95.3% 相当。在 LIBERO-PRO 上达到 82.4%，超过 π\ :sub:`RLinf` 的 50.0%。Cap-X 和 RATS 仅报告六项评测，其有效分项成绩在排行榜的完整结果表中单独列出。在 RoboCasa365 上，Harness VLA / GPT-5.5 将任务加权总体成功率从 RLDX-1 的 30.0% 提升至 57.1%。在 RoboTwin C2R 上，Harness VLA / Opus-4.7 达到 58.4%，超过 LingBot-VLA 的 50.4%。这些提升来自三种相互配合的机制。Planner 完成语义重新定位；重新预置位后，对 VLA 做稀疏、有针对性的重试；Analytic Primitives 隔离非接触执行。
 
-快速开始
+复现分支
 --------
 
-以下链接给出各环境已有文档中的代码入口。安装配置和运行命令见对应教程；历史复现应保留当时配套的代码与数据。
+以下复现分支和 Memory 记录给出历史复现使用的代码与数据入口。安装配置和运行命令见对应教程；历史复现应保留当时配套的代码与数据。
 
 * **LIBERO：** :doc:`教程 <../simulators/libero>` — `reproduce/libero <https://github.com/RLinf/RPent/tree/reproduce/libero>`_
 * **RoboCasa：** :doc:`教程 <../simulators/robocasa>` — ``main`` 上的 task-specific + global memory 评测流程

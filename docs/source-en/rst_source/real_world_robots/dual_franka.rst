@@ -11,19 +11,62 @@ Dual-Arm Franka
 RPent controls a two-node dual-Franka setup through an RLinf
 ``RealWorldEnv`` worker. Watch the :doc:`task demos <../real_world_demos/franka>`.
 
-Install
--------
+.. page-head::
+   :for: Operators deploying the two-node dual-Franka workbench
+   :outcome: You can install, calibrate, configure, and start both nodes, run a task, and stop the system safely
+   :read-when: You are installing or operating the dual-arm workbench
+   :skip-when: You operate a single arm, or only run simulated tasks; see :doc:`franka` or :doc:`../simulators/index`
+
+**Page map:** Safety and Stopping → Installation → Calibration → Robot Configuration → VLA Configuration → Start Services → Run a Task → View Results → Verification Status.
+
+Safety and Stopping
+-------------------
+
+Keep an operator at the hardware emergency stop for the entire run. The
+software stops below stop command execution or hold the current posture; they
+do not cut motor power and do not replace the emergency stop.
+
+Before confirming ``request_scene_reset``, secure every held object and clear
+the area around both arms. The reset runs the RLinf environment reset, which
+moves both arms to ``workspace.joint_reset_qpos`` and opens both grippers.
+Confirm that the reset path for both arms is clear before replying ``done``.
+The reset is a motion; keep the emergency stop within reach when you confirm
+it. Replying ``abort`` or closing the operator prompt leaves motion blocked before
+the reset starts, so the arms stay where they are. A failed reset also keeps
+motion blocked; inspect the arms before continuing, because the reset attempt
+may have moved them, and use the emergency stop if needed.
+
+During a run:
+
+* ``Ctrl+C`` requests RPent shutdown. An in-flight RPC or motion may still
+  finish before the process exits.
+* In the VLA diagnostic console, ``Ctrl+C`` or the ``STOP`` file stops between
+  actions. Neither is a hardware emergency stop.
+* ``/abort`` in exploration or Dashboard stops the task, but already-issued
+  actions may still return. Wait for both arms to stop, then inspect the scene.
+
+``recover_joint_posture`` is a motion tool. It re-commands each gripper's
+current open/closed state, resets both arms to ``workspace.joint_reset_qpos``,
+and by default returns both TCPs near their pre-recovery poses. Use it only
+when ``joint_health`` reports a warning or critical state, and keep the
+emergency stop within reach while it runs.
+
+RPent's dual-Franka environment server does not command a home pose when a run
+ends: it disconnects the cameras and closes the environment. Before closing services,
+stop the run, keep the emergency stop accessible, and follow the arm
+controller's shutdown procedure. Do not assume the arms move to a safe pose on
+exit.
+
+Installation
+------------
 
 Install RPent on both Linux control nodes with matching code, Python, Ray and
-RLinf versions. Nodes running VLA or SAM3 locally need an NVIDIA GPU.
-Use the same installation workflow as :doc:`../get_started/quickstart`:
+RLinf versions. Nodes running VLA or SAM3 locally need an NVIDIA GPU. Complete
+:ref:`quickstart-install` on both nodes, then install the Franka and SAM3
+extras:
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   uv venv
-   source .venv/bin/activate
    uv pip install -e ".[franka,sam3]"
 
 If Python package downloads are slow, replace the installation command with the
@@ -44,14 +87,14 @@ calibration steps below.
 Run subsequent commands from the repository root in this environment. In a new
 terminal, activate ``.venv`` and set the required model variables again.
 
-Download SAM3 weights on the environment node if local segmentation is needed:
+Download SAM3 weights on the environment node if local segmentation is needed.
+The download block is maintained in :ref:`quickstart-download`:
 
 .. code-block:: bash
 
    uv pip install modelscope
-   modelscope download --model facebook/sam3 sam3.pt \
-     --local_dir ./checkpoints/sam3
-   export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
+
+.. include:: /_snippets/sam3-download.rst
 
 Without this variable or ``--sam3-endpoint``, segmentation is unavailable;
 installing the extra alone does not download weights. VLA checkpoints are
@@ -232,48 +275,7 @@ its starting position. ``rotation_hold.max_drift_m`` sets the allowed position
 drift during rotation, defaulting to ``0.10`` m (10 cm). Exceeding this limit
 aborts the call with an error.
 
-Task Selection
---------------
-
-The main example uses task ``2``. On first connection, use task ``0`` to check
-small translations, rotations and gripper actions. This is a planner-guided
-check, not a fixed automated sequence, and does not require VLA.
-
-.. list-table::
-   :header-rows: 1
-
-   * - ID
-     - Task
-     - VLA required
-   * - 0
-     - Planner-guided primitive checks
-     - No
-   * - 1
-     - Dirty/clean sorting of bowls and plates, with cup and utensils
-     - Yes
-   * - 2
-     - Dirty/clean sorting of bowls, plates, and two cups; no utensils
-     - Yes
-
-.. note::
-
-   Task IDs select tasks in launch commands; sorting tasks use their names for
-   recipe and memory identifiers. Keep IDs and names associated with the same task when
-   editing definitions. Do not reorder IDs or reuse names for different tasks.
-
-In task ``1``, an egg tart or foil tray inside a bowl or on a plate marks it as
-dirty. Dirty bowls and plates go into the metal basket; clean bowls and plates,
-and the cup, go into the cardboard box. The chopsticks and spoon go inside the cup.
-
-In task ``2``, chicken nuggets inside a bowl, or an egg-tart foil tray in a cup
-or on a plate, mark it as dirty. Dirty objects go into the metal basket; clean
-objects go into the cardboard box. There are no utensils.
-
-Both sorting tasks provide ``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place`` skills.
-
 .. _dual-franka-vla:
-
-.. _vla-grasp-demo:
 
 VLA Configuration
 -----------------
@@ -322,16 +324,8 @@ weights and use ``id_0`` as shown above.
 	<https://rlinf.readthedocs.io/en/latest/rst_source/examples/embodied/dual_franka.html>`_
 	(collect GELLO demos, convert to tcp_rot6d, run SFT, then deploy).
 
-.. _dual-franka-codex-isolation:
-
-Codex Configuration
--------------------
-
-Before using Codex, configure separate runtime directories and log in by following
-:ref:`planner-codex-isolation`.
-
-Start the Two-node Ray Cluster
-------------------------------
+Start Services
+--------------
 
 Activate the installed ``.venv`` on each node before starting Ray. The default
 placement in ``robots/dual_franka/runtime_config.py`` is:
@@ -368,8 +362,95 @@ Node ``1``:
    ray stop --force
    ray start --address=HEAD_IP:6379 --node-ip-address=WORKER_IP
 
-Manual Skill Testing
---------------------
+Run a Task
+----------
+
+Complete calibration, robot configuration and Ray startup, then configure the
+planner using :doc:`../guides/configure_planner`. Before using Codex, complete
+:ref:`planner-codex-isolation`.
+
+With the model variables set, the example below runs task ``2``. Select another
+registered task with ``--task-id``. RPent starts the required
+environment and model services automatically; do not start VLA in another terminal:
+
+.. code-block:: bash
+
+   rpent --robot dual_franka --task-id 2 \
+     --planner codex --model gpt-6-astra --reasoning-effort xhigh \
+     --robot-config robots/dual_franka/config/example.yaml \
+     --memory-profile local --memory-dir ./memory/dual_franka
+
+Connection initializes controllers and grippers without resetting robot posture.
+The agent first calls ``request_scene_reset``: secure held objects, restore the
+tabletop and check the reset path for both arms, then answer ``done`` to allow
+reset and a fresh observation. Motion remains blocked if confirmation or reset
+fails. Each new run/session needs its own confirmation.
+
+The example uses Codex, ``gpt-6-astra`` and ``xhigh`` reasoning. Claude Code is
+also available: replace the planner/model options with
+``--planner claude_code --model claude-opus-4-8``. See
+:doc:`../guides/configure_planner` for model and reasoning settings.
+
+Append options to this same command as needed:
+
+* ``--explore`` explores and accumulates task memory, as described below.
+* ``--explore --tui`` accepts terminal feedback during exploration;
+  ordinary tasks do not support ``--tui`` on its own.
+* ``--dashboard`` accepts tasks, messages and confirmations in the web input.
+  Add ``--explore`` for exploration. Do not combine it with ``--tui``.
+  See :doc:`../guides/dashboard` for interface controls.
+
+Task Selection
+~~~~~~~~~~~~~~
+
+The main example uses task ``2``. On first connection, use task ``0`` to check
+small translations, rotations and gripper actions. This is a planner-guided
+check, not a fixed automated sequence, and does not require VLA.
+
+.. list-table::
+   :header-rows: 1
+
+   * - ID
+     - Task
+     - VLA required
+   * - 0
+     - Planner-guided primitive checks
+     - No
+   * - 1
+     - Dirty/clean sorting of bowls and plates, with cup and utensils
+     - Yes
+   * - 2
+     - Dirty/clean sorting of bowls, plates, and two cups; no utensils
+     - Yes
+
+.. note::
+
+   Task IDs select tasks in launch commands; sorting tasks use their names for
+   recipe and memory identifiers. Keep IDs and names associated with the same task when
+   editing definitions. Do not reorder IDs or reuse names for different tasks.
+
+In task ``1``, an egg tart or foil tray inside a bowl or on a plate marks it as
+dirty. Dirty bowls and plates go into the metal basket; clean bowls and plates,
+and the cup, go into the cardboard box. The chopsticks and spoon go inside the cup.
+
+In task ``2``, chicken nuggets inside a bowl, or an egg-tart foil tray in a cup
+or on a plate, mark it as dirty. Dirty objects go into the metal basket; clean
+objects go into the cardboard box. There are no utensils.
+
+Both sorting tasks provide ``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place`` skills.
+
+.. _vla-grasp-demo:
+
+.. _dual-franka-codex-isolation:
+
+Codex Configuration
+~~~~~~~~~~~~~~~~~~~
+
+Before using Codex, configure separate runtime directories and log in by following
+:ref:`planner-codex-isolation`.
+
+Manual Skill Tests
+~~~~~~~~~~~~~~~~~~
 
 List the available skills, then inspect the parameters and types accepted by a
 skill. From the repository root:
@@ -441,44 +522,6 @@ JSON/NPZ. If execution state is uncertain, check the physical scene and restart.
 The action chunk length is read from the VLA server, or can be set explicitly
 with ``--expected-action-steps``.
 
-Run a Task
-----------
-
-Complete calibration, robot configuration and Ray startup, then configure the
-planner using :doc:`../guides/configure_planner`. Before using Codex, complete
-:ref:`planner-codex-isolation`.
-
-With the model variables set, the example below runs task ``2``. Select another
-registered task with ``--task-id``. RPent starts the required
-environment and model services automatically; do not start VLA in another terminal:
-
-.. code-block:: bash
-
-   rpent --robot dual_franka --task-id 2 \
-     --planner codex --model gpt-6-astra --reasoning-effort xhigh \
-     --robot-config robots/dual_franka/config/example.yaml \
-     --memory-profile local --memory-dir ./memory/dual_franka
-
-Connection initializes controllers and grippers without resetting robot posture.
-The agent first calls ``request_scene_reset``: secure held objects, restore the
-tabletop and check both reset paths, then answer ``done`` to allow reset and a
-fresh observation. Motion remains blocked if confirmation or reset fails. Each
-new run/session needs its own confirmation.
-
-The example uses Codex, ``gpt-6-astra`` and ``xhigh`` reasoning. Claude Code is
-also available: replace the planner/model options with
-``--planner claude_code --model claude-opus-4-8``. See
-:doc:`../guides/configure_planner` for model and reasoning settings.
-
-Append options to this same command as needed:
-
-* ``--explore`` explores and accumulates task memory, as described below.
-* ``--explore --tui`` accepts terminal feedback during exploration;
-  ordinary tasks do not support ``--tui`` on its own.
-* ``--dashboard`` accepts tasks, messages and confirmations in the web input.
-  Add ``--explore`` for exploration. Do not combine it with ``--tui``.
-  See :doc:`../guides/dashboard` for interface controls.
-
 View Results
 ------------
 
@@ -495,81 +538,14 @@ Exploration keeps per-session state and operator records under
 verdict, not a successful RPC or the planner's own ``finish`` text. See
 :ref:`run-output-files` for the common output layout.
 
-Tools and Artifacts
+Verification Status
 -------------------
 
-The extension exposes ``view_env_state``, ``view_camera_meta``, ``move_delta``,
-``rotate_delta``, ``open_gripper``, ``close_gripper``, and ``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place``. Each
-analytic motion selects exactly one arm, ``left`` or ``right``. Mutating tools
-capture per-arm state and synchronized left-wrist, base, and right-wrist images
-in RPent's central ``EnvState``.
+The v0.1 release notes and the :doc:`dual-arm demo page
+<../real_world_demos/franka>` record demonstrations of tableware sorting after
+a goal change, steel-ball pouring, plate wiping, and storage. These are
+demonstration records, not a success-rate evaluation. This page reports no
+episode count or success rate, and a successful demo does not establish
+performance on a different rig or task.
 
-Attended Exploration
---------------------
-
-Append ``--explore`` to a task command to enable exploration. Set attempts per planner session
-with ``--explore-attempts-per-session`` and session count with
-``--explore-sessions``. Add ``--tui`` for terminal input or
-``--dashboard`` for web interaction.
-
-Each planner session begins with ``request_scene_reset``. Secure held objects,
-restore the scene and reply ``done``. A successful reset and camera/state capture
-start an attempt; a failed reset keeps motion blocked.
-``--explore-attempts-per-session`` limits attempts within each session.
-External ``--env-endpoint`` servers must advertise ``explicit_reset_only=True``
-for both ordinary and exploration runs.
-
-``request_operator_verdict`` asks for ``success``, ``failure``, ``continue`` or
-``abort``, with optional notes. Its success/failure reply judges the current
-attempt; ``continue`` resumes it and ``abort`` stops exploration. Further motion
-clears the previous verdict. Closing terminal input also stops exploration.
-
-With Codex/Claude and ``--tui``, use the displayed request ID, for example
-``/operator <request-id> done`` or ``/operator <request-id> success object lifted``.
-Other messages go to the agent. Without ``--tui``, answer the prompt
-directly. With ``--dashboard``, use the commands below in the Dashboard message input.
-
-Records and Memory
-~~~~~~~~~~~~~~~~~~
-
-Find camera and robot state in ``sessions/session_<NNN>/``, attempt boundaries in
-``exploration.json`` and human feedback in ``operator_events.json``.
-Failed attempts are retained; working notes are in
-``<memory-dir>/_internal/inbox/<recipe_tag>/wip/``.
-
-Memory merging is enabled by default. Normal completion merges valid ``global``
-and ``task-family`` drafts, including lessons from failed attempts. Success also
-saves a complete audit/recipe pair under ``task-specific``.
-Use ``--no-auto-merge-memory`` to keep records without merging. Errors, aborts,
-task replacement and Dashboard Session shutdown prevent merging. See
-:doc:`../guides/memory` for the memory layout.
-
-Exploration Commands
-~~~~~~~~~~~~~~~~~~~~
-
-In Codex/Claude terminal interaction (``--explore --tui``) or Dashboard
-exploration, use:
-
-* ``/success`` or ``/failure`` to end the task, rather than only judge an attempt.
-  Success requires a confirmed reset. In the terminal, failure can end the task
-  before the first reset; in Dashboard, answer a pending reset with ``/done`` or
-  ``/abort`` first.
-* ``/done`` to confirm a pending scene-reset request.
-* ``/continue`` to answer a pending verdict and resume the attempt.
-* ``/abort`` to stop the task, even if a camera is unavailable.
-
-Enter each command on its own. Bare words such as ``success`` and ``failure``
-are ordinary agent messages. Already-issued robot actions or RPCs may need to
-return before the task can end; these commands are not an emergency stop.
-
-Flash Replay
-------------
-
-Dual Franka uses the shared :ref:`Franka Flash workflow <franka-flash>`.
-The example below uses task ``0``; for another task, change the ID in both the
-generation and replay arguments. Generate with ``--robot dual_franka --task dual_franka_t0`` and replay with
-``--robot dual_franka --planner flash --task-id 0``. Use a dual-arm plan and
-robot configuration. Translation annotations name ``base``, ``d455``,
-``left_wrist`` or ``right_wrist`` with depth and valid calibration.
-Primitive moves specify ``arm: left`` or ``arm: right``; left-arm workspace
-checks convert the shared right-base target into the left-base frame.
+Advanced operation details are in :doc:`dual_franka_reference`.

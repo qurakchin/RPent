@@ -5,8 +5,21 @@ This guide walks through what you need to write to plug a new physical /
 simulated robot into RPent's LLM-in-the-loop runner. Use
 ``robots/libero/`` as the worked reference.
 
+.. page-head::
+   :for: Developers adding a physical or simulated robot integration
+   :outcome: You can register a ``RobotSpec``, implement the env RPC pair, prompts, and toolkit, and add tests
+   :read-when: You are adding a robot package or adapting an RLinf environment
+   :skip-when: You only operate a supported platform; use its page
+
+**Page map:** integration rules and conventions → prerequisites → steps 1–7 →
+test coverage → troubleshooting and next steps.
+
 Integration Guidelines
 ----------------------
+
+This page is for adding a robot package or adapting an RLinf environment that
+RPent does not support yet. If you only operate a supported platform, use its
+page instead.
 
 - **Reuse RPent abstractions.** Prefer existing Env, VLA, runtime, and memory
   components such as ``BaseEnvClient``, ``BaseEnvFacade``,
@@ -19,6 +32,32 @@ Integration Guidelines
 - **Explain when reuse is not possible.** If an existing RPent or RLinf
   Env / VLA cannot be reused, explain why in the PR description or open an
   issue so the existing abstraction can be improved.
+
+Conventions Worth Keeping
+-------------------------
+
+- ``output_dir`` is the working directory that the runner creates for each
+  run. Environment observations are owned by ``EnvState``; callers use logical
+  base names and never construct storage paths. Transcripts and other
+  run-management outputs share the same run directory.
+- Tools expose ``name``, ``description``, and ``input_schema``. Each planner
+  adapts registered tools to its model interface.
+- Server-side return values must be picklable and torch-free.
+- Each primitive tool dumps a fresh state snapshot after running so the next
+  ``view_env_state`` call reflects the post-action world.
+- Treat ``dump_state`` as the source of truth for what the agent sees — any new
+  modality (e.g. tactile, force) goes through it.
+
+Prerequisites
+-------------
+
+- A supported robot package to use as the reference, such as
+  ``robots/libero/``.
+- The environment's Python dependencies importable on the target machine, and a
+  minimal script that creates the environment and executes one step.
+- The test extra (``pip install -e ".[test]"``) for the offline tests.
+- ``rpent --robot <name> --help`` working in the current environment; this
+  rules out top-level import problems before you add code.
 
 Integration Steps
 -----------------
@@ -45,8 +84,8 @@ order:
 
 .. _add-robot-entry:
 
-Entry Point
------------
+1. Entry Point and Registration
+-------------------------------
 
 For a new robot named ``myrobot``, use the following directory layout:
 
@@ -55,10 +94,10 @@ For a new robot named ``myrobot``, use the following directory layout:
    robots/myrobot/
        __init__.py            # package entry point; re-exports the factories
        robot_spec.py          # RobotSpec, factories, Dashboard spec, runtime hooks
-       env_client.py          # MyEnvClient — agent-side RPC stub (§1)
-       prompt_bundle.py       # system()/user() prompt factories         (§2)
-       toolkit.py             # MyRobotToolkit + primitives + tool definitions (§3)
-       env_server.py          # server-side facade + RPC server (§1)
+       env_client.py          # MyEnvClient — agent-side RPC stub (step 2)
+       prompt_bundle.py       # system()/user() prompt factories         (step 3)
+       toolkit.py             # MyRobotToolkit + primitives + tool definitions (step 4)
+       env_server.py          # server-side facade + RPC server (step 2)
        vla_server.py          # (optional) VLA model server
 
 ``__init__.py`` is the robot package's entry point. Keep it small and
@@ -107,11 +146,11 @@ these two functions:
        )
 
    def _add_cli_args(parser, use_dashboard) -> None:
-       """Register robot flags on the shared parser. See §4."""
+       """Register robot flags on the shared parser. See step 5."""
        ...
 
    def _parse_config(args) -> RunConfig:
-       """Validate final `args`, return a RunConfig. See §4."""
+       """Validate final `args`, return a RunConfig. See step 5."""
        ...
 
    def _init_runtime(
@@ -122,19 +161,19 @@ these two functions:
    ):
        """Initialize all runtime components, or only the selected subset.
 
-       Returns (daemons, runtime_kwargs). See §5.
+       Returns (daemons, runtime_kwargs). See step 6.
        """
        ...
 
 ``resolve_dashboard`` is an optional callback. Leave it as ``None`` if the
 environment does not support Dashboard control. Otherwise, return a spec defined
-in the robot package: its ``task`` section describes the command, validated fields, display
-template, and output slug; robot-specific Session settings remain normal CLI
-arguments; ``runtime_components`` describes service rows;
-and ``primitives`` is the ordered allowlist of Toolkit actions displayed and
+in the robot package. Its ``task`` section describes the command, validated
+fields, display template, and output slug. Robot-specific Session settings
+remain normal CLI arguments. ``runtime_components`` describes service rows, and
+``primitives`` is the ordered allowlist of Toolkit actions displayed and
 executable as Dashboard controls. Camera tabs are discovered from the PNG
-artifacts in each recorded step. Keep task suggestions in the spec so
-importing the robot does not require simulator packages. See
+artifacts in each recorded step. Keep task suggestions in the spec so importing
+the robot does not require simulator packages. See
 ``robots/libero/robot_spec.py`` for the reference shape.
 
 The callback receives the parsed session arguments, so it can select components
@@ -147,19 +186,19 @@ That's the entire registration step — ``_resolve_robot(name)`` does an
 ``robots/`` on disk is enough. No central list to update.
 
 The sections below describe what each referenced module must contain.
-``_add_cli_args`` / ``_parse_config`` are covered in §4 and the runtime hook
-in §5.
+``_add_cli_args`` and ``_parse_config`` are covered in
+:ref:`add-robot-config`, and the runtime hook in :ref:`add-robot-runtime`.
 
 .. _add-robot-env-rpc:
 
-1. ``env_client.py`` + ``env_server.py``
------------------------------------------
+2. Environment Client and Server
+--------------------------------
 
 These files connect the agent process to ``env_server``. The client converts
 method calls into RPC requests, and ``env_server`` handles those requests.
 
-1.1 Env Client (agent Side)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.1 Environment Client (Agent Side)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Subclass :class:`rpent.robots.components.env_client_base.BaseEnvClient`. It already
 validates ``env.get_env_meta`` at startup, performs the initial reset, caches
@@ -188,8 +227,8 @@ facade registers each name explicitly.
 
    env = MyEnvClient(rpc_client, expected_meta=expected_meta)
 
-1.2 Env Server (server Side)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2.2 Environment Server (Server Side)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Mirror the client's API in a facade class on the server side (e.g.
 ``MyEnvFacade``). Subclass
@@ -238,14 +277,16 @@ teardown.
 
 .. _add-robot-prompts:
 
-2. ``prompt_bundle.py``
------------------------
+3. Prompts
+----------
 
-Define two prompt factories, ``system_prompt()`` and ``user_prompt()``, and
-build a ``PromptBundle(system=system_prompt, user=user_prompt)`` in the
-robot's ``robot_spec.py`` (see the entry point above). Each factory returns an ordered
-``dict[str, PromptNode]`` of titled sections; ``PromptBundle.render`` assembles
-and fills them. One prompt serves every planner (API loop, Claude Code, Codex):
+Define two prompt factories, ``system_prompt(variables)`` and
+``user_prompt(variables)``, and build a ``PromptBundle(system=system_prompt,
+user=user_prompt)`` in the robot's ``robot_spec.py`` (see the entry point
+above). Each factory receives the run's prompt variables and returns a
+``PromptNode``, typically an ordered ``dict[str, PromptNode]`` of titled
+sections; ``PromptBundle.render`` assembles and fills them. One prompt serves
+every planner (API loop, Claude Code, Codex):
 refer to tools by their bare names (``move_to``, ...) and note once that the
 Claude Code and Codex SDKs show them as ``mcp__rpent__<name>``. Do not
 maintain separate prompt copies for CLI and API planners.
@@ -253,11 +294,15 @@ maintain separate prompt copies for CLI and API planners.
 .. code-block:: python
 
    # robots/myrobot/prompt_bundle.py
+   from typing import Mapping
+
    from robots.myrobot.prompts import system as system_parts
    from robots.myrobot.prompts import user as user_parts
    from rpent.prompt.utils import PromptNode
 
-   def system_prompt() -> PromptNode:
+   def system_prompt(
+       variables: Mapping[str, object] | None = None,
+   ) -> PromptNode:
        return {
            "INTRO": system_parts.PREAMBLE,
            "GOAL": system_parts.GOAL,
@@ -267,7 +312,9 @@ maintain separate prompt copies for CLI and API planners.
            "OUTPUT": system_parts.OUTPUT,
        }
 
-   def user_prompt() -> PromptNode:
+   def user_prompt(
+       variables: Mapping[str, object] | None = None,
+   ) -> PromptNode:
        return {
            "TASK": user_parts.TASK,
            "BEGIN": user_parts.BEGIN,
@@ -281,8 +328,8 @@ render time.
 
 .. _add-robot-toolkit:
 
-3. ``toolkit.py``
-------------------
+4. Toolkit and Primitives
+-------------------------
 
 This module owns the tool schemas, primitives, per-step state records, and
 the list of tools available through MCP. LIBERO splits these between
@@ -301,12 +348,12 @@ state needed for the current run. It exposes one method per primitive tool
 ``@tool``. Type annotations and Google-style docstrings define their schemas and
 descriptions, including readers such as ``view_env_state`` and ``back_project``.
 
-**Per-step state dump** — ``dump_state(driver, env_state, log)`` opens
-``env_state.record_step(...)`` and receives the allocated step index; the
+**Per-step state dump** — ``dump_state(primitives, env_state, log)`` opens
+``env_state.record_step(...)`` and receives the allocated step index. The
 ``StepRecord`` is appended and committed immediately. Save large observations
-through ``env_state.save(...)`` — inside a ``record_step`` block the ``step``
-argument may be omitted (it defaults to the new step), pass an explicit
-``step=<int>`` to target a different step, and ``step=None`` for run-level
+through ``env_state.save(...)``. Inside a ``record_step`` block the ``step``
+argument may be omitted, since it defaults to the new step. Pass an explicit
+``step=<int>`` to target a different step, or ``step=None`` for run-level
 artifacts. ``EnvState`` adds every successfully saved base name to the step's
 flat ``artifacts`` set automatically. Readers use the canonical artifact
 filenames rather than maintaining a parallel observation index.
@@ -330,148 +377,23 @@ filenames rather than maintaining a parallel observation index.
 the toolkit passes verbatim to your primitives' ``__init__`` — typically
 ``{"env": MyEnvClient(...), "model": VLAClient(...), ...}``.
 
-Conventions Worth Keeping
--------------------------
-
-- ``output_dir`` is the working directory that the runner creates for each
-  run. Environment observations are owned by ``EnvState``; callers use logical
-  base names and never construct storage paths. Transcripts and other
-  run-management outputs share the same run directory.
-- Tools expose ``name``, ``description``, and ``input_schema``. Each planner
-  adapts registered tools to its model interface.
-- Server-side return values must be picklable and torch-free.
-- Each primitive tool dumps a fresh state snapshot after running so the next
-  ``view_env_state`` call reflects the post-action world.
-- Treat ``dump_state`` as the source of truth for what the agent sees — any new
-  modality (e.g. tactile, force) goes through it.
-
-.. _add-robot-config:
-
-4. ``_add_cli_args`` + ``_parse_config`` (runner Hooks)
--------------------------------------------------------
-
-Robot-specific CLI arguments enter ``rpent/cli/main.py`` through two
-hooks and participate in the final argparse pass:
-
-**``_add_cli_args(parser, use_dashboard) -> None``.** Register the
-robot's arguments on the shared parser created by main.py.
-``use_dashboard`` determines whether normally required arguments remain
-optional. For each Dashboard TaskRun, the robot's Dashboard task command
-supplies the fields declared by its spec before ``parse_config`` runs. main.py
-calls this hook before ``parser.parse_args()``, so argparse's usage and error
-output includes the robot arguments.
-
-**``_parse_config(args) -> RunConfig``.** In normal CLI mode, this is called
-after ``parser.parse_args()``. In Dashboard mode, it is called for each
-TaskRun after the requested fields have been copied to the task arguments. It
-validates those fields and returns a
-:class:`~rpent.robots.RunConfig`:
-
-- ``recipe_tag`` — robot's per-run tag, used in transcript filenames / recipe
-  path (LIBERO: ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``).
-- ``output_dir`` — path to the working directory for this run (main.py then
-  calls ``init_output_dir`` to create it and configure logging).
-- ``prompt_vars`` — dict passed to ``PromptBundle.render`` (typically the run
-  identifiers plus anything else the prompts reference).
-- ``task_desc`` — robot-specific dict of task-identifying fields, written into
-  the transcript JSON record verbatim (LIBERO:
-  ``{"suite": ..., "task": ..., "seed": ...}``).
-
-.. code-block:: python
-
-   def _add_cli_args(parser, use_dashboard) -> None:
-       required = not use_dashboard
-       parser.add_argument("--suite", default=None, required=required)
-       parser.add_argument("--task", type=int, default=None, required=required)
-       # ... other robot-specific flags ...
-
-   def _parse_config(args) -> RunConfig:
-       if not args.suite: raise ValueError("--suite is required")
-       # ... derive recipe_tag, output_dir, and prompt_vars ...
-       return RunConfig(
-           recipe_tag=recipe_tag,
-           output_dir=output_dir,
-           prompt_vars=prompt_vars,
-           task_desc={"suite": args.suite, "task": args.task, "seed": args.seed},
-       )
-
-.. _add-robot-runtime:
-
-5. Runtime Initialization Hook
+5. CLI Arguments and RunConfig
 ------------------------------
 
-``init_runtime`` returns ``(owned_daemons, runtime_kwargs)``:
+Register robot flags with ``_add_cli_args`` and return a ``RunConfig`` from
+``_parse_config``. The hook contract, validation rules, and the ``RunConfig``
+fields are in :ref:`add-robot-config`.
 
-- ``owned_daemons: list[ProcessDaemon]`` contains only subprocesses started
-  by this process. The active runner stops them during cleanup. A client for an
-  external endpoint must not add that external service to this list.
-- ``runtime_kwargs: dict`` is passed to the toolkit constructor, which
-  forwards it to the primitives' ``__init__``. A complete set commonly
-  contains ``{"env": MyEnvClient(...), "model": VLAClient(...)}`` plus any
-  supporting clients.
+6. Runtime Hook
+---------------
 
-The fourth argument, ``components``, selects which named services to
-initialize. ``None`` means all services and is what the normal CLI passes.
-The Dashboard derives two subsets from ``dashboard.runtime_components``. Every
-component declares either ``scope: "shared"`` or ``scope: "unique"`` explicitly.
-The Dashboard initializes shared components once, then initializes unique
-components for every fresh environment instance. It calls this same hook for
-both subsets and merges the returned ``runtime_kwargs`` dictionaries. For
-LIBERO, the subsets are ``{"vla", "sam3"}`` and ``{"env"}``.
-
-An implementation should reject unknown component names before starting
-anything. When several selected local services are expensive to initialize,
-start them all before waiting for readiness so their initialization can
-overlap. See ``robots/libero/robot_spec.py`` for the ordered component registry
-used by the reference implementation.
-
-Endpoint parsing (``--env-endpoint``, ``--am-endpoint``, and LIBERO's
-``--sam3-endpoint``) and robot-specific server commands belong in the
-hook that owns the corresponding service. Wrap those spawners with
-``rpent.robots.runtime.try_spawn_server`` and ``try_wait_server`` so status
-events, readiness failures, and owned-daemon cleanup stay consistent across
-robots. The runners do not handle these environment details. See
-``robots/libero/robot_spec.py`` and ``robots/robocasa/robot_spec.py`` for the
-reference pattern.
-
-Optional Run-result Finalizer
------------------------------
-
-``RobotSpec.finalize_run`` is a universal, robot-agnostic end-of-run hook.
-RoboCasa is its current consumer and uses it to record per-cell evaluation
-results for later statistics and aggregation. Any robot that publishes
-machine-readable evaluation artifacts may register the hook. The default is
-``None`` and leaves the runner unchanged. When the hook is present, the normal
-terminal runner captures ``toolkit.solved()`` before closing the toolkit, then
-passes a structured ``RunFinalizationContext`` to the hook after runtime
-cleanup. The hook owns the artifact schema and filename; RPent only defines the
-lifecycle boundary.
-
-Use ``write_json_atomic`` when the artifact is JSON so an interrupted write
-cannot leave a partial result:
-
-.. code-block:: python
-
-   from rpent.evaluation import RunFinalizationContext, write_json_atomic
-
-   def _finalize_run(context: RunFinalizationContext):
-       return write_json_atomic(
-           context.output_dir / "result.json",
-           {
-               "robot": context.robot_name,
-               "task": dict(context.task_desc),
-               "success": context.environment_success,
-           },
-       )
-
-Register the callback as ``RobotSpec(..., finalize_run=_finalize_run)``. This
-hook is currently limited to normal terminal runs; the Dashboard does not call
-it. Keep benchmark manifests, robot-specific runtime fields, and aggregation
-logic in the robot package rather than the shared CLI.
+``init_runtime`` starts or connects the robot services and returns owned
+daemons plus toolkit arguments. The component subsets used by the Dashboard
+and the spawn and readiness helpers are in :ref:`add-robot-runtime`.
 
 .. _add-robot-testing:
 
-6. Tests to Add
+7. Tests to Add
 ---------------
 
 When adding a robot, test each runtime component it uses separately, then run
@@ -480,57 +402,27 @@ needs an Env test, a Pi0.5 inference test, a SAM3 segmentation test, and a
 policy-chain test. Each component test must make a real request and check the
 result, beyond importing the module or checking server health.
 
-Test Locations
-~~~~~~~~~~~~~~
+Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``; after
+preparing the robot's GPU resources, run ``pytest tests/e2e_tests/myrobot -v``.
+Component coverage and the policy-chain checklist are in
+:doc:`add_robot_reference`.
 
-Use ``myrobot`` below for the new robot's package name:
+Troubleshooting and next steps
+------------------------------
 
-- ``tests/unit_tests/robots/myrobot/``: offline tests for configuration,
-  client argument handling, tool dispatch, and runtime startup/cleanup logic.
-  Use fakes for simulators and models so these tests run on CPU.
-- ``tests/e2e_tests/myrobot/test_components.py``: one named test per real
-  component, such as ``test_environment_component``, ``test_pi05_component``,
-  and ``test_sam3_component``. Include only the components the robot uses.
-- ``tests/e2e_tests/myrobot/test_policy_chain.py``: one test connecting the
-  planner, toolkit, model, and environment.
-- Keep fixtures in the same directory's ``conftest.py`` and reusable scenario
-  setup/calls in ``scenario.py``. Reuse lifecycle and assertion helpers from
-  ``tests/e2e_tests/common.py``. See ``tests/e2e_tests/libero/`` for an example.
+- **``rpent --robot myrobot --help`` raises ModuleNotFoundError.** The package
+  imports an optional dependency at module scope; move that import to its use
+  site and keep ``__init__.py`` to the two factory exports.
+- **The robot is reported as unknown.** Check that the package lives under
+  ``robots/`` and that ``__init__.py`` re-exports ``get_robot_spec`` and
+  ``get_toolkit``.
+- **The environment service does not start.** Verify the environment's
+  ``reset`` and ``step`` with the minimal script, then check that
+  ``get_env_meta`` returns picklable values.
+- **The Dashboard has no cameras or tasks.** Check that ``resolve_dashboard``
+  returns a configuration and that each step saved its PNG images.
+- **A tool call succeeds but the state does not change.** Confirm the primitive
+  calls ``env.step`` or ``chunk_step`` and dumps a new state before returning.
 
-What Each Component Test Should Check
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-- **Env:** start the real environment, reset a fixed task/seed, and read an
-  observation. Check required camera images and state fields, including their
-  shapes and dtypes. Execute at least one valid action and check the next
-  observation and termination/success information.
-- **VLA or other action model:** load a real checkpoint and perform one
-  prediction using an observation and instruction in the robot's input format.
-  Check that the returned actions are nonempty, finite, and have the expected
-  dimensions for this environment.
-- **Perception or other services:** call each service with a known input and
-  validate its output. For example, ask SAM3 to segment a known object and
-  check that the mask matches the image dimensions and contains foreground.
-
-Start each component through the supported runtime interface, and verify that
-its owned daemons exit after the test. Existing tests may cover a reused
-component; identify that coverage and test any new input/output adaptation.
-
-Complete Policy-chain Test
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-After component tests pass, use ``run_scripted_policy_chain`` from
-``tests/e2e_tests/common.py`` to run the public CLI with a fixed task/seed and
-bounded action count. Its local ``OfflinePlannerServer`` requests a real
-action primitive followed by ``finish``, without an external LLM API. Keep the
-environment and model services real; do not monkeypatch CLI or runtime internals.
-
-Check that at least one environment action was executed, ``finish`` was
-recorded in the transcript, ``states.json`` contains the action without
-errors, expected observation artifacts exist, and owned daemons have exited.
-Task success is not required for this bounded integration check.
-
-Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``. After
-installing the robot extra and preparing its GPU/checkpoint/assets resources,
-run ``pytest tests/e2e_tests/myrobot -v``. See ``tests/README.md`` and
-``tests/e2e_tests/run_gpu_suite.sh`` for running GPU suites in clean environments.
+Next: expose action tools in :doc:`add_primitive`, or connect a model service in
+:doc:`add_action_model`.

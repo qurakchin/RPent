@@ -10,6 +10,14 @@ RoboTwin
 
 使用 RPent 在 `RoboTwin <https://robotwin-platform.github.io/>`_ 中运行双臂桌面操作任务，并复现随机场景下的 C2R 实验。RPent 通过 RLinf 接入仿真器，使用 LingBot-VLA 生成动作。
 
+.. page-head::
+   :for: 要在 RoboTwin 中运行双臂任务，并复现 C2R 实验的读者
+   :outcome: 安装 RoboTwin、准备 LingBot-VLA、运行任务，并按文档中的配置复现 C2R
+   :read-when: 已经跑通快速开始，或需要核对随机场景复现时
+   :skip-when: 还没有安装 RPent；先完成 :doc:`../get_started/quickstart`
+
+**本文结构：** 概览 → 安装 → VLA 配置 → 运行一个任务 → 查看结果 → WAM 评测 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 常用参数 → 实验复现。
+
 .. _robotwin-overview:
 
 概览
@@ -36,56 +44,13 @@ RoboTwin
 
       Linux、NVIDIA GPU；Python 3.11；CUDA 与 GL/EGL/Vulkan。
 
-任务
-~~~~~~~~~~~~
-
-C2R 使用干净场景中的成功轨迹作为经验，在随机场景中评测。两种任务配置的用途如下。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 配置
-     - 场景
-     - 用途
-   * - ``demo_clean``
-     - 干净场景。
-     - 采集任务经验。
-   * - ``demo_randomized``
-     - 随机背景、杂物、光照和桌面高度。
-     - C2R 评测：50 个任务，每个任务 5 个已验证 seed。
-
-.. _robotwin-observation-action:
-
-观测与动作
-~~~~~~~~~~~~
-
-下表区分规划器使用的工具、模型输入及环境的成功判定。
-
-.. list-table::
-   :header-rows: 1
-
-   * - 项目
-     - 说明
-   * - 观测
-     - 头部与左右腕部的 RGB 图像、用于定位的深度／世界坐标及机器人状态。LingBot-VLA 使用 RGB 图像、机器人状态和任务文字。
-   * - 动作
-     - 规划器调用 ``lingbot_act`` 或动作原语。环境支持 16 维末端动作（``ee``）和 14 维关节／夹爪动作（``qpos``）。
-   * - 奖励与成功判定
-     - 任务成功以原生 ``TASK_ENV.eval_success`` 为准，规划器结束与任务超时需分别判断。
-   * - 任务指令
-     - 评测表中的任务与 seed 组合在重置后使用对应的 ``task_language``；自定义 seed 使用原生环境生成的指令。
-
 安装
 ----
 
-RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVCC、编译工具链以及 SAPIEN 依赖的系统级 GL/EGL/Vulkan 库。创建虚拟环境并安装 RoboTwin 所需依赖：
+RoboTwin 要求 Python 3.11。宿主机需预先安装兼容的 CUDA toolkit 与 NVCC，以及编译工具链。SAPIEN 还依赖系统级 GL/EGL/Vulkan 库。先按 :ref:`quickstart-install` 完成 Python 3.11 环境，再安装 RoboTwin 所需依赖：
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   uv venv --python 3.11 .venv-robotwin
-   source .venv-robotwin/bin/activate
    uv pip install -e ".[robotwin]"
 
 用户不需要运行 RLinf 安装器，也不需要单独克隆 RoboTwin。
@@ -106,8 +71,8 @@ RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVC
 
    ``.[robotwin]`` 的 RoboTwin 与 LingBot 运行时已作为发布包安装到 PyPI； cuRobo 仍从 GitHub 官方 tag 源码构建，因此即使配置了 PyPI 镜像，安装时仍需能访问 GitHub。
 
-下载仿真资源
-------------
+下载资源
+~~~~~~~~
 
 下载 RPent 支持的 RoboTwin 仿真资源，并设置资源目录：
 
@@ -120,7 +85,7 @@ RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVC
 
 下载工具会先校验已有文件；如果目标目录中的 RoboTwin 资源已经完整，则不会重复下载。
 
-下载模型
+VLA 配置
 --------
 
 下载 LingBot 模型并设置模型目录：
@@ -134,20 +99,6 @@ RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVC
    export LINGBOT_MODEL_PATH=/path/to/LingBot-VLA-RoboTwin-EEF-ckpt1500
 
 模型目录中已经包含 RoboTwin 的默认机器人配置。
-
-Fast-WAM 配置
-~~~~~~~~~~~~~
-
-按 :doc:`../development/add_action_model` 准备 RoboTwin Fast-WAM worker。它使用头部及左右腕部 RGB、原生关节目标，输出 qpos14 动作块。通过 ``--am-backend fast-wam`` 选择该模型，无需 LingBot 权重。在仿真器环境中运行：
-
-.. code-block:: bash
-
-   rpent --robot robotwin --task-name beat_block_hammer \
-     --task-config demo_randomized --seed 100000 \
-     --am-backend fast-wam --am-endpoint http://127.0.0.1:8117 \
-     --memory-profile local --planner api --model <planner-model>
-
-``wam_act(prompt=None, max_chunks=1)`` 替换 ``lingbot_act``；每个 chunk 通过 ``action_type="qpos"`` 执行 worker 配置的 ``execute_steps`` 个动作。WAM 必须启用本地记忆管理器和文件工具，默认目录按后端区分，语料允许为空；可通过 ``--memory-dir`` 指定兼容的本地语料，目前不支持 HF 记忆和探索。任务成功由原生 ``eval_success`` 判断。下文的 LingBot 和 HF 记忆流程适用于 VLA 路径。
 
 运行一个任务
 ------------
@@ -170,12 +121,30 @@ Fast-WAM 配置
 
    ``--seed`` 是 RoboTwin 的精确场景随机种子。使用标准 ``demo_randomized`` 配置进行评测时，请从 `RoboTwin evaluation suite <https://github.com/RLinf/RPent/blob/main/robots/robotwin/eval/demo_randomized.json>`_ 中选择当前任务对应的 5 个已验证 seed。
 
-   这些 seed 已通过 RoboTwin expert 执行筛选；无法稳定初始化或 expert 执行未成功的候选 seed 已被跳过。自定义运行仍可显式指定表中没有的其他 seed。
+   这些 seed 已通过 RoboTwin expert 执行筛选。无法稳定初始化、或 expert 执行未成功的候选 seed 已被跳过。自定义运行仍可显式指定表中没有的其他 seed。
+
+任务配置
+~~~~~~~~
+
+C2R 使用干净场景中的成功轨迹作为经验，在随机场景中评测。两种任务配置的用途如下。
+
+.. list-table::
+   :header-rows: 1
+
+   * - 配置
+     - 场景
+     - 用途
+   * - ``demo_clean``
+     - 干净场景。
+     - 采集任务经验。
+   * - ``demo_randomized``
+     - 随机背景、杂物、光照和桌面高度。
+     - C2R 评测：50 个任务，每个任务 5 个已验证 seed。
 
 查看结果
 --------
 
-终端会显示服务启动信息、规划器输出和工具调用。默认情况下，运行结果保存在 ``logs/<timestamp>_robotwin_<task-name>_s<seed>/``。排查或复核运行结果时，可以先查看以下文件：
+终端会显示服务启动信息、规划器输出和工具调用。默认情况下，运行结果保存在 ``logs/<timestamp>_robotwin_<task-name>_<task-config>_s<seed>/``，其中 ``<task-config>`` 是 ``--task-config`` 的值（默认 ``demo_randomized``）。排查或复核运行结果时，可以先查看以下文件：
 
 - ``run.log``：RPent 主进程日志。
 - ``robotwin_env_server.log`` 和 ``lingbot_vla_server.log``：仿真环境与模型服务的启动和报错信息。
@@ -185,18 +154,46 @@ Fast-WAM 配置
 
 添加 ``--dashboard`` 可以在浏览器中查看规划器输出以及头部和腕部相机画面。 Dashboard 启动后，访问地址会显示在终端中。
 
-常用参数
+WAM 评测
 --------
 
-RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带环境扰动（随机背景、桌面杂物、光照、桌高）。如需简单、干净的场景，可使用 ``--task-config demo_clean``。
+按 :doc:`../development/add_action_model` 准备 RoboTwin Fast-WAM worker。它使用头部及左右腕部 RGB、原生关节目标，输出 qpos14 动作块。通过 ``--am-backend fast-wam`` 选择该模型，无需 LingBot 权重。在仿真器环境中运行：
 
-- ``--robotwin-assets-path``：覆盖 ``ROBOTWIN_ASSETS_PATH`` 指定的资源目录。
-- ``--am-checkpoint``：覆盖 ``LINGBOT_MODEL_PATH`` 指定的模型目录。
-- ``--env-cuda-device 0 --am-cuda-device 1``：让本地仿真器使用 GPU 0，本地动作模型使用 GPU 1。GPU 默认值和覆盖规则见 :doc:`../guides/cli`。
+.. code-block:: bash
 
-规划器配置、外部服务和离线参考资料的说明分别见 :doc:`../guides/configure_planner`、 :doc:`../guides/advanced_deployment` 和 :doc:`../guides/memory`。
+   rpent --robot robotwin --task-name beat_block_hammer \
+     --task-config demo_randomized --seed 100000 \
+     --am-backend fast-wam --am-endpoint http://127.0.0.1:8117 \
+     --memory-profile local --planner api --model <planner-model>
 
-使用 HF 记忆模式评测时，RPent 会在运行前从公开数据集 `RLinf/RPent-memory <https://huggingface.co/datasets/RLinf/RPent-memory/tree/main/robotwin>`_ 同步可选的 RoboTwin 经验和任务参考。这些内容包含经过验证的操作方法，可以帮助规划器提高任务表现；即使无法下载，任务仍可正常启动。
+``wam_act(prompt=None, max_chunks=1)`` 替换 ``lingbot_act``；每个 chunk 通过 ``action_type="qpos"`` 执行 worker 配置的 ``execute_steps`` 个动作。WAM 必须启用本地记忆管理器和文件工具，默认目录按后端区分，语料允许为空；可通过 ``--memory-dir`` 指定兼容的本地语料，目前不支持 HF 记忆和探索。任务成功由原生 ``eval_success`` 判断。下文的 LingBot 和 HF 记忆流程适用于 VLA 路径。
+
+.. _robotwin-observation-action:
+
+观测与动作
+----------
+
+下表区分规划器使用的工具、模型输入及环境的成功判定。
+
+.. list-table::
+   :header-rows: 1
+
+   * - 项目
+     - 说明
+   * - 观测
+     - 头部与左右腕部的 RGB 图像、用于定位的深度／世界坐标及机器人状态。LingBot-VLA 使用 RGB 图像、机器人状态和任务文字。
+   * - 动作
+     - 规划器调用 ``lingbot_act`` 或动作原语。环境支持 16 维末端动作（``ee``）和 14 维关节／夹爪动作（``qpos``）。
+   * - 奖励与成功判定
+     - 任务成功以原生 ``TASK_ENV.eval_success`` 为准，规划器结束与任务超时需分别判断。
+   * - 任务指令
+     - 评测表中的任务与 seed 组合在重置后使用对应的 ``task_language``；自定义 seed 使用原生环境生成的指令。
+
+验证状态
+--------
+
+- 已验证（多次）：v0.1 发布版测试与论文配置抽样复现覆盖 ``demo_randomized`` 中的 10 个 RoboTwin 任务；任务与 seed 列表见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
+- 仅 CPU：离线单测覆盖配置、工具与结果契约。
 
 任务记忆
 --------
@@ -213,6 +210,19 @@ RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带�
 
 ``evidence_status=supported`` 表示有成功的干净场景轨迹作为证据；``experimental`` 表示经验尚不充分。先阅读索引，再选择与本次任务有关的少量笔记。
 
+使用 HF 记忆模式评测时，RPent 会在运行前从公开数据集 `RLinf/RPent-memory <https://huggingface.co/datasets/RLinf/RPent-memory/tree/main/robotwin>`_ 同步可选的 RoboTwin 经验和任务参考。这些内容包含经过验证的操作方法，可以帮助规划器提高任务表现；即使无法下载，任务仍可正常启动。
+
+HF 语料选择
+~~~~~~~~~~~
+
+CLI 与 Dashboard 默认继续使用 HF ``main`` 的未分版本 ``robotwin/`` 语料。
+如需显式选择已发布的子目录，添加
+``--memory-profile hf --memory-version <语料目录名>``，读取
+``robotwin/<语料目录名>/``。目前不预设模型与语料的映射。
+可用 ``--memory-repo owner/dataset@revision`` 选择其他数据集或版本。
+离线评测前先下载对应子目录，再使用
+``--memory-profile local --memory-dir <下载的语料目录>``，不传
+``--memory-version``。所选目录需保留 RoboTwin 的记忆布局。
 探索模式
 --------
 
@@ -228,6 +238,17 @@ RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带�
 
 ``reset`` 使用环境原生的复位机制，因此每次复位后，规划器都需要重新获取观测并定位。运行器只导出最后一次复位后成功尝试的动作序列。探索产生的记忆写入本地草稿目录（inbox）；运行正常结束、未发生智能体执行错误时，会自动合并草稿。传入 ``--no-auto-merge-memory`` 可关闭自动合并。
 
+常用参数
+--------
+
+RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带环境扰动（随机背景、桌面杂物、光照、桌高）。如需简单、干净的场景，可使用 ``--task-config demo_clean``。
+
+- ``--robotwin-assets-path``：覆盖 ``ROBOTWIN_ASSETS_PATH`` 指定的资源目录。
+- ``--am-checkpoint``：覆盖 ``LINGBOT_MODEL_PATH`` 指定的模型目录。
+- ``--env-cuda-device 0 --am-cuda-device 1``：让本地仿真器使用 GPU 0，本地动作模型使用 GPU 1。GPU 默认值和覆盖规则见 :doc:`../guides/cli`。
+
+规划器配置、外部服务和离线参考资料的说明分别见 :doc:`../guides/configure_planner`、 :doc:`../guides/advanced_deployment` 和 :doc:`../guides/memory`。
+
 实验复现
 --------
 
@@ -237,7 +258,7 @@ RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带�
 
 本次评测中，156 次运行成功，58 次任务失败，36 次运行超时。
 
-评测覆盖 RoboTwin 的 50 个任务，每个任务运行 5 次，共计 250 次。每个任务使用的 5 个 seed 来自 ``robots/robotwin/eval/demo_randomized.json``，均经 RoboTwin 官方 expert 程序验证。由于不同任务的可解 seed 可能不同，请根据该文件为每个任务选择对应 seed，不要对所有任务统一使用一组固定 seed。对于表中列出的任务与 seed 组合，RPent 会按该 seed 复位到对应场景，再使用表内的 ``task_language`` 作为任务指令；未列出的自定义 seed 仍使用 RoboTwin 原生环境生成的指令。
+评测覆盖 RoboTwin 的 50 个任务，每个任务运行 5 次，共计 250 次。每个任务使用的 5 个 seed 来自 ``robots/robotwin/eval/demo_randomized.json``，均经 RoboTwin 官方 expert 程序验证。不同任务的可解 seed 可能不同。请根据该文件为每个任务选择对应 seed，不要对所有任务统一使用一组固定 seed。表中列出任务与 seed 组合时，RPent 按该 seed 复位到对应场景，再使用表内的 ``task_language`` 作为任务指令。未列出的自定义 seed 仍使用 RoboTwin 原生环境生成的指令。
 
 单次运行的复现命令如下：
 
@@ -255,15 +276,3 @@ RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带�
      --max-episode-steps 10000
 
 本例运行 ``beat_block_hammer`` 的 seed 100000。复现全部成绩时，按 ``demo_randomized.json`` 为每个任务逐一运行其中列出的 seed。运行前还需按照本页前文配置 RoboTwin 仿真资源和 LingBot-VLA checkpoint。每次运行仅在 ``TASK_ENV.eval_success`` 的最终值为 ``true`` 时计为成功；规划器调用 ``finish`` 本身不代表成功。
-
-HF 语料选择
------------
-
-CLI 与 Dashboard 默认继续使用 HF ``main`` 的未分版本 ``robotwin/`` 语料。
-如需显式选择已发布的子目录，添加
-``--memory-profile hf --memory-version <语料目录名>``，读取
-``robotwin/<语料目录名>/``。目前不预设模型与语料的映射。
-可用 ``--memory-repo owner/dataset@revision`` 选择其他数据集或版本。
-离线评测前先下载对应子目录，再使用
-``--memory-profile local --memory-dir <下载的语料目录>``，不传
-``--memory-version``。所选目录需保留 RoboTwin 的记忆布局。

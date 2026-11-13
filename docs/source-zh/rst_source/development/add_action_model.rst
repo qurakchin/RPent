@@ -3,10 +3,31 @@
 
 接入 VLA 或 WAM 服务，并将预测结果交给平台的原生动作执行器。工具声明与状态采集见 :doc:`add_primitive`，平台发现和运行时接线见 :doc:`add_robot`。
 
+.. page-head::
+   :for: 要接入 VLA 或 WAM 服务的开发者
+   :outcome: 把模型服务接到平台的动作执行器，并验证整条调用链
+   :read-when: 新增或替换动作模型时
+   :skip-when: 只需要工具声明；见 :doc:`add_primitive`
+
+**本文结构：** 何时新增动作模型 → 前置条件 → 共享架构 → 添加 VLA →
+添加 WAM → 测试 → 排查与下一步。
+
+何时新增动作模型
+----------------
+
+当平台还没有目标模型的 client，或模型的观测与动作布局和平台原生控制不一致时，才新增动作模型。如果该模型与平台组合已经支持，直接按平台页使用 ``--am-backend`` 和 endpoint 部署，不要另写集成。
+
+前置条件
+--------
+
+- 能提供观测并执行原生动作块的平台 client；见 :doc:`add_robot`。
+- 模型的推理入口与权重，或一个已运行的服务。
+- 两侧的数据布局：相机顺序、状态向量、动作维度和 chunk 长度。差异在 adapter 中解决，不要改平台 client。
+
 共享架构
 --------
 
-RPent 负责 agent 编排、平台观测与动作的语义映射，以及模型服务的连接。对于 RLinf 已支持的模型与平台组合，接入代码复用其模型加载、推理和数据转换；其余组合由模型包连接模型的原生实现，并补充所需的数据转换。
+RPent 负责 agent 编排、平台观测与动作的语义映射，以及模型服务的连接。对于 RLinf 已支持的模型与平台组合，接入代码复用其模型加载、推理和数据转换。其余组合由模型包连接模型的原生实现，并补充所需的数据转换。
 
 VLA 和 WAM 通过公共 AM 基类复用 RPC 注册与推理转发。VLA 保留现有的模型专用消息格式和推理路径；WAM 使用 ``am_contracts.py`` 中的物理观测与原生控制声明，连接平台客户端和模型适配器。
 
@@ -74,7 +95,7 @@ VLA 和 WAM 通过公共 AM 基类复用 RPC 注册与推理转发。VLA 保留�
           -> create platform WAM client and check control compatibility
           -> report ready to Dashboard
 
-VLA 启动函数也使用 ``AMConfig.spawn_worker()``。平台保留各自的服务命令和传输方式，包括 LingBot 的原生 WebSocket 连接与 RoboCasa 的带会话 RPC。``ProcessDaemon`` 在启动失败时关闭日志；公共 ``robots/runtime.py`` 在资源交接后负责等待就绪、组件状态和进程组清理。连接外部 endpoint 时不返回自有 daemon。
+VLA 启动函数也使用 ``AMConfig.spawn_worker()``。平台保留各自的服务命令和传输方式，包括 LingBot 的原生 WebSocket 连接与 RoboCasa 的带会话 RPC。``ProcessDaemon`` 在启动失败时关闭日志；公共 ``rpent/robots/runtime.py`` 在资源交接后负责等待就绪、组件状态和进程组清理。连接外部 endpoint 时不返回自有 daemon。
 
 ``AMConfig`` 保存解析后的后端、平台、endpoint、checkpoint、Python、工作目录、GPU 和额外的 worker 参数。默认值解析不会修改原始 Namespace，避免 Dashboard 再次使用时把默认值误认为显式参数。WAM 的 ``runtime_config.py`` 补充模型专属默认值和 worker 参数；VLA 平台启动函数保留各自的原生命令构造。
 
@@ -129,23 +150,12 @@ VLA 启动函数也使用 ``AMConfig.spawn_worker()``。平台保留各自的服
 
    机器人包中的 ``_init_runtime`` 则负责构造 ``runtime_kwargs``，例如 ``{"env": MyRobotEnvClient(...), "model": MyModelClient(...)}``，再由 toolkit 构造器将其转发给 primitives。
 
-已有服务的部署方式与 endpoint 示例见 :doc:`../guides/advanced_deployment`。有状态模型还需要实现下面的按客户端隔离与重置逻辑。
-
-按客户端隔离策略状态
-~~~~~~~~~~~~~~~~~~~~
-
-大多数 VLA 后端是无状态的：``predict`` 只做推理，不保存各客户端的中间状态，``session_id`` 可以忽略。但有些模型带按客户端隔离的策略状态（如 RLDX-1 的 memory/RTC），同一个 ``vla_server`` 服务多个客户端时，不同客户端的策略状态会互相污染，必须按 session 隔离。接入分三块：
-
-- **facade 侧**：构造 ``BaseVLAFacade`` 子类时传 ``enable_sessions=True`` 和 ``session_timeout_s``，并实现 ``_on_session_drop``——session 结束（客户端调用 ``session.close`` RPC 或空闲超时）时在这里清理该客户端的策略状态。需要显式重置时，额外提供 ``reset_session`` RPC（只清策略状态，不销毁 session）。``serve`` 必须传 ``session_sweep_s`` （> 0），让后台线程定期回收过期 session。
-
-- **client 侧**：model client 内部的 ``RpcClient`` 以 ``enable_sessions=True`` 构造，连接时自动向 server 注册 session。 ``session_id`` 由 facade 从连接派生并注入 server 端 handler，客户端 **不传**，也不应在 ``predict`` 的 ``options`` 里伪造 ``session_ids``。
-
-- **primitives 侧**：任务开始前调用 ``reset_session`` 清空上一回合残留的策略状态，保证连续多次运行之间状态不串。
+已有服务的部署方式与 endpoint 示例见 :doc:`../guides/advanced_deployment`。有状态模型还需要实现 :doc:`action_model_reference` 中的按客户端隔离与重置逻辑。
 
 添加 WAM
 --------
 
-Cosmos Policy 和 Cosmos3 支持 LIBERO、LIBERO-Pro；Fast-WAM 支持 LIBERO、LIBERO-Pro 和 RoboTwin。每个模型与平台组合都需要匹配的 checkpoint。
+Cosmos Policy 和 Cosmos3 支持 LIBERO、LIBERO-PRO。Fast-WAM 支持 LIBERO、LIBERO-PRO 和 RoboTwin。每个模型与平台组合都需要匹配的 checkpoint。
 
 ``cosmos-policy`` 使用 NVIDIA 发布的 ``Cosmos-Policy-LIBERO-Predict2-2B`` 权重和官方 LIBERO 推理接口。``cosmos3`` 通过 RLinf 的 ``Cosmos3SGLangAdapter`` 和 HTTP client，连接独立部署的 SGLang ``/v1/actions/generations`` 服务。图像拼接、请求构造、动作反归一化和旋转转换由 RLinf 负责，其 ``prepare_actions_for_libero`` 还负责适配仿真器的夹爪约定。RPent 复用已有 LIBERO client，只在接口边界映射观测与预测。这两个后端需要不同的 checkpoint。
 
@@ -155,173 +165,21 @@ Cosmos Policy 和 Cosmos3 支持 LIBERO、LIBERO-Pro；Fast-WAM 支持 LIBERO、
 4. 在 ``runtime_config.py`` 中补充部署参数，并在 ``am_runtime.WAM_BACKENDS`` 注册后端；模型专属启动逻辑留在模型包内。在模型包中声明是否使用会话；推理保留会话历史时实现 ``reset_native``。
 5. 在平台运行时与工具执行中接入所选后端。回合边界重置模型历史，结束后关闭客户端。每个 toolkit 都必须持有 ``MemoryManager``。
 
+WAM 的通信协议、生命周期和平台检查清单见 :doc:`action_model_reference`；独立 worker 与随运行启动的部署方式也在该页。
+
 .. _wam-protocol:
-
-通信与生命周期
-~~~~~~~~~~~~~~
-
-RPC 路由为 ``wam.get_model_meta``、``wam.predict`` 和 ``wam.reset``。请求包含 ``images``、``state``、``instruction``、``embodiment`` 和 ``action_space``。模型元数据包含 ``control`` 控制字典、必需相机与状态维度、可执行 ``chunk_size``、后端与 checkpoint 身份及会话设置。预测结果包含 ``actions``，可选返回 ``future_observation``、``value`` 和 ``metadata``。
-
-``BaseWAMClient`` 在构造时查询一次模型元数据并保存在 ``model_meta``，后续预测直接使用该快照。可选的 ``prediction_timeout_s`` 提供客户端请求预算，未提供时默认为 300 秒；显式传入的 client 超时优先。Cosmos3 在原生 HTTP 超时上增加 30 秒作为 RPC 开销余量。
-
-消息直接使用已有传输支持的字典和 NumPy 数组，没有对象到通信格式的转换，也没有协议版本字段。client 和 worker 应从同一份代码部署。连接时，平台将服务的控制字典与本地支持的定义直接比较，并缓存选择；更换服务或控制方式时创建新 client。服务端检查收到的观测，客户端在执行前检查动作形状、chunk 长度及有限数值。decoder 保留夹爪二值化、动作前缀选择等转换之前的必要检查，避免转换隐藏无效输出。
-
-平台 client 用 ``predict()`` 返回动作，用 ``predict_result()`` 返回完整字典。回合复位同时清空环境与模型历史。RoboTwin 复用环境首次初始化的 reset，并在构造 toolkit 时清空模型历史。连接 client 不会复位已有回合；直接使用 client 时，在首次预测前调用 ``reset()``，结束后调用 ``close()``。带会话的 worker 实现 ``reset_native``；当前模型包均只声明一次 ``USES_SESSIONS = False``，供启动逻辑和能力声明共用。
-
-模型依赖安装在单独准备的环境中，RPent 的公共安装不会安装模型 worker 的依赖。自己启动的 worker 复用已有 daemon 生命周期；外部服务在 RPent 停止自己管理的服务后仍保持运行。
-
-添加平台与检查兼容性
-~~~~~~~~~~~~~~~~~~~~
-
-增加平台时，提供物理观测、原生控制定义、平台 client 及工具和运行时接线。每个模型仍需匹配的 checkpoint 和配对转换；注册本身不能证明权重兼容。RoboTwin 已定义 EEF16 控制方式，但当前 Fast-WAM adapter 使用 qpos14。Cosmos Policy 尚无 RoboTwin adapter。
-
-``future_observation`` 和 ``value`` 为模型预测预留字段，独立的预测与规划 RPC 以及规划器使用预测结果尚未实现。每个 toolkit 必须持有 ``MemoryManager``，并注册记忆文件工具。WAM 默认使用平台记忆根目录下以后端命名的本地子目录，可通过 ``--memory-dir`` 指定目录，语料允许为空。WAM 尚未配置兼容的 HF 经验库，当前评测不支持 HF 记忆、Flash 和探索模式。
-
-.. _action-model-deployment:
-
-动作模型部署与任务运行
-----------------------
-
-公共动作模型参数、GPU 选择及兼容别名统一见 :doc:`../guides/cli`。独立 worker 的 ``--help`` 列出其自身不带模型前缀的参数，例如 ``--config`` 和 ``--predict-future``。
-
-独立部署模型服务
-~~~~~~~~~~~~~~~~
-
-反复运行任务时，先用下面的命令启动一次 worker，再在每次 RPent 运行时通过 ``--am-endpoint`` 连接。RPent 退出后模型服务继续运行，使用结束后需单独停止。也可以使用后面的单次运行示例，让 RPent 自动启动和停止 worker。
-
-先准备官方模型环境、checkpoint 和辅助文件，并安装 RPent 运行时依赖；``PYTHONPATH`` 只让该环境能导入当前代码，不会安装依赖。仿真器保留在 RPent 环境中。在已准备好的 Cosmos 源码目录启动：
-
-.. code-block:: bash
-
-   PYTHONPATH=/path/to/RPent /path/to/cosmos/.venv/bin/python \
-     -m rpent.robots.components.cosmos_policy.server \
-     --checkpoint /path/to/cosmos-libero --cuda-device 0 --port 8116
-
-checkpoint 目录包含 ``Cosmos-Policy-LIBERO-Predict2-2B.pt``、``libero_dataset_statistics.json`` 和 ``libero_t5_embeddings.pkl``。可用 ``--dataset-stats``、``--text-embeddings`` 覆盖辅助路径。默认使用 5 步动作去噪、seed 1，每次预测 16 个动作，不生成未来状态和价值。``--cached-instructions-only`` 拒绝未缓存指令，否则由官方运行时处理未缓存文字。``--predict-future`` 可开启可选输出，但 RPent 尚不利用这些输出规划。
-
-在已准备好的 Fast-WAM 环境中启动：
-
-.. code-block:: bash
-
-   CUDA_VISIBLE_DEVICES=0 PYTHONPATH=/path/to/RPent \
-     /path/to/fast-wam/venv/bin/python \
-     -m rpent.robots.components.fast_wam.server \
-     --platform libero --checkpoint /path/to/fast-wam-libero.pt \
-     --config /path/to/worker.yaml --dataset-stats /path/to/dataset_stats.json \
-     --port 8117
-
-LIBERO worker 的模型环境需要安装 RLinf ``release/v0.4`` 的 Fast-WAM 接入，以及其 ``requirements/install.sh`` 指定的 Fast-WAM 版本（目前为 ``45d8e1458921d83f8ad6cf9ce993d371208dabd0``）。在 RLinf 仓库执行 ``bash requirements/install.sh embodied --model fastwam`` 配套安装；其他 Fast-WAM 版本的 VAE 接口可能不兼容。worker 调用 RLinf 的 ``get_model`` 和 ``predict_action_batch``，图像缩放与拼接、状态归一化、推理及 LIBERO 动作还原均由 RLinf 负责。RPent 只将物理观测映射到 RLinf 输入字段，并从返回动作中移除单环境 batch 维度。RLinf 的该策略尚不支持 RoboTwin 的三相机/qpos14 接口，因此 RoboTwin 保留官方 Fast-WAM 推理路径。
-
-LIBERO 直接使用 RLinf 原生模型 YAML。RPent 从部署参数填入 checkpoint 和统计文件路径，由 RLinf 组合官方模型与 processor 配置并解析推理选项。例如：
-
-.. code-block:: yaml
-
-   action_horizon: 32
-   num_action_chunks: 10
-   num_inference_steps: 20
-   binarize_gripper: true
-   seed: 1
-   fastwam:
-     config_dir: /path/to/FastWAM/configs
-     config_name: sim_libero
-     overrides: []
-
-官方配置及 overrides 需匹配 checkpoint。模型与 processor 的组合交给 ``fastwam.config_dir/config_name/overrides``，worker 从已加载的 policy 读取可执行 chunk 长度。
-
-RoboTwin 使用 ``--platform robotwin``，并更换为对应 checkpoint 和配置。它的 YAML 提供解析好的 Hydra ``model``、``processor``，后者来自官方配置的 ``data.train.processor``，还需包含 ``action_horizon``、``execute_steps``、``video_size`` 和 ``concat``。``inference_options`` 传给官方 ``model.infer_action``，不能覆盖编码后的观测或 ``action_horizon``。处理未缓存指令时需在模型配置中启用文本编码器。``execute_steps`` 为正数且不超过 ``action_horizon``，是对外声明的可执行 ``chunk_size``。固定三相机布局、合并后的状态/动作字段和禁用 LIBERO 夹爪二值化在启动时检查；预测时仍在截取动作前缀前检查输出形状和有限数值。
-
-Cosmos3 需要转换为 Diffusers 组件格式的任务训练 checkpoint，并按 RLinf 的 ``Cosmos3 SGLang Evaluation`` 指南独立部署 SGLang。使用包含 ``Cosmos3SGLangAdapter`` 的 RLinf 版本及其配套 SGLang 依赖。RPC worker 在该环境中运行：
-
-.. code-block:: bash
-
-   PYTHONPATH=/path/to/RPent:/path/to/RLinf /path/to/sglang-env/bin/python \
-     -m rpent.robots.components.cosmos3.server \
-     --platform libero --checkpoint nvidia/cosmos3-nano-libero10-sdg-export-S2_s43 \
-     --config /path/to/cosmos3.yaml \
-     --sglang-endpoint http://127.0.0.1:30000 --port 8118
-
-``--checkpoint`` 标识 SGLang 实际加载的模型；RPC worker 不加载权重，也不要求本机存有权重，但需要配置中引用的本地动作统计文件。``cosmos3.yaml`` 使用解析好的 RLinf 配置，不执行 Hydra ``defaults`` 组合。按标准 Cosmos3 配方训练的 LIBERO rot6d checkpoint 可使用：
-
-.. code-block:: yaml
-
-   env:
-     eval:
-       env_type: libero
-   rollout:
-     model:
-       raw_action_dim: 10
-       action_dim: 7
-       action_normalization: quantile_rot
-       action_stats_path: /path/to/libero_native_frame_wise_relative_rot6d.json
-       num_action_chunks: 16
-       action_mode: policy
-       action_fps: 20.0
-       fps: 20
-       num_inference_steps: 30
-       action_view_point: ego_view
-       num_frames: 17
-       size: 320x192
-     sglang:
-       seed: 1
-       http_timeout_s: 600
-       server:
-         batching_max_size: 1
-
-这些设置和归一化统计必须与 checkpoint 的训练配方匹配。模型进程和 GPU 分配由 SGLang 管理；停止 RPent worker 不会停止 SGLang。RPent 的 ``--am-cuda-device`` 配置本地 RPC worker 进程，不会改变外部服务使用的 GPU。
-
-连接已有服务运行任务
-~~~~~~~~~~~~~~~~~~~~
-
-准备好平台资产和 planner 凭据后，在 RPent 仿真器环境中运行下面任一示例（前置配置见 :doc:`../simulators/libero`）：
-
-.. code-block:: bash
-
-   # Cosmos worker already running on port 8116.
-   rpent --robot libero --suite libero_spatial --task 0 \
-     --am-backend cosmos-policy --am-endpoint http://127.0.0.1:8116 \
-     --memory-profile local --planner api --model openai:gpt-5.5
-
-   # Fast-WAM worker already running on port 8117.
-   rpent --robot libero --suite libero_spatial --task 0 \
-     --am-backend fast-wam --am-endpoint http://127.0.0.1:8117 \
-     --memory-profile local --planner api --model openai:gpt-5.5
-
-   # Cosmos3 RPC worker already running on port 8118.
-   rpent --robot libero --suite libero_10 --task 0 \
-     --am-backend cosmos3 --am-endpoint http://127.0.0.1:8118 \
-     --memory-profile local --planner api --model openai:gpt-5.5
-
-之后修改 task 或 suite 即可继续使用兼容的 worker。模型路径和推理选项在部署服务时配置，无需在每次任务命令中重复填写。planner 模型可换成你已配置的供应商支持的模型。RoboTwin 的任务命令见 :doc:`../simulators/robotwin`。
-
-由 RPent 在每次运行时启动服务
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-下面的示例会在每次运行时启动新的 worker，并在退出时停止它。模型环境和文件与独立部署相同；RPent 不会自动下载权重或安装模型依赖。将示例路径替换为实际部署路径：
-
-.. code-block:: bash
-
-   rpent --robot libero --suite libero_spatial --task 0 \
-     --am-backend pi05 --am-checkpoint /path/to/pi05-libero \
-     --am-python /path/to/pi05-env/bin/python \
-     --planner api --model openai:gpt-5.5
-
-   rpent --robot libero --suite libero_spatial --task 0 \
-     --am-backend cosmos-policy --am-checkpoint /path/to/cosmos-libero \
-     --am-python /path/to/cosmos/.venv/bin/python --am-root /path/to/cosmos \
-     --memory-profile local --planner api --model openai:gpt-5.5
-
-   rpent --robot libero --suite libero_spatial --task 0 \
-     --am-backend fast-wam --am-checkpoint /path/to/fast-wam-libero.pt \
-     --am-python /path/to/fast-wam/venv/bin/python \
-     --fast-wam-config /path/to/worker.yaml \
-     --fast-wam-dataset-stats /path/to/dataset_stats.json \
-     --memory-profile local --planner api --model openai:gpt-5.5
-
-``--am-endpoint`` 与 ``--am-checkpoint`` 互斥。Cosmos 需要 ``--am-root``，也可用 ``COSMOS_POLICY_PYTHON`` 和 ``COSMOS_POLICY_ROOT`` 分别提供 Python 路径和工作目录的默认值。Fast-WAM 必须同时提供 ``--fast-wam-config`` 和 ``--fast-wam-dataset-stats``。
-
-Cosmos3 需要 ``--cosmos3-config`` 和 ``--cosmos3-sglang-endpoint``；该方式只启动 RPC worker，连接已经运行的 SGLang 服务。
 
 测试
 ----
 
 新增模型与平台组合时，扩展已有的适配器、RPC 和平台测试。测试位置、GPU 环境要求、运行命令，以及集成检查与任务成功率评测的区别，统一见 ``tests/README.md``。
+
+排查与下一步
+------------
+
+- **worker 启动了，但预测总被拒绝**：核对 adapter 声明的控制方式与平台 ``control.py`` 描述的动作布局是否一致。
+- **环境执行的步数不对**：worker 的 chunk 大小必须与平台 ``chunk_step`` 的长度一致；除非模型契约另有规定，不要只在 adapter 里截断。
+- **回合之间预测漂移**：在回合边界重置模型历史，见 :doc:`action_model_reference` 中的 ``reset_native``。
+- **服务单独可用，接入 RPent 后失败**：比较 endpoint 协议（HTTP 或 socket）和 ``wam.get_model_meta`` 返回的元数据。
+
+下一步：按 :doc:`../guides/advanced_deployment` 部署已有服务，或在 :doc:`action_model_reference` 中查看协议与生命周期。

@@ -6,8 +6,19 @@
 RPent Leaderboard
 =================
 
+This is the entry point for benchmark results and per-episode costs. Both
+sections are generated from the same results data, and the notes on each page
+state coverage and protocol caveats.
+
+**Page map:** :doc:`Performance <performance>` (what each method scores) →
+:doc:`Evaluation Protocol <methodology>` (what the numbers count) →
+:doc:`Time & Token Costs <time-token-costs>` (what a run costs) →
+:doc:`Reproducing a Result <reproduction>` (what a rerun must record).
+
 * :doc:`Performance <performance>`
+* :doc:`Evaluation Protocol <methodology>`
 * :doc:`Time & Token Costs <time-token-costs>`
+* :doc:`Reproducing a Result <reproduction>`
 
 .. raw:: html
 

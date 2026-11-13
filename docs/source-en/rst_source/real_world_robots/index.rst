@@ -3,7 +3,13 @@
 Real-World Robots
 =================
 
-Choose a platform for installation and usage instructions.
+Choose a physical platform, then complete its safety, calibration, and service
+steps before running a task. Each page ends with result files and the native
+success signal.
+
+**Page map:** :doc:`Single-Arm Franka <franka>` →
+:doc:`Dual-Arm Franka <dual_franka>` → :doc:`YAM <yam>` →
+:doc:`SO-101 <so101>`.
 
 .. list-table::
    :header-rows: 1
@@ -17,4 +23,4 @@ Choose a platform for installation and usage instructions.
    * - :doc:`yam`
      - Installation, configuration, and operation.
    * - :doc:`so101`
-     - Content coming soon.
+     - Not yet integrated; no setup guide.

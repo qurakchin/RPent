@@ -3,6 +3,14 @@
 
 你可以在终端输入指令，也可以通过 Dashboard 在浏览器中提交任务、查看规划器输出、相机画面和动作记录。以下示例使用已完成 :doc:`../get_started/quickstart` 配置的 LIBERO；其他平台先按对应环境页完成安装。
 
+.. page-head::
+   :for: 要在终端补充指令，或在浏览器中观察运行的操作用户
+   :outcome: 启动会话、提交任务、查看相机与动作，并结束会话
+   :read-when: 需要交互控制、实时画面或 Dashboard 时
+   :skip-when: 只运行一次批处理任务；快速开始中的命令已经够用
+
+**本文结构：** 终端交互 → Dashboard 会话与任务提交 → 查看结果与结束会话。
+
 .. _terminal-interaction:
 
 终端交互（TUI）
@@ -31,7 +39,7 @@
 Dashboard
 ---------
 
-Dashboard 支持 ``api``、``claude_code`` 和 ``codex`` 规划器。在命令行传递 ``--planner`` 与 ``--model``，配置方式和普通运行一致，详见 :doc:`configure_planner`。
+Dashboard 支持 ``api``、``claude_code``、``codex`` 和 ``flash`` 规划器。在命令行传递 ``--planner`` 与 ``--model``，配置方式和普通运行一致，详见 :doc:`configure_planner`。Flash Mode 不调用 LLM，直接重放已保存的计划，适用于 LIBERO、单臂和双臂 Franka（见 :doc:`flash`）。
 
 启动并提交任务
 ~~~~~~~~~~~~~~~~~~~~~
@@ -51,7 +59,7 @@ Session 配置全部来自命令行，打开地址后会直接进入实时监控
 
 每个 TaskRun 使用独立环境，VLA 和 SAM3 服务由 Session 复用。可通过新的 ``/rpent-task`` 启动或切换任务；运行中也可以发送消息引导智能体，并按 Esc 请求中断。在终端按 Ctrl+C 可结束 Session。
 
-``--dashboard`` 不能与 ``--interactive`` 或 ``--env-endpoint`` 同时使用；外部 ``--am-endpoint`` 和 ``--sam3-endpoint`` 服务仍然可用。使用 ``--dashboard-language zh-cn`` 可切换中文 UI。
+``--dashboard`` 不能与 ``--tui`` 同时使用。为每个 TaskRun 启动新环境的 Session 不能使用 ``--env-endpoint``；外部 ``--am-endpoint`` 和 ``--sam3-endpoint`` 服务仍然可用。使用 ``--dashboard-language zh-cn`` 可切换中文 UI。
 
 查看结果与结束会话
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
