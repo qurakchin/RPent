@@ -150,10 +150,11 @@ def test_remember_is_refused_without_inbox_write_access(tmp_path: Path) -> None:
     assert result.no_execution is True
 
 
-def test_memory_writes_are_not_scheduled_as_readonly() -> None:
+def test_memory_writes_are_exclusive_and_do_not_capture_state() -> None:
     assert MemoryTools.recall.readonly is True
-    assert MemoryTools.remember.readonly is False
-    assert MemoryTools.corroborate.readonly is False
+    for write in (MemoryTools.remember, MemoryTools.corroborate):
+        assert write.readonly is False
+        assert write.captures_state is False
 
 
 def test_corroborate_records_the_outcome_in_the_inbox(tmp_path: Path) -> None:

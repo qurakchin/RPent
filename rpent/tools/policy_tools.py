@@ -89,9 +89,10 @@ class PolicyTools(ToolFamily):
     ) -> Sequence[Tool]:
         if (
             capabilities is not None
-            and capabilities.policy_backends
             and self._binding.backend not in capabilities.policy_backends
         ):
+            # Declared capabilities are authoritative: an undeclared backend
+            # has no tool, even if the binding object exists.
             return ()
         declarations = {
             declaration.name: declaration for declaration in iter_tools(self)

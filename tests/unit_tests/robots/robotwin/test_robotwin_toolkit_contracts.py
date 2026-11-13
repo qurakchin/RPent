@@ -33,7 +33,7 @@ from robots.robotwin import toolkit
 from robots.robotwin.env_client import RoboTwinEnvClient
 from robots.robotwin.policy import RoboTwinPolicyBinding
 from robots.robotwin.primitives import RoboTwinPrimitives
-from robots.robotwin.robot_spec import env_runtime_contract
+from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES, env_runtime_contract
 from robots.robotwin.toolkit import _capture_robotwin_call
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.flywheel.flywheel import select_vla_segments
@@ -49,6 +49,7 @@ from rpent.utils import templates
 from rpent.utils.rpc import RpcError
 
 COMMON_TOOLS = {"read_text_file", "write_text_file", "list_dir", "finish"}
+READONLY_COMMON_TOOLS = {"read_text_file", "list_dir", "finish"}
 
 FAMILY_TOOLS = {
     "view_env_state",
@@ -93,8 +94,19 @@ class FakeRoboTwinPrimitives:
         self.native_actions = 0
         self.env = SimpleNamespace(
             last_reset_info={"actual_seed": 7},
-            server_meta={"task_name": "offline"},
-            execution_capabilities={},
+            # Mirror the contract the real server advertises: families derive
+            # depth, calibration, and execution support from this metadata.
+            server_meta={
+                "task_name": "offline",
+                "extensions": {
+                    "render_camera": {
+                        "camera_names": list(ROBOTWIN_CAMERA_NAMES),
+                        "metric_depth": True,
+                    },
+                    "get_camera_meta": True,
+                },
+            },
+            execution_capabilities={"reset": True, "step": True, "chunk_step": True},
             last_info={"robot_state": {}, "episode_status": {}},
         )
         type(self).instances.append(self)
@@ -217,12 +229,11 @@ def test_toolkit_constructs_and_captures_an_initial_observation(
     if policy_kind == "wam":
         model.reset.assert_called_once()
         expected = (EXPECTED_TOOLS - {"lingbot_act"}) | {"wam_act"}
-        common = COMMON_TOOLS
     else:
         model.reset.assert_not_called()
-        expected, common = EXPECTED_TOOLS, COMMON_TOOLS
+        expected = EXPECTED_TOOLS
     assert _tool_names(robot_toolkit) == expected
-    assert _readonly_names(robot_toolkit) == common | {
+    assert _readonly_names(robot_toolkit) == READONLY_COMMON_TOOLS | {
         "view_env_state",
         "geometry",
         "query_world_map",

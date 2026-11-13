@@ -19,6 +19,7 @@ from robots.yam.contracts import YAM_CAMERA_NAMES, YAM_STATUS_KEYS, validate_act
 from robots.yam.geometry import joint_limits_from_config
 from robots.yam.servo import JointServoConfig
 from rpent.robots.components.env_client_base import BaseEnvClient
+from rpent.tools.execution import mark_write_issued
 from rpent.utils.rpc import RpcClient
 
 
@@ -165,6 +166,7 @@ class YamEnvClient(BaseEnvClient):
         flat = validate_actions(action)
         if flat.shape[0] != 1:
             raise ValueError("YAM control_step requires one qpos14 action")
+        mark_write_issued("control_step")
         result = self._client.call(
             "env.control_step",
             args=(flat[0],),
@@ -176,6 +178,7 @@ class YamEnvClient(BaseEnvClient):
         return result
 
     def reset(self) -> tuple[dict[str, Any], dict[str, Any]]:
+        mark_write_issued("reset")
         result = self._client.call(
             "env.reset",
             timeout_s=self._TIMEOUT_S["env.reset"],
@@ -196,6 +199,7 @@ class YamEnvClient(BaseEnvClient):
         flat = validate_actions(action, action_type=action_type)
         if flat.shape[0] != 1:
             raise ValueError("YAM step requires one qpos14 action")
+        mark_write_issued("step")
         result = self._client.call(
             "env.step",
             args=(flat[0],),
@@ -222,6 +226,7 @@ class YamEnvClient(BaseEnvClient):
         expected_episode_id: str | None = None,
     ) -> tuple[Any, Any, Any, Any, dict[str, Any]]:
         flat = validate_actions(actions, action_type=action_type)
+        mark_write_issued("chunk_step")
         result = self._client.call(
             "env.chunk_step",
             args=(flat,),

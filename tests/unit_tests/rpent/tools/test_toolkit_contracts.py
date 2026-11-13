@@ -126,7 +126,9 @@ def test_toolkit_registers_common_specs_with_fresh_placeholder_substitution(
 
 def test_common_file_tools_dispatch_offline_without_capturing_robot_state(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr("rpent.tools.common.get_output_dir", lambda: tmp_path)
     toolkit = _ContractToolkit(tmp_path / "state")
     text_file = tmp_path / "files" / "note.txt"
 
@@ -261,6 +263,28 @@ def test_common_file_tools_enforce_memory_manager_boundaries(
     assert published.read_text() == "published"
     assert evaluation.capture_calls == []
     assert exploration.capture_calls == []
+
+
+def test_file_writes_are_limited_to_the_run_output_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_dir = tmp_path / "run"
+    monkeypatch.setattr("rpent.tools.common.get_output_dir", lambda: output_dir)
+    toolkit = _ContractToolkit(tmp_path / "state")
+
+    inside = toolkit.execute_tool(
+        "write_text_file",
+        {"path": str(output_dir / "recipe.jsonl"), "content": "{}"},
+    )
+    outside = toolkit.execute_tool(
+        "write_text_file",
+        {"path": str(tmp_path / "source.py"), "content": "changed"},
+    )
+
+    assert inside.data["bytes_written"] == 2
+    assert "outside the run output directory" in outside.data["error"]
+    assert not (tmp_path / "source.py").exists()
 
 
 @pytest.mark.parametrize(
@@ -548,6 +572,7 @@ def test_toolkit_cooperatively_cancels_and_cleans_up_active_operation(
 def test_common_file_read_waits_for_write_without_state_capture(tmp_path, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
+    monkeypatch.setattr("rpent.tools.common.get_output_dir", lambda: tmp_path)
     toolkit = _ContractToolkit(tmp_path)
     path = tmp_path / "audit.json"
     path.write_text("old")

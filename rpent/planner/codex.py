@@ -121,7 +121,11 @@ class CodexPlanner(Planner):
             "approval_mode": openai_codex.ApprovalMode.deny_all,
             "cwd": self._repo_root,
             "model": self._model,
-            "sandbox": openai_codex.Sandbox.full_access,
+            # RPent tools own every file write: CommonTools confines them to the
+            # run output directory and MemoryManager confines memory edits to
+            # the inbox. The built-in shell and patch tools get no write access,
+            # so they cannot bypass either boundary.
+            "sandbox": openai_codex.Sandbox.read_only,
         }
         if self._service_tier:
             self._thread_options["service_tier"] = self._service_tier

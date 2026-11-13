@@ -27,7 +27,10 @@ from toolkits.geometry.core import (
     observation_world_xyz,
 )
 from toolkits.geometry.evaluation import corpus, experiment, metrics, replay
-from toolkits.geometry.evaluation.references import reference_from_case
+from toolkits.geometry.evaluation.references import (
+    reference_from_case,
+    visible_surface,
+)
 from toolkits.geometry.tool import GeometryToolConfig, estimate_geometry
 
 
@@ -107,6 +110,10 @@ def test_fit_reports_the_analytic_surface_without_quality_warnings() -> None:
 
 
 def test_independent_reference_reproduces_the_rendered_exact_surface() -> None:
+    # The reference rasterizes camera-facing faces while the corpus renderer
+    # intersects the box with the slab method. Agreement here is a cross-check
+    # between two constructions, not a check that one implementation repeats
+    # the other's arithmetic bit for bit.
     for case in corpus.build_cases():
         rendered = corpus.render_case(case)
         points = rendered.exact_world_xyz[rendered.exact_mask]
@@ -114,12 +121,40 @@ def test_independent_reference_reproduces_the_rendered_exact_surface() -> None:
         reference = reference_from_case(case)
 
         np.testing.assert_allclose(
-            reference.center, np.median(points, axis=0), atol=1e-12
+            reference.center, np.median(points, axis=0), atol=1e-9
         )
         np.testing.assert_allclose(
-            reference.extent, points.max(axis=0) - points.min(axis=0), atol=1e-12
+            reference.extent, points.max(axis=0) - points.min(axis=0), atol=1e-9
         )
         assert reference.visible_points == len(points)
+
+
+def test_reference_reads_camera_and_table_parameters_from_the_case() -> None:
+    case = {
+        "camera": {
+            "position": [0.0, 0.0, 1.0],
+            "target": [0.0, 0.0, 0.0],
+            "image_shape": [8, 10],
+            "focal": 20.0,
+        },
+        "box": {
+            "center": [0.0, 0.0, 0.0],
+            "size": [0.2, 0.2, 0.2],
+            "color": [10.0, 20.0, 30.0],
+        },
+        "table": {"height": -0.5, "bounds": [[-1.0, 1.0], [-1.0, 1.0]]},
+    }
+
+    points = visible_surface(case)
+
+    # The camera looks down the -z axis at a face 0.9 m away. Pixel centres at
+    # this focal length put four columns and four rows on the face, which a
+    # reference that used the corpus constants instead of this case's camera
+    # would not reproduce.
+    assert len(points) == 16
+    np.testing.assert_allclose(points[:, 2], 0.1, atol=1e-12)
+    np.testing.assert_allclose(np.abs(points[:, 0]).max(), 0.0675, atol=1e-12)
+    np.testing.assert_allclose(np.abs(points[:, 1]).max(), 0.0675, atol=1e-12)
 
 
 def test_fit_refuses_a_mask_with_no_points() -> None:

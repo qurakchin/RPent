@@ -20,6 +20,7 @@ import json
 import queue
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import Mock
 
@@ -101,6 +102,9 @@ class FakeSdkTools:
     def ClaudeAgentOptions(self, **kwargs: Any) -> dict[str, Any]:
         self.options = kwargs
         return kwargs
+
+    def HookMatcher(self, **kwargs: Any) -> dict[str, Any]:
+        return dict(kwargs)
 
     @staticmethod
     def tool(name: str, description: str, schema: dict[str, Any]):
@@ -193,6 +197,82 @@ def test_options_construct_with_the_installed_claude_sdk(tmp_path: Path) -> None
         "mcp__rpent__inspect_scene",
         "mcp__rpent__finish",
     ]
+
+
+def _memory_guard_decide(tmp_path: Path):
+    planner = make_planner(tmp_path, RecordingSink())
+    toolkit = FakeToolkit()
+    toolkit.memory = SimpleNamespace(root=tmp_path / "memory")
+    options = planner._build_options(FakeSdkTools(), toolkit=toolkit, max_turns=1)
+    matchers = options["hooks"]["PreToolUse"]
+    assert len(matchers) == 1
+    assert matchers[0]["matcher"] is None
+    (guard,) = matchers[0]["hooks"]
+
+    def decide(tool_name: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+        return asyncio.run(
+            guard(
+                {
+                    "tool_name": tool_name,
+                    "tool_input": tool_input,
+                    "cwd": str(tmp_path),
+                },
+                "call-id",
+                None,
+            )
+        )
+
+    return decide
+
+
+def test_pre_tool_hook_denies_builtin_writes_into_memory(tmp_path: Path) -> None:
+    decide = _memory_guard_decide(tmp_path)
+    memory_file = str(tmp_path / "memory" / "global" / "note.md")
+
+    for tool_name, tool_input in (
+        ("Write", {"file_path": memory_file}),
+        ("Edit", {"file_path": "memory/global/note.md"}),
+        ("MultiEdit", {"file_path": memory_file}),
+        ("NotebookEdit", {"notebook_path": memory_file}),
+        ("Bash", {"command": f"echo tampered > {memory_file}"}),
+        (
+            "Bash",
+            {"command": "cd memory/global && rm note.md"},
+        ),
+        ("Bash", {"command": "cd memory && rm global/note.md"}),
+        (
+            "Bash",
+            {"command": f"python3 -c \"open('{memory_file}', 'w').write('x')\""},
+        ),
+        (
+            "Bash",
+            {"command": "python3 -c \"open('memory/global/note.md', 'w').write('x')\""},
+        ),
+    ):
+        decision = decide(tool_name, tool_input)
+        output = decision["hookSpecificOutput"]
+        assert output["hookEventName"] == "PreToolUse"
+        assert output["permissionDecision"] == "deny", (tool_name, tool_input)
+        assert "remember" in output["permissionDecisionReason"]
+
+
+def test_pre_tool_hook_allows_reads_and_writes_outside_memory(
+    tmp_path: Path,
+) -> None:
+    decide = _memory_guard_decide(tmp_path)
+
+    assert decide("Bash", {"command": "cat memory/global/note.md"}) == {}
+    assert decide("Bash", {"command": "grep -rn hammer memory"}) == {}
+    assert decide("Write", {"file_path": str(tmp_path / "recipe.jsonl")}) == {}
+    assert decide("Read", {"file_path": str(tmp_path / "memory" / "x.md")}) == {}
+
+
+def test_pre_tool_hook_is_absent_without_a_memory_manager(tmp_path: Path) -> None:
+    planner = make_planner(tmp_path, RecordingSink())
+
+    options = planner._build_options(FakeSdkTools(), toolkit=FakeToolkit(), max_turns=1)
+
+    assert options["hooks"] is None
 
 
 def test_in_process_mcp_bridge_maps_schema_dispatch_and_errors() -> None:

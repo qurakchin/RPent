@@ -29,7 +29,7 @@ from typing import Any
 
 import numpy as np
 
-CORPUS_VERSION = "synthetic-analytic-v1"
+CORPUS_VERSION = "synthetic-analytic-v2"
 IMAGE_HEIGHT = 120
 IMAGE_WIDTH = 160
 FOCAL = 180.0
@@ -38,6 +38,7 @@ VISIBLE_CASES = 56
 NOISY_CASES = 12
 REJECTED_CASES = 12
 TABLE_BOUNDS = ((-0.55, 0.55), (-0.45, 0.45))
+TABLE_HEIGHT = 0.0
 
 
 @dataclass(frozen=True)
@@ -75,20 +76,24 @@ def _camera_pose(
     return transform, position_array
 
 
-def _intrinsics() -> np.ndarray:
+def _intrinsics(camera: dict[str, Any]) -> np.ndarray:
+    """Return the pinhole intrinsics stored with the case's camera."""
+    height, width = (int(value) for value in camera["image_shape"])
+    focal = float(camera["focal"])
     return np.asarray(
         [
-            [FOCAL, 0.0, (IMAGE_WIDTH - 1) / 2.0],
-            [0.0, FOCAL, (IMAGE_HEIGHT - 1) / 2.0],
+            [focal, 0.0, (width - 1) / 2.0],
+            [0.0, focal, (height - 1) / 2.0],
             [0.0, 0.0, 1.0],
         ],
         dtype=np.float64,
     )
 
 
-def _local_directions() -> np.ndarray:
-    rows, cols = np.mgrid[0:IMAGE_HEIGHT, 0:IMAGE_WIDTH]
-    intrinsics = _intrinsics()
+def _local_directions(camera: dict[str, Any]) -> np.ndarray:
+    height, width = (int(value) for value in camera["image_shape"])
+    rows, cols = np.mgrid[0:height, 0:width]
+    intrinsics = _intrinsics(camera)
     fx, fy = intrinsics[0, 0], intrinsics[1, 1]
     cx, cy = intrinsics[0, 2], intrinsics[1, 2]
     return np.stack(
@@ -112,16 +117,22 @@ def _ray_box(
     return np.where(hit, near, np.inf)
 
 
-def _ray_table(origin: np.ndarray, directions: np.ndarray) -> np.ndarray:
+def _ray_table(
+    origin: np.ndarray,
+    directions: np.ndarray,
+    table: dict[str, Any],
+) -> np.ndarray:
+    height = float(table["height"])
+    bounds = table["bounds"]
     with np.errstate(divide="ignore", invalid="ignore"):
-        distance = -origin[2] / directions[..., 2]
+        distance = (height - origin[2]) / directions[..., 2]
     points = origin + distance[..., None] * directions
     inside = (
         (distance > 0)
-        & (points[..., 0] >= TABLE_BOUNDS[0][0])
-        & (points[..., 0] <= TABLE_BOUNDS[0][1])
-        & (points[..., 1] >= TABLE_BOUNDS[1][0])
-        & (points[..., 1] <= TABLE_BOUNDS[1][1])
+        & (points[..., 0] >= bounds[0][0])
+        & (points[..., 0] <= bounds[0][1])
+        & (points[..., 1] >= bounds[1][0])
+        & (points[..., 1] <= bounds[1][1])
         & np.isfinite(distance)
     )
     return np.where(inside, distance, np.inf)
@@ -130,14 +141,15 @@ def _ray_table(origin: np.ndarray, directions: np.ndarray) -> np.ndarray:
 def render_case(case: dict[str, Any]) -> RenderedCase:
     """Render one case deterministically from its stored parameters."""
     camera = case["camera"]
+    height, width = (int(value) for value in camera["image_shape"])
     world_from_camera, origin = _camera_pose(camera["position"], camera["target"])
-    directions = _local_directions() @ world_from_camera[:3, :3].T
+    directions = _local_directions(camera) @ world_from_camera[:3, :3].T
     center = np.asarray(case["box"]["center"], dtype=np.float64)
     size = np.asarray(case["box"]["size"], dtype=np.float64)
     minimum = center - size / 2.0
     maximum = center + size / 2.0
     box_distance = _ray_box(origin, directions, minimum, maximum)
-    table_distance = _ray_table(origin, directions)
+    table_distance = _ray_table(origin, directions, case["table"])
     nearest = np.minimum(box_distance, table_distance)
     box_hit = np.isfinite(box_distance) & (box_distance <= table_distance)
     table_hit = np.isfinite(table_distance) & ~box_hit
@@ -147,8 +159,8 @@ def render_case(case: dict[str, Any]) -> RenderedCase:
     world = origin + depth[..., None] * directions
     world[~visible] = np.nan
 
-    rgb = np.zeros((IMAGE_HEIGHT, IMAGE_WIDTH, 3), dtype=np.float64)
-    rows, cols = np.mgrid[0:IMAGE_HEIGHT, 0:IMAGE_WIDTH]
+    rgb = np.zeros((height, width, 3), dtype=np.float64)
+    rows, cols = np.mgrid[0:height, 0:width]
     checker = (((rows // 8) + (cols // 8)) % 2) * 20.0
     rgb[table_hit] = np.stack(
         [95.0 + checker, 95.0 + checker, 100.0 + checker], axis=-1
@@ -172,7 +184,7 @@ def render_case(case: dict[str, Any]) -> RenderedCase:
         case=case,
         rgb=rgb.astype(np.uint8),
         depth=depth.astype(np.float64),
-        intrinsics=_intrinsics(),
+        intrinsics=_intrinsics(camera),
         world_from_camera=world_from_camera,
         mask=mask,
         exact_world_xyz=exact_world,
@@ -181,17 +193,18 @@ def render_case(case: dict[str, Any]) -> RenderedCase:
 
 
 def _project(
-    point: np.ndarray, world_from_camera: np.ndarray
+    point: np.ndarray,
+    world_from_camera: np.ndarray,
+    camera: dict[str, Any],
 ) -> tuple[float, float] | None:
-    camera_point = world_from_camera[:3, :3].T @ (
-        point - world_from_camera[:3, 3]
-    )
+    camera_point = world_from_camera[:3, :3].T @ (point - world_from_camera[:3, 3])
     if camera_point[2] <= 0:
         return None
-    intrinsics = _intrinsics()
+    intrinsics = _intrinsics(camera)
+    height, width = (int(value) for value in camera["image_shape"])
     column = intrinsics[0, 0] * camera_point[0] / camera_point[2] + intrinsics[0, 2]
     row = intrinsics[1, 1] * camera_point[1] / camera_point[2] + intrinsics[1, 2]
-    if not (0 <= row < IMAGE_HEIGHT and 0 <= column < IMAGE_WIDTH):
+    if not (0 <= row < height and 0 <= column < width):
         return None
     return float(row), float(column)
 
@@ -239,8 +252,17 @@ def _candidate(rng: np.random.Generator, index: int, noise: float) -> dict[str, 
         "task": "box_localization",
         "group": "noisy" if noise > 0 else "clean",
         "depth_noise_rel": noise,
-        "camera": {"position": position, "target": target},
+        "camera": {
+            "position": position,
+            "target": target,
+            "image_shape": [IMAGE_HEIGHT, IMAGE_WIDTH],
+            "focal": FOCAL,
+        },
         "box": {"center": center.tolist(), "size": size.tolist(), "color": color},
+        "table": {
+            "height": TABLE_HEIGHT,
+            "bounds": [list(bound) for bound in TABLE_BOUNDS],
+        },
     }
 
 
@@ -250,6 +272,7 @@ def _finalize(case: dict[str, Any], rendered: RenderedCase) -> dict[str, Any]:
         projected = _project(
             np.asarray(case["box"]["center"], dtype=np.float64),
             rendered.world_from_camera,
+            case["camera"],
         )
         pixel = _pixel_on_mask(rendered.mask, projected)
     else:
@@ -257,7 +280,7 @@ def _finalize(case: dict[str, Any], rendered: RenderedCase) -> dict[str, Any]:
     case = {
         **case,
         "case_id": f"synthetic_t{int(case['index']):03d}_s{DEFAULT_SEED}",
-        "image_shape": [IMAGE_HEIGHT, IMAGE_WIDTH],
+        "image_shape": list(case["camera"]["image_shape"]),
         "expect_visible": bool(visible),
         "pixel": pixel,
         "quantities": ["center", "extent"],

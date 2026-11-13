@@ -172,6 +172,7 @@ class Tool(Generic[ParamsT]):
     handler: Callable[ParamsT, ToolResult]
     _input_schema: dict[str, Any]
     readonly: bool = False
+    captures_state: bool = True
     _unbound_method: bool = False
     action_source: Literal["tool_computed", "direct"] = "tool_computed"
 
@@ -203,6 +204,7 @@ def tool(
     *,
     name: str | None = None,
     readonly: bool = False,
+    captures_state: bool = True,
     exclude: tuple[str, ...] = (),
     json_schema_extra: dict[str, Any] | None = None,
 ) -> Any:
@@ -213,7 +215,9 @@ def tool(
     with Field(json_schema_extra={"default": ...}). A leading
     self is bound by Python and excluded from model inputs. Use
     @tool(readonly=True) to allow concurrent readonly calls and skip Toolkit's
-    automatic observation capture. Other calls execute exclusively.
+    automatic observation capture. Other calls execute exclusively. Use
+    @tool(captures_state=False) for a tool that must exclude other calls but does
+    not change the environment, such as a file or memory write.
 
     name overrides the published tool name. exclude names internal resources
     supplied by the caller. Parameters without defaults are required.
@@ -227,6 +231,7 @@ def tool(
             namespace,
             tool_name=name,
             readonly=readonly,
+            captures_state=captures_state,
             json_schema_extra=json_schema_extra,
         )
     return _declare_tool(
@@ -235,6 +240,7 @@ def tool(
         namespace,
         tool_name=name,
         readonly=readonly,
+        captures_state=captures_state,
         json_schema_extra=json_schema_extra,
     )
 
@@ -246,6 +252,7 @@ def _declare_tool(
     *,
     tool_name: str | None,
     readonly: bool,
+    captures_state: bool,
     json_schema_extra: dict[str, Any] | None,
 ) -> Tool:
     parameters = dict(inspect.signature(function).parameters)
@@ -320,6 +327,7 @@ def _declare_tool(
         handler=function,
         _input_schema=input_schema,
         readonly=readonly,
+        captures_state=captures_state,
         _unbound_method=unbound_method,
     )
 
