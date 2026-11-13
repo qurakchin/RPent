@@ -45,9 +45,7 @@ RULES = (
     "VLA terminated/truncated, and your own finish status are not task-success evidence.",
     "Any subsequent physical action invalidates the verdict. continue clears "
     "the previous verdict. Obtain another judgment before finish.",
-    "For a failed attempt, archive evidence and update wip before requesting "
-    "a new scene reset. Change a named lever: order, staging, target or VLA prompt/chunk budget. "
-    "Use in-place recovery only when safe. Never force a restart after operator abort.",
+    "Never force a restart after operator abort.",
 )
 
 MEMORY = """READ in order: the task's task-family entry under {{memory_dir}}/task-family/,
@@ -78,18 +76,19 @@ ONLY AFTER OPERATOR-CONFIRMED SUCCESS, re-read all working notes and distill:
    issued commands, not a promise that replaying old coordinates is safe.
 2. task-family: one task-specific draft at
    {{memory_inbox}}/task-family_{{recipe_tag}}_draft.md in the shared
-   task-family shape, with `id: task-family_dual_franka_real_t{{task_id}}`,
-   `suite: dual_franka`, `regime: real`, the full task instruction, and
+   task-family shape with a bare `id`, `suite: dual_franka`, `regime: real`,
+   `task_id: {{task_id}}`, the full task instruction, and
    `evidence.cells: [{{recipe_tag}}]`.
    Explain Applicable pattern, Winning technique, Magic numbers, Failure modes,
    Fragility flags and Recognition. Cite session/attempt/step evidence. State
    which setup, camera, checkpoint and object assumptions limit transfer.
 3. global: read existing candidates first. For a new cross-task lesson write
-   {{memory_inbox}}/new_global_<kind>_<slug>.md in the shared global shape with
+   {{memory_inbox}}/<bare-id>.md in the shared global shape with a bare `id` and
    `evidence.cells: [{{recipe_tag}}]`. Give measured evidence, applicability and
-   exceptions. Do not invent tested parameter ranges from one sample.
-   Conflicting observations go into a conflict_<id>.md draft, with the old claim
-   and new evidence.
+   exceptions. Do not invent tested parameter ranges from one sample. If an
+   entry already covers the observation, propose the same `id` with the new cell
+   in `evidence.cells`; a contradiction is a separate proposal citing both
+   observations, never an edit of the published entry.
 
 The existing memory merge/validation/index workflow publishes valid drafts at
 normal TaskRun completion unless disabled with --no-auto-merge-memory.
@@ -104,8 +103,6 @@ def system_prompt():
         "EXPLORATION MODE": MODE,
         "RUNTIME": base.RUNTIME,
         "SAFETY RULES": Numbered(base.RULES),
-        "CAMERA AND PROJECTION RULES": Numbered(base.CAMERA_AND_PROJECTION),
-        "VLA SEGMENT GATES": Numbered(base.VLA_GATES),
         "EXPLORATION WORKFLOW": Numbered(RULES),
         "LAYERED MEMORY": MEMORY,
     }

@@ -54,17 +54,20 @@ message, and ``prompt_sources.json`` records the robot, planner, modes, section
 names, sources, and hashes of the assembled prompt and the opening user message.
 The transcript stores ``prompt_sha256`` and ``delivered_prompt_sha256`` for the
 run's first session; later exploration sessions keep their own artifacts under
-``sessions/session_NNN/``. The
-first hashes the assembled system and user messages; the second hashes the text
-the planner actually receives, so the two differ for planners that concatenate
-the roles. For ``api`` it equals ``prompt_sha256``; for ``claude_code`` and
-``codex`` it is the SHA-256 of the prefixed single message; ``flash`` ignores
-the prompt and records ``null``.
+``sessions/session_NNN/``. The first hashes the assembled system and user
+messages; the second hashes the text RPent hands to the planner, so the two
+differ for planners that concatenate the roles. For ``api`` it equals
+``prompt_sha256``; for ``claude_code`` and ``codex`` it is the SHA-256 of the
+prefixed single message; ``flash`` ignores the prompt and records ``null``.
+SDK-managed planners may still add their own context, so the delivered digest
+covers RPent's contribution, not the model's complete final context.
 
 Add ``--dump-prompt`` to any robot command to render the prompt, write both
 files, print the result, and exit without starting simulators or models. The
 dump runs before the run's memory preparation, so it neither creates nor syncs
-memory. It cannot be combined with ``--dashboard``, which needs a live session:
+memory, and it bypasses the operator TTY gates of real-robot commands. It cannot
+be combined with ``--dashboard``, which assembles prompts per claimed task in
+its own session loop:
 
 .. code-block:: bash
 

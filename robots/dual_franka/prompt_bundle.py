@@ -20,6 +20,7 @@ from collections.abc import Mapping
 
 from robots.dual_franka.prompts import explore as explore_parts
 from robots.dual_franka.prompts import system as system_parts
+from robots.dual_franka.prompts import tools as tool_parts
 from robots.dual_franka.prompts import user as user_parts
 from rpent.prompt.utils import Numbered, PromptNode
 
@@ -32,11 +33,16 @@ def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
         "ROLE": system_parts.ROLE,
         "RUNTIME": system_parts.RUNTIME,
         "SAFETY RULES": Numbered(system_parts.RULES),
-        "CAMERA AND PROJECTION RULES": Numbered(system_parts.CAMERA_AND_PROJECTION),
-        "VLA SEGMENT GATES": Numbered(system_parts.VLA_GATES),
         "WORKFLOW": Numbered(system_parts.WORKFLOW),
     }
     return node
+
+
+def prompt_sections(
+    variables: Mapping[str, object] | None = None,
+) -> Mapping[str, PromptNode]:
+    """Return the dual-Franka tool guidance for the tools layer."""
+    return tool_parts.prompt_sections(variables)
 
 
 def user_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:

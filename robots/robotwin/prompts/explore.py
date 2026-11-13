@@ -29,10 +29,11 @@ concise task-family or global proposals directly under {{memory_inbox}}/.
 
 Every proposed file must begin with parseable YAML frontmatter in the shared
 task-family or global shape. For RoboTwin, use `suite: robotwin`,
-`regime: {{task_config}}`, `task_id: {{task_name}}`, `cells: [{{recipe_tag}}]`,
-and the observed seed. Name a task-family `id`
-`task-family_robotwin_<task-name>` and a global `id` `global_<kind>_<slug>`;
-add `related: []` when no cross-reference applies."""
+`regime: {{task_config}}`, `task_id: {{task_name}}`,
+`evidence.cells: [{{recipe_tag}}]`, and the observed seed. Use a bare `id` for
+both scopes; the merge step derives the published task-family id from
+`suite`, `regime`, and `task_id`. Add `related: []` when no cross-reference
+applies."""
 
 RUNTIME = """The registered RoboTwin Toolkit is the only control surface. Do
 not use shell, Python, network clients, hidden environment state, evaluator

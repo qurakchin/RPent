@@ -32,7 +32,6 @@ RULES = BulletList(
     [
         "After navigation or base motion, re-localize because the arm frame changed.",
         "Inspect task_progress after every action; it is the environment's grounded feedback.",
-        "Before reset, record the failed attempt and the named lever the next attempt changes: stance, ordering, contact geometry, primitive family, or action parameters.",
         "Use reset only for an unrecoverable or deliberately completed experiment. Re-run perception after every reset.",
         "Call finish(status='success') only after state.success is true. An unsolved finish is refused while this session still has attempts.",
     ]

@@ -254,8 +254,8 @@ def assemble_prompt(
                     f"duplicate prompt section {section.name!r} in the {role} prompt"
                 )
             seen.add(section.name)
-            text = format_prompt(section.node, variables=variables)
-            parts.append(text.rstrip("\n"))
+            text = format_prompt(section.node, variables=variables).rstrip("\n")
+            parts.append(text)
             sources.append(
                 {
                     "name": section.name,

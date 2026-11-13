@@ -429,7 +429,10 @@ def main() -> int:
             parser.error("--robot is required")
     else:
         robot_spec = get_robot_spec(early.robot_name)
-        robot_spec.add_cli_args(parser, use_dashboard=early.dashboard)
+        # A dump renders only the prompt, so runtime resources such as an env
+        # endpoint stay optional just as they are for Dashboard control.
+        dump_requested = "--dump-prompt" in sys.argv
+        robot_spec.add_cli_args(parser, use_dashboard=early.dashboard or dump_requested)
     parser.add_argument(
         "-h",
         "--help",
@@ -470,7 +473,9 @@ def main() -> int:
                 f"{option} is not supported for this robot in the current mode. "
                 + guidance
             )
-        if sys.stdin is None or not sys.stdin.isatty():
+        if not getattr(args, "dump_prompt", False) and (
+            sys.stdin is None or not sys.stdin.isatty()
+        ):
             parser.error("This robot requires a TTY for operator confirmation.")
     native_cli = args.tui and args.planner == "api"
     if args.base_url and args.planner in BASE_URL_ENV_BY_PLANNER:
@@ -497,7 +502,9 @@ def main() -> int:
     if args.explore and getattr(args, "explore_attempts_per_session", 0) < 0:
         parser.error("--explore-attempts-per-session must be nonnegative")
     if human_interactive_exploration and not args.dashboard:
-        if sys.stdin is None or not sys.stdin.isatty():
+        if not getattr(args, "dump_prompt", False) and (
+            sys.stdin is None or not sys.stdin.isatty()
+        ):
             parser.error(
                 "Human-interactive exploration requires a TTY for operator reset/verdict feedback"
             )

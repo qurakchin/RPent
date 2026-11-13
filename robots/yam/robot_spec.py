@@ -22,7 +22,7 @@ from robots.yam.contracts import (
     vla_runtime_contract,
 )
 from robots.yam.evaluation import finalize_run
-from robots.yam.prompt_bundle import system_prompt, user_prompt
+from robots.yam.prompt_bundle import prompt_sections, system_prompt, user_prompt
 from robots.yam.tasks import TASK_INSTRUCTIONS, resolve_task_language
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
@@ -89,6 +89,7 @@ def get_robot_spec() -> RobotSpec:
         prompts=PromptBundle(
             system=system_prompt,
             user=user_prompt,
+            prompt_sections=prompt_sections,
             source="robots/yam/prompts",
         ),
         add_cli_args=_add_cli_args,

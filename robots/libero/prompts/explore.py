@@ -46,18 +46,11 @@ Write working notes at every attempt close-out; promote task-family and global
 files only after the cell is solved. If the cell is never solved, the working
 notes stay in `wip/` and nothing is promoted."""
 
-RULE_4 = """Rule 4 — 🔁 MULTI-ATTEMPT. Prefer in-place recovery first (re-localize,
-   re-pre-position, re-`pi0_pick` a missed grasp, climb the Pi0 prompt ladder,
-   re-firm the grip, `rotate_pitch` / `move_pose`). When an episode is
-   unrecoverable (object tipped or out of reach, wrong-grasp cascade), close out
-   the attempt and `reset` into a fresh episode with a CHANGED plan.
-
-   An unrecoverable EPISODE is not an unsolvable CELL: reset restores every
-   object, including anything you tipped or shoved away. Reset also keeps the
-   exported recipe clean, because the recipe is the trace after the last reset.
-
-   Every attempt must differ from all prior attempts in at least one NAMED lever
-   (order, prompt, max_chunks, pose strategy, target choice, or an earlier step).
+RULE_4 = """Rule 4 — 🔁 MULTI-ATTEMPT. In-place recovery includes re-localizing,
+   re-pre-positioning, re-`pi0_pick`ing a missed grasp, climbing the Pi0 prompt
+   ladder, re-firming the grip, and `rotate_pitch` / `move_pose`. Reset restores
+   every object, including anything you tipped or shoved away, and keeps the
+   exported recipe clean because it is the trace after the last reset.
 
    WHEN TO HAND OFF. You stop this SESSION, never the cell, and not before the
    attempt budget is spent. Running out of ideas is not a stopping condition;

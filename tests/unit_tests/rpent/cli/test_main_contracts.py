@@ -1121,6 +1121,44 @@ def test_dump_prompt_renders_without_syncing_or_creating_memory(
     assert (tmp_path / "run" / "effective_prompt.md").exists()
 
 
+def test_dump_prompt_skips_real_robot_tty_gates(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    from robots.libero.robot_spec import get_robot_spec as get_libero_spec
+
+    cli = _cli_module()
+    real_spec = replace(
+        get_libero_spec(),
+        name="franka",
+        is_real_robot=True,
+        supports_human_interactive_exploration=False,
+    )
+    monkeypatch.setattr(cli, "get_robot_spec", lambda name: real_spec)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rpent",
+            "--robot",
+            "franka",
+            "--suite",
+            "libero_object",
+            "--task",
+            "0",
+            "--dump-prompt",
+            "--output-dir",
+            str(tmp_path / "run"),
+        ],
+    )
+
+    assert cli.main() == 0
+    assert "OPERATING RULES" in capsys.readouterr().out
+
+
 def test_dump_prompt_rejects_the_dashboard_combination(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

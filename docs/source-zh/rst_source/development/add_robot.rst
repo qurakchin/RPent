@@ -208,7 +208,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 - ``prompt_sections`` —— 当前机器人暴露的工具的使用说明，例如动作、感知或 runtime 工具组。返回 ``Sequence[PromptSection]`` 或 ``Mapping[str, PromptNode]``，入参与 prompt 工厂相同。它必须是变量的纯函数，这样 ``--dump-prompt`` 无需启动 runtime 也能渲染。
 - ``source`` —— prompt 内容在仓库中的相对位置，例如 ``robots/myrobot/prompts``。它会和每段的名称、哈希一起写入 ``prompt_sources.json``。
 
-一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。``prompt_sources.json`` 会记录所选 planner 接收两种角色的方式：``api`` 使用独立的 system prompt，``claude_code`` 和 ``codex`` 则把 system prompt 拼到第一条 user 消息前面。``delivered_prompt_sha256`` 对该投递形态的文本求哈希，因此记录下来的摘要总能回答模型实际看到了什么。
+一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。``prompt_sources.json`` 会记录所选 planner 接收两种角色的方式：``api`` 使用独立的 system prompt，``claude_code`` 和 ``codex`` 则把 system prompt 拼到第一条 user 消息前面。``delivered_prompt_sha256`` 对 RPent 按该投递形态交出的文本求哈希。Claude Code 和 Codex 由各自 SDK 管理模型上下文，其自带指令和后续轮次不在该摘要内；它回答的是 RPent 投递了什么，而不是模型最终的完整上下文。
 
 .. code-block:: python
 
@@ -246,7 +246,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 将 prompt 内容保存在机器人包内，例如 ``robots/myrobot/prompts/system.py``、``user.py`` 和 ``tools.py``。分节内容可以是普通字符串，也可以使用 ``BulletList`` 或 ``Numbered``。占位符 ``{{suite}}`` / ``{{task}}`` / ``{{seed}}`` / ``{{output_dir}}`` / ``{{recipe_tag}}`` 在渲染时填充。
 
-如需在不启动仿真器或模型的情况下查看最终 prompt，可运行 ``rpent --robot myrobot ... --dump-prompt``。dump 在记忆准备之前渲染、写出文件并退出，因此既不创建也不同步 memory；它不能与 ``--dashboard`` 同时使用。每次会话还会在 state 目录（输出目录，探索运行时为 ``sessions/session_NNN/``）写入 ``effective_prompt.md`` 和 ``prompt_sources.json``，并在 transcript 中记录 ``prompt_sha256`` 和 ``delivered_prompt_sha256``。
+如需在不启动仿真器或模型的情况下查看最终 prompt，可运行 ``rpent --robot myrobot ... --dump-prompt``。dump 在记忆准备之前渲染、写出文件并退出，因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁。它不能与 ``--dashboard`` 同时使用，后者在自身的会话循环中按认领的任务拼装提示词。每次会话还会在 state 目录（输出目录，探索运行时为 ``sessions/session_NNN/``）写入 ``effective_prompt.md`` 和 ``prompt_sources.json``，并在 transcript 中记录 ``prompt_sha256`` 和 ``delivered_prompt_sha256``。
 
 .. _add-robot-toolkit:
 

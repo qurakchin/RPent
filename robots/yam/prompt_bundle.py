@@ -13,16 +13,12 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from robots.yam.prompts import system as system_parts
+from robots.yam.prompts import tools as tool_parts
 from robots.yam.prompts import user as user_parts
 from rpent.prompt.utils import PromptNode
 
 
 def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
-    policy = (
-        system_parts.VLA
-        if (variables or {}).get("vla_enabled", False)
-        else system_parts.PRIMITIVES_ONLY
-    )
     return {
         "ROLE": system_parts.ROLE,
         "READ ORDER": system_parts.READ_ORDER,
@@ -32,9 +28,6 @@ def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
             else {}
         ),
         "RUNTIME": system_parts.RUNTIME,
-        "PERCEPTION": system_parts.PERCEPTION,
-        "CONTROL": system_parts.CONTROL,
-        "POLICY AVAILABILITY": policy,
         "SUCCESS": system_parts.SUCCESS,
     }
 
@@ -43,4 +36,11 @@ def user_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
     return {"CELL": user_parts.CELL, "BEGIN": user_parts.BEGIN}
 
 
-__all__ = ["system_prompt", "user_prompt"]
+def prompt_sections(
+    variables: Mapping[str, object] | None = None,
+) -> Mapping[str, PromptNode]:
+    """Return the YAM tool guidance for the tools layer."""
+    return tool_parts.prompt_sections(variables)
+
+
+__all__ = ["system_prompt", "user_prompt", "prompt_sections"]
