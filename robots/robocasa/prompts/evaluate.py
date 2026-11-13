@@ -19,7 +19,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from robots.robocasa.memory import memory_from_variables
-from rpent.prompt.utils import BulletList, PromptNode
+from rpent.prompt.assembly import PromptSection, sections
+from rpent.prompt.utils import BulletList
 
 PREAMBLE = """
 You are an LLM-in-the-loop robotic agent for the **RoboCasa365** kitchen
@@ -47,8 +48,8 @@ GOAL = "Your goal is to complete the manipulation task described in the task_lan
 RULES = BulletList(
     [
         "After every navigate_to or move_base, re-localize — the arm frame changed.",
-        "Stop when state.success == True. Call finish(status='success', ...).",
-        "If genuinely stuck after honest exploration, call finish(status='stuck', ...).",
+        "Stop when state.success == True. Call finish with status success.",
+        "If genuinely stuck after honest exploration, call finish with status stuck.",
     ]
 )
 
@@ -77,8 +78,8 @@ WORKFLOW:
 4. MANIPULATE: Use rldx_arm / rldx_skill for VLA grasping. Then script
    free-space carry (move_to with gripper omitted) and release.
 5. CHECK: After every command, view_env_state to check task_progress.
-6. FINISH: When state.success == true, call finish(status='success').
-7. If stuck, call finish(status='stuck', summary='...').
+6. FINISH: When state.success == true, call finish with status success.
+7. If stuck, call finish with status stuck and a summary.
 """
 
 ENVIRONMENT = """
@@ -100,7 +101,7 @@ The reset tool is disabled.
 
 def system_prompt(
     variables: Mapping[str, object] | None = None,
-) -> dict[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the RoboCasa evaluation prompt for the selected memory profile."""
     if variables is None:
         files = (
@@ -113,12 +114,15 @@ def system_prompt(
         selection = memory_from_variables(variables)
         files = "\n".join(f"- {selection.root / name}" for name in selection.selected)
     memory = MEMORY + f"\nAvailable memory files:\n{files}\n"
-    return {
-        "Intro": PREAMBLE,
-        "Goal": GOAL,
-        "Rules": RULES,
-        "Memory": memory,
-        "Workflow": WORKFLOW,
-        "Environment": ENVIRONMENT,
-        "Next": NEXT,
-    }
+    return sections(
+        __file__,
+        {
+            "Intro": PREAMBLE,
+            "Goal": GOAL,
+            "Rules": RULES,
+            "Memory": memory,
+            "Workflow": WORKFLOW,
+            "Environment": ENVIRONMENT,
+            "Next": NEXT,
+        },
+    )

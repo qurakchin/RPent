@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 
 CONTROL = """Every lingbot_act uses the exact complete current task_language and
 use_length=50. Use one chunk near contact, near success, instability, or for a
@@ -48,11 +48,14 @@ Relocalize after occlusion, contact, or substantial arm/object motion."""
 
 def prompt_sections(
     variables: Mapping[str, object] | None = None,
-) -> Mapping[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return tool guidance for the selected policy."""
     if (variables or {}).get("policy_kind") == "wam":
-        return {}
-    return {
-        "VLA AND PRIMITIVE CONTROL": CONTROL,
-        "PERCEPTION": PERCEPTION,
-    }
+        return ()
+    return sections(
+        __file__,
+        {
+            "VLA AND PRIMITIVE CONTROL": CONTROL,
+            "PERCEPTION": PERCEPTION,
+        },
+    )

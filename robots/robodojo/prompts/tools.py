@@ -18,7 +18,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from robots.robodojo.prompts.policy import POLICY_PROMPTS
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 from rpent.utils.templates import substitute
 
 TOOL_ACCESS = """Use view_env_state to inspect recorded head and wrist images.
@@ -29,15 +29,15 @@ action count, step_limit is the task's total action budget, and remaining_steps
 is the budget left at capture time. The top-level step is an observation index,
 not an action count. Historical observations retain their historical budget."""
 
-PERCEPTION = """Use sample_world_xyz(view, pixels, step) for [row,col] pixels
-or query_world_map(view, bbox, step) for a half-open [r0,c0,r1,c1] region.
-Views are head, left_wrist and right_wrist; use the same view and step as the
-source image. Coordinates are world-frame metres. Invalid depth is not a point.
-segment(text_prompt, camera, step) uses SAM3 on that saved image. Cameras are
-cam_head, cam_left_wrist and cam_right_wrist. Its point_rc lies in the mask;
-centroid_rc may lie outside a concave mask. Use point_rc with back_project at
-the returned step_idx and camera. A visible surface point is not necessarily
-an object centre or a safe grasp point. Re-perceive after motion/reset.
+PERCEPTION = """Use sample_world_xyz for [row,col] pixels or query_world_map for
+a half-open [r0,c0,r1,c1] region. Views are head, left_wrist and right_wrist;
+use the same view and step as the source image. Coordinates are world-frame
+metres. Invalid depth is not a point. segment runs SAM3 on that saved image.
+Cameras are cam_head, cam_left_wrist and cam_right_wrist. Its point_rc lies in
+the mask; centroid_rc may lie outside a concave mask. Use point_rc with
+back_project at the returned step_idx and camera. A visible surface point is
+not necessarily an object centre or a safe grasp point. Re-perceive after
+motion/reset.
 
 For SAM3, describe visible colour, shape and relative location, e.g.
 "the pink bottle on the left of the table", not internal asset or brand names.
@@ -48,13 +48,13 @@ pixel manually; never invent coordinates from a failed detection.
 Segmentation returns image pixels, not world coordinates; follow with
 back_project when you need a visible surface's world position."""
 
-TOOLS = """move_to(arm, xyz, quat=None, gripper=None, substeps=25) plans a full pose.
-Quaternion order is wxyz; omitted orientation and opening are held.
-rotate_wrist applies relative yaw about world Z, in degrees, with the same
-substeps selection rules. Each executed waypoint consumes one native action
-step (0.04 seconds of simulation). Fewer waypoints give less execution time;
-completed means the selected commands ran, not that the target pose was reached.
-set_gripper(arm, val, steps=10) uses 0=closed, 1=open; release defaults to 1.
+TOOLS = """move_to plans a full pose. Quaternion order is wxyz; omitted
+orientation and opening are held. rotate_wrist applies relative yaw about world
+Z, in degrees, with the same substeps selection rules. Each executed waypoint
+consumes one native action step (0.04 seconds of simulation). Fewer waypoints
+give less execution time; completed means the selected commands ran, not that
+the target pose was reached. set_gripper uses 0=closed, 1=open; release
+defaults to open.
 Intermediate openings are control targets, not guaranteed physical widths.
 Inspect completed, executed_steps and stop_reason. final_dist_m is measured
 position error, not a task-success verdict. On failure, inspect and decide
@@ -110,15 +110,18 @@ returned action count and remaining_steps to assess actual consumption."""
 
 def prompt_sections(
     variables: Mapping[str, object] | None = None,
-) -> Mapping[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return tool guidance with the selected VLA backend's wording."""
     backend = (variables or {}).get("vla_backend") or "vpp2"
-    return substitute(
-        {
-            "TOOL ACCESS": TOOL_ACCESS,
-            "PERCEPTION": PERCEPTION,
-            "AVAILABLE OPERATIONS": TOOLS,
-            "VLA AND PRIMITIVE CONTROL": CONTROL,
-        },
-        POLICY_PROMPTS[backend],
+    return sections(
+        __file__,
+        substitute(
+            {
+                "TOOL ACCESS": TOOL_ACCESS,
+                "PERCEPTION": PERCEPTION,
+                "AVAILABLE OPERATIONS": TOOLS,
+                "VLA AND PRIMITIVE CONTROL": CONTROL,
+            },
+            POLICY_PROMPTS[backend],
+        ),
     )

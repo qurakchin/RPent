@@ -226,7 +226,7 @@ def test_libero_prompts_observe_task_before_reading_memory(
     user = assembled.user
     workflow = system.split("\nWORKFLOW\n", 1)[1]
     memory_step = (
-        "READ EACH AVAILABLE LOCAL MEMORY LAYER"
+        "READ THE LOCAL MEMORY FILES"
         if mode == "eval" and memory_profile == "local"
         else "READ MEMORY"
     )

@@ -196,7 +196,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 2. ``prompt_bundle.py``
 -----------------------
 
-定义 ``system_prompt()`` 和 ``user_prompt()`` 两个领域 prompt 工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle`` （见上面的“入口”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节。机器人不再独占整份 prompt：RPent 的拼装层按固定顺序把共享片段、运行模式契约和机器人贡献组合起来：
+定义 ``system_prompt()`` 和 ``user_prompt()`` 两个领域 prompt 工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle`` （见上面的“入口”）。每个工厂返回有序的 ``Mapping[str, PromptNode]`` 或 ``tuple[PromptSection, ...]``，其中包含带标题的分节。机器人不再独占整份 prompt：RPent 的拼装层按固定顺序把共享片段、运行模式契约和机器人贡献组合起来：
 
 .. code-block:: text
 
@@ -206,7 +206,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 - ``system`` / ``user`` —— 领域知识，包括布局、坐标约定、任务族、物体名、失败模式，以及用户任务消息。
 - ``prompt_sections`` —— 当前机器人暴露的工具的使用说明，例如动作、感知或 runtime 工具组。返回 ``Sequence[PromptSection]`` 或 ``Mapping[str, PromptNode]``，入参与 prompt 工厂相同。它必须是变量的纯函数，这样 ``--dump-prompt`` 无需启动 runtime 也能渲染。
-- ``source`` —— prompt 内容在仓库中的相对位置，例如 ``robots/myrobot/prompts``。它会和每段的名称、哈希一起写入 ``prompt_sources.json``。
+- ``source`` —— prompt 内容在仓库中的相对位置，例如 ``robots/myrobot/prompts``。它是 ``prompt_sources.json`` 中每段名称、哈希旁的默认来源。用 ``sections(__file__, ...)`` 构造贡献时，记录的是实际定义该文本的模块文件，例如 ``robots/myrobot/prompts/tools.py``。
 
 一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。``prompt_sources.json`` 会记录所选 planner 接收两种角色的方式：``api`` 使用独立的 system prompt，``claude_code`` 和 ``codex`` 则把 system prompt 拼到第一条 user 消息前面。``delivered_prompt_sha256`` 对 RPent 按该投递形态交出的文本求哈希。Claude Code 和 Codex 由各自 SDK 管理模型上下文，其自带指令和后续轮次不在该摘要内；它回答的是 RPent 投递了什么，而不是模型最终的完整上下文。
 
@@ -216,25 +216,35 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
    from robots.myrobot.prompts import system as system_parts
    from robots.myrobot.prompts import tools as tool_parts
    from robots.myrobot.prompts import user as user_parts
-   from rpent.prompt.utils import PromptNode
+   from rpent.prompt.assembly import PromptSection, sections
 
-   def system_prompt() -> PromptNode:
-       return {
-           "INTRO": system_parts.PREAMBLE,
-           "GOAL": system_parts.GOAL,
-           "ENVIRONMENT": system_parts.ENVIRONMENT,
-       }
+   def system_prompt() -> tuple[PromptSection, ...]:
+       return sections(
+           system_parts.__file__,
+           {
+               "INTRO": system_parts.PREAMBLE,
+               "GOAL": system_parts.GOAL,
+               "ENVIRONMENT": system_parts.ENVIRONMENT,
+           },
+       )
 
-   def user_prompt() -> PromptNode:
-       return {
-           "TASK": user_parts.TASK,
-           "BEGIN": user_parts.BEGIN,
-       }
+   def user_prompt() -> tuple[PromptSection, ...]:
+       return sections(
+           user_parts.__file__,
+           {
+               "TASK": user_parts.TASK,
+               "BEGIN": user_parts.BEGIN,
+           },
+           role="user",
+       )
 
-   def prompt_sections(variables) -> dict[str, PromptNode]:
-       return {
-           "MYROBOT TOOLS": tool_parts.TOOL_GUIDANCE,
-       }
+   def prompt_sections(variables) -> tuple[PromptSection, ...]:
+       return sections(
+           tool_parts.__file__,
+           {
+               "MYROBOT TOOLS": tool_parts.TOOL_GUIDANCE,
+           },
+       )
 
    # robots/myrobot/robot_spec.py
    prompts=PromptBundle(

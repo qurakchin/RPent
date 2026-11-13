@@ -18,7 +18,7 @@ POLICY_PROMPTS = {
     "vpp2": {
         "policy_name": "VPP2",
         "policy_control": "VPP2 native EE16 targets",
-        "policy_tools": """vpp2_act(instruction, chunks=1) executes the supplied instruction. Describe the
+        "policy_tools": """vpp2_act executes the supplied instruction. Describe the
 visible object, action, destination or goal relation, preferably in English.
 Include required arm roles, dependencies and what the other hand must preserve.
 Keep the current phase consistent with the complete task; do not add unrelated
@@ -41,9 +41,9 @@ chunk count, localization or approach pose.""",
     "awomo05": {
         "policy_name": "Awomo05",
         "policy_control": "Awomo05 native joint targets",
-        "policy_tools": """awomo05_act(chunks=1) executes the original full task instruction using dual-arm
-joint targets. It has no instruction parameter and cannot accept a rewritten
-instruction or a phase-specific subtask. Each chunk executes 8 native actions,
+        "policy_tools": """awomo05_act executes the original full task instruction
+using dual-arm joint targets. It has no instruction input and cannot accept a
+rewritten instruction or a phase-specific subtask. Each chunk executes 8 native actions,
 then replans from real feedback. You inspect the result after the call.
 History includes preceding Primitive and Awomo05 actions and persists across
 calls; switching controllers does not start a new episode. A completed chunk

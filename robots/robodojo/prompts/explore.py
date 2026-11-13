@@ -20,7 +20,7 @@ from collections.abc import Mapping
 
 from robots.robodojo.prompts import evaluate as base
 from robots.robodojo.prompts.policy import POLICY_PROMPTS
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 from rpent.utils.templates import substitute
 
 GOAL = """Solve the current task at its fixed seed and layout, then produce
@@ -32,8 +32,8 @@ READ_ORDER = """Before the first robot action:
 1. Read robots/robodojo/guides/GUIDE_RPENT.md completely.
 2. Inspect view_env_state and the head and wrist images. Read the native task
    instruction and note both arms' initial end-effector positions and orientations.
-3. Read {{memory_dir}}/MEMORY.md when present and relevant task-family notes.
-   Consult matching global lessons and successful task-specific JSON/JSONL pairs.
+3. Read the published task-specific JSON/JSONL pair and task-family notes when
+   present, plus relevant global lessons from {{memory_dir}}/MEMORY.md.
 4. Read {{memory_inbox}}/wip/notes.md when present.
 
 Use a successful JSON audit for its phase plan and reasoning, and its JSONL
@@ -105,11 +105,9 @@ instruction, `evidence.cells: [{{recipe_tag}}]`, and the attempt count.
 When evidence supports a cross-task lesson, write a separate
 {{memory_inbox}}/<bare-id>.md in the shared global shape, with its limits and
 what would falsify it. A single layout warrants single-shot confidence only.
-Read existing relevant leaves before proposing a lesson. If an entry already
-covers the lesson, propose the same `id` with the new cell in `evidence.cells`;
-a contradiction is a separate proposal citing both observations, never an edit
-of the published entry. If no new global lesson is supported, say so rather
-than inventing one.
+Read existing relevant leaves before proposing a lesson, and use the shared
+proposal contract for corroboration or contradiction. If no new global lesson
+is supported, say so rather than inventing one.
 
 During failed attempts, write lessons only in wip/. The shared finalizer merges
 valid inbox proposals and updates MEMORY.md after the run; do not claim
@@ -118,9 +116,9 @@ publication before it completes."""
 
 def system_prompt(
     variables: Mapping[str, object] | None = None,
-) -> PromptNode:
+) -> tuple[PromptSection, ...]:
     """Assemble exploration rules with shared perception and control guidance."""
-    sections = {
+    prompt = {
         "ROLE AND RULES": base.ROLE_AND_RULES,
         "EXPLORATION GOAL": GOAL,
         "READ ORDER AND MEMORY TRANSFER": READ_ORDER,
@@ -132,4 +130,4 @@ def system_prompt(
         "MEMORY CONSOLIDATION": MEMORY,
     }
     backend = (variables or {}).get("vla_backend") or "vpp2"
-    return substitute(sections, POLICY_PROMPTS[backend])
+    return sections(__file__, substitute(prompt, POLICY_PROMPTS[backend]))

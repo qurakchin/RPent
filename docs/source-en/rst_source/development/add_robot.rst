@@ -252,8 +252,9 @@ teardown.
 
 Define two domain prompt factories, ``system_prompt()`` and ``user_prompt()``,
 and build a ``PromptBundle`` in the robot's ``robot_spec.py`` (see the entry
-point above). Each factory returns an ordered ``dict[str, PromptNode]`` of
-titled sections. The robot does not own the whole prompt: RPent's assembly
+point above). Each factory returns an ordered ``Mapping[str, PromptNode]`` or
+``tuple[PromptSection, ...]`` of titled sections. The robot does not own the
+whole prompt: RPent's assembly
 layer puts the shared fragments and the run-mode contract around the robot's
 contribution in a fixed order:
 
@@ -274,8 +275,10 @@ has a memory directory. The robot contributes:
   prompt variables are passed in. Keep it a pure function of the variables so
   ``--dump-prompt`` can render without starting a runtime.
 - ``source`` — the repository-relative location of the prompt content, for
-  example ``robots/myrobot/prompts``. It is recorded in ``prompt_sources.json``
-  next to each section's name and hash.
+  example ``robots/myrobot/prompts``. It is the fallback recorded next to each
+  section's name and hash in ``prompt_sources.json``. Build contributions with
+  ``sections(__file__, ...)`` so the record names the module that owns the text,
+  for example ``robots/myrobot/prompts/tools.py``.
 
 One prompt serves every planner (API loop, Claude Code, Codex): refer to tools
 by their bare names (``move_to``, ...) and note once that the Claude Code and
@@ -294,25 +297,35 @@ delivered, not the complete final context.
    from robots.myrobot.prompts import system as system_parts
    from robots.myrobot.prompts import tools as tool_parts
    from robots.myrobot.prompts import user as user_parts
-   from rpent.prompt.utils import PromptNode
+   from rpent.prompt.assembly import PromptSection, sections
 
-   def system_prompt() -> PromptNode:
-       return {
-           "INTRO": system_parts.PREAMBLE,
-           "GOAL": system_parts.GOAL,
-           "ENVIRONMENT": system_parts.ENVIRONMENT,
-       }
+   def system_prompt() -> tuple[PromptSection, ...]:
+       return sections(
+           system_parts.__file__,
+           {
+               "INTRO": system_parts.PREAMBLE,
+               "GOAL": system_parts.GOAL,
+               "ENVIRONMENT": system_parts.ENVIRONMENT,
+           },
+       )
 
-   def user_prompt() -> PromptNode:
-       return {
-           "TASK": user_parts.TASK,
-           "BEGIN": user_parts.BEGIN,
-       }
+   def user_prompt() -> tuple[PromptSection, ...]:
+       return sections(
+           user_parts.__file__,
+           {
+               "TASK": user_parts.TASK,
+               "BEGIN": user_parts.BEGIN,
+           },
+           role="user",
+       )
 
-   def prompt_sections(variables) -> dict[str, PromptNode]:
-       return {
-           "MYROBOT TOOLS": tool_parts.TOOL_GUIDANCE,
-       }
+   def prompt_sections(variables) -> tuple[PromptSection, ...]:
+       return sections(
+           tool_parts.__file__,
+           {
+               "MYROBOT TOOLS": tool_parts.TOOL_GUIDANCE,
+           },
+       )
 
    # robots/myrobot/robot_spec.py
    prompts=PromptBundle(

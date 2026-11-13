@@ -18,7 +18,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from rpent.prompt.utils import Numbered, PromptNode
+from rpent.prompt.assembly import PromptSection, sections
+from rpent.prompt.utils import Numbered
 
 PRIMITIVES = (
     "Express move_delta and rotate_delta in the fixed robot base frame.",
@@ -29,9 +30,9 @@ PRIMITIVES = (
 
 def prompt_sections(
     variables: Mapping[str, object] | None = None,
-) -> Mapping[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the motion and VLA guidance for the tools this robot exposes."""
-    return {"PRIMITIVE CONVENTIONS": Numbered(PRIMITIVES)}
+    return sections(__file__, {"PRIMITIVE CONVENTIONS": Numbered(PRIMITIVES)})
 
 
 __all__ = ["prompt_sections"]

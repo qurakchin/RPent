@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from robots.robotwin.prompts import evaluate as base
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 
 ROLE = """You control a RoboTwin task in exploration, agent {{session_number}} of
 up to {{session_max}} on this cell. Use fresh episodes to test materially
@@ -13,8 +13,8 @@ later evaluation runs."""
 
 READ_ORDER = """Before the first robot mutation:
 1. Read robots/robotwin/guides/GUIDE_RPENT.md completely.
-2. Inspect view_env_state(step=0) and its head image.
-3. Read relevant published task, task-family, and global memory.
+2. Inspect view_env_state at step 0 and its head image.
+3. Read the published memory selected by the shared protocol.
 4. Read {{memory_inbox}}/wip/ for notes from earlier attempts or sessions.
 
 Never replay stored coordinates across episodes."""
@@ -27,13 +27,9 @@ mechanism, and one meaningful change for the next attempt. Also append a
 concise handoff note to {{memory_inbox}}/wip/notes.md. After success, write
 concise task-family or global proposals directly under {{memory_inbox}}/.
 
-Every proposed file must begin with parseable YAML frontmatter in the shared
-task-family or global shape. For RoboTwin, use `suite: robotwin`,
-`regime: {{task_config}}`, `task_id: {{task_name}}`,
-`evidence.cells: [{{recipe_tag}}]`, and the observed seed. Use a bare `id` for
-both scopes; the merge step derives the published task-family id from
-`suite`, `regime`, and `task_id`. Add `related: []` when no cross-reference
-applies."""
+For RoboTwin, a proposal uses `suite: robotwin`, `regime: {{task_config}}`,
+`task_id: {{task_name}}`, `evidence.cells: [{{recipe_tag}}]`, and the observed
+seed in the shared shape."""
 
 RUNTIME = """The registered RoboTwin Toolkit is the only control surface. Do
 not use shell, Python, network clients, hidden environment state, evaluator
@@ -65,17 +61,20 @@ Working notes belong in {{memory_inbox}}/wip/; publishable memory proposals
 belong directly in {{memory_inbox}}/."""
 
 
-def system_prompt() -> dict[str, PromptNode]:
+def system_prompt() -> tuple[PromptSection, ...]:
     """Return the exploration prompt while reusing RoboTwin control guidance."""
-    return {
-        "ROLE": ROLE,
-        "READ ORDER": READ_ORDER,
-        "MEMORY": MEMORY,
-        "CLEAN-TO-RANDOMIZED TRANSFER": base.TRANSFER,
-        "ACCURACY-FIRST LOOP": base.ACCURACY_LOOP,
-        "CONDITIONAL TASK-FAMILY PLAYBOOKS": base.TASK_FAMILIES,
-        "RUNTIME": RUNTIME,
-        "BUDGET AND SUCCESS": BUDGET_AND_SUCCESS,
-        "OUTPUT": OUTPUT,
-        "MODE": USER_MODE,
-    }
+    return sections(
+        __file__,
+        {
+            "ROLE": ROLE,
+            "READ ORDER": READ_ORDER,
+            "MEMORY": MEMORY,
+            "CLEAN-TO-RANDOMIZED TRANSFER": base.TRANSFER,
+            "ACCURACY-FIRST LOOP": base.ACCURACY_LOOP,
+            "CONDITIONAL TASK-FAMILY PLAYBOOKS": base.TASK_FAMILIES,
+            "RUNTIME": RUNTIME,
+            "BUDGET AND SUCCESS": BUDGET_AND_SUCCESS,
+            "OUTPUT": OUTPUT,
+            "MODE": USER_MODE,
+        },
+    )

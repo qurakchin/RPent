@@ -19,6 +19,7 @@ inherit LIBERO's reset, simulator termination, or benchmark-solvability rules.
 """
 
 from robots.dual_franka.prompts import system as base
+from rpent.prompt.assembly import PromptSection, sections
 from rpent.prompt.utils import Numbered
 
 MODE = """MULTI-ATTEMPT REAL-ROBOT EXPLORATION. You are session {{session_number}}
@@ -29,8 +30,9 @@ retain them in handoff notes. Task solvability is not guaranteed. Operator abort
 state take precedence over using the remaining exploration budget."""
 
 RULES = (
-    "Before the first motion in every session, request_scene_reset(reason, "
-    "expected_scene_state). A human restores the objects and confirms done; "
+    "Before the first motion in every session, call request_scene_reset with "
+    "the reason and expected scene state. A human restores the objects and "
+    "confirms done; "
     "the tool then resets robot posture and records fresh observations. A new "
     "toolkit or planner session does not restore the tabletop.",
     "After reset, re-read the new state and re-localize. Never reuse a pixel, "
@@ -48,9 +50,8 @@ RULES = (
     "Never force a restart after operator abort.",
 )
 
-MEMORY = """READ in order: the task's task-family entry under {{memory_dir}}/task-family/,
-then {{memory_dir}}/MEMORY.md and relevant {{memory_dir}}/global/ leaves.
-Read prior {{output_dir}}/attempts/ archives and {{memory_inbox}}/wip/ notes.
+MEMORY = """Follow the shared memory protocol, then read prior {{output_dir}}/attempts/
+archives and {{memory_inbox}}/wip/ notes.
 Record which memories applied and which did not; no matching entry is acceptable.
 
 Preserve the real-robot logs. Session traces are in
@@ -85,10 +86,8 @@ ONLY AFTER OPERATOR-CONFIRMED SUCCESS, re-read all working notes and distill:
 3. global: read existing candidates first. For a new cross-task lesson write
    {{memory_inbox}}/<bare-id>.md in the shared global shape with a bare `id` and
    `evidence.cells: [{{recipe_tag}}]`. Give measured evidence, applicability and
-   exceptions. Do not invent tested parameter ranges from one sample. If an
-   entry already covers the observation, propose the same `id` with the new cell
-   in `evidence.cells`; a contradiction is a separate proposal citing both
-   observations, never an edit of the published entry.
+   exceptions. Do not invent tested parameter ranges from one sample. Follow the
+   shared proposal contract for corroboration or contradiction.
 
 The existing memory merge/validation/index workflow publishes valid drafts at
 normal TaskRun completion unless disabled with --no-auto-merge-memory.
@@ -97,15 +96,18 @@ needs fresh localization even when memory describes a previously successful
 sequence."""
 
 
-def system_prompt():
-    return {
-        "ROLE": base.ROLE,
-        "EXPLORATION MODE": MODE,
-        "RUNTIME": base.RUNTIME,
-        "SAFETY RULES": Numbered(base.RULES),
-        "EXPLORATION WORKFLOW": Numbered(RULES),
-        "LAYERED MEMORY": MEMORY,
-    }
+def system_prompt() -> tuple[PromptSection, ...]:
+    return sections(
+        __file__,
+        {
+            "ROLE": base.ROLE,
+            "EXPLORATION MODE": MODE,
+            "RUNTIME": base.RUNTIME,
+            "SAFETY RULES": Numbered(base.RULES),
+            "EXPLORATION WORKFLOW": Numbered(RULES),
+            "LAYERED MEMORY": MEMORY,
+        },
+    )
 
 
 BEGIN = """Call describe_dual_franka_setup, then read relevant memory and prior attempt notes, inspect view_env_state,

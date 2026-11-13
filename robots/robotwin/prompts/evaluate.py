@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 
 ROLE = """You control one dual-arm RoboTwin demo_randomized episode through the
 registered RPent tools. Prefer one accurate, recipe-supported sequence over
@@ -26,10 +26,10 @@ broad exploration, and protect every achieved subgoal."""
 
 READ_ORDER = """Before the first robot mutation:
 1. Read robots/robotwin/guides/GUIDE_RPENT.md completely.
-2. Inspect view_env_state(step=0) and its head image.
+2. Inspect `view_env_state` at step 0 and its head image.
 3. Read {{memory_dir}}/task-specific/{{reference_tag}}.json and
    {{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl when present.
-4. Read {{memory_dir}}/MEMORY.md and at most one to three relevant leaves.
+4. Use {{memory_dir}}/MEMORY.md for the relevant global leaves; one to three usually suffice.
 
 Use the semantic JSON as the phase plan and the JSONL as evidence for action
 type and VLA cadence, never as a coordinate replay."""
@@ -120,17 +120,20 @@ WAM_WORKFLOW = (
 
 def system_prompt(
     variables: Mapping[str, object] | None = None,
-) -> PromptNode:
+) -> tuple[PromptSection, ...]:
     """Return the RoboTwin evaluation prompt for the selected policy."""
     if (variables or {}).get("policy_kind") == "wam":
-        return {"ROLE": WAM_ROLE, "WORKFLOW": WAM_WORKFLOW}
-    return {
-        "ROLE": ROLE,
-        "READ ORDER": READ_ORDER,
-        "CLEAN-TO-RANDOMIZED TRANSFER": TRANSFER,
-        "ACCURACY-FIRST LOOP": ACCURACY_LOOP,
-        "CONDITIONAL TASK-FAMILY PLAYBOOKS": TASK_FAMILIES,
-        "RUNTIME": RUNTIME,
-        "BUDGET AND SUCCESS": BUDGET_AND_SUCCESS,
-        "MODE": USER_MODE,
-    }
+        return sections(__file__, {"ROLE": WAM_ROLE, "WORKFLOW": WAM_WORKFLOW})
+    return sections(
+        __file__,
+        {
+            "ROLE": ROLE,
+            "READ ORDER": READ_ORDER,
+            "CLEAN-TO-RANDOMIZED TRANSFER": TRANSFER,
+            "ACCURACY-FIRST LOOP": ACCURACY_LOOP,
+            "CONDITIONAL TASK-FAMILY PLAYBOOKS": TASK_FAMILIES,
+            "RUNTIME": RUNTIME,
+            "BUDGET AND SUCCESS": BUDGET_AND_SUCCESS,
+            "MODE": USER_MODE,
+        },
+    )

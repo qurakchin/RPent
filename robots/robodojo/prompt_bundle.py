@@ -23,6 +23,7 @@ from robots.robodojo.prompts import explore as explore_parts
 from robots.robodojo.prompts import tools as tool_parts
 from robots.robodojo.prompts import user as user_parts
 from robots.robodojo.prompts.policy import POLICY_PROMPTS
+from rpent.prompt.assembly import PromptSection, sections
 from rpent.prompt.utils import PromptNode
 
 
@@ -37,9 +38,9 @@ def system_prompt(
 
 def user_prompt(
     variables: Mapping[str, object] | None = None,
-) -> PromptNode:
+) -> tuple[PromptSection, ...]:
     backend = (variables or {}).get("vla_backend") or "vpp2"
-    sections = {
+    prompt = {
         "TASK": user_parts.TASK.replace(
             "{{policy_control}}",
             POLICY_PROMPTS[backend]["policy_control"],
@@ -47,8 +48,8 @@ def user_prompt(
         "BEGIN": user_parts.BEGIN,
     }
     if (variables or {}).get("mode") == "eval-fair":
-        return {"TASK": "{{task}} / layout {{layout}}"}
-    return sections
+        prompt = {"TASK": "{{task}} / layout {{layout}}"}
+    return sections(user_parts.__file__, prompt, role="user")
 
 
 __all__ = ["system_prompt", "user_prompt", "prompt_sections"]
@@ -56,6 +57,6 @@ __all__ = ["system_prompt", "user_prompt", "prompt_sections"]
 
 def prompt_sections(
     variables: Mapping[str, object] | None = None,
-) -> Mapping[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the RoboDojo tool guidance for the selected VLA backend."""
     return tool_parts.prompt_sections(variables)

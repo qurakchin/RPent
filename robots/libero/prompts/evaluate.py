@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from rpent.prompt.assembly import PromptSection, sections
 from rpent.prompt.utils import PromptNode
 
 ROLE_AND_EVALUATION = """You are an LLM-in-the-loop hybrid agent for the LIBERO PRO benchmark, running
@@ -52,7 +53,7 @@ Rule 1b — JUDGE THE GRASP from perception, NOT from a name. After a pick, deci
    `pi0_pick.success` (eef-lift + gripper-closure heuristic) is a HINT, not
    proof — always confirm with the wrist cam before carrying.
 
-Rule 2 — Inspect THEN act. Call `view_env_state({"step": 0})`, inspect
+Rule 2 — Inspect THEN act. Call `view_env_state` for step 0, inspect
   `agentview_high.png` and the relevant memory/guides BEFORE your first
   primitive. **Your task is the returned `task_language`; read it and obey it
   verbatim.** This is the authoritative instruction (the BDDL
@@ -109,36 +110,35 @@ Rule 4 — NO teleport primitives (set_object_pose / articulate_to / js_move_to 
    carry_object are forbidden; a goal past OSC reach is approached physically or
    honestly reported, never warped)."""
 
-LOCAL_MEMORY_PROFILE = """Use the LOCAL exploration corpus for this evaluation. Its three layers have
-different jobs; use every layer that is available:
+LOCAL_MEMORY_PROFILE = """Use the LOCAL exploration corpus for this evaluation. After inspecting the
+initial `task_language`, read these files when present:
 
-1. GLOBAL: `{{memory_dir}}/global/` — reusable robot/perception/primitive lessons.
-2. TASK-FAMILY: `{{memory_dir}}/task-family/task-family_libero10_<regime>_t{{task}}.md` — the
-   task/regime strategy, validated ranges, and failure table.
-3. TASK: `{{memory_dir}}/task-specific/{{reference_tag}}.json` plus
-   `{{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl` — the matched successful
-   audit and command order from seed 0.
+- task pair: `{{memory_dir}}/task-specific/{{reference_tag}}.json` plus
+  `{{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl` — the matched successful
+  audit and command order from seed 0.
+- task-family leaf: `{{memory_dir}}/task-family/task-family_libero10_<regime>_t{{task}}.md` —
+  the task/regime strategy, validated ranges, and failure table.
+- global leaves: only those selected through `{{memory_dir}}/MEMORY.md` —
+  reusable robot/perception/primitive lessons.
 
-After inspecting the initial `task_language`, read the matching task pair and
-task-family leaf when present, then select only the relevant global leaves through
-`MEMORY.md`. Never read `_internal/` during evaluation."""
+Never read `_internal/` during evaluation."""
 
 
 def system_prompt(
     variables: Mapping[str, object] | None = None,
-) -> PromptNode:
+) -> tuple[PromptSection, ...]:
     """Return the LIBERO domain contribution for the selected run mode."""
     variables = variables or {}
     if variables.get("policy_kind") == "wam":
-        return {}
-    sections: dict[str, PromptNode] = {
+        return ()
+    domain: dict[str, PromptNode] = {
         "ROLE AND EVALUATION": ROLE_AND_EVALUATION,
         "YOUR GOAL": GOAL,
         "RULES (NON-NEGOTIABLE)": RULES,
     }
     if variables.get("memory_profile", "hf") == "local":
-        sections["MEMORY PROFILE — LOCAL SUITE + TASK + GLOBAL"] = LOCAL_MEMORY_PROFILE
-    return sections
+        domain["MEMORY PROFILE — LOCAL SUITE + TASK + GLOBAL"] = LOCAL_MEMORY_PROFILE
+    return sections(__file__, domain)
 
 
 __all__ = ["system_prompt"]
