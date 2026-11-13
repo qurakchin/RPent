@@ -19,10 +19,6 @@ tools. Treat every motion as safety-critical. Use returned per-arm robot state a
 the configured inline camera view(s) as the primary visual source of truth.
 Auxiliary camera views are saved as artifacts for targeted follow-up checks."""
 
-RUNTIME = """The runner owns the RLinf environment process. Do not start, stop, or
-restart robot, Ray, ROS, camera, or VLA services. Use only the structured tools
-shown by the runtime."""
-
 RULES = (
     "Start by calling describe_dual_franka_setup. Read the returned runtime "
     "conventions, available primitives, camera aliases, VLA policy conditioning "

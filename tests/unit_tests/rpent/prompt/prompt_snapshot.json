@@ -12,10 +12,11 @@
       "RUNTIME",
       "SUCCESS",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "4e083da6c2ffa8c417c66288656da207d6616a2a1dbdcaf3fe96ceb724d63a6a"
+    "prompt_sha256": "9b306a52d992d83e5a4c7b1b54bc2429d4ba82434b3411678129226de01ad9a4"
   },
   "yam:explore": {
     "sections": [
@@ -31,11 +32,12 @@
       "RUNTIME",
       "SUCCESS",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "MEMORY \u2014 PROPOSALS AND MERGING",
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "5a6e623c9a3d0597caacf0d07fff5cf9e5526aa06c5a2d40a413fb5cde96c0d3"
+    "prompt_sha256": "6c20ca597dd1ac962347e8752a2299d691ff9702f3d86eae64ac68097d83b6fb"
   },
   "yam:dashboard": {
     "sections": [
@@ -51,72 +53,76 @@
       "RUNTIME",
       "SUCCESS",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "a69d3b869ff99b0040bd6f36b603d467ef15f00255526a4597def4874466d306"
+    "prompt_sha256": "fdb8a3169133009df7d4645c6eef2e068325ac263ccf3ec813a5805b8b356e2a"
   },
   "libero:eval": {
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
-      "PROVEN LEVERS",
       "RUNTIME",
       "LOCALIZATION",
       "PERCEPTION ALGORITHM",
       "WORKFLOW",
-      "KEY HYPERPARAMETERS",
       "ROLE AND EVALUATION",
       "YOUR GOAL",
       "RULES (NON-NEGOTIABLE)",
+      "TASK TECHNIQUES AND TARGETS",
+      "MOTION NOTES",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "CELL",
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "f64bf2f6f569b489ec2ff6a814d34c27b3e211e4c6315fe32f8135c35cd10336"
+    "prompt_sha256": "94faf0b5be5e6866e47654aa8c09d2370afbad8dece1609171c1c742561789b9"
   },
   "libero:explore": {
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EXPLORATION",
-      "PROVEN LEVERS",
       "RUNTIME",
       "LOCALIZATION",
       "PERCEPTION ALGORITHM",
       "WORKFLOW",
-      "KEY HYPERPARAMETERS",
       "ROLE AND MODE",
       "YOUR GOAL",
       "RULES (NON-NEGOTIABLE)",
+      "TASK TECHNIQUES AND TARGETS",
+      "MOTION NOTES",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "MEMORY \u2014 PROPOSALS AND MERGING",
       "CELL",
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "bb7fb61bd55a6dee200856dccf62374a1b6a8ff0a41f55efafe092d47dfb725a"
+    "prompt_sha256": "a1ccbd94085f0a8a92d8ea5a66d475dbd0085f81241b7fa869e3e649d0af83a7"
   },
   "libero:dashboard": {
     "sections": [
       "OPERATING RULES",
       "RUN MODE \u2014 EVALUATION",
       "RUN MODE \u2014 DASHBOARD",
-      "PROVEN LEVERS",
       "RUNTIME",
       "LOCALIZATION",
       "PERCEPTION ALGORITHM",
       "WORKFLOW",
-      "KEY HYPERPARAMETERS",
       "ROLE AND EVALUATION",
       "YOUR GOAL",
       "RULES (NON-NEGOTIABLE)",
+      "TASK TECHNIQUES AND TARGETS",
+      "MOTION NOTES",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "CELL",
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "2ac25fc658ccf8df1b40eb5293cd2acf7984a4a4a7f6209d83abca7216ff5881"
+    "prompt_sha256": "3c9f185c1430e3df272b23e0d1fcb2ceae6734d80657ad4dcb6cc993c5933e97"
   },
   "robocasa:eval": {
     "sections": [
@@ -135,10 +141,11 @@
       "Environment",
       "Next",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "b6c292c1956e993c8cafa0f05b5df4e217948fc45e97a39ea9c895645bdbf181"
+    "prompt_sha256": "a41a2f11929b9bf90e5e09a5adf44b5918415e265524794cd10c89202ee6ef33"
   },
   "robocasa:explore": {
     "sections": [
@@ -157,11 +164,12 @@
       "Environment",
       "Begin",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "MEMORY \u2014 PROPOSALS AND MERGING",
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "fcc5f3bb16ad208beefa4c187055750a2b4b235d0661b55d3351b6f5e4b73051"
+    "prompt_sha256": "4d9a952be326c5e73b4f04934b1479ce6f90f56366c188e5c1613fc770ce9c5d"
   },
   "robocasa:dashboard": {
     "sections": [
@@ -181,10 +189,11 @@
       "Environment",
       "Next",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "dedfcb9337eed635af96b6419558cb9ebd7edf37a9b2f195b07e39f6f589ee6e"
+    "prompt_sha256": "2889edcc6a5760414d2133e282e204b18914f946cb796df29984edc6cd6cda9c"
   },
   "robodojo:eval": {
     "sections": [
@@ -202,10 +211,11 @@
       "REWARD AND SCORE",
       "OUTPUT DISCIPLINE",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "51db88f0a5887bcf8e731d3c2f80e900d30ba6e877e19e9c3ee274c17c31e9ee"
+    "prompt_sha256": "5121701a129b389fa63060a09c8d057d012f411a09cb94d08dacb20c9cc24057"
   },
   "robodojo:explore": {
     "sections": [
@@ -225,11 +235,12 @@
       "OUTPUT DISCIPLINE",
       "MEMORY CONSOLIDATION",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "MEMORY \u2014 PROPOSALS AND MERGING",
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "1f5edb35d43d9a59a774e4d47f3ae94879ab6ab618469c9d88d0aa8cd06dba45"
+    "prompt_sha256": "648f30de7caa6b84b06454f6aa675c39ee83d79077dca72732885d843608f77d"
   },
   "robodojo:dashboard": {
     "sections": [
@@ -248,10 +259,11 @@
       "REWARD AND SCORE",
       "OUTPUT DISCIPLINE",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "c13ebfb66a652a43eaba99b19d0b60321ac8701296ad873cc57164d4260e0894"
+    "prompt_sha256": "fa36fbb0ee542f60a94fa8b058c04b85be9a5175f16294b16160aecf416c3306"
   },
   "robotwin:eval": {
     "sections": [
@@ -268,10 +280,11 @@
       "BUDGET AND SUCCESS",
       "MODE",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "5d90abb1d67b5ff05c19c665a9f51bb1db63259d8a3e3cbde7a69072e168e0cc"
+    "prompt_sha256": "5a35bfceebbfef463ce53a64e3096821f997ee6f475096e897e776c775193046"
   },
   "robotwin:explore": {
     "sections": [
@@ -290,12 +303,13 @@
       "OUTPUT",
       "MODE",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "MEMORY \u2014 PROPOSALS AND MERGING",
       "CELL",
       "BEGIN",
       "EXPLORE MODE"
     ],
-    "prompt_sha256": "e677f155b2e11d6c34668657fbbb70203bae3710fb693f41a733cb62f36a6768"
+    "prompt_sha256": "fd67917e9a223e61c4abbbaae7e4d6a4f1c0769e1145ec07d1c4c08ecb07caef"
   },
   "robotwin:dashboard": {
     "sections": [
@@ -313,10 +327,11 @@
       "BUDGET AND SUCCESS",
       "MODE",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "6477118648d004466fe06befb0b7f7001968e07e936b356bbd92b1883374c458"
+    "prompt_sha256": "76f1125196c80426f1b8418c5092ccbe8935d2a2c20608ec67ea168813d1261f"
   },
   "franka:eval": {
     "sections": [
@@ -325,14 +340,14 @@
       "RUN MODE \u2014 REAL ROBOT",
       "PRIMITIVE CONVENTIONS",
       "ROLE",
-      "RUNTIME",
       "WORKFLOW",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "TASK",
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "a7341829310f787bd76cb0af27093d4fa8eaf5e554eb7bc407aa87b08d47f6e1"
+    "prompt_sha256": "0b4121de6daa691fc13341c43fb6d6a4ec297926d808eef74b7364f44cd9a973"
   },
   "franka:explore": {
     "sections": [
@@ -341,15 +356,15 @@
       "RUN MODE \u2014 REAL ROBOT",
       "PRIMITIVE CONVENTIONS",
       "ROLE",
-      "RUNTIME",
       "WORKFLOW",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "MEMORY \u2014 PROPOSALS AND MERGING",
       "TASK",
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "1873186f18a1d5f0eeb8c3d8594f04e18277d9ffceb04089417c945913468845"
+    "prompt_sha256": "52342e39c6a6145d4b0d81412482beb0ad9d0b14893efa12155cecc15535d365"
   },
   "franka:dashboard": {
     "sections": [
@@ -359,14 +374,14 @@
       "RUN MODE \u2014 REAL ROBOT",
       "PRIMITIVE CONVENTIONS",
       "ROLE",
-      "RUNTIME",
       "WORKFLOW",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "TASK",
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "ba1bc1b53d18668349be0a5bc1f7ff3a6e52ece28bbb7179ebf2e64f09b5db92"
+    "prompt_sha256": "7d7406c950444024c57d052f0f954f3b80b8eb8386b6acd559c8443f26f0bfee"
   },
   "dual_franka:eval": {
     "sections": [
@@ -376,15 +391,15 @@
       "CAMERA AND PROJECTION RULES",
       "VLA SEGMENT GATES",
       "ROLE",
-      "RUNTIME",
       "SAFETY RULES",
       "WORKFLOW",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "TASK",
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "59f4ce97c55728ec6b38580ab315ef5c37b96f6289678ba27eb9e2d139a45fd1"
+    "prompt_sha256": "10a0a6bb71062aace251a032fefea056152098a37fd5f041b13169144cf53633"
   },
   "dual_franka:explore": {
     "sections": [
@@ -395,18 +410,18 @@
       "VLA SEGMENT GATES",
       "ROLE",
       "EXPLORATION MODE",
-      "RUNTIME",
       "SAFETY RULES",
       "EXPLORATION WORKFLOW",
       "LAYERED MEMORY",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "MEMORY \u2014 PROPOSALS AND MERGING",
       "TASK",
       "TASK CONSTRAINTS",
       "BEGIN",
       "EXPLORATION OUTPUT"
     ],
-    "prompt_sha256": "b5512b171e81cca603da475e9b64fbad0f5e495aa31e263dda4becb941e933a6"
+    "prompt_sha256": "be3fbd5e0c196dca7373658498063fb6aea072bef186320147a67adb847dbd7e"
   },
   "dual_franka:dashboard": {
     "sections": [
@@ -417,14 +432,14 @@
       "CAMERA AND PROJECTION RULES",
       "VLA SEGMENT GATES",
       "ROLE",
-      "RUNTIME",
       "SAFETY RULES",
       "WORKFLOW",
       "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 USING STORED EVIDENCE",
       "TASK",
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "b8a12a9c69863594418973eb1ba294ce82770726731dffa5f84dce86953e3166"
+    "prompt_sha256": "ef064c12362a0e1a0dc715a9adfe1def60e2c83786a8e8aee5c83d8dbf680027"
   }
 }

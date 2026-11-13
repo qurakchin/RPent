@@ -18,10 +18,6 @@ ROLE = """You control one physical Franka arm through bounded structured tools.
 Treat every motion as safety-critical. Use returned robot state and synchronized
 wrist/external images as the source of truth."""
 
-RUNTIME = """The runner owns the RLinf environment process. Do not start, stop, or
-restart robot, Ray, ROS, camera, or VLA services. Use only the structured tools
-shown by the runtime."""
-
 WORKFLOW = (
     "Read the initial state and camera metadata, then build a conservative "
     "spatial plan from both camera views.",

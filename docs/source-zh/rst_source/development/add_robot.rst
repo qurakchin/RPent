@@ -202,7 +202,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
    base → mode → 工具说明 → 机器人领域 → memory
 
-其中 ``base`` 和 ``mode`` 来自 ``rpent/prompt/fragments``，分别提供角色、总原则、输出习惯，以及 evaluate / explore / dashboard / real_robot 的运行契约；运行带有记忆目录时，``memory`` 层由共享的记忆片段提供。机器人负责提供：
+其中 ``base`` 和 ``mode`` 来自 ``rpent/prompt/fragments``，分别提供角色、总原则、输出习惯、evaluate / explore / dashboard / real_robot 的运行契约，以及真机运行器拥有进程的约束；运行带有记忆目录时，``memory`` 层由共享的记忆片段提供：如何读取语料、如何使用已有配方而不照搬轨迹，以及探索运行时如何提交提案。机器人负责提供：
 
 - ``system`` / ``user`` —— 领域知识，包括布局、坐标约定、任务族、物体名、失败模式，以及用户任务消息。
 - ``prompt_sections`` —— 当前机器人暴露的工具的使用说明，例如动作、感知或 runtime 工具组。返回 ``Sequence[PromptSection]`` 或 ``Mapping[str, PromptNode]``，入参与 prompt 工厂相同。它必须是变量的纯函数，这样 ``--dump-prompt`` 无需启动 runtime 也能渲染。
@@ -256,7 +256,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 将 prompt 内容保存在机器人包内，例如 ``robots/myrobot/prompts/system.py``、``user.py`` 和 ``tools.py``。分节内容可以是普通字符串，也可以使用 ``BulletList`` 或 ``Numbered``。占位符 ``{{suite}}`` / ``{{task}}`` / ``{{seed}}`` / ``{{output_dir}}`` / ``{{recipe_tag}}`` 在渲染时填充。
 
-如需在不启动仿真器或模型的情况下查看最终 prompt，可运行 ``rpent --robot myrobot ... --dump-prompt``。dump 在记忆准备之前渲染、写出文件并退出，因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁。它不能与 ``--dashboard`` 同时使用，后者在自身的会话循环中按认领的任务拼装提示词。每次会话还会在 state 目录（输出目录，探索运行时为 ``sessions/session_NNN/``）写入 ``effective_prompt.md`` 和 ``prompt_sources.json``，并在 transcript 中记录 ``prompt_sha256`` 和 ``delivered_prompt_sha256``。
+如需在不启动仿真器或模型的情况下查看最终 prompt，可运行 ``rpent --robot myrobot ... --dump-prompt``。dump 在记忆准备之前渲染、写出文件并退出，因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁；产物会标记 ``memory prepared: no``。它不能与 ``--dashboard`` 同时使用，后者在自身的会话循环中按认领的任务拼装提示词。每次会话还会在 state 目录（输出目录，探索运行时为 ``sessions/session_NNN/``）写入 ``effective_prompt.md`` 和 ``prompt_sources.json``，并在 transcript 和 ``prompt_sources.json`` 中记录 ``prompt_sha256`` 和 ``delivered_prompt_sha256``。
 
 .. _add-robot-toolkit:
 

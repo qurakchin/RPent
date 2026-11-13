@@ -58,7 +58,7 @@ RULE_4 = """Rule 4 — 🔁 MULTI-ATTEMPT. In-place recovery includes re-localiz
    it means the next attempt should come from a class you have not tried:
      - scripted OSC pushes / servos;
      - the trained contact skill (`pi0_doubled`), from a clean pose;
-     - changing how the servo advances (`step_clip`, `max_steps`, `tol`);
+     - changing how the servo advances (step size, step budget, tolerance);
      - changing the contact geometry — where on the object you touch, at what
        wrist pose;
      - changing an earlier step so the blocking state never arises.
@@ -85,6 +85,8 @@ def system_prompt(
             "ROLE AND MODE": ROLE,
             "YOUR GOAL": GOAL,
             "RULES (NON-NEGOTIABLE)": _rules(),
+            "TASK TECHNIQUES AND TARGETS": base.TASK_TECHNIQUES,
+            "MOTION NOTES": base.MOTION_NOTES,
         },
     )
 

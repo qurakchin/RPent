@@ -75,6 +75,7 @@ def write_prompt_artifacts(
     planner: str,
     modes: Sequence[str],
     user_message: str,
+    memory_prepared: bool = True,
 ) -> tuple[Path, Path]:
     """Write ``effective_prompt.md`` and ``prompt_sources.json``.
 
@@ -85,6 +86,9 @@ def write_prompt_artifacts(
         planner: Planner name recorded with the prompt.
         modes: Run modes that shaped this prompt.
         user_message: The exact opening message handed to the planner.
+        memory_prepared: Whether memory preparation ran before assembly. A
+            ``--dump-prompt`` render skips it, so its memory sections describe
+            the local corpus rather than what a run would synchronize.
 
     Returns:
         Paths of the prompt and sources files.
@@ -99,6 +103,7 @@ def write_prompt_artifacts(
             planner=planner,
             modes=modes,
             user_message=user_message,
+            memory_prepared=memory_prepared,
         ),
         encoding="utf-8",
     )
@@ -110,6 +115,7 @@ def write_prompt_artifacts(
                 planner=planner,
                 modes=modes,
                 user_message=user_message,
+                memory_prepared=memory_prepared,
             ),
             indent=2,
             ensure_ascii=False,
@@ -127,6 +133,7 @@ def effective_prompt_markdown(
     planner: str,
     modes: Sequence[str],
     user_message: str,
+    memory_prepared: bool = True,
 ) -> str:
     """Render the prompt artifact for humans."""
     layout = PLANNER_PROMPT_LAYOUT.get(planner, "unknown")
@@ -139,6 +146,7 @@ def effective_prompt_markdown(
         f"- robot: `{robot_name}`",
         f"- planner: `{planner}` ({layout})",
         f"- modes: {', '.join(f'`{mode}`' for mode in modes)}",
+        f"- memory prepared: {'yes' if memory_prepared else 'no (--dump-prompt)'}",
         f"- prompt_sha256: `{assembled.prompt_sha256}`",
         f"- delivered_prompt_sha256: `{delivered_sha or 'not delivered'}`",
         "",
@@ -175,6 +183,7 @@ def prompt_sources(
     planner: str,
     modes: Sequence[str],
     user_message: str,
+    memory_prepared: bool = True,
 ) -> Mapping[str, object]:
     """Build the machine-readable prompt provenance record.
 
@@ -189,6 +198,7 @@ def prompt_sources(
         "planner": planner,
         "planner_prompt_layout": PLANNER_PROMPT_LAYOUT.get(planner, "unknown"),
         "modes": list(modes),
+        "memory_prepared": memory_prepared,
         "prompt_sha256": assembled.prompt_sha256,
         "delivered_prompt_sha256": delivered_prompt_sha256(
             planner, system=assembled.system, user=user_message

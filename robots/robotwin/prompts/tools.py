@@ -19,8 +19,8 @@ from collections.abc import Mapping
 
 from rpent.prompt.assembly import PromptSection, sections
 
-CONTROL = """Every lingbot_act uses the exact complete current task_language and
-use_length=50. Use one chunk near contact, near success, instability, or for a
+CONTROL = """Every lingbot_act uses the exact complete current task_language; the
+runtime fixes the chunk length. Use one chunk near contact, near success, instability, or for a
 small correction; two for ordinary stable progress; three only for a
 recipe-supported continuity-sensitive phase already moving correctly. When VLA
 has correct contact and visible progress, avoid interrupting it with speculative

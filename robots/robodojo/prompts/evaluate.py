@@ -129,11 +129,8 @@ successful episode can include failed approaches and corrective detours:
 identify which actions made progress rather than replaying every call.
 
 Choose arms for current reach unless the native instruction requires a
-particular arm. Revalidate SAM3 identity and contact geometry; historical
-pixels, coordinates and grasp offsets are not targets. Single-seed evidence,
-including a probable lesson, does not establish cross-seed reliability.
-Protect achieved relations and correct only the remaining blocker when a
-reference strategy no longer fits the scene."""
+particular arm. Revalidate SAM3 identity and contact geometry before acting on
+a reference."""
 
 
 def system_prompt(

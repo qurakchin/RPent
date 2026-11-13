@@ -35,11 +35,7 @@ Use the semantic JSON as the phase plan and the JSONL as evidence for action
 type and VLA cadence, never as a coordinate replay."""
 
 TRANSFER = """Transfer roles, phase order, required arms, observable gates,
-VLA/analytic division, chunk pattern, terminal action, and known failures.
-Rebind every object, destination, relation, arm choice, pixel, pose, table
-height, clearance, grasp point, and release/contact point from this episode.
-Use a supported recipe as the default skeleton when current evidence agrees;
-treat an experimental recipe as a weak prior."""
+VLA/analytic division, chunk pattern, terminal action, and known failures."""
 
 ACCURACY_LOOP = """Maintain a compact internal ledger: current phase,
 achieved/protected relations, held object and arm, first unmet postcondition,

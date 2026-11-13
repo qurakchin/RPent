@@ -23,11 +23,11 @@ surface points are not automatically object centers."""
 CONTROL = """Use move_to, rotate_wrist, set_gripper, and release only after
 binding the current target from fresh perception. move_to executes all
 server-planned safety waypoints. Do not queue several low approaches without
-observing between them. Every motion selects arm=left or arm=right; the other
+observing between them. Every motion selects exactly one arm, left or right; the other
 arm's commanded joints and gripper are held unchanged during that action.
 Open with set_gripper's open value or release; close with set_gripper's closed
 value. These are RoboTwin's dual-arm tool names.
-For move_to with success=false and recoverable=true, re-observe first: a small
+When move_to reports failure but marks the residual recoverable, re-observe first: a small
 stationary residual permits replanning, not a claim of arrival or clear contact.
 When the task allows a target region, pass the lower and upper xyz bounds of a
 region containing the target. Bounds must come from current perception and
@@ -46,8 +46,8 @@ available clearance is smaller than observed uncertainty, change route,
 orientation or supported VLA strategy;
 do not simply enlarge the target toward an obstacle.
 Never deepen a target blindly to overcome resistance. Other servo failures require
-stop. A rejected IK candidate with executed_steps=0 and stop_requested=false
-permits re-observation and a different reachable target; it does not require
+stop. A rejected IK candidate that executed no steps and was not stopped by the
+guard permits re-observation and a different reachable target; it does not require
 discarding partial progress or resetting the episode. Never bypass a guard to
 execute a rejected path. Runtime feedback faults and latched stops require stop.
 Alternate observed single-arm actions for two-arm tasks; simultaneous coordinated
