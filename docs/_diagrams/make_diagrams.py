@@ -44,11 +44,8 @@ LABELS = {
         "sims": ("Simulators", "LIBERO · RoboCasa365<BR/>RoboTwin · RoboDojo"),
         "real": ("Real robots", "Franka · Dual-Arm Franka · YAM"),
         "e_task": "task",
-        "e_dispatch": "execute_tool",
         "e_memory": "memory",
-        "e_prompt": "rendered",
-        "e_action": "action",
-        "e_perceive": "locate",
+            "e_action": "action",
         "e_state": "state",
         "e_connect": "connection",
         "flow_title": "Task execution",
@@ -60,6 +57,10 @@ LABELS = {
         "f_result": ("Run artifacts", "episode.mp4 · transcript · run.log"),
         "f_note": "Success is decided by the environment or the robot operator, not by finish.",
         "f_loop_edge": "next turn",
+        "f_fail": ("Tool failure / timeout", "error returned to the planner"),
+        "f_error": "error / timeout",
+        "f_obs": ("Observation", "images and state after each action"),
+        "legend": "Green: user entry · Blue: agent · Teal: services · Purple: environments",
     },
     "zh": {
         "font": "Hiragino Sans GB,Noto Sans CJK SC,sans-serif",
@@ -79,11 +80,8 @@ LABELS = {
         "sims": ("仿真环境", "LIBERO · RoboCasa365<BR/>RoboTwin · RoboDojo"),
         "real": ("真机", "单臂 Franka · 双臂 Franka · YAM"),
         "e_task": "任务",
-        "e_dispatch": "execute_tool",
         "e_memory": "记忆",
-        "e_prompt": "渲染",
         "e_action": "动作",
-        "e_perceive": "定位",
         "e_state": "状态",
         "e_connect": "连接",
         "flow_title": "一次任务的执行流程",
@@ -95,6 +93,10 @@ LABELS = {
         "f_result": ("运行产物", "episode.mp4 · transcript · run.log"),
         "f_note": "成功由环境或真机操作员判定，finish 本身不代表任务成功。",
         "f_loop_edge": "下一轮",
+        "f_fail": ("工具失败 / 超时", "错误返回规划器"),
+        "f_error": "错误 / 超时",
+        "f_obs": ("环境观测", "每次动作后的图像与状态"),
+        "legend": "绿色：用户入口 · 蓝色：智能体 · 青色：服务 · 紫色：环境",
     },
 }
 
@@ -103,10 +105,11 @@ def node(lang: str, key: str, role: str) -> str:
     """Return one styled node whose label carries a bold title and a detail line."""
     title, detail = LABELS[lang][key]
     color = COLORS[role]
+    group = ", group=spine" if key in ("toolkit", "env_service") else ""
     return (
         f'  {key} [label=<<FONT POINT-SIZE="13"><B>{title}</B></FONT>'
         f'<BR/><FONT POINT-SIZE="10" COLOR="#4b5563">{detail}</FONT>>,'
-        f' fillcolor="{color["fill"]}", color="{color["border"]}"];\n'
+        f' fillcolor="{color["fill"]}", color="{color["border"]}"{group}];\n'
     )
 
 
@@ -147,8 +150,10 @@ def architecture_dot(lang: str) -> str:
         + node(lang, "real", "env")
     )
     return f"""digraph architecture {{
-  graph [rankdir=TB, splines=spline, nodesep=0.30, ranksep=0.36, pad=0.20,
-         newrank=true, fontname="{labels["font"]}", bgcolor="white"];
+  graph [rankdir=TB, splines=ortho, nodesep=0.50, ranksep=0.55, pad=0.20,
+         newrank=true, fontname="{labels["font"]}", bgcolor="white",
+         label="{labels["legend"]}", labelloc="b", labeljust="l", fontsize=10,
+         fontcolor="#4b5563"];
   node [shape=box, style="rounded,filled", fontname="{labels["font"]}", fontsize=12,
         margin="0.16,0.09", penwidth=1.2];
   edge [color="#7c889a", penwidth=1.3, arrowsize=0.7, fontname="{labels["font"]}",
@@ -158,16 +163,16 @@ def architecture_dot(lang: str) -> str:
 {cluster(lang, "agent", "agent", agent)}
 {cluster(lang, "service", "service", services, labelloc="b")}
 {cluster(lang, "env", "env", environments)}
-  dashboard -> planner [label="{labels["e_task"]}"];
-  cli -> planner [label="{labels["e_task"]}"];
-  prompts -> planner [style=dashed, label="{labels["e_prompt"]}"];
-  planner -> toolkit [label="{labels["e_dispatch"]}"];
-  toolkit -> memory [dir=both, label="{labels["e_memory"]}"];
-  toolkit -> vla [label="{labels["e_action"]}"];
-  toolkit -> perception [label="{labels["e_perceive"]}"];
-  toolkit -> env_service [label="{labels["e_state"]}"];
-  env_service -> sims [dir=both, label="{labels["e_connect"]}"];
-  env_service -> real [dir=both, label="{labels["e_connect"]}"];
+  dashboard -> planner [xlabel="{labels["e_task"]}"];
+  cli -> planner [xlabel="{labels["e_task"]}"];
+  prompts -> planner [style=dashed];
+  planner -> toolkit;
+  toolkit -> memory [dir=both, xlabel="{labels["e_memory"]}"];
+  toolkit -> vla [xlabel="{labels["e_action"]}"];
+  toolkit -> perception;
+  toolkit -> env_service [xlabel="{labels["e_state"]}"];
+  env_service -> sims [dir=both, xlabel="{labels["e_connect"]}"];
+  env_service -> real [dir=both, xlabel="{labels["e_connect"]}"];
 }}
 """
 
@@ -176,7 +181,13 @@ def flow_dot(lang: str) -> str:
     labels = LABELS[lang]
     steps = ["f_cli", "f_session", "f_services", "f_loop", "f_end", "f_result"]
     body = "".join(node(lang, key, "agent") for key in steps)
-    edges = "\n".join(f"  {a} -> {b};" for a, b in zip(steps, steps[1:]))
+    edges = (
+        "  f_cli -> f_session;\n"
+        "  f_session -> f_services;\n"
+        f'  f_services -> f_loop [label="{labels["f_obs"][0]}"];\n'
+        "  f_loop -> f_end;\n"
+        "  f_end -> f_result;\n"
+    )
     return f"""digraph flow {{
   graph [rankdir=TB, splines=spline, nodesep=0.30, ranksep=0.30, pad=0.15,
          fontname="{labels["font"]}", bgcolor="white"];
@@ -186,12 +197,14 @@ def flow_dot(lang: str) -> str:
   edge [color="#7c889a", penwidth=1.3, arrowsize=0.7, fontname="{labels["font"]}",
         fontsize=10.5, fontcolor="#4b5563"];
 
-{body}{edges}
-  f_loop -> f_loop [label="{labels["f_loop_edge"]}", style=dashed, constraint=false];
+{body}{edges}  {{rank=same; f_loop; f_fail;}}
+  f_loop -> f_fail [dir=both, label="{labels["f_error"]}", style=dashed,
+                    constraint=false];
   f_note [label="{labels["f_note"]}", shape=note, style="filled",
           fillcolor="#fff8e1", color="#e0c36b", fontsize=10, margin="0.12,0.08",
           penwidth=1.0];
   f_end -> f_note [style=dotted, arrowhead=none];
+  f_fail [label=<<FONT POINT-SIZE="13"><B>{labels["f_fail"][0]}</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">{labels["f_fail"][1]}</FONT>>, fillcolor="#fef3e2", color="#d9a05b"];
 }}
 """
 

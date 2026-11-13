@@ -35,8 +35,12 @@
    * - 运行耗时
      - 使用在线规划器时，每个回合通常需要 5 至 15 分钟；规划器、模型和推理强度是主要变量。实测均值见 :doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>`。
 
+.. _quickstart-install:
+
 1. 安装 RPent
 ---------------
+
+本节是标准安装流程；各平台页面只补充自己的 extra、Python 版本或系统依赖。
 
 创建并激活独立的 Python 环境：
 
@@ -125,8 +129,8 @@ LIBERO 的任务成功以最终环境状态的顶层 ``terminated`` 为准，可
 
 若要在终端中交互，添加 ``--tui`` 或 ``-t`` 即可输入后续指令。该选项不能与 ``--dashboard`` 同时使用；各规划器的操作方式见 :ref:`terminal-interaction`。
 
-遇到问题时
----------------
+常见问题
+--------
 
 .. list-table::
    :header-rows: 1

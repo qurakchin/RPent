@@ -12,10 +12,38 @@ YAM
 
 RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :doc:`YAM 演示 <../real_world_demos/yam>`。
 
-**本文结构：** 安装 → 标定 → 机器人配置 → 任务选择 → VLA 配置 → 数据采集与训练 → Codex 配置 → 启动服务 → 手动技能测试 → 运行一个任务 → 查看结果 → 验证状态 → 工具与状态产物 → 探索模式 → 安全与停止。
+**本文结构：** 安全与停止 → 安装 → 标定 → 机器人配置 → 任务选择 → VLA 配置 → 数据采集与训练 → Codex 配置 → 启动服务 → 手动技能测试 → 运行一个任务 → 查看结果 → 验证状态 → 工具与状态产物 → 探索模式 → 日志与记忆。
 
 .. _id1:
 .. _yam-installation:
+
+安全与停止
+----------
+
+.. warning::
+
+   运动期间必须由现场操作员值守硬件急停。下文的软件停止只会保持当前位姿或结束当前回合，不会切断电机电源，不能替代硬件急停。
+
+要停止正在运行的任务，请携带当前回合 ID 发送 abort 回执：
+
+.. code-block:: bash
+
+   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
+     --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
+     --event abort --note '停止任务并保持机械臂'
+
+``--event abort`` 会写入 abort 回执并调用 ``env.request_stop``。该请求会设置停止锁存，并在下一个安全的写入边界保持实测关节位置；调用会在保持动作确认前返回（``hold_confirmed: false``）。在机械臂停止前，请远离机械臂并保持急停可触及。``abort`` 不会执行 ``park_on_close`` 的待机回位动作。
+
+在手动诊断控制台中，``{"tool":"stop"}`` 会发送同样的停止请求，``quit`` 也会在退出前发送停止请求；两者都不会回位或释放夹爪。如果控制台提示操作结果不确定，请检查现场并重启控制台，不要重复执行该命令。
+
+停止任务后，先将夹爪中的物体放稳或取下，确认返回待机姿态的路径安全，再在人工操作终端执行：
+
+.. code-block:: bash
+
+   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
+     --endpoint socket://127.0.0.1:8110 --event shutdown
+
+ENV 返回 ``park_on_close`` 配置的待机姿态，确认到位后关闭电机输出。未能到位时，保留进程并检查现场，不要强行结束。ENV 正常退出后，再关闭 VLA 服务和 SSH 转发。
 
 安装
 ----
@@ -25,14 +53,9 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 * **控制机**：连接双臂的 CAN 接口和三路 RealSense 相机，运行 ENV 服务及 RPent。
 * **推理机**：使用 NVIDIA GPU 运行 Pi0.5 VLA 服务。
 
-两台机器使用同一份 RPent 代码和相同的 RLinf 提交。先按\ :doc:`../get_started/quickstart`\ 安装 uv，再在两台机器上分别准备环境：
+两台机器使用同一份 RPent 代码和相同的 RLinf 提交。两台机器都先按 :ref:`quickstart-install` 完成 Python 3.11 环境，再检出相同的 RLinf 提交：
 
 .. code-block:: bash
-
-   git clone https://github.com/RLinf/RPent.git /path/to/RPent
-   cd /path/to/RPent
-   uv venv --python 3.11
-   source .venv/bin/activate
 
    git clone --branch main https://github.com/RLinf/RLinf.git /path/to/RLinf
    git -C /path/to/RLinf checkout --detach 196d40b6dec6f7a4063edee31cfeaa6ca0ee435a
@@ -375,31 +398,3 @@ YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``r
 任务经验保存在 ``--memory-dir`` 指定的目录，默认自动合并任务记忆。使用 ``--no-auto-merge-memory`` 可关闭自动合并。目录结构和记忆用法见\ :doc:`../guides/memory`。
 
 .. _yam-shutdown:
-
-安全与停止
-----------
-
-.. warning::
-
-   运动期间必须由现场操作员值守硬件急停。下文的软件停止只会保持当前位姿或结束当前回合，不会切断电机电源，不能替代硬件急停。
-
-要停止正在运行的任务，请携带当前回合 ID 发送 abort 回执：
-
-.. code-block:: bash
-
-   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
-     --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
-     --event abort --note '停止任务并保持机械臂'
-
-``--event abort`` 会写入 abort 回执并调用 ``env.request_stop``。该请求会设置停止锁存，并在下一个安全的写入边界保持实测关节位置；调用会在保持动作确认前返回（``hold_confirmed: false``）。在机械臂停止前，请远离机械臂并保持急停可触及。``abort`` 不会执行 ``park_on_close`` 的待机回位动作。
-
-在手动诊断控制台中，``{"tool":"stop"}`` 会发送同样的停止请求，``quit`` 也会在退出前发送停止请求；两者都不会回位或释放夹爪。如果控制台提示操作结果不确定，请检查现场并重启控制台，不要重复执行该命令。
-
-停止任务后，先将夹爪中的物体放稳或取下，确认返回待机姿态的路径安全，再在人工操作终端执行：
-
-.. code-block:: bash
-
-   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
-     --endpoint socket://127.0.0.1:8110 --event shutdown
-
-ENV 返回 ``park_on_close`` 配置的待机姿态，确认到位后关闭电机输出。未能到位时，保留进程并检查现场，不要强行结束。ENV 正常退出后，再关闭 VLA 服务和 SSH 转发。

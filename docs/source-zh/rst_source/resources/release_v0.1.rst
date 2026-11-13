@@ -10,7 +10,7 @@ RPent（Recursive Physical Agent）是面向真实物理世界的开源具身智
 
 v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划，接入 LIBERO 系列、RoboCasa365、RoboTwin、RoboDojo 等仿真环境，以及单臂 Franka、双臂 Franka 和 YAM 真机，提供 Memory、Flash Mode、交互式 CLI 与 Web Dashboard。RPent 已在多种仿真环境和真机任务中完成验证，并在 LIBERO-PRO 等仿真基准上取得榜单所列方法中的领先任务成功率。
 
-**本文结构：** 版本亮点 → 功能特性 → 贡献者 → 评测结果 → 快速开始 → 测试结果。
+**本文结构：** 版本亮点 → 功能特性 → 迁移与弃用 → 贡献者 → 评测结果 → 快速开始 → 测试结果。
 
 版本亮点
 --------------------
@@ -84,6 +84,16 @@ Memory 设计
 - **服务部署**\ ：模型与环境服务可独立部署在本地或远程，连续任务可复用已启动的模型服务。 :doc:`部署指南 </rst_source/guides/advanced_deployment>`
 
 - **Memory**\ ：提供公开的任务经验与任务卡数据集，支持本地记忆校验、合并和索引更新，方便不同智能体复用已有经验。 :doc:`使用指南 </rst_source/guides/memory>` ｜ `数据集 <https://huggingface.co/datasets/RLinf/RPent-memory>`__
+
+迁移与弃用
+----------
+
+v0.1 没有移除任何命令行参数；有两处改名，旧写法仍可使用，但会打印弃用警告：
+
+- ``--env`` → ``--robot``\ ：两者都用于选择机器人或环境，同时传入会报错。脚本请改用机器人名称，例如 ``--robot yam``。
+- ``--interactive``（``-i``）→ ``--tui``（``-t``）。
+
+文档网址从 ``usage/`` 迁到 ``guides/``、``simulators/``、``real_world_robots/`` 和 ``real_world_demos/``，线上站点会重定向旧链接。
 
 贡献者
 ------------------------

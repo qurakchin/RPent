@@ -13,7 +13,18 @@ Single-Arm Franka
 RPent can control one physical Franka arm through an RLinf ``RealWorldEnv``
 worker.
 
-**Page map:** Installation → Calibration → Robot Configuration → Start Services → Run a Task → View Results → Tools and State Artifacts → Flash Replay → Safety and Stopping.
+**Page map:** Safety and Stopping → Installation → Calibration → Robot Configuration → Start Services → Run a Task → Smoke Test → VLA Grasp Demo → View Results → Tools and State Artifacts → Flash Replay → Agent-Assisted Point Selection.
+
+Safety and Stopping
+-------------------
+
+Keep an operator at the emergency stop. Validate the smoke test with very small
+motions before attempting a grasp. Stop when camera/state results disagree,
+when the requested motion is not reached, or when any calibration is uncertain.
+
+Press Ctrl+C in the terminal to request RPent shutdown; use the hardware
+emergency stop for an emergency. Check the arm and gripper before shutting down
+services through the controller’s shutdown procedure.
 
 Installation
 ------------
@@ -31,13 +42,10 @@ controller cannot start. Check that the bundled libfranka 0.19.0 matches your
 robot firmware using the `official libfranka guide
 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_.
 
-Clone RPent and install its Python dependencies. If you already have the
-checkout, enter it and run the same command:
+Complete :ref:`quickstart-install`, then install the Franka extra:
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
    uv sync --extra franka
 
 Calibration
@@ -273,14 +281,3 @@ is stored only in the OS keyring, use file-based login or set ``CODEX_API_KEY``.
 Each attempt is saved in the step's ``flash_grounding.json``. Agent requests
 may incur model costs. The current request timeout is 90 seconds; tokens from
 agent point-selection requests are not included in the Flash planner's counts.
-
-Safety and Stopping
--------------------
-
-Keep an operator at the emergency stop. Validate the smoke test with very small
-motions before attempting a grasp. Stop when camera/state results disagree,
-when the requested motion is not reached, or when any calibration is uncertain.
-
-Press Ctrl+C in the terminal to request RPent shutdown; use the hardware
-emergency stop for an emergency. Check the arm and gripper before shutting down
-services through the controller’s shutdown procedure.

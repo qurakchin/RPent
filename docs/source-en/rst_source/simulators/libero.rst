@@ -12,7 +12,7 @@ Run tabletop manipulation tasks with RPent in `LIBERO <https://libero-project.gi
 
 For a first run, follow :doc:`../get_started/quickstart`; this page covers variants, task selection, results, and reproduction.
 
-**Page map:** Overview → Installation and Resources → VLA Configuration → SAM3 Configuration → Run a Task → View Results → Task Selection → WAM Evaluation → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Experiment Reproduction → Tools the Planner Can Call → What Runs Where → Dashboard → Bringing Your Own VLA.
+**Page map:** Overview → Installation → VLA Configuration → SAM3 Configuration → Run a Task → View Results → Task Selection → WAM Evaluation → Tasks → Task Memory → Experiment Reproduction → Tools the Planner Can Call.
 
 .. _libero-overview:
 
@@ -42,8 +42,8 @@ Check the model, task, and runtime requirements before following the installatio
 
 .. _installation-and-variants:
 
-Installation and Resources
---------------------------
+Installation
+------------
 
 For a first LIBERO-PRO run, complete the installation, asset downloads, and model setup in :doc:`../get_started/quickstart`. That page also lists estimated GPU memory, disk, and runtime.
 
@@ -128,6 +128,21 @@ The terminal shows server startup, planner conversation, and tool calls. After t
 
 Inspect the final state with ``view_env_state(step=-1)``. Its top-level ``terminated`` value is the native success result; ``finish`` ends planning. See :doc:`../guides/dashboard` for live monitoring.
 
+Dashboard
+~~~~~~~~~
+
+See :doc:`../guides/dashboard` to monitor runs, submit tasks, and stop a session.
+
+Validation Status
+~~~~~~~~~~~~~~~~~
+
+- Verified (multiple runs): the v0.1 release tests and sampled paper
+  reproduction cover LIBERO-PRO tasks; see the :doc:`release notes
+  <../resources/release_v0.1>` for configurations, seeds, and episode counts,
+  and the :doc:`leaderboard <../leaderboard/index>` for published scores.
+- CPU only: offline unit tests cover task selection, tools, and result
+  contracts.
+
 Task Selection
 --------------
 
@@ -204,10 +219,8 @@ their perturbation suites.
      - ``libero_10_task``, ``libero_10_swap``, ``libero_10_lan``,
        ``libero_10_object``
 
-.. _libero-observation-action:
-
 Observation and Action
-----------------------
+~~~~~~~~~~~~~~~~~~~~~~
 
 The table distinguishes planner tools, model inputs, and the environment’s success criterion.
 
@@ -225,15 +238,9 @@ The table distinguishes planner tools, model inputs, and the environment’s suc
    * - Task prompt
      - The task language comes from the selected suite/task and the current environment.
 
-Validation Status
------------------
+.. _libero-observation-action:
 
-- Verified (multiple runs): the v0.1 release tests and sampled paper
-  reproduction cover LIBERO-PRO tasks; see the :doc:`release notes
-  <../resources/release_v0.1>` for configurations, seeds, and episode counts,
-  and the :doc:`leaderboard <../leaderboard/index>` for published scores.
-- CPU only: offline unit tests cover task selection, tools, and result
-  contracts.
+
 
 .. _libero-exploration:
 
@@ -251,7 +258,7 @@ Evaluation is single-attempt and reads memory without updating it. The default
 versioned layout.
 
 Exploration Mode
-----------------
+~~~~~~~~~~~~~~~~
 
 Use ``--explore`` to build local memory or ``--memory-profile local`` to read a prepared corpus. See :doc:`../guides/memory` for the complete LIBERO workflow and commands. LIBERO’s native success result determines whether successful task records are published.
 
@@ -325,7 +332,7 @@ Physical action tools advance the environment and record new state and images.
 These tools do not advance the environment.
 
 What Runs Where
----------------
+~~~~~~~~~~~~~~~
 
 LIBERO separates simulation and model inference into services. The toolkit
 uses their clients to execute the planner's requests.
@@ -347,13 +354,8 @@ uses their clients to execute the planner's requests.
   ``rotate_wrist``, ``back_project``, ``view_env_state``,
   ``finish``, …
 
-Dashboard
----------
-
-See :doc:`../guides/dashboard` to monitor runs, submit tasks, and stop a session.
-
 Bringing Your Own VLA
----------------------
+~~~~~~~~~~~~~~~~~~~~~
 
 If you have a LIBERO-compatible VLA that is not Pi0.5, swap the model
 client without touching the robot by:

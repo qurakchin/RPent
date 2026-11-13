@@ -35,8 +35,9 @@ the next decision. The sequence below follows one run from CLI setup to cleanup.
    :width: 85%
    :align: center
 
-   One run from CLI setup to saved artifacts. Success is decided by the
-   environment or the robot operator.
+   One run from CLI setup to saved artifacts. A failing or timed-out tool
+   returns an error result to the planner, which decides whether to retry.
+   Success is decided by the environment or the robot operator.
 
 ``finish`` marks the end of planning; success comes from the environment or a real-robot operator. See each environment guide for its criterion. The main entry point is ``rpent/cli/main.py``.
 

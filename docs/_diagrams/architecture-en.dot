@@ -1,6 +1,8 @@
 digraph architecture {
-  graph [rankdir=TB, splines=spline, nodesep=0.30, ranksep=0.36, pad=0.20,
-         newrank=true, fontname="Helvetica", bgcolor="white"];
+  graph [rankdir=TB, splines=ortho, nodesep=0.50, ranksep=0.55, pad=0.20,
+         newrank=true, fontname="Helvetica", bgcolor="white",
+         label="Green: user entry · Blue: agent · Teal: services · Purple: environments", labelloc="b", labeljust="l", fontsize=10,
+         fontcolor="#4b5563"];
   node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12,
         margin="0.16,0.09", penwidth=1.2];
   edge [color="#7c889a", penwidth=1.3, arrowsize=0.7, fontname="Helvetica",
@@ -24,7 +26,7 @@ digraph architecture {
 {rank=same; prompts; planner; toolkit; memory;}
   prompts [label=<<FONT POINT-SIZE="13"><B>Prompts</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">system · user templates</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
   planner [label=<<FONT POINT-SIZE="13"><B>Planner</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">api · claude_code · codex · flash</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
-  toolkit [label=<<FONT POINT-SIZE="13"><B>Toolkit</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">tool schemas · dispatch · ToolResult</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
+  toolkit [label=<<FONT POINT-SIZE="13"><B>Toolkit</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">tool schemas · dispatch · ToolResult</FONT>>, fillcolor="#eaf1fd", color="#93b4f0", group=spine];
   memory [label=<<FONT POINT-SIZE="13"><B>MemoryManager</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">read · merge · index</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
   }
 
@@ -36,7 +38,7 @@ digraph architecture {
 {rank=same; vla; perception; env_service;}
   vla [label=<<FONT POINT-SIZE="13"><B>VLA / WAM service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Pi0.5 · RLDX-1 · LingBot-VLA<BR/>VPP2 · Awomo05</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8"];
   perception [label=<<FONT POINT-SIZE="13"><B>Perception service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">SAM3 · Molmo2<BR/>(Flash localization)</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8"];
-  env_service [label=<<FONT POINT-SIZE="13"><B>Environment service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">simulator or robot connection</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8"];
+  env_service [label=<<FONT POINT-SIZE="13"><B>Environment service</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">simulator or robot connection</FONT>>, fillcolor="#e7f7f5", color="#7fd3c8", group=spine];
   }
 
   subgraph cluster_env {
@@ -49,14 +51,14 @@ digraph architecture {
   real [label=<<FONT POINT-SIZE="13"><B>Real robots</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">Franka · Dual-Arm Franka · YAM</FONT>>, fillcolor="#f3ecfe", color="#b79bea"];
   }
 
-  dashboard -> planner [label="task"];
-  cli -> planner [label="task"];
-  prompts -> planner [style=dashed, label="rendered"];
-  planner -> toolkit [label="execute_tool"];
-  toolkit -> memory [dir=both, label="memory"];
-  toolkit -> vla [label="action"];
-  toolkit -> perception [label="locate"];
-  toolkit -> env_service [label="state"];
-  env_service -> sims [dir=both, label="connection"];
-  env_service -> real [dir=both, label="connection"];
+  dashboard -> planner [xlabel="task"];
+  cli -> planner [xlabel="task"];
+  prompts -> planner [style=dashed];
+  planner -> toolkit;
+  toolkit -> memory [dir=both, xlabel="memory"];
+  toolkit -> vla [xlabel="action"];
+  toolkit -> perception;
+  toolkit -> env_service [xlabel="state"];
+  env_service -> sims [dir=both, xlabel="connection"];
+  env_service -> real [dir=both, xlabel="connection"];
 }

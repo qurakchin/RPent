@@ -12,7 +12,7 @@ LIBERO
 
 首次运行请按 :doc:`../get_started/quickstart` 操作；本页介绍版本选择、任务选择、结果查看与实验复现。
 
-**本文结构：** 概览 → 安装与资源准备 → VLA 配置 → SAM3 配置 → 运行一个任务 → 查看结果 → 任务选择 → WAM 评测 → 任务 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 实验复现 → 规划器可调用的工具 → 进程分工 → Dashboard → 接入自定义 VLA。
+**本文结构：** 概览 → 安装 → VLA 配置 → SAM3 配置 → 运行一个任务 → 查看结果 → 任务选择 → WAM 评测 → 任务 → 任务记忆 → 实验复现 → 规划器可调用的工具。
 
 .. _libero-overview:
 
@@ -42,8 +42,8 @@ LIBERO
 
 .. _installation-and-variants:
 
-安装与资源准备
---------------
+安装
+----
 
 首次运行 LIBERO-PRO 时，请先完成 :doc:`../get_started/quickstart` 的安装、资源下载和模型配置；该页同时给出显存、磁盘和运行耗时的估算。
 
@@ -121,6 +121,17 @@ SAM3 配置
 
 通过 ``view_env_state(step=-1)`` 查看最终状态，顶层 ``terminated`` 表示环境是否判定成功。规划器调用 ``finish`` 只表示结束规划。实时观察方法见 :doc:`../guides/dashboard`。
 
+Dashboard
+~~~~~~~~~
+
+实时监控、提交任务和停止会话的方法见 :doc:`../guides/dashboard`。
+
+验证状态
+~~~~~~~~
+
+- 已验证（多次）：v0.1 发布版测试与论文配置抽样复现覆盖 LIBERO-PRO 任务；配置、seed 与回合数见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
+- 仅 CPU：离线单测覆盖任务选择、工具与结果契约。
+
 任务选择
 --------
 
@@ -187,10 +198,8 @@ Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-PRO 需�
      - ``libero_10_task``、``libero_10_swap``、``libero_10_lan``、
        ``libero_10_object``
 
-.. _libero-observation-action:
-
 观测与动作
-----------
+~~~~~~~~~~
 
 下表区分规划器使用的工具、模型输入及环境的成功判定。
 
@@ -208,11 +217,9 @@ Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-PRO 需�
    * - 任务指令
      - 任务指令来自所选套件、任务及当前环境。
 
-验证状态
---------
+.. _libero-observation-action:
 
-- 已验证（多次）：v0.1 发布版测试与论文配置抽样复现覆盖 LIBERO-PRO 任务；配置、seed 与回合数见 :doc:`发布说明 <../resources/release_v0.1>`，完整榜单见 :doc:`排行榜 <../leaderboard/index>`。
-- 仅 CPU：离线单测覆盖任务选择、工具与结果契约。
+
 
 .. _libero-exploration:
 
@@ -226,7 +233,7 @@ Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-PRO 需�
 评测只运行一次尝试，读取记忆但不更新。默认的 ``hf`` 模式使用 ``--memory-version auto`` 按模型选择记忆版本。显式版本、离线准备和分版本目录结构见 :doc:`../guides/memory`。
 
 探索模式
---------
+~~~~~~~~
 
 使用 ``--explore`` 生成本地记忆，或通过 ``--memory-profile local`` 读取已有记忆。完整的 LIBERO 命令与操作步骤见 :doc:`../guides/memory`。LIBERO 以环境成功判定决定是否发布成功任务记录。
 
@@ -279,7 +286,7 @@ LIBERO 工具分为物理动作工具和只读工具。
 这些工具不会推进环境。
 
 进程分工
---------
+~~~~~~~~
 
 LIBERO 将仿真和模型推理分别放在独立服务器中运行，工具集通过对应客户端执行规划器的请求。
 
@@ -288,13 +295,8 @@ LIBERO 将仿真和模型推理分别放在独立服务器中运行，工具集�
 - **sam3_server** （``rpent/robots/components/sam3_server.py``）—— 加载 SAM 3.0，根据文字描述或目标物体上的一个像素点，分割出目标区域。如果模型给出多个候选结果，只保留评分最高的一个，并通过同一套 RPC 传输（HTTP 或 socket）返回压缩 PNG 格式的分割掩码（mask）。
 - **toolkit（工具集）** （``robots/libero/toolkit.py``）—— 定义 LLM 能调用的工具：``pi0_pick`` （交给 Pi0.5）、``move_to``、``rotate_wrist``、 ``back_project``、``view_env_state``、``finish``…
 
-Dashboard
----------
-
-实时监控、提交任务和停止会话的方法见 :doc:`../guides/dashboard`。
-
 接入自定义 VLA
----------------
+~~~~~~~~~~~~~~
 
 如果你有一个与 LIBERO 兼容、但并非 Pi0.5 的 VLA，可以在不修改机器人实现的情况下替换 model client：
 

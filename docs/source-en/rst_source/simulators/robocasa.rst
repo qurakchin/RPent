@@ -10,7 +10,7 @@ RoboCasa365
 
 Run kitchen manipulation tasks with RPent in RoboCasa365, then reproduce Target50 experiments. This integration uses the PandaOmron mobile manipulator and the RLDX-1 action model; its CLI name is ``robocasa``.
 
-**Page map:** Overview → Installation and Resources → VLA Configuration → Run a Task → View Results → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Experiment Reproduction → environment checks, troubleshooting, and implementation notes.
+**Page map:** Overview → Installation → VLA Configuration → Run a Task → View Results → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Experiment Reproduction → environment checks, troubleshooting, and implementation notes.
 
 .. _robocasa-overview:
 
@@ -38,18 +38,16 @@ Check the model, task, and runtime requirements before following the installatio
 
       Linux, NVIDIA GPU; Python 3.10; CUDA and EGL.
 
-Installation and Resources
---------------------------
+Installation
+------------
 
 Use Linux, an NVIDIA GPU, working CUDA/EGL, ``git``, and
-`uv <https://docs.astral.sh/uv/getting-started/installation/>`_. Create a separate
-Python 3.10 environment. If you already have the repository, enter it and start
-at the third line:
+`uv <https://docs.astral.sh/uv/getting-started/installation/>`_. Complete
+:ref:`quickstart-install`, then create a separate Python 3.10 environment for
+RoboCasa:
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
    uv venv --python 3.10 .venv-robocasa
    source .venv-robocasa/bin/activate
 
@@ -611,7 +609,7 @@ network access.
 
 .. _robocasa-troubleshooting:
 
-Troubleshooting
+Common Problems
 ---------------
 
 Start with the output directory's logs: ``env_server.log`` for environment

@@ -13,10 +13,51 @@ YAM
 RPent controls the dual-arm YAM system through RLinf's robot interface. For the task
 video, see :doc:`YAM demo <../real_world_demos/yam>`.
 
-**Page map:** Installation → Calibration → Robot Configuration → Task Selection → VLA Configuration → Data Collection and Training → Codex Configuration → Start Services → Manual Skill Tests → Run a Task → View Results → Verification Status → Tools and State Artifacts → Exploration Mode → Safety and Stopping.
+**Page map:** Safety and Stopping → Installation → Calibration → Robot Configuration → Task Selection → VLA Configuration → Data Collection and Training → Codex Configuration → Start Services → Manual Skill Tests → Run a Task → View Results → Verification Status → Tools and State Artifacts → Exploration Mode → Logs and Memory.
 
 .. _id1:
 .. _yam-installation:
+
+Safety and Stopping
+-------------------
+
+.. warning::
+
+   Keep an on-site operator at the hardware emergency stop during motion. The software
+   stops below hold the current posture or end the episode; they do not cut motor power
+   and are not a substitute for the emergency stop.
+
+To stop an active task, send an abort receipt with the current episode ID:
+
+.. code-block:: bash
+
+   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
+     --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
+     --event abort --note 'Stopping the task and holding the arms'
+
+``--event abort`` writes the abort receipt and sends ``env.request_stop``. The request
+sets a stop latch and holds the measured joint positions at the next safe writer
+boundary; the call returns before the hold is confirmed (``hold_confirmed: false``).
+Keep clear of the arms and keep the emergency stop accessible until they stop. ``abort``
+does not run the ``park_on_close`` home motion.
+
+In the manual diagnostic console, ``{"tool":"stop"}`` sends the same stop request, and
+``quit`` sends a stop request before exiting. Neither homes nor releases the grippers.
+If the console reports an uncertain operation, inspect the physical setup and restart
+the console instead of repeating the command.
+
+After stopping the task, set down or remove any objects held in the grippers. Confirm
+that the path to the home pose is clear, then run in the operator terminal:
+
+.. code-block:: bash
+
+   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
+     --endpoint socket://127.0.0.1:8110 --event shutdown
+
+ENV returns to the home pose configured in ``park_on_close``, verifies arrival, then
+disables motor output. If it cannot reach the pose, keep the process running and inspect
+the physical setup; do not force it to exit. After ENV exits normally, close the VLA
+service and SSH forwarding.
 
 Installation
 ------------
@@ -27,15 +68,11 @@ Use Linux and Python 3.11. This guide uses two machines:
   runs ENV and RPent.
 * **Inference machine**: runs the Pi0.5 VLA service on an NVIDIA GPU.
 
-Use the same RPent code and RLinf commit on both machines. Install uv following
-:doc:`../get_started/quickstart`, then prepare the environment on each machine:
+Use the same RPent code and RLinf commit on both machines. Complete
+:ref:`quickstart-install` with Python 3.11 on each machine, then check out the
+same RLinf commit:
 
 .. code-block:: bash
-
-   git clone https://github.com/RLinf/RPent.git /path/to/RPent
-   cd /path/to/RPent
-   uv venv --python 3.11
-   source .venv/bin/activate
 
    git clone --branch main https://github.com/RLinf/RLinf.git /path/to/RLinf
    git -C /path/to/RLinf checkout --detach 196d40b6dec6f7a4063edee31cfeaa6ca0ee435a
@@ -465,44 +502,3 @@ by default. Use ``--no-auto-merge-memory`` to disable automatic merging. See
 :doc:`../guides/memory` for the directory structure and memory usage.
 
 .. _yam-shutdown:
-
-Safety and Stopping
--------------------
-
-.. warning::
-
-   Keep an on-site operator at the hardware emergency stop during motion. The software
-   stops below hold the current posture or end the episode; they do not cut motor power
-   and are not a substitute for the emergency stop.
-
-To stop an active task, send an abort receipt with the current episode ID:
-
-.. code-block:: bash
-
-   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
-     --endpoint socket://127.0.0.1:8110 --episode-id CURRENT_ID \
-     --event abort --note 'Stopping the task and holding the arms'
-
-``--event abort`` writes the abort receipt and sends ``env.request_stop``. The request
-sets a stop latch and holds the measured joint positions at the next safe writer
-boundary; the call returns before the hold is confirmed (``hold_confirmed: false``).
-Keep clear of the arms and keep the emergency stop accessible until they stop. ``abort``
-does not run the ``park_on_close`` home motion.
-
-In the manual diagnostic console, ``{"tool":"stop"}`` sends the same stop request, and
-``quit`` sends a stop request before exiting. Neither homes nor releases the grippers.
-If the console reports an uncertain operation, inspect the physical setup and restart
-the console instead of repeating the command.
-
-After stopping the task, set down or remove any objects held in the grippers. Confirm
-that the path to the home pose is clear, then run in the operator terminal:
-
-.. code-block:: bash
-
-   python -m robots.yam.operator_control --robot-config robots/yam/config/example.yaml \
-     --endpoint socket://127.0.0.1:8110 --event shutdown
-
-ENV returns to the home pose configured in ``park_on_close``, verifies arrival, then
-disables motor output. If it cannot reach the pose, keep the process running and inspect
-the physical setup; do not force it to exit. After ENV exits normally, close the VLA
-service and SSH forwarding.

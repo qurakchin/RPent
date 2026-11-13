@@ -223,7 +223,7 @@ Keep this order for every simulator page:
 | # | English | Chinese | Level | Requirement |
 | --- | --- | --- | --- | --- |
 | 1 | Overview | 概览 | H2 | Required |
-| 2 | Installation and Resources | 安装与资源准备 | H2 | Required |
+| 2 | Installation | 安装 | H2 | Required |
 | 3 | VLA Configuration | VLA 配置 | H2 | Conditional: a VLA checkpoint must be prepared |
 | 4 | SAM3 Configuration | SAM3 配置 | H2 | Conditional: segmentation is used |
 | 5 | Run a Task | 运行一个任务 | H2 | Required |
@@ -240,8 +240,8 @@ Keep this order for every simulator page:
 | 16 | Tools the Planner Can Call | 规划器可调用的工具 | H2 | Conditional: the tool surface needs explanation |
 | 17 | Page-specific sections | 页面专属章节 | H2 | Conditional: Dashboard, deployment, diagnostics, implementation notes |
 
-Installation and Resources owns both the environment setup and its asset
-downloads. When asset downloads form their own procedure, put them in a
+Installation owns both the environment setup and its asset downloads. When
+asset downloads form their own procedure, put them in a
 **Download Assets / 下载资源** H3 and keep the install prose above it; when a
 single table row covers them, keep them inline. VLA Configuration owns
 checkpoint download and model-specific settings; do not create separate
@@ -258,6 +258,10 @@ Use links to shared guides instead of repeating generic planner, memory, or
 Dashboard instructions. Preserve environment-specific requirements. Never
 present a single successful task as validation of a complete benchmark.
 
+Name an overview section **Overview / 概览** on every page that has one. Name
+in-page failure guidance **Common Problems / 常见问题**; only the shared guide
+uses the page title **Troubleshooting / 问题排查**.
+
 State software and accelerator requirements from the supported setup. Report
 verified GPU models and memory usage only when there is evidence; distinguish
 measurements from estimates or minimum requirements. Add a separate hardware
@@ -272,32 +276,32 @@ Use a clear introductory robot photo with alt text, a short caption, and
 proportions and check desktop and narrow-screen layouts. Keep the source URL
 in the RST; add a visible credit when the asset's terms require it.
 
-Deployment pages follow this order, omitting a section only when the robot does
-not need it:
+Deployment pages put safety first and then follow this order, omitting a
+section only when the robot does not need it:
 
 | # | English | Chinese | Purpose |
 | --- | --- | --- | --- |
-| 1 | Installation | 安装 | Package, driver, and controller setup |
-| 2 | Calibration | 标定 | Hand-eye or arm calibration |
-| 3 | Robot Configuration | 机器人配置 | Robot file, workspace, and safety limits |
-| 4 | Task Selection | 任务选择 | Task and scene arguments |
-| 5 | VLA Configuration | VLA 配置 | Checkpoint and endpoint |
-| 6 | Codex Configuration | Codex 配置 | Codex login and runtime isolation, where the robot needs it |
-| 7 | Start Services | 启动服务 | Ray or two-machine startup |
-| 8 | Manual Skill Tests | 手动技能测试 | Primitives and diagnostics before an agent run |
-| 9 | Run a Task | 运行一个任务 | One runnable task |
-| 10 | View Results | 查看结果 | Artifacts and success criterion |
-| 11 | Verification Status | 验证状态 | What has actually been validated |
-| 12 | Tools and State Artifacts | 工具与状态产物 | Tool surface and captured state |
-| 13 | Exploration Mode | 探索模式 | Operator-assisted retries, when supported |
-| 14 | Flash Replay | Flash 回放 | Plan replay, when supported |
-| 15 | Safety and Stopping | 安全与停止 | Operator responsibilities and shutdown |
+| 1 | Safety and Stopping | 安全与停止 | Operator responsibilities, emergency stop, and shutdown |
+| 2 | Installation | 安装 | Package, driver, and controller setup |
+| 3 | Calibration | 标定 | Hand-eye or arm calibration |
+| 4 | Robot Configuration | 机器人配置 | Robot file, workspace, and safety limits |
+| 5 | Task Selection | 任务选择 | Task and scene arguments |
+| 6 | VLA Configuration | VLA 配置 | Checkpoint and endpoint |
+| 7 | Codex Configuration | Codex 配置 | Codex login and runtime isolation, where the robot needs it |
+| 8 | Start Services | 启动服务 | Ray or two-machine startup |
+| 9 | Manual Skill Tests | 手动技能测试 | Primitives and diagnostics before an agent run |
+| 10 | Run a Task | 运行一个任务 | One runnable task |
+| 11 | View Results | 查看结果 | Artifacts and success criterion |
+| 12 | Verification Status | 验证状态 | What has actually been validated |
+| 13 | Tools and State Artifacts | 工具与状态产物 | Tool surface and captured state |
+| 14 | Exploration Mode | 探索模式 | Operator-assisted retries, when supported |
+| 15 | Flash Replay | Flash 回放 | Plan replay, when supported |
 
-Use **Start Services** rather than naming Ray or the machine count in the
-heading; state the topology in the section's first sentence. End every
-deployment page with **Safety and Stopping**; do not keep a separate
-**Safety** section earlier on the page. Keep operator responsibilities and
-physical safety constraints explicit.
+Put **Safety and Stopping** before **Installation** and keep the hardware
+emergency stop distinct from software shutdown. Use **Start Services** rather
+than naming Ray or the machine count in the heading; state the topology in the
+section's first sentence. Do not keep a second **Safety** section later on the
+page. Keep operator responsibilities and physical safety constraints explicit.
 
 Demo pages describe the task, embed the video, and link to the corresponding
 installation and usage guide. Clearly mark pending instructions and coming-soon

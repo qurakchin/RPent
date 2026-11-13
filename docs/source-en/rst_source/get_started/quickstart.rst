@@ -35,8 +35,13 @@ These estimates cover this LIBERO-PRO setup; they are not a hardware certificati
    * - Run time
      - Typically 5–15 minutes per episode with an online planner; planner, model, and reasoning effort dominate. Reported means are on :doc:`Time & Token Costs <../leaderboard/time-token-costs>`.
 
+.. _quickstart-install:
+
 1. Install RPent
 ----------------
+
+The steps in this section are the reference installation. Platform pages add
+only their extra package, Python version, or system dependencies.
 
 Create and activate an isolated Python environment:
 
@@ -130,7 +135,7 @@ For terminal interaction, add ``--tui`` (``-t``) to enter follow-up
 instructions. It cannot be combined with ``--dashboard``. See
 :ref:`terminal-interaction` for planner-specific controls.
 
-If a Step Fails
+Common Problems
 ---------------
 
 .. list-table::

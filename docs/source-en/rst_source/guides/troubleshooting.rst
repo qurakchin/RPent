@@ -90,6 +90,12 @@ logs and artifacts.
      - Forward the port printed at startup: ``ssh -N -L
        8000:127.0.0.1:8000 USER@HOST``, then open ``http://127.0.0.1:8000``.
      - :doc:`advanced_deployment`
+   * - The planner stops at the turn limit
+     - The budget in ``--max-turns`` was used up, including model retries
+       on the ``api`` backend.
+     - Reaching the limit is a normal stop, not proof of failure. Raise
+       ``--max-turns`` or narrow the task, then rerun.
+     - :doc:`configure_planner`
    * - A real-robot run refuses to start
      - Calibration, pose prerequisites, or an emergency stop.
      - Complete the robot's calibration and pose check, release the emergency

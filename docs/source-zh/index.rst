@@ -153,3 +153,12 @@ RPent 面向机器人学与具身智能的研究者和工程师：用同一套�
    Harness VLA <rst_source/resources/harnessvla>
    贡献指南 <rst_source/resources/contributing>
    v0.1 发布说明 <rst_source/resources/release_v0.1>
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   动作模型参考 <rst_source/development/action_model_reference>
+   机器人接入参考 <rst_source/development/add_robot_reference>
+   双臂 Franka 参考 <rst_source/real_world_robots/dual_franka_reference>
+   RoboDojo 参考 <rst_source/simulators/robodojo_reference>

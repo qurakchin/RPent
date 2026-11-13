@@ -12,7 +12,14 @@
 
 RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械臂。
 
-**本文结构：** 安装 → 标定 → 机器人配置 → 启动服务 → 运行一个任务 → 查看结果 → 工具与状态产物 → Flash 回放 → 安全与停止。
+**本文结构：** 安全与停止 → 安装 → 标定 → 机器人配置 → 启动服务 → 运行一个任务 → 冒烟测试 → VLA 抓取演示 → 查看结果 → 工具与状态产物 → Flash 回放 → Agent 辅助选点。
+
+安全与停止
+----------
+
+操作员必须守在急停按钮旁。在尝试抓取之前，先用极小幅度动作验证冒烟测试。一旦相机与状态结果不一致、目标运动没有到位，或任何标定存在疑问，应立即停止。
+
+在终端按 Ctrl+C 请求结束 RPent；紧急情况下使用硬件急停按钮。确认机械臂与夹爪状态后，再按控制节点的停机流程关闭服务。
 
 安装
 ----
@@ -21,12 +28,10 @@ RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械�
 
 ``franky-control`` wheel 仅提供 Linux x86_64 的 Python 3.10、3.11、3.12 版本；RPent 要求 Python ``>=3.10,<3.13``。在其他平台或 Python 版本上不会安装该 wheel，Franka 控制器无法启动。请参考 `libfranka 官方安装指南 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_，核对内置 libfranka 0.19.0 与机器人固件是否兼容。
 
-克隆 RPent 并安装 Python 依赖。若已有仓库，进入仓库后执行同一条命令：
+先完成 :ref:`quickstart-install`，再安装 Franka extra：
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
    uv sync --extra franka
 
 标定
@@ -208,10 +213,3 @@ Codex 复用已有的模型/provider 配置和文件登录，来加载介入的a
 
 每次尝试保存到对应步骤的 ``flash_grounding.json``。Agent 请求可能产生模型费用，
 当前设置的超时时间为 90 秒；Agent 选点请求产生的 token 不计入 Flash 规划器的统计。
-
-安全与停止
-----------
-
-操作员必须守在急停按钮旁。在尝试抓取之前，先用极小幅度动作验证冒烟测试。一旦相机与状态结果不一致、目标运动没有到位，或任何标定存在疑问，应立即停止。
-
-在终端按 Ctrl+C 请求结束 RPent；紧急情况下使用硬件急停按钮。确认机械臂与夹爪状态后，再按控制节点的停机流程关闭服务。

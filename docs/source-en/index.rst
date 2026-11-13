@@ -153,3 +153,12 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    Harness VLA <rst_source/resources/harnessvla>
    Contributing <rst_source/resources/contributing>
    v0.1 Release Notes <rst_source/resources/release_v0.1>
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   Action Model Reference <rst_source/development/action_model_reference>
+   Robot Integration Reference <rst_source/development/add_robot_reference>
+   Dual-Arm Franka Reference <rst_source/real_world_robots/dual_franka_reference>
+   RoboDojo Reference <rst_source/simulators/robodojo_reference>

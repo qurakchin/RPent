@@ -16,7 +16,7 @@ dual-arm Franka, and YAM robots, and provides Memory, Flash Mode, an interactive
 Dashboard. RPent has been evaluated in simulation and on real robots, with leading task success
 rates on benchmarks such as LIBERO-PRO among the methods listed on the leaderboard.
 
-**Page map:** highlights → features → contributors → benchmark results → getting started → test results.
+**Page map:** highlights → features → migration → contributors → benchmark results → getting started → test results.
 
 Highlights
 --------------------
@@ -142,6 +142,20 @@ System
 - **Memory**: Public datasets of task experience and task cards, with local memory validation,
   merging, and index updates, allow agents to reuse existing experience. :doc:`User guide
   </rst_source/guides/memory>` | `Dataset <https://huggingface.co/datasets/RLinf/RPent-memory>`__
+
+Migrating from Earlier Commands
+-------------------------------
+
+No command-line flag was removed in v0.1. Two names changed, and the old
+spellings still work with a deprecation warning:
+
+- ``--env`` → ``--robot``. Both select the robot or environment; passing both
+  is an error. Update scripts to the robot names, such as ``--robot yam``.
+- ``--interactive`` (``-i``) → ``--tui`` (``-t``).
+
+Documentation URLs moved from ``usage/`` to ``guides/``, ``simulators/``,
+``real_world_robots/`` and ``real_world_demos/``; the published site redirects
+old links.
 
 Contributors
 ------------------------

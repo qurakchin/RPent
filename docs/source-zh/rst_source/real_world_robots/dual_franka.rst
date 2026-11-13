@@ -10,19 +10,32 @@
 
 RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统。任务视频见 :doc:`双臂 Franka 演示 <../real_world_demos/franka>`。
 
-**本文结构：** 安装 → 标定 → 机器人配置 → 任务选择 → VLA 配置 → Codex 配置 → 启动服务 → 手动技能测试 → 运行一个任务 → 查看结果 → 验证状态 → 工具与状态产物 → 探索模式 → Flash 回放 → 安全与停止。
+**本文结构：** 安全与停止 → 安装 → 标定 → 机器人配置 → 任务选择 → VLA 配置 → Codex 配置 → 启动服务 → 手动技能测试 → 独立 VLA 诊断控制台 → 运行一个任务 → 查看结果 → 验证状态。
+
+安全与停止
+----------
+
+整个运行期间都必须由操作员值守硬件急停。下文的软件停止只会停止命令执行或保持当前位姿，不会切断电机电源，也不能替代硬件急停。
+
+确认 ``request_scene_reset`` 前，先固定或取下夹持物，并清理双臂周围的区域。该复位会执行 RLinf 的环境复位，将双臂移动到 ``workspace.joint_reset_qpos`` 并张开两个夹爪。回复 ``done`` 前，请确认双臂的复位路径都已清空。复位本身也是运动，确认时请保持急停可触及。回复 ``abort`` 或关闭操作员输入会在复位开始前锁定运动，机械臂保持在原位。复位本身失败时运动同样保持锁定；此时复位尝试可能已移动机械臂，请先检查机械臂，必要时使用急停。
+
+运行期间：
+
+* 按 ``Ctrl+C`` 会请求关闭 RPent；正在执行的 RPC 或运动仍可能完成。
+* 在 VLA 诊断控制台中，``Ctrl+C`` 或 ``STOP`` 文件只会在动作之间停止。两者都不是硬件急停。
+* 探索模式或 Dashboard 中的 ``/abort`` 会停止任务，但已下发的动作仍可能返回。请等待双臂停止后再检查现场。
+
+``recover_joint_posture`` 是运动工具。它会重新下发每个夹爪当前的张开/闭合状态，将双臂关节复位到 ``workspace.joint_reset_qpos``，默认还会将两个 TCP 移回恢复前的位置附近。仅在 ``joint_health`` 报告 warning 或 critical 时使用，并在执行期间保持急停可触及。
+
+运行结束时，RPent 的双臂 Franka 环境服务不会下发待机回位指令：它只断开相机并关闭环境。关闭服务前，请先停止运行、保持急停可触及，并按机械臂控制器的停机流程操作。不要假设退出后机械臂会自动移动到安全姿态。
 
 安装
 ----
 
-在两台 Linux 控制节点分别安装 RPent，保持代码、Python、Ray 和 RLinf 版本一致。本地运行 VLA 或 SAM3 的节点需要 NVIDIA GPU。以下沿用 :doc:`../get_started/quickstart` 的安装方式：
+在两台 Linux 控制节点分别安装 RPent，保持代码、Python、Ray 和 RLinf 版本一致。本地运行 VLA 或 SAM3 的节点需要 NVIDIA GPU。两台机器都先完成 :ref:`quickstart-install`，再安装 Franka 与 SAM3 extra：
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   uv venv
-   source .venv/bin/activate
    uv pip install -e ".[franka,sam3]"
 
 下载 Python 依赖较慢时，可使用 `清华 PyPI 镜像 <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_ 替换上面的安装命令：
@@ -381,64 +394,4 @@ RLinf 按配置的节点创建相机句柄，不会跨节点搜索被移动的 U
 
 v0.1 发布说明和\ :doc:`双臂演示页 <../real_world_demos/franka>`\ 记录了任务目标变化后的餐具整理、倒钢珠、擦盘和收纳演示。这些是演示记录，不是成功率评测。本页不报告回合数或成功率；单次演示成功也不能证明在另一套设备或任务上的表现。
 
-工具与状态产物
---------------
-
-双臂 Franka 扩展提供 ``view_env_state``、``view_camera_meta``、``describe_dual_franka_setup``、``back_project``、``segment``、``move_delta``、``rotate_delta``、``open_gripper``、``close_gripper``、``recover_joint_posture``、``vla_right_grasp`` / ``vla_handoff`` / ``vla_left_place``、``request_scene_reset`` 和 ``request_operator_verdict``。每次解析式运动只会作用于一条臂（``left`` 或 ``right``）。``back_project`` 和 ``segment`` 使用配置的度量相机视角；``segment`` 还需要 SAM3 客户端。``recover_joint_posture`` 会重新下发每个夹爪当前的张开/闭合状态，将双臂关节复位到 ``workspace.joint_reset_qpos``，默认还会将两个 TCP 移回恢复前的位置附近。所有会改变环境状态的工具都会在 RPent 统一的 ``EnvState`` 中保存每条臂的状态以及同步的 left-wrist、base 和 right-wrist 图像。
-
-探索模式
---------
-
-在任务运行命令后追加 ``--explore``，即可启用探索模式。``--explore-attempts-per-session`` 设置每个规划器会话的尝试次数，``--explore-sessions`` 设置会话数；终端交互再加 ``--tui``，网页交互改用 ``--dashboard``。
-
-每个规划器会话先通过 ``request_scene_reset`` 请求场景确认。处理夹持物体、恢复场景后回复 ``done``；机器人复位成功并取得相机和状态观测后开始一次尝试，复位失败时不允许运动。``--explore-attempts-per-session`` 限制每个会话的尝试次数。普通任务和探索模式通过 ``--env-endpoint`` 接入的外部服务都必须声明 ``explicit_reset_only=True``。
-
-``request_operator_verdict`` 请求 ``success``、``failure``、``continue`` 或 ``abort``，可附备注。其中 success/failure 答复判定当前尝试，``continue`` 继续尝试，``abort`` 停止探索。后续运动会清除先前判定；关闭终端输入也会停止探索。
-
-使用 Codex/Claude 并加 ``--tui`` 时，确认回复使用显示的请求 ID，例如 ``/operator <request-id> done`` 或 ``/operator <request-id> success 物体已提起``；普通消息发送给智能体。不加 ``--tui`` 时直接按提示答复；使用 ``--dashboard`` 时在 Dashboard 消息输入框中输入下述命令。
-
-日志与记忆
-~~~~~~~~~~
-
-``sessions/session_<NNN>/`` 保存相机和机器人状态，``exploration.json`` 记录尝试边界，``operator_events.json`` 记录人工反馈。失败尝试的记录会保留，工作笔记位于 ``<memory-dir>/_internal/inbox/<recipe_tag>/wip/``。
-
-默认启用 memory 合并。正常结束后合并合法的 ``global`` / ``task-family`` 草稿，包括失败尝试的经验；成功时还将完整的 audit/recipe 文件对保存到 ``task-specific``。使用 ``--no-auto-merge-memory`` 可保留记录而不合并。运行错误、中止、切换任务或关闭 Dashboard 会话时不合并。记忆目录说明见 :doc:`../guides/memory`。
-
-探索命令
-~~~~~~~~
-
-在 Codex/Claude 终端交互（``--explore --tui``）或 Dashboard 探索中，可使用：
-
-* ``/success`` 或 ``/failure``：结束整个任务，而不只是判定当前尝试。成功要求场景已确认且复位成功；终端中可在首次复位前用 ``/failure`` 结束任务，Dashboard 中则需先用 ``/done`` 或 ``/abort`` 回答待处理的复位请求。
-* ``/done``：确认待处理的场景复位请求。
-* ``/continue``：回答待处理的判定请求并继续尝试。
-* ``/abort``：停止任务，相机不可用时也可使用。
-
-每条命令单独输入。不带斜杠的 ``success``、``failure`` 等词语是发给智能体的普通消息。已发送的机器人动作或 RPC 可能需返回后才能结束任务；这些命令不是急停。
-
-Flash 回放
-----------
-
-双臂使用共享的 :ref:`Franka Flash 流程 <franka-flash>`。以下以任务 ``0`` 为例；其他任务应同时替换生成和回放参数中的任务编号。生成任务卡时使用
-``--robot dual_franka --task dual_franka_t0``，回放时使用
-``--robot dual_franka --planner flash --task-id 0``，并提供双臂任务卡及配置。
-平移标注使用具有深度和有效标定的 ``base``、``d455``、``left_wrist`` 或
-``right_wrist`` 相机。移动原语通过 ``arm: left`` 或 ``arm: right`` 指定机械臂；
-左臂工作空间检查会把共享的右基座目标坐标转换到左基座坐标系。
-
-安全与停止
-----------
-
-整个运行期间都必须由操作员值守硬件急停。下文的软件停止只会停止命令执行或保持当前位姿，不会切断电机电源，也不能替代硬件急停。
-
-确认 ``request_scene_reset`` 前，先固定或取下夹持物，并清理双臂周围的区域。该复位会执行 RLinf 的环境复位，将双臂移动到 ``workspace.joint_reset_qpos`` 并张开两个夹爪。回复 ``done`` 前，请确认双臂的复位路径都已清空。复位本身也是运动，确认时请保持急停可触及。回复 ``abort`` 或关闭操作员输入会在复位开始前锁定运动，机械臂保持在原位。复位本身失败时运动同样保持锁定；此时复位尝试可能已移动机械臂，请先检查机械臂，必要时使用急停。
-
-运行期间：
-
-* 按 ``Ctrl+C`` 会请求关闭 RPent；正在执行的 RPC 或运动仍可能完成。
-* 在 VLA 诊断控制台中，``Ctrl+C`` 或 ``STOP`` 文件只会在动作之间停止。两者都不是硬件急停。
-* 探索模式或 Dashboard 中的 ``/abort`` 会停止任务，但已下发的动作仍可能返回。请等待双臂停止后再检查现场。
-
-``recover_joint_posture`` 是运动工具。它会重新下发每个夹爪当前的张开/闭合状态，将双臂关节复位到 ``workspace.joint_reset_qpos``，默认还会将两个 TCP 移回恢复前的位置附近。仅在 ``joint_health`` 报告 warning 或 critical 时使用，并在执行期间保持急停可触及。
-
-运行结束时，RPent 的双臂 Franka 环境服务不会下发待机回位指令：它只断开相机并关闭环境。关闭服务前，请先停止运行、保持急停可触及，并按机械臂控制器的停机流程操作。不要假设退出后机械臂会自动移动到安全姿态。
+工具、探索和 Flash 回放的详细说明见 :doc:`dual_franka_reference`。

@@ -10,7 +10,7 @@ RoboTwin
 
 Run bimanual tabletop tasks with RPent in `RoboTwin <https://robotwin-platform.github.io/>`_, then reproduce the C2R experiment in randomized scenes. RPent connects to the simulator through RLinf and uses LingBot-VLA to generate actions.
 
-**Page map:** Overview → Installation and Resources → VLA Configuration → Run a Task → View Results → WAM Evaluation → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Common Options → Experiment Reproduction → HF corpus selection.
+**Page map:** Overview → Installation → VLA Configuration → Run a Task → View Results → WAM Evaluation → Tasks → Observation and Action → Validation Status → Task Memory → Exploration Mode → Common Options → Experiment Reproduction → HF corpus selection.
 
 .. _robotwin-overview:
 
@@ -38,20 +38,16 @@ Check the model, task, and runtime requirements before following the installatio
 
       Linux, NVIDIA GPU; Python 3.11; CUDA and GL/EGL/Vulkan.
 
-Installation and Resources
---------------------------
+Installation
+------------
 
 RoboTwin requires Python 3.11. The host must already provide a compatible
 CUDA toolkit/NVCC, a compiler toolchain, and the system GL/EGL/Vulkan
-libraries that SAPIEN depends on. Create an environment and install the
-RoboTwin dependency set:
+libraries that SAPIEN depends on. Complete :ref:`quickstart-install` with
+Python 3.11, then install the RoboTwin dependency set:
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   uv venv --python 3.11 .venv-robotwin
-   source .venv-robotwin/bin/activate
    uv pip install -e ".[robotwin]"
 
 You do not need to run the RLinf installer or clone RoboTwin separately.

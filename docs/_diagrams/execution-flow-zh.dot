@@ -15,12 +15,15 @@ digraph flow {
   f_result [label=<<FONT POINT-SIZE="13"><B>运行产物</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">episode.mp4 · transcript · run.log</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
   f_cli -> f_session;
   f_session -> f_services;
-  f_services -> f_loop;
+  f_services -> f_loop [label="环境观测"];
   f_loop -> f_end;
   f_end -> f_result;
-  f_loop -> f_loop [label="下一轮", style=dashed, constraint=false];
+  {rank=same; f_loop; f_fail;}
+  f_loop -> f_fail [dir=both, label="错误 / 超时", style=dashed,
+                    constraint=false];
   f_note [label="成功由环境或真机操作员判定，finish 本身不代表任务成功。", shape=note, style="filled",
           fillcolor="#fff8e1", color="#e0c36b", fontsize=10, margin="0.12,0.08",
           penwidth=1.0];
   f_end -> f_note [style=dotted, arrowhead=none];
+  f_fail [label=<<FONT POINT-SIZE="13"><B>工具失败 / 超时</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">错误返回规划器</FONT>>, fillcolor="#fef3e2", color="#d9a05b"];
 }

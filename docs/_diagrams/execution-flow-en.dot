@@ -15,12 +15,15 @@ digraph flow {
   f_result [label=<<FONT POINT-SIZE="13"><B>Run artifacts</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">episode.mp4 · transcript · run.log</FONT>>, fillcolor="#eaf1fd", color="#93b4f0"];
   f_cli -> f_session;
   f_session -> f_services;
-  f_services -> f_loop;
+  f_services -> f_loop [label="Observation"];
   f_loop -> f_end;
   f_end -> f_result;
-  f_loop -> f_loop [label="next turn", style=dashed, constraint=false];
+  {rank=same; f_loop; f_fail;}
+  f_loop -> f_fail [dir=both, label="error / timeout", style=dashed,
+                    constraint=false];
   f_note [label="Success is decided by the environment or the robot operator, not by finish.", shape=note, style="filled",
           fillcolor="#fff8e1", color="#e0c36b", fontsize=10, margin="0.12,0.08",
           penwidth=1.0];
   f_end -> f_note [style=dotted, arrowhead=none];
+  f_fail [label=<<FONT POINT-SIZE="13"><B>Tool failure / timeout</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">error returned to the planner</FONT>>, fillcolor="#fef3e2", color="#d9a05b"];
 }

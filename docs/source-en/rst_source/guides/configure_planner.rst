@@ -6,7 +6,7 @@ Planner Configuration
 
 This page explains how to choose a planner, connect it to a model service, and verify that connection before running tasks.
 
-**Page map:** choose a backend (``api``, ``claude_code``, ``codex``) → verify the connection → add a backend → set run limits.
+**Page map:** choose a backend (``api``, ``claude_code``, ``codex``) → verify the connection → set run limits.
 
 Select the Agentic Planner backend with one CLI flag:
 
@@ -49,17 +49,12 @@ loop is orchestrated, and which model SDK is used.
 
 .. _planner-direct-actions:
 
-Direct actions
---------------------
-
-For LIBERO, RoboCasa, and RoboTwin, add ``--enable-direct-action`` to the launch
-command to let the planner call ``execute_action(values=[...])``. The planner
-supplies a list of control values, which the environment executes as one action.
-RPent then records the resulting state.
-
-The required values depend on the robot and controller. The tool description
-provided to the planner lists the expected number of values and their allowed
-ranges. VLA and scripted tools remain available when direct actions are enabled.
+**Direct actions.** For LIBERO, RoboCasa, and RoboTwin, add
+``--enable-direct-action`` to the launch command to let the planner call
+``execute_action(values=[...])``. The planner supplies a list of control values,
+which the environment executes as one action. The required values depend on the
+robot and controller; the tool description lists the expected count and allowed
+ranges. VLA and scripted tools remain available.
 
 The ``api`` Planner (direct Model API)
 ---------------------------------------
@@ -319,10 +314,8 @@ schemas, or your context length.
 
 .. _planner-custom:
 
-Add a Planner
--------------
-
-See :doc:`../development/add_planner` for the interface, integration steps, and validation requirements.
+To add a backend, see :doc:`../development/add_planner` for the interface,
+integration steps, and validation requirements.
 
 Configure Planner Limits
 ------------------------

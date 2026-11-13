@@ -10,7 +10,7 @@ RoboTwin
 
 使用 RPent 在 `RoboTwin <https://robotwin-platform.github.io/>`_ 中运行双臂桌面操作任务，并复现随机场景下的 C2R 实验。RPent 通过 RLinf 接入仿真器，使用 LingBot-VLA 生成动作。
 
-**本文结构：** 概览 → 安装与资源准备 → VLA 配置 → 运行一个任务 → 查看结果 → WAM 评测 → 任务 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 常用参数 → 实验复现 → HF 语料选择。
+**本文结构：** 概览 → 安装 → VLA 配置 → 运行一个任务 → 查看结果 → WAM 评测 → 任务 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 常用参数 → 实验复现 → HF 语料选择。
 
 .. _robotwin-overview:
 
@@ -38,17 +38,13 @@ RoboTwin
 
       Linux、NVIDIA GPU；Python 3.11；CUDA 与 GL/EGL/Vulkan。
 
-安装与资源准备
---------------
+安装
+----
 
-RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVCC、编译工具链以及 SAPIEN 依赖的系统级 GL/EGL/Vulkan 库。创建虚拟环境并安装 RoboTwin 所需依赖：
+RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVCC、编译工具链以及 SAPIEN 依赖的系统级 GL/EGL/Vulkan 库。先按 :ref:`quickstart-install` 完成 Python 3.11 环境，再安装 RoboTwin 所需依赖：
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   uv venv --python 3.11 .venv-robotwin
-   source .venv-robotwin/bin/activate
    uv pip install -e ".[robotwin]"
 
 用户不需要运行 RLinf 安装器，也不需要单独克隆 RoboTwin。

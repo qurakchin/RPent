@@ -3,7 +3,7 @@
 
 本页说明如何选择规划器、连接模型服务，并在正式运行任务前检查连接。RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 
-**本文结构：** 选择后端（``api``、``claude_code``、``codex``）→ 验证连接 → 添加后端 → 设置运行限制。
+**本文结构：** 选择后端（``api``、``claude_code``、``codex``）→ 验证连接 → 设置运行限制。
 
 .. code-block:: text
 
@@ -36,16 +36,9 @@
 
 .. _planner-direct-actions:
 
-直接执行动作
---------------------
-
-使用 LIBERO、RoboCasa 或 RoboTwin 时，在启动命令中添加
+**直接执行动作。** 使用 LIBERO、RoboCasa 或 RoboTwin 时，在启动命令中添加
 ``--enable-direct-action``，即可让 planner 调用
-``execute_action(values=[...])``。planner 传入一组控制数值，环境将其作为
-一个动作执行，RPent 随后记录执行后的状态。
-
-具体需要传入哪些数值，取决于机器人和控制器。planner 收到的工具说明会列出
-数值的个数及各自允许的范围。启用后，planner 仍可使用 VLA 和脚本工具。
+``execute_action(values=[...])``。planner 传入一组控制数值，环境将其作为一个动作执行。具体数值取决于机器人和控制器，工具说明会列出个数和允许范围；启用后仍可使用 VLA 和脚本工具。
 
 ``api`` 规划器（直接调用模型 API）
 -------------------------------------
@@ -226,9 +219,6 @@ RPent 的 ``--model`` 必须与 vLLM 的 ``--served-model-name`` 保持一致。
 检查通过只能证明认证与网络可达。它并不能证明模型会接受图像块（参见 ``--no-images``）、你的工具 schema，或你的上下文长度。
 
 .. _planner-custom:
-
-添加规划器
----------------
 
 自定义规划器的接口、接入步骤和验证要求见 :doc:`../development/add_planner`。
 

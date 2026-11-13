@@ -10,7 +10,7 @@ RoboCasa365
 
 使用 RPent 在 RoboCasa365 中运行厨房操作任务，并复现 Target50 实验。当前集成使用 PandaOmron 移动机械臂和 RLDX-1 动作模型，CLI 名称为 ``robocasa``。
 
-**本文结构：** 概览 → 安装与资源准备 → VLA 配置 → 运行一个任务 → 查看结果 → 任务 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 实验复现 → 环境自检、常见问题与实现说明。
+**本文结构：** 概览 → 安装 → VLA 配置 → 运行一个任务 → 查看结果 → 任务 → 观测与动作 → 验证状态 → 任务记忆 → 探索模式 → 实验复现 → 环境自检、常见问题与实现说明。
 
 .. _robocasa-overview:
 
@@ -38,15 +38,13 @@ RoboCasa365
 
       Linux、NVIDIA GPU；Python 3.10；CUDA 与 EGL。
 
-安装与资源准备
----------------------
+安装
+----
 
-需要 Linux、NVIDIA GPU、可用的 CUDA/EGL，以及 ``git`` 和 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_。使用独立的 Python 3.10 环境；已有仓库请先进入该目录，再从第三行开始：
+需要 Linux、NVIDIA GPU、可用的 CUDA/EGL，以及 ``git`` 和 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_。先完成 :ref:`quickstart-install`，再为 RoboCasa 创建独立的 Python 3.10 环境：
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
    uv venv --python 3.10 .venv-robocasa
    source .venv-robocasa/bin/activate
 
