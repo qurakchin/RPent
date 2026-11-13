@@ -343,6 +343,7 @@ Use these status words and do not strengthen them:
 | Verified (multiple) | Several seeds, episodes, or devices recorded in this repository | "Supported" |
 | Verified (single) | One end-to-end run recorded in this repository | "Completed once on X" |
 | External result | A published or third-party result that this repository does not reproduce | "Reported in the paper" |
+| Historical result | A run this repository recorded on a frozen snapshot that the current code or data does not reproduce | "Historical result on the frozen snapshot" |
 | CPU only | Contracts, configuration, or build checks passed | "Offline checks passed" |
 | Unverified | Implementation exists but no run is recorded | "Not verified yet" |
 | Experimental | The interface may change | "Experimental" |
@@ -353,11 +354,14 @@ rows. If it does not, downgrade the claim to **Unverified**. A link to a CI
 workflow describes how a check can run; it is not evidence that the check
 passed. Record a date, commit, hardware, seed, or artifact path only when it is
 known. Do not label a published paper result **Verified** unless the repository
-records the run that produced it; use **External result** instead.
+records the run that produced it; use **External result** instead. Use
+**Historical result** when the repository did record the run, but the current
+code, data, or configuration cannot reproduce it; name the frozen snapshot and
+say what has not been reevaluated.
 
 Use the matching Chinese status words in Chinese pages: 已验证（多次）、
-已验证（单次）、外部结果、仅 CPU、未验证、实验性、不适用. Do not write 支持或
-可用 unless the page records evidence for the corresponding status.
+已验证（单次）、外部结果、历史结果、仅 CPU、未验证、实验性、不适用. Do not write
+支持或可用 unless the page records evidence for the corresponding status.
 
 Use a small table so the tiers stay distinct:
 

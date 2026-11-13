@@ -344,6 +344,188 @@ def test_validation_status_vocabulary_and_evidence(tmp_path: Path) -> None:
     assert "valid.rst" not in result.stdout
 
 
+def test_validation_evidence_paths_must_exist(tmp_path: Path) -> None:
+    prefix = (
+        "Demo\n====\n\n"
+        "Validation Status\n-----------------\n\n"
+        ".. list-table::\n"
+        "   :header-rows: 1\n\n"
+        "   * - Tier\n"
+        "     - Status\n"
+        "     - Evidence\n"
+    )
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/fabricated.rst",
+        prefix
+        + "   * - Offline checks\n"
+        + "     - CPU only\n"
+        + "     - See ``missing/path/never-exists.md``.\n",
+    )
+    write(tmp_path, "docs/evidence.md")
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/present.rst",
+        prefix
+        + "   * - Offline checks\n"
+        + "     - CPU only\n"
+        + "     - See ``docs/evidence.md``.\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert (
+        "evidence path 'missing/path/never-exists.md' does not exist" in result.stdout
+    )
+    assert "present.rst" not in result.stdout
+
+
+def test_validation_pages_require_language_counterpart(tmp_path: Path) -> None:
+    prefix = (
+        "Demo\n====\n\n"
+        "Validation Status\n-----------------\n\n"
+        ".. list-table::\n"
+        "   :header-rows: 1\n\n"
+        "   * - Tier\n"
+        "     - Status\n"
+        "     - Evidence\n"
+    )
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/english_only.rst",
+        prefix + "   * - Offline checks\n" + "     - CPU only\n" + "     - Ran.\n",
+    )
+    write(
+        tmp_path,
+        "docs/source-zh/rst_source/simulators/other.rst",
+        prefix + "   * - 离线检查\n" + "     - 仅 CPU\n" + "     - 已运行。\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert (
+        "missing Chinese counterpart "
+        "'docs/source-zh/rst_source/simulators/english_only.rst'" in result.stdout
+    )
+    assert (
+        "missing English counterpart "
+        "'docs/source-en/rst_source/simulators/other.rst'" in result.stdout
+    )
+
+
+def test_paired_validation_pages_must_agree_on_statuses(tmp_path: Path) -> None:
+    prefix = (
+        "Demo\n====\n\n"
+        "Validation Status\n-----------------\n\n"
+        ".. list-table::\n"
+        "   :header-rows: 1\n\n"
+        "   * - Tier\n"
+        "     - Status\n"
+        "     - Evidence\n"
+    )
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/demo.rst",
+        prefix + "   * - Offline checks\n" + "     - CPU only\n" + "     - Ran.\n",
+    )
+    write(
+        tmp_path,
+        "docs/source-zh/rst_source/simulators/demo.rst",
+        prefix + "   * - 离线检查\n" + "     - 未验证\n" + "     - 未运行。\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "validation statuses differ from the Chinese counterpart" in result.stdout
+
+
+def test_historical_result_is_a_validation_status(tmp_path: Path) -> None:
+    prefix = (
+        "Demo\n====\n\n"
+        "Validation Status\n-----------------\n\n"
+        ".. list-table::\n"
+        "   :header-rows: 1\n\n"
+        "   * - Tier\n"
+        "     - Status\n"
+        "     - Evidence\n"
+    )
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/demo.rst",
+        prefix
+        + "   * - Benchmark success\n"
+        + "     - Historical result\n"
+        + "     - Recorded on a frozen snapshot.\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_design_status_without_git_warns(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/design/a_9_demo.md",
+        "# Demo\n> 状态：草案｜基线 `deadbeef`｜最后更新 2026-11-13\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+    assert (
+        "warning: docs/design/a_9_demo.md:2: no Git history: "
+        "design baseline commits were not checked" in result.stdout
+    )
+
+
+def test_design_status_in_shallow_clone_warns(tmp_path: Path) -> None:
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    subprocess.run(["git", "init", "-q", str(origin)], check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(origin),
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "--allow-empty",
+            "-q",
+            "-m",
+            "init",
+        ],
+        check=True,
+    )
+    baseline = subprocess.run(
+        ["git", "-C", str(origin), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    shallow = tmp_path / "shallow"
+    subprocess.run(
+        ["git", "clone", "-q", "--depth", "1", origin.as_uri(), str(shallow)],
+        check=True,
+    )
+    write(
+        shallow,
+        "docs/design/a_9_demo.md",
+        f"# Demo\n> 状态：草案｜基线 `{baseline}`｜最后更新 2026-11-13\n",
+    )
+
+    result = run(shallow)
+
+    assert result.returncode == 0, result.stdout
+    assert "shallow checkout: design baseline commits were not checked" in result.stdout
+
+
 def test_missing_validation_status_section(tmp_path: Path) -> None:
     write(
         tmp_path,

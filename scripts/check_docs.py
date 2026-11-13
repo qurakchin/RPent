@@ -15,9 +15,10 @@ The check covers references that can be decided offline:
 - optional-dependency names used by ``pip install -e ".[...]"``,
   ``uv pip install``, and ``uv sync --extra ...``;
 - the presence and vocabulary of the **Validation Status** table on simulator
-  and real-world robot pages;
+  and real-world robot pages, the repository paths it cites, and the agreement
+  of its status rows with the paired English or Chinese page;
 - the status line of each design document and the presence of its baseline
-  commit (skipped in shallow clones, where the history is unavailable).
+  commit (skipped with a warning when the checkout has no full history).
 
 External URLs are not fetched. A line containing ``docs-check: ignore`` is
 skipped, and the following line is skipped too, so an intentional example or
@@ -87,6 +88,7 @@ VALIDATION_STATUSES = {
         "Verified (multiple)",
         "Verified (single)",
         "External result",
+        "Historical result",
         "CPU only",
         "Unverified",
         "Experimental",
@@ -96,12 +98,32 @@ VALIDATION_STATUSES = {
         "已验证（多次）",
         "已验证（单次）",
         "外部结果",
+        "历史结果",
         "仅 CPU",
         "未验证",
         "实验性",
         "不适用",
     },
 }
+STATUS_KEYS = {
+    "Verified (multiple)": "verified-multiple",
+    "已验证（多次）": "verified-multiple",
+    "Verified (single)": "verified-single",
+    "已验证（单次）": "verified-single",
+    "External result": "external",
+    "外部结果": "external",
+    "Historical result": "historical",
+    "历史结果": "historical",
+    "CPU only": "cpu",
+    "仅 CPU": "cpu",
+    "Unverified": "unverified",
+    "未验证": "unverified",
+    "Experimental": "experimental",
+    "实验性": "experimental",
+    "Not applicable": "not-applicable",
+    "不适用": "not-applicable",
+}
+EVIDENCE_PATH = re.compile(r"(?<![\w:/.-])((?:[\w.@+-]+/)+[\w.@+-]+\.[A-Za-z0-9]+)")
 VALIDATION_PAGE_DIRS = {"simulators", "real_world_robots"}
 STATUS_COLUMNS = {"Status", "状态"}
 EVIDENCE_COLUMNS = {"Evidence", "证据"}
@@ -114,18 +136,26 @@ DESIGN_STATUS = re.compile(
 
 @dataclass
 class Report:
-    """Collected problems and files inspected."""
+    """Collected problems, warnings, and files inspected."""
 
     errors: list[str] = field(default_factory=list)
+    warnings: list[str] = field(default_factory=list)
     files: int = 0
 
-    def error(self, path: Path, line: int, message: str, root: Path) -> None:
-        """Record one problem relative to the repository root."""
+    def _format(self, path: Path, line: int, message: str, root: Path) -> str:
         try:
             shown = path.relative_to(root)
         except ValueError:
             shown = path
-        self.errors.append(f"{shown}:{line}: {message}")
+        return f"{shown}:{line}: {message}"
+
+    def error(self, path: Path, line: int, message: str, root: Path) -> None:
+        """Record one problem relative to the repository root."""
+        self.errors.append(self._format(path, line, message, root))
+
+    def warning(self, path: Path, line: int, message: str, root: Path) -> None:
+        """Record one skipped check that a full checkout would decide."""
+        self.warnings.append(self._format(path, line, message, root))
 
 
 def repository_files(root: Path) -> list[Path]:
@@ -236,6 +266,10 @@ class Checker:
         self._project_name = self._load_project_name()
         self._shallow = self._is_shallow()
         self._ignored: set[int] = set()
+        self._validation_rows: dict[Path, tuple[int, list[str]]] = {}
+        self._has_en = (self.root / "docs/source-en").is_dir()
+        self._has_zh = (self.root / "docs/source-zh").is_dir()
+        self._warned_history = False
 
     def _load_extras(self) -> set[str] | None:
         """Return optional-dependency names, or None when unavailable."""
@@ -303,6 +337,7 @@ class Checker:
                 self._check_rst(path, text)
             self._check_commands(path, text)
             self._check_inline_commands(path, text)
+        self._check_validation_pairs()
         return self.report
 
     @staticmethod
@@ -404,26 +439,43 @@ class Checker:
                 path, number, f"invalid status date {match.group(3)!r}", self.root
             )
         baseline = match.group(2)
-        if (self.root / ".git").exists() and not self._shallow:
-            result = subprocess.run(
-                [
-                    "git",
-                    "-C",
-                    str(self.root),
-                    "cat-file",
-                    "-e",
-                    f"{baseline}^{{commit}}",
-                ],
-                check=False,
-                capture_output=True,
+        if not (self.root / ".git").exists():
+            self._warn_unchecked_history(path, number, "no Git history")
+            return
+        if self._shallow:
+            self._warn_unchecked_history(path, number, "shallow checkout")
+            return
+        result = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(self.root),
+                "cat-file",
+                "-e",
+                f"{baseline}^{{commit}}",
+            ],
+            check=False,
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            self.report.error(
+                path,
+                number,
+                f"baseline commit {baseline!r} is not in this repository",
+                self.root,
             )
-            if result.returncode != 0:
-                self.report.error(
-                    path,
-                    number,
-                    f"baseline commit {baseline!r} is not in this repository",
-                    self.root,
-                )
+
+    def _warn_unchecked_history(self, path: Path, line: int, reason: str) -> None:
+        """Warn once when the checkout cannot resolve baseline commits."""
+        if self._warned_history:
+            return
+        self._warned_history = True
+        self.report.warning(
+            path,
+            line,
+            f"{reason}: design baseline commits were not checked",
+            self.root,
+        )
 
     # RST --------------------------------------------------------------
 
@@ -619,8 +671,10 @@ class Checker:
             )
             return
         allowed = VALIDATION_STATUSES[language]
+        statuses: list[str] = []
         for line_number, cells in rows[1:]:
             status = cells[status_column] if status_column < len(cells) else ""
+            statuses.append(status)
             if not status:
                 self.report.error(
                     path, line_number, "validation row has no status", self.root
@@ -644,6 +698,82 @@ class Checker:
                         f"validation row {status!r} has no evidence",
                         self.root,
                     )
+                else:
+                    self._check_evidence_paths(path, line_number, evidence)
+        self._validation_rows[path] = (heading + 1, statuses)
+
+    def _check_evidence_paths(self, path: Path, line: int, evidence: str) -> None:
+        """Reject evidence that names a repository path that does not exist.
+
+        Evidence often cites an artifact or guide by path. A path that cannot
+        resolve makes the row unverifiable, even when the cell is non-empty.
+        """
+        if line in self._ignored:
+            return
+        for match in EVIDENCE_PATH.finditer(evidence):
+            target = match.group(1).rstrip(TRAILING)
+            if has_scheme(target) or target.startswith(("www.", "~", "$")):
+                continue
+            candidates = (self.root / target, path.parent / target)
+            if any(
+                exact_exists(self.root, candidate.resolve()) for candidate in candidates
+            ):
+                continue
+            self.report.error(
+                path, line, f"evidence path {target!r} does not exist", self.root
+            )
+
+    def _check_validation_pairs(self) -> None:
+        """Require paired pages and equivalent status sequences per language."""
+        for path, (line, statuses) in sorted(self._validation_rows.items()):
+            if "source-en" in path.parts:
+                if not self._has_zh:
+                    continue
+                language = "Chinese"
+            elif "source-zh" in path.parts:
+                if not self._has_en:
+                    continue
+                language = "English"
+            else:
+                continue
+            counterpart = self._language_counterpart(path)
+            if counterpart is None:
+                continue
+            if not exact_exists(self.root, counterpart):
+                shown = counterpart.relative_to(self.root)
+                self.report.error(
+                    path,
+                    line,
+                    f"missing {language} counterpart {str(shown)!r}",
+                    self.root,
+                )
+                continue
+            if language != "Chinese":
+                continue
+            other = self._validation_rows.get(counterpart)
+            if other is None:
+                continue
+            if [STATUS_KEYS.get(item, item) for item in statuses] != [
+                STATUS_KEYS.get(item, item) for item in other[1]
+            ]:
+                self.report.error(
+                    path,
+                    line,
+                    "validation statuses differ from the Chinese counterpart "
+                    f"({statuses!r} != {other[1]!r})",
+                    self.root,
+                )
+
+    def _language_counterpart(self, path: Path) -> Path | None:
+        parts = list(path.relative_to(self.root).parts)
+        for index, part in enumerate(parts):
+            if part == "source-en":
+                parts[index] = "source-zh"
+                return self.root / Path(*parts)
+            if part == "source-zh":
+                parts[index] = "source-en"
+                return self.root / Path(*parts)
+        return None
 
     @staticmethod
     def _list_table_rows(
@@ -912,6 +1042,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     files = repository_files(root)
     report = Checker(root).check(files)
+    for warning in report.warnings:
+        print(f"warning: {warning}")
     for error in report.errors:
         print(error)
     if report.errors:

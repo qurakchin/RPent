@@ -59,9 +59,10 @@ and definitions) and headings, RST directive and download paths (including
 tree-absolute paths), Sphinx `:doc:` and `:ref:` targets, `cd` targets,
 repository paths named in code-block and inline commands, optional-dependency
 names, and the presence and vocabulary of the **Validation Status** table on
-simulator and robot pages. The `docs-check` pre-commit hook runs the same
-script. External URLs, evidence quality, and English/Chinese conclusion
-consistency still need a manual check.
+simulator and robot pages, the repository paths cited by its evidence, and the
+status sequence of the paired English and Chinese pages. The `docs-check`
+pre-commit hook runs the same script. External URLs and whether the evidence
+actually supports the claim still need a manual check.
 
 See the [English](../../../docs/source-en/.readthedocs.yaml) and
 [Chinese](../../../docs/source-zh/.readthedocs.yaml) Read the Docs configurations
@@ -78,11 +79,14 @@ Markdown instructions and source comments need path/link and semantic checks;
 the Sphinx build does not validate them. The checker requires simulator and
 robot pages to end with a **Validation Status** table, rejects status words
 outside [docs/STYLE_GUIDE.md](../../../docs/STYLE_GUIDE.md#validation-status),
-and rejects an empty evidence cell. Judging whether the evidence supports the
-claim is a review task. The checker also requires each design document under
+rejects an empty evidence cell or an evidence path that does not resolve, and
+requires the English and Chinese pages to have matching counterparts and
+status sequences. Judging whether the evidence supports the claim is a review
+task. The checker also requires each design document under
 [docs/design/](../../../docs/design/README.md) to start with a status line and
-rejects a baseline commit that is not in the repository (skipped in shallow
-checkouts); keep the status and date current when a phase lands. Reuse relevant prompt/rendering tests when model-visible
+rejects a baseline commit that is not in the repository (with a warning when
+the checkout has no full history); keep the status and date current when a
+phase lands. Reuse relevant prompt/rendering tests when model-visible
 behavior changes, following [verify-change](../verify-change/SKILL.md).
 
 ## Report

@@ -1,6 +1,6 @@
 # Design documents
 
-Status: current index. Baseline `b4d8459`, last updated 2026-11-13.
+Status: current index. Baseline `01e9cb3`, last updated 2026-11-13.
 
 This directory holds design rationale for the RPent refactor series. It is
 plain Markdown, outside the Sphinx source trees: these documents explain why a
@@ -38,7 +38,7 @@ The dependency graph and implementation batches are in
 Every document starts with a status line:
 
 ```
-> 状态：草案｜基线 `b4d8459`｜最后更新 YYYY-MM-DD
+> 状态：草案｜基线 `01e9cb3`｜最后更新 YYYY-MM-DD
 ```
 
 | Status | Meaning |
@@ -52,6 +52,12 @@ implements a phase. Once implemented, rewrite the "target design" prose into
 the behavior the repository actually has and remove superseded sections; git
 keeps the history. Documents that no longer guide future work should be
 deleted rather than kept as historical narrative.
+
+The baseline commit is the revision the stated measurements describe, not the
+commit that implements the document. Changing it means re-running the
+measurement method in [a_global section 5.1](a_global.md#51-代码行数) and
+updating every derived table and the figure; `scripts/check_docs.py` only
+checks that the commit exists, not that the numbers match it.
 
 Design changes follow the same pull request review as code. The review checks
 that the design matches the implementation, that links resolve, and that
