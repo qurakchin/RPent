@@ -1,6 +1,6 @@
 # Design documents
 
-Status: current index. Baseline `7614ada`, last updated 2026-11-12.
+Status: current index. Baseline `b4d8459`, last updated 2026-11-13.
 
 This directory holds design rationale for the RPent refactor series. It is
 plain Markdown, outside the Sphinx source trees: these documents explain why a
@@ -16,7 +16,8 @@ Read the shared rules first, then the target architecture, then the topics:
 2. [a_summary](a_summary.md) — target architecture, module comparison,
    directory layout, and expected code size.
 3. [a_0](a_0_建立文档纪律与评审闸门.md) — documentation discipline and review
-   gates. This topic is implemented; section 9 maps each phase to its files.
+   gates. P1–P5 are implemented and P6 has a release checklist; section 9 maps
+   each phase to its files and states what is not yet exercised.
 4. [a_1](a_1_隔离组件依赖与安装.md) — component manifests, environment
    recipes, and install fingerprints.
 5. [a_5](a_5_精简机器人接入.md) and [a_6](a_6_建立执行回执语义.md) — semantic
@@ -37,7 +38,7 @@ The dependency graph and implementation batches are in
 Every document starts with a status line:
 
 ```
-> 状态：草案｜基线 `7614ada`｜最后更新 YYYY-MM-DD
+> 状态：草案｜基线 `b4d8459`｜最后更新 YYYY-MM-DD
 ```
 
 | Status | Meaning |

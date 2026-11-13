@@ -54,10 +54,14 @@ repository root:
 python scripts/check_docs.py
 ```
 
-It covers repository-relative Markdown links and headings, RST directive paths,
-Sphinx `:doc:` and `:ref:` targets, repository paths named in code-block
-commands, and optional-dependency names. The `docs-check` pre-commit hook runs
-the same script. External URLs still need a manual availability check.
+It covers repository-relative Markdown links (including reference-style links
+and definitions) and headings, RST directive and download paths (including
+tree-absolute paths), Sphinx `:doc:` and `:ref:` targets, `cd` targets,
+repository paths named in code-block and inline commands, optional-dependency
+names, and the presence and vocabulary of the **Validation Status** table on
+simulator and robot pages. The `docs-check` pre-commit hook runs the same
+script. External URLs, evidence quality, and English/Chinese conclusion
+consistency still need a manual check.
 
 See the [English](../../../docs/source-en/.readthedocs.yaml) and
 [Chinese](../../../docs/source-zh/.readthedocs.yaml) Read the Docs configurations
@@ -71,12 +75,14 @@ sphinx-build -W --keep-going docs/source-zh docs/build/html-zh
 
 Run these when the change affects Sphinx pages or their build inputs. Standalone
 Markdown instructions and source comments need path/link and semantic checks;
-the Sphinx build does not validate them. Check that simulator and robot pages
-end with a **Validation Status** section whose status words match
-[docs/STYLE_GUIDE.md](../../../docs/STYLE_GUIDE.md#validation-status) and whose
-evidence supports the claim. Check design documents under
-[docs/design/](../../../docs/design/README.md) for an up-to-date status line
-when a phase lands. Reuse relevant prompt/rendering tests when model-visible
+the Sphinx build does not validate them. The checker requires simulator and
+robot pages to end with a **Validation Status** table, rejects status words
+outside [docs/STYLE_GUIDE.md](../../../docs/STYLE_GUIDE.md#validation-status),
+and rejects an empty evidence cell. Judging whether the evidence supports the
+claim is a review task. The checker also requires each design document under
+[docs/design/](../../../docs/design/README.md) to start with a status line and
+rejects a baseline commit that is not in the repository (skipped in shallow
+checkouts); keep the status and date current when a phase lands. Reuse relevant prompt/rendering tests when model-visible
 behavior changes, following [verify-change](../verify-change/SKILL.md).
 
 ## Report

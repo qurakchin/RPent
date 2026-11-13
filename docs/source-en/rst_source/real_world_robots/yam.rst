@@ -486,4 +486,4 @@ Validation Status
      - Real-arm integration.
    * - Real robot
      - Unverified
-     - This page documents the operator procedure. The repository records no hardware run, servo check, or task outcome for this setup.
+     - This page documents the operator procedure, and the repository links a real-world demo video. The video records no revision, configuration, or task outcome.

@@ -340,8 +340,9 @@ Use these status words and do not strengthen them:
 
 | Status | Meaning | Allowed wording |
 | --- | --- | --- |
-| Verified (multiple) | Several seeds, episodes, or devices | "Supported" |
-| Verified (single) | One end-to-end run completed | "Completed once on X" |
+| Verified (multiple) | Several seeds, episodes, or devices recorded in this repository | "Supported" |
+| Verified (single) | One end-to-end run recorded in this repository | "Completed once on X" |
+| External result | A published or third-party result that this repository does not reproduce | "Reported in the paper" |
 | CPU only | Contracts, configuration, or build checks passed | "Offline checks passed" |
 | Unverified | Implementation exists but no run is recorded | "Not verified yet" |
 | Experimental | The interface may change | "Experimental" |
@@ -351,11 +352,12 @@ Any "supported", "available", or "compatible" claim must map to one of these
 rows. If it does not, downgrade the claim to **Unverified**. A link to a CI
 workflow describes how a check can run; it is not evidence that the check
 passed. Record a date, commit, hardware, seed, or artifact path only when it is
-known.
+known. Do not label a published paper result **Verified** unless the repository
+records the run that produced it; use **External result** instead.
 
 Use the matching Chinese status words in Chinese pages: 已验证（多次）、
-已验证（单次）、仅 CPU、未验证、实验性、不适用. Do not write 支持 or 可用 unless
-the page records evidence for the corresponding status.
+已验证（单次）、外部结果、仅 CPU、未验证、实验性、不适用. Do not write 支持或
+可用 unless the page records evidence for the corresponding status.
 
 Use a small table so the tiers stay distinct:
 
@@ -400,10 +402,14 @@ Run the repository check for links and documented commands:
 python scripts/check_docs.py
 ```
 
-It verifies repository-relative links, Sphinx `:doc:` and `:ref:` targets,
-repository paths named in documented commands, and optional-dependency names.
-The `docs-check` pre-commit hook runs the same check and fails on a broken
-reference. External URLs still need a manual availability check.
+It verifies repository-relative links (including reference-style links and
+link definitions), Sphinx `:doc:` and `:ref:` targets, RST directive and
+download paths (including tree-absolute paths), repository paths named by
+documented commands in code blocks and inline code spans, optional-dependency
+names, and the status vocabulary of the **Validation Status** table on
+simulator and robot pages. The `docs-check` pre-commit hook runs the same check
+and fails on a broken reference. External URLs, evidence quality, and the
+consistency of the English and Chinese conclusions still need a manual review.
 
 Build both languages with warnings treated as errors:
 

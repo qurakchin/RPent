@@ -6,5 +6,12 @@ Content coming soon.
 Validation Status
 -----------------
 
-No implementation, installation guide, or run result is published in this
-repository. This page is a placeholder and makes no support claim.
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - All tiers
+     - Not applicable
+     - This page is a placeholder. The repository publishes no implementation, installation guide, or run result.

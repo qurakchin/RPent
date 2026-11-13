@@ -168,6 +168,219 @@ def test_ignore_marker_and_external_urls(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stdout
 
 
+def test_markdown_reference_style_links(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.md",
+        "[ok][existing]\n[bad][missing]\n\n[existing]: other.md\n[gone]: nowhere.md\n",
+    )
+    write(tmp_path, "docs/other.md", "# Other\n")
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "broken link target 'nowhere.md'" in result.stdout
+    assert "missing Markdown link definition [missing]" in result.stdout
+    assert "other.md" not in result.stdout
+
+
+def test_pip_install_extras(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "pyproject.toml",
+        "[project]\nname = 'demo'\n\n[project.optional-dependencies]\ntest = []\n",
+    )
+    write(
+        tmp_path,
+        "docs/install.md",
+        "```bash\n"
+        'pip install -e ".[missing]"\n'
+        'python -m pip install -e ".[test]"\n'
+        "```\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "unknown optional dependency 'missing'" in result.stdout
+    assert "unknown optional dependency 'test'" not in result.stdout
+
+
+def test_inline_command_paths(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.md",
+        "Run `bash docs/missing.sh` to start.\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'docs/missing.sh' does not exist" in result.stdout
+
+
+def test_ignore_marker_applies_to_the_next_line(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Page\n====\n\n"
+        ".. docs-check: ignore: example command\n"
+        "\n"
+        "Run ``bash docs/missing.sh`` to start.\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_ignore_marker_on_content_line_hides_only_that_line(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.md",
+        "[site](https://example.com) <!-- docs-check: ignore: external -->\n"
+        "Run `bash docs/missing.sh` to start.\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'docs/missing.sh' does not exist" in result.stdout
+
+
+def test_rst_tree_absolute_paths(tmp_path: Path) -> None:
+    write(tmp_path, "docs/source-en/conf.py")
+    write(
+        tmp_path,
+        "docs/source-en/page.rst",
+        "Page\n====\n\n"
+        ".. image:: /_static/missing.png\n"
+        ".. image:: /_static/present.png\n",
+    )
+    write(tmp_path, "docs/source-en/_static/present.png")
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "broken RST path '/_static/missing.png'" in result.stdout
+    assert "present.png" not in result.stdout
+
+
+def test_missing_cd_target_is_reported(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/setup.md",
+        "```bash\ncd missing-dir\nbash requirements/install.sh\n```\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented cd target 'missing-dir' does not exist" in result.stdout
+
+
+def test_clone_directory_name_resolves_to_repository_root(tmp_path: Path) -> None:
+    write(tmp_path, "pyproject.toml", "[project]\nname = 'demo'\n")
+    write(
+        tmp_path,
+        "docs/setup.md",
+        "```bash\ncd Demo\nbash docs/missing.sh\n```\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented cd target 'Demo' does not exist" not in result.stdout
+    assert "documented path 'docs/missing.sh' does not exist" in result.stdout
+
+
+def test_validation_status_vocabulary_and_evidence(tmp_path: Path) -> None:
+    prefix = (
+        "Demo\n====\n\n"
+        "Validation Status\n-----------------\n\n"
+        ".. list-table::\n"
+        "   :header-rows: 1\n\n"
+        "   * - Tier\n"
+        "     - Status\n"
+        "     - Evidence\n"
+    )
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/unsupported.rst",
+        prefix
+        + "   * - Offline checks\n"
+        + "     - Supported\n"
+        + "     - Some run.\n",
+    )
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/no-evidence.rst",
+        prefix + "   * - Offline checks\n" + "     - CPU only\n" + "     -\n",
+    )
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/valid.rst",
+        prefix
+        + "   * - Offline checks\n"
+        + "     - CPU only\n"
+        + "     - Offline checks passed.\n",
+    )
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/trailing.rst",
+        prefix
+        + "   * - Offline checks\n"
+        + "     - CPU only\n"
+        + "     - Offline checks passed.\n"
+        + "\nExtra\n-----\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "unknown validation status 'Supported'" in result.stdout
+    assert "validation row 'CPU only' has no evidence" in result.stdout
+    assert "Validation Status must be the last section" in result.stdout
+    assert "valid.rst" not in result.stdout
+
+
+def test_missing_validation_status_section(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/source-zh/rst_source/real_world_robots/demo.rst",
+        "Demo\n====\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "missing Validation Status / 验证状态 section" in result.stdout
+
+
+def test_design_status_rejects_unreachable_baseline(tmp_path: Path) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    write(
+        tmp_path,
+        "docs/design/a_9_demo.md",
+        "# Demo\n> 状态：草案｜基线 `deadbeef`｜最后更新 2026-13-01\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "baseline commit 'deadbeef' is not in this repository" in result.stdout
+    assert "invalid status date '2026-13-01'" in result.stdout
+
+
+def test_design_status_requires_a_status_line(tmp_path: Path) -> None:
+    write(tmp_path, "docs/design/a_9_demo.md", "# Demo\n")
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "missing design status line" in result.stdout
+
+
 def test_valid_repository_is_clean(tmp_path: Path) -> None:
     write(tmp_path, "docs/README.md", "[page](page.md)\n")
     write(tmp_path, "docs/page.md", "# Page\n")

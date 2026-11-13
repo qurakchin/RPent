@@ -146,6 +146,8 @@ Rules for every tier:
   exercised;
 - do not generalize a single run into a success rate or a supported
   configuration;
+- label published paper or third-party results **External result**; they are
+  not verification recorded in this repository;
 - distinguish an integration chain that executes actions and records `finish`
   from native task success;
 - for a behavior-preserving refactor, compare the affected schema, prompt,

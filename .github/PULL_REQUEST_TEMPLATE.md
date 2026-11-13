@@ -18,14 +18,9 @@ contract impact.
 ## Validation
 
 <!--
-List what actually ran. For each tier, give the command or artifact path and
-the result; write "Not run" and the reason when a tier does not apply.
-
-CPU: offline unit, contract, schema, prompt-snapshot, and lint checks.
-Simulation: real-simulator smoke, component, or policy-chain runs, with the
-target, seed/task, and output directory.
-Real robot: hardware or operator-controlled diagnostics, with the robot,
-configuration, and what the run established.
+List what actually ran for each tier, with the command or artifact path and
+the observed result. See CONTRIBUTING.md#validation-evidence for the tier
+definitions, evidence rules, and status vocabulary.
 -->
 
 - CPU:

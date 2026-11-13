@@ -1,22 +1,30 @@
 #!/usr/bin/env python3
+# Copyright 2026 The RPent Authors.
 """Check documentation links and commands that must resolve in this repository.
 
 The check covers references that can be decided offline:
 
-- repository-relative Markdown links and images, including Markdown headings;
-- RST explicit links, ``image``/``figure``/``include``/``literalinclude`` paths;
+- repository-relative Markdown links and images, including reference-style
+  links, link definitions, and Markdown headings;
+- RST explicit links, ``image``/``figure``/``include``/``literalinclude``
+  paths (including Sphinx tree-absolute paths), and ``:download:`` roles;
 - Sphinx ``:doc:`` targets and ``:ref:`` labels, resolved inside the tree that
   contains the referencing page;
 - repository paths named by common commands such as ``bash``, ``pytest``,
-  ``python -m``, and ``sphinx-build``;
-- optional-dependency names used by ``uv pip install -e ".[...]"`` and
-  ``uv sync --extra ...``.
+  ``python -m``, and ``sphinx-build``, in code blocks and inline code spans;
+- optional-dependency names used by ``pip install -e ".[...]"``,
+  ``uv pip install``, and ``uv sync --extra ...``;
+- the presence and vocabulary of the **Validation Status** table on simulator
+  and real-world robot pages;
+- the status line of each design document and the presence of its baseline
+  commit (skipped in shallow clones, where the history is unavailable).
 
 External URLs are not fetched. A line containing ``docs-check: ignore`` is
-skipped, so an intentional unreleased path can be documented with a reason on
-the same line.
+skipped, and the following line is skipped too, so an intentional example or
+unreleased path can be documented with a reason.
 
-Exit status is 1 when any reference is broken.
+Exit status is 1 when any reference is broken or a required status table is
+missing or uses an unknown status word.
 """
 
 from __future__ import annotations
@@ -26,6 +34,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from urllib.parse import unquote
 
@@ -43,10 +52,17 @@ SCHEME = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.-]*:")
 MARKDOWN_LINK = re.compile(
     r"!?\[[^\]]*\]\(\s*<?([^)>\s]+)>?(?:\s+[\"'][^\"']*[\"'])?\s*\)"
 )
+MARKDOWN_DEFINITION = re.compile(
+    r"^\s{0,3}\[([^\]]+)\]:\s*<?(\S+?)>?"
+    r"(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^)]*\)))?\s*$"
+)
+MARKDOWN_REFERENCE = re.compile(r"!?\[([^\]]*)\]\[([^\]]*)\]")
+INLINE_CODE = re.compile(r"(`+)(.+?)\1")
 RST_LINK = re.compile(r"`[^`<>]*<([^<>]+)>`__?")
 RST_DIRECTIVE = re.compile(
     r"^\s*\.\.\s+(?:image|figure|include|literalinclude)::\s*(\S+)"
 )
+RST_DOWNLOAD = re.compile(r":download:`([^`]+)`")
 DOC_ROLE = re.compile(r":doc:`([^`]+)`")
 REF_ROLE = re.compile(r":(?:ref|numref):`([^`]+)`")
 LABEL = re.compile(r"^\s*\.\.\s+_([^:]+):\s*$")
@@ -54,16 +70,46 @@ IGNORE = "docs-check: ignore"
 COMMAND = re.compile(
     r"(?:^|[\s`'\"(])(bash|sh|pytest|python3?|sphinx-build)\s+([^\n`'\"]+)"
 )
-UV_EXTRA = re.compile(
-    r"(?:uv\s+(?:pip\s+install|sync))[^\n]*?"
-    r"(?:-e\s+[\"']?\.\[([^\]]+)\]|--extra(?:=|\s+)([A-Za-z0-9_-]+))"
+PIP_EXTRA = re.compile(
+    r"(?:(?:uv|python3?\s+-m)\s+)?pip3?\s+install[^\n]*?"
+    r"(?:-e\s+[\"']?\.\[([^\]]+)\]|\.\[([^\]]+)\])"
 )
+SYNC_EXTRA = re.compile(r"uv\s+sync[^\n]*?--extra(?:=|\s+)([A-Za-z0-9_-]+)")
 PATH_OPTION = re.compile(
     r"--(?:override|requirement|requirements)(?:=|\s+)([^\s`'\"]+)|-r\s+([^\s`'\"]+)"
 )
 MODULE_OPTION = re.compile(r"-m\s+([A-Za-z_][A-Za-z0-9_.]*)")
 PLACEHOLDERS = set("<>{}*?$|")
 TRAILING = ".,;:)]}'\"`"
+VALIDATION_HEADINGS = {"Validation Status": "en", "验证状态": "zh"}
+VALIDATION_STATUSES = {
+    "en": {
+        "Verified (multiple)",
+        "Verified (single)",
+        "External result",
+        "CPU only",
+        "Unverified",
+        "Experimental",
+        "Not applicable",
+    },
+    "zh": {
+        "已验证（多次）",
+        "已验证（单次）",
+        "外部结果",
+        "仅 CPU",
+        "未验证",
+        "实验性",
+        "不适用",
+    },
+}
+VALIDATION_PAGE_DIRS = {"simulators", "real_world_robots"}
+STATUS_COLUMNS = {"Status", "状态"}
+EVIDENCE_COLUMNS = {"Evidence", "证据"}
+DESIGN_STATUS = re.compile(
+    r"^>\s*状态：(草案|部分实施|已实施)"
+    r".*?基线\s*`([0-9a-f]{7,40})`"
+    r".*?最后更新\s*(\d{4}-\d{2}-\d{2})\s*$"
+)
 
 
 @dataclass
@@ -187,6 +233,9 @@ class Checker:
         self._labels: dict[Path, set[str]] = {}
         self._slugs: dict[Path, set[str]] = {}
         self._extras = self._load_extras()
+        self._project_name = self._load_project_name()
+        self._shallow = self._is_shallow()
+        self._ignored: set[int] = set()
 
     def _load_extras(self) -> set[str] | None:
         """Return optional-dependency names, or None when unavailable."""
@@ -219,27 +268,95 @@ class Checker:
         section = re.split(r"(?m)^\[", section, maxsplit=1)[0]
         return set(re.findall(r"(?m)^([A-Za-z0-9_-]+)\s*=\s*\[", section))
 
+    def _load_project_name(self) -> str | None:
+        """Return the project name used for the clone directory in examples."""
+        path = self.root / "pyproject.toml"
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        match = re.search(r"(?m)^\s*name\s*=\s*[\"']([^\"']+)[\"']", text)
+        return match.group(1) if match else None
+
+    def _is_shallow(self) -> bool:
+        """Return whether the checkout lacks the history a baseline needs."""
+        if not (self.root / ".git").exists():
+            return False
+        result = subprocess.run(
+            ["git", "-C", str(self.root), "rev-parse", "--is-shallow-repository"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        return result.returncode == 0 and result.stdout.strip() == "true"
+
     def check(self, files: list[Path]) -> Report:
         """Check every file and return the collected report."""
         for path in files:
             self.report.files += 1
             text = path.read_text(encoding="utf-8", errors="replace")
+            self._ignored = self._ignored_lines(text)
             if path.suffix.lower() == ".md":
                 self._check_markdown(path, text)
+                self._check_design_status(path, text)
             else:
                 self._check_rst(path, text)
             self._check_commands(path, text)
+            self._check_inline_commands(path, text)
         return self.report
+
+    @staticmethod
+    def _ignored_lines(text: str) -> set[int]:
+        """Return line numbers hidden by ``docs-check: ignore`` markers.
+
+        A marker on its own comment line hides the next non-blank line, so an
+        RST comment can be followed by the required blank line. A marker
+        appended to content hides only that line.
+        """
+        lines = text.splitlines()
+        ignored: set[int] = set()
+        for index, line in enumerate(lines):
+            if IGNORE not in line:
+                continue
+            ignored.add(index + 1)
+            stripped = line.strip()
+            if not stripped.startswith(("..", "<!--")):
+                continue
+            following = index + 1
+            while following < len(lines) and not lines[following].strip():
+                following += 1
+            if following < len(lines):
+                ignored.add(following + 1)
+        return ignored
 
     # Markdown ---------------------------------------------------------
 
     def _check_markdown(self, path: Path, text: str) -> None:
-        for number, line in enumerate(text.splitlines(), 1):
-            if IGNORE in line:
+        lines = text.splitlines()
+        definitions: dict[str, tuple[int, str]] = {}
+        for number, line in enumerate(lines, 1):
+            if number in self._ignored:
                 continue
-            line = re.sub(r"`[^`]*`", "", line)
-            for match in MARKDOWN_LINK.finditer(line):
+            definition = MARKDOWN_DEFINITION.match(line)
+            if definition:
+                definitions[definition.group(1).lower()] = (number, definition.group(2))
+        for number, target in definitions.values():
+            self._check_markdown_target(path, number, target)
+        for number, line in enumerate(lines, 1):
+            if number in self._ignored:
+                continue
+            visible = re.sub(r"`[^`]*`", "", line)
+            for match in MARKDOWN_LINK.finditer(visible):
                 self._check_markdown_target(path, number, match.group(1))
+            for match in MARKDOWN_REFERENCE.finditer(visible):
+                label = match.group(2) or match.group(1)
+                if label.lower() not in definitions:
+                    self.report.error(
+                        path,
+                        number,
+                        f"missing Markdown link definition [{label}]",
+                        self.root,
+                    )
 
     def _check_markdown_target(self, path: Path, line: int, target: str) -> None:
         target = unquote(target.strip())
@@ -263,32 +380,89 @@ class Checker:
                     self.root,
                 )
 
+    def _check_design_status(self, path: Path, text: str) -> None:
+        """Check the status line and reachable baseline of a design document."""
+        if path.parent.name != "design" or not path.name.startswith("a_"):
+            return
+        match = None
+        for number, line in enumerate(text.splitlines(), 1):
+            match = DESIGN_STATUS.match(line)
+            if match:
+                break
+        if match is None:
+            self.report.error(
+                path,
+                1,
+                "missing design status line (状态 / 基线 / 最后更新)",
+                self.root,
+            )
+            return
+        try:
+            date.fromisoformat(match.group(3))
+        except ValueError:
+            self.report.error(
+                path, number, f"invalid status date {match.group(3)!r}", self.root
+            )
+        baseline = match.group(2)
+        if (self.root / ".git").exists() and not self._shallow:
+            result = subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(self.root),
+                    "cat-file",
+                    "-e",
+                    f"{baseline}^{{commit}}",
+                ],
+                check=False,
+                capture_output=True,
+            )
+            if result.returncode != 0:
+                self.report.error(
+                    path,
+                    number,
+                    f"baseline commit {baseline!r} is not in this repository",
+                    self.root,
+                )
+
     # RST --------------------------------------------------------------
 
     def _check_rst(self, path: Path, text: str) -> None:
         tree = self._sphinx_root(path)
         for number, line in enumerate(text.splitlines(), 1):
-            if IGNORE in line:
+            if number in self._ignored:
                 continue
             for match in RST_DIRECTIVE.finditer(line):
-                self._check_rst_path(path, number, match.group(1))
+                self._check_rst_path(path, number, match.group(1), tree)
+            for match in RST_DOWNLOAD.finditer(line):
+                self._check_rst_path(path, number, match.group(1), tree)
             for match in RST_LINK.finditer(line):
-                self._check_rst_link(path, number, match.group(1))
+                self._check_rst_link(path, number, match.group(1), tree)
             for match in DOC_ROLE.finditer(line):
                 self._check_doc_role(path, number, match.group(1), tree)
             for match in REF_ROLE.finditer(line):
                 self._check_ref_role(path, number, match.group(1), tree)
+        self._check_validation_status(path, text)
 
-    def _check_rst_path(self, path: Path, line: int, target: str) -> None:
+    def _check_rst_path(
+        self, path: Path, line: int, target: str, tree: Path | None
+    ) -> None:
         target = unquote(target.strip())
-        if not target or has_scheme(target) or target.startswith("/"):
+        if not target or has_scheme(target):
             return
         destination, _ = split_target(target)
-        resolved = (path.parent / destination).resolve()
+        if destination.startswith("/"):
+            if tree is None:
+                return
+            resolved = (tree / destination.lstrip("/")).resolve()
+        else:
+            resolved = (path.parent / destination).resolve()
         if not exact_exists(self.root, resolved):
             self.report.error(path, line, f"broken RST path {target!r}", self.root)
 
-    def _check_rst_link(self, path: Path, line: int, target: str) -> None:
+    def _check_rst_link(
+        self, path: Path, line: int, target: str, tree: Path | None
+    ) -> None:
         target = unquote(target.strip())
         if not target or has_scheme(target):
             return
@@ -297,7 +471,12 @@ class Checker:
         # path-like targets are decided here.
         if "/" not in destination and not Path(destination).suffix:
             return
-        resolved = (path.parent / destination).resolve()
+        if destination.startswith("/"):
+            if tree is None:
+                return
+            resolved = (tree / destination.lstrip("/")).resolve()
+        else:
+            resolved = (path.parent / destination).resolve()
         if resolved.suffix == "":
             resolved = resolved.with_suffix(".rst")
         if not exact_exists(self.root, resolved):
@@ -364,6 +543,134 @@ class Checker:
         self._labels[tree] = labels
         return labels
 
+    def _check_validation_status(self, path: Path, text: str) -> None:
+        """Check the status table on simulator and real-world robot pages."""
+        parts = path.parts
+        if "rst_source" not in parts:
+            return
+        index = parts.index("rst_source")
+        if len(parts) <= index + 2 or parts[index + 1] not in VALIDATION_PAGE_DIRS:
+            return
+        if path.name == "index.rst":
+            return
+        if "source-zh" in parts:
+            language = "zh"
+        elif "source-en" in parts:
+            language = "en"
+        else:
+            return
+        lines = text.splitlines()
+        heading: int | None = None
+        for number, line in enumerate(lines):
+            if line.strip() not in VALIDATION_HEADINGS:
+                continue
+            if number + 1 >= len(lines):
+                continue
+            underline = lines[number + 1].strip()
+            if underline and set(underline) <= set("-=") and len(underline) >= 3:
+                heading = number
+                break
+        if heading is None:
+            self.report.error(
+                path,
+                1,
+                "missing Validation Status / 验证状态 section",
+                self.root,
+            )
+            return
+        for number in range(heading + 2, len(lines) - 1):
+            underline = lines[number + 1].strip()
+            if (
+                lines[number]
+                and not lines[number][0].isspace()
+                and underline
+                and set(underline) <= set("-=~")
+                and len(underline) >= 3
+            ):
+                self.report.error(
+                    path,
+                    number + 1,
+                    "Validation Status must be the last section",
+                    self.root,
+                )
+                break
+        rows = self._list_table_rows(lines[heading + 2 :], heading + 3)
+        if len(rows) < 2:
+            self.report.error(
+                path,
+                heading + 1,
+                "Validation Status section has no list-table with rows",
+                self.root,
+            )
+            return
+        header = rows[0][1]
+        status_column = next(
+            (i for i, cell in enumerate(header) if cell in STATUS_COLUMNS), None
+        )
+        evidence_column = next(
+            (i for i, cell in enumerate(header) if cell in EVIDENCE_COLUMNS), None
+        )
+        if status_column is None:
+            self.report.error(
+                path,
+                heading + 1,
+                "Validation Status table has no Status / 状态 column",
+                self.root,
+            )
+            return
+        allowed = VALIDATION_STATUSES[language]
+        for line_number, cells in rows[1:]:
+            status = cells[status_column] if status_column < len(cells) else ""
+            if not status:
+                self.report.error(
+                    path, line_number, "validation row has no status", self.root
+                )
+                continue
+            if status not in allowed:
+                self.report.error(
+                    path,
+                    line_number,
+                    f"unknown validation status {status!r}",
+                    self.root,
+                )
+            if evidence_column is not None:
+                evidence = (
+                    cells[evidence_column] if evidence_column < len(cells) else ""
+                )
+                if not evidence:
+                    self.report.error(
+                        path,
+                        line_number,
+                        f"validation row {status!r} has no evidence",
+                        self.root,
+                    )
+
+    @staticmethod
+    def _list_table_rows(
+        lines: list[str], first_line: int
+    ) -> list[tuple[int, list[str]]]:
+        """Parse an RST list-table into ``(line number, cells)`` rows."""
+        rows: list[tuple[int, list[str]]] = []
+        cells: list[str] | None = None
+        row_line = 0
+        for offset, line in enumerate(lines):
+            start = re.match(r"^\s*\* - (.*)$", line)
+            if start:
+                if cells is not None:
+                    rows.append((row_line, cells))
+                cells = [start.group(1).strip()]
+                row_line = first_line + offset
+                continue
+            cell = re.match(r"^\s+-\s?(.*)$", line)
+            if cell and cells is not None:
+                cells.append(cell.group(1).strip())
+                continue
+            if cells is not None and line.strip() and not line[:1].isspace():
+                break
+        if cells is not None:
+            rows.append((row_line, cells))
+        return rows
+
     # Commands ---------------------------------------------------------
 
     def _check_commands(self, path: Path, text: str) -> None:
@@ -375,40 +682,79 @@ class Checker:
                 block = block_id
                 cwd = self.root
                 external = False
-            if IGNORE in line:
+            if number in self._ignored:
                 continue
             cd = re.match(r"^\s*(?:\$ )?cd\s+([^\s;&|]+)", line)
             if cd:
-                target = Path(cd.group(1).strip(TRAILING))
-                candidate = (cwd / target).resolve()
-                if (
-                    not has_scheme(str(target))
-                    and not target.is_absolute()
-                    and not PLACEHOLDERS.intersection(str(target))
-                    and candidate.is_dir()
-                    and candidate.is_relative_to(self.root)
-                ):
-                    cwd = candidate
-                    external = False
-                else:
-                    external = True
+                cwd, external = self._apply_cd(path, number, cd.group(1), cwd)
             if external:
                 continue
-            for match in UV_EXTRA.finditer(line):
-                extras = match.group(1) or match.group(2) or ""
-                self._check_extras(path, number, extras)
-            for match in PATH_OPTION.finditer(line):
-                self._check_command_path(
-                    path, number, match.group(1) or match.group(2), cwd
-                )
-            for match in MODULE_OPTION.finditer(line):
-                self._check_module(path, number, match.group(1))
-            for match in COMMAND.finditer(line):
-                command, arguments = match.group(1), match.group(2)
-                if command.startswith("python"):
-                    self._check_python_arguments(path, number, arguments, cwd)
-                    continue
-                self._check_command_arguments(path, number, command, arguments, cwd)
+            self._check_command_text(path, number, line, cwd)
+
+    def _apply_cd(
+        self, path: Path, line: int, raw: str, cwd: Path
+    ) -> tuple[Path, bool]:
+        """Update the working directory for a documented ``cd`` command."""
+        target = raw.strip(TRAILING)
+        if (
+            not target
+            or has_scheme(target)
+            or target.startswith(("~", "$", "@"))
+            or PLACEHOLDERS.intersection(target)
+            or "..." in target
+        ):
+            return cwd, True
+        if target.startswith("/"):
+            absolute = Path(target).resolve()
+            if absolute.is_relative_to(self.root):
+                return absolute, False
+            return cwd, True
+        if (
+            self._project_name is not None
+            and target.lower() == self._project_name.lower()
+        ):
+            # Documentation clones the repository and then runs ``cd RPent``
+            # (or the project name as spelled by the host). The directory is
+            # the checkout root, not a subdirectory that must exist in the tree.
+            return self.root, False
+        candidate = (cwd / target).resolve()
+        if not candidate.is_relative_to(self.root):
+            return cwd, True
+        if candidate.is_dir():
+            return candidate, False
+        self.report.error(
+            path, line, f"documented cd target {target!r} does not exist", self.root
+        )
+        return cwd, True
+
+    def _check_command_text(self, path: Path, line: int, text: str, cwd: Path) -> None:
+        """Check command paths and optional extras named on one line."""
+        for match in PIP_EXTRA.finditer(text):
+            extras = match.group(1) or match.group(2) or ""
+            self._check_extras(path, line, extras)
+        for match in SYNC_EXTRA.finditer(text):
+            self._check_extras(path, line, match.group(1))
+        for match in PATH_OPTION.finditer(text):
+            self._check_command_path(path, line, match.group(1) or match.group(2), cwd)
+        for match in MODULE_OPTION.finditer(text):
+            self._check_module(path, line, match.group(1))
+        for match in COMMAND.finditer(text):
+            command, arguments = match.group(1), match.group(2)
+            if command.startswith("python"):
+                self._check_python_arguments(path, line, arguments, cwd)
+                continue
+            self._check_command_arguments(path, line, command, arguments, cwd)
+
+    def _check_inline_commands(self, path: Path, text: str) -> None:
+        """Check commands written in inline code spans outside code blocks."""
+        code_lines = {number for _, number, _ in self._code_lines(path, text)}
+        for number, line in enumerate(text.splitlines(), 1):
+            if number in code_lines or number in self._ignored:
+                continue
+            for match in INLINE_CODE.finditer(line):
+                span = match.group(2).strip()
+                if span:
+                    self._check_command_text(path, number, span, self.root)
 
     def _code_lines(self, path: Path, text: str) -> list[tuple[int, int, str]]:
         """Return ``(block, line number, line)`` for code and literal blocks."""

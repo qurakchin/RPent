@@ -591,4 +591,4 @@ Validation Status
      - Real-arm integration.
    * - Real robot
      - Unverified
-     - The workspace and the VLA diagnostic console are documented. The repository records no hardware run, calibration result, or task outcome.
+     - The workspace and the VLA diagnostic console are documented, and the repository links a real-world demo video for dual-arm Franka. The video records no revision, configuration, or task outcome.

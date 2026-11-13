@@ -62,20 +62,12 @@ Record the revision or working diff, exact commands, relevant environment,
 results, artifact locations, and checks not run with reasons. Distinguish a
 failed check from unavailable prerequisites and from an untested path.
 
-Use the three tiers in the
-[pull request template](../../../.github/PULL_REQUEST_TEMPLATE.md) and
-[CONTRIBUTING.md](../../../CONTRIBUTING.md): CPU, simulation, and real robot.
-Write the command or artifact path with each result, and write "Not run" with a
-reason when a tier does not apply. End with the limitations: what the
-validation does not prove. A single run is not a success rate, and a CI link is
-not evidence that the workflow passed.
-
-Behavior-preserving refactors report the affected schema, prompt, feedback,
-defaults, or artifact layout on both sides instead of relying on "tests pass".
-A shared tool, perception, or prompt change reports a before/after comparison
-on the same frozen corpus and names the corpus version. Dependency or install
-changes report the platform, Python version, dependency group, and install
-result.
+Use the three tiers and evidence rules in
+[CONTRIBUTING.md](../../../CONTRIBUTING.md#validation-evidence) and the
+[pull request template](../../../.github/PULL_REQUEST_TEMPLATE.md). Record the
+revision, exact commands, environment, results, artifact locations, and checks
+not run with reasons. End with the limitations. A link to a CI workflow is not
+evidence that the workflow passed.
 
 An import or health check establishes less than a real component request.
 A bounded policy-chain check verifies action execution, recorded `finish`,

@@ -272,4 +272,4 @@ Validation Status
      - Real-arm integration.
    * - Real robot
      - Unverified
-     - This page documents the operator procedure. The repository records no hardware run, calibration result, or task outcome for this configuration.
+     - This page documents the operator procedure. The repository records no hardware run, calibration result, or task outcome for this single-arm configuration, and the linked demo uses the dual-arm setup.

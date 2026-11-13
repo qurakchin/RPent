@@ -74,6 +74,6 @@
 <text x="715.0" y="688.5825" text-anchor="middle" font-size="11.5" fill="#15803d">→ 并入 binding，保留平台传输</text>
 <rect x="60" y="748" width="1380" height="86" rx="8" fill="#f9fafb" stroke="#d1d5db"/>
 <text x="82" y="776" font-size="12.5" fill="#374151">其余 6 个切片同样收敛：接入部分 ≤1.2k 行；Flash、记忆策略、benchmark 评测、真机运营与安全属于差异化功能，单列且不设压缩目标。</text>
-<text x="82" y="800" font-size="12.5" fill="#374151">整仓估算（基线 7614ada，不含 #340）：robots/ 35.7k → 约 17k 行；rpent/ 18.1k → 约 21.8k 行；切片文件 125 → 约 70。核心新增几乎全是契约、工具族、结果与产物。</text>
+<text x="82" y="800" font-size="12.5" fill="#374151">整仓估算（基线 b4d8459，不含 #340）：robots/ 35.7k → 约 17k 行；rpent/ 18.1k → 约 21.8k 行；切片文件 125 → 约 70。核心新增几乎全是契约、工具族、结果与产物。</text>
 <text x="82" y="824" font-size="11.5" fill="#9ca3af">行数为设计阶段估算，实施后按 a_global 的口径重新统计：只算 .py，不含测试与 __init__。</text>
 </svg>
