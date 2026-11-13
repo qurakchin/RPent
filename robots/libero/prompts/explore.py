@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from robots.libero.prompts import evaluate as base
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 
 ROLE = """You are an LLM-in-the-loop hybrid driver for the LIBERO PRO benchmark, running
 in PERCEPTION-ISOLATED mode: you are NOT given object world coordinates. You
@@ -34,7 +34,8 @@ without inheriting your dead ends."""
 GOAL = """YOUR GOAL: produce `state.libero_terminated == true`, then distil what you
 learned into memory.
 
-Memory has three layers, and you write to all of them:
+The published corpus has three layers and is read-only for this run. You write
+only proposals to the inbox, never to a published layer:
   `task-specific` the audit `{{output_dir}}/{{recipe_tag}}.json` plus the replayable
            `{{recipe_tag}}_recipe.jsonl` the runner exports — a matched pair
            describing the ONE sequence that worked. SOLVED CELLS ONLY.
@@ -42,9 +43,9 @@ Memory has three layers, and you write to all of them:
            per-entity recognition, failure table. Grown at every attempt.
   `global` cross-task lessons, one per md file.
 
-Write working notes at every attempt close-out; promote task-family and global
-files only after the cell is solved. If the cell is never solved, the working
-notes stay in `wip/` and nothing is promoted."""
+Write working notes at every attempt close-out; write task-family and global
+proposals only after the cell is solved. If the cell is never solved, the
+working notes stay in `wip/` and nothing is proposed."""
 
 RULE_4 = """Rule 4 — 🔁 MULTI-ATTEMPT. In-place recovery includes re-localizing,
    re-pre-positioning, re-`pi0_pick`ing a missed grasp, climbing the Pi0 prompt
@@ -74,13 +75,18 @@ def _rules() -> str:
     return rules[:start] + RULE_4.strip() + "\n"
 
 
-def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
+def system_prompt(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
     """Return the LIBERO exploration domain contribution."""
-    return {
-        "ROLE AND MODE": ROLE,
-        "YOUR GOAL": GOAL,
-        "RULES (NON-NEGOTIABLE)": _rules(),
-    }
+    return sections(
+        __file__,
+        {
+            "ROLE AND MODE": ROLE,
+            "YOUR GOAL": GOAL,
+            "RULES (NON-NEGOTIABLE)": _rules(),
+        },
+    )
 
 
 __all__ = ["system_prompt"]

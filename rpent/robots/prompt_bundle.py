@@ -25,9 +25,9 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from rpent.prompt.assembly import PromptSection
-from rpent.prompt.utils import PromptNode, format_prompt
+from rpent.prompt.utils import PromptNode
 
-PromptFactory = Callable[..., PromptNode]
+PromptFactory = Callable[..., "PromptNode | Sequence[PromptSection]"]
 PromptSectionsFactory = Callable[
     ..., "Sequence[PromptSection] | Mapping[str, PromptNode]"
 ]
@@ -42,19 +42,11 @@ class PromptBundle:
     memory pointers around them. ``prompt_sections`` contributes the guidance
     for the tools this robot exposes; it takes the same variables and must stay
     a pure function so ``--dump-prompt`` can render without starting a runtime.
+    ``source`` is the fallback provenance; contributions built with
+    :func:`rpent.prompt.assembly.sections` record their own module instead.
     """
 
     system: PromptFactory
     user: PromptFactory
     prompt_sections: PromptSectionsFactory | None = None
     source: str = ""
-
-    def render(
-        self,
-        variant: str,
-        *,
-        variables: Mapping[str, object] | None = None,
-    ) -> str:
-        """Render one prompt variant (``"system"`` or ``"user"``)."""
-        prompt = getattr(self, variant)(variables)
-        return format_prompt(prompt, variables=variables)

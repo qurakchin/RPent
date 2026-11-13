@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from rpent.prompt.utils import PromptNode, format_prompt
+from rpent.utils.config import get_repo_root
 
 if TYPE_CHECKING:
     from rpent.robots.prompt_bundle import PromptBundle
@@ -78,6 +79,36 @@ class PromptSection:
     node: PromptNode
     source: str
     role: PromptRole = "system"
+
+
+def section_source(module_file: str | Path) -> str:
+    """Return the repository-relative path of a prompt module.
+
+    ``prompt_sources.json`` records one source per contribution. Prompt modules
+    pass their ``__file__`` here so a section points at the file that defines
+    its text, not merely at the robot's ``prompts`` directory.
+    """
+    path = Path(module_file).resolve()
+    try:
+        return path.relative_to(get_repo_root()).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def sections(
+    module_file: str | Path,
+    node: Mapping[str, PromptNode] | PromptNode,
+    *,
+    role: PromptRole = "system",
+) -> tuple[PromptSection, ...]:
+    """Name every contribution in ``node`` and attribute it to ``module_file``."""
+    source = section_source(module_file)
+    if isinstance(node, Mapping):
+        return tuple(
+            PromptSection(str(name), {str(name): body}, source=source, role=role)
+            for name, body in node.items()
+        )
+    return (PromptSection("ROBOT" if role == "system" else "TASK", node, source, role),)
 
 
 @dataclass(frozen=True)
@@ -168,14 +199,18 @@ def run_modes(*, explore: bool, dashboard: bool, real_robot: bool) -> tuple[str,
 def memory_sections(
     variables: Mapping[str, object], *, explore: bool
 ) -> tuple[PromptSection, ...]:
-    """Return memory guidance when this run has a memory corpus.
+    """Return memory guidance this run can actually use.
 
-    Reading applies to every mode; proposing memory changes only happens during
-    exploration, where the run owns a writable inbox.
+    Reading is described only when the corpus directory exists; a path string
+    alone would still make the model list a directory that is not there. The
+    proposal contract applies whenever exploration can write to its inbox,
+    including a first exploration run that has no corpus yet.
     """
-    if not variables.get("memory_dir"):
-        return ()
-    sections = [fragment("memory_protocol", "MEMORY — HOW TO READ")]
+    memory_dir = variables.get("memory_dir")
+    has_corpus = bool(memory_dir) and Path(str(memory_dir)).is_dir()
+    sections = []
+    if has_corpus:
+        sections.append(fragment("memory_protocol", "MEMORY — HOW TO READ"))
     if explore:
         sections.append(fragment("memory_proposals", "MEMORY — PROPOSALS AND MERGING"))
     return tuple(sections)

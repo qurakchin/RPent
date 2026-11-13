@@ -22,7 +22,7 @@ EVALUATE_WORKFLOW_STEPS = (
 - `robots/libero/guides/pro_hybrid_guide.md`
 - `robots/libero/guides/env_calibration.md`
 """,
-    """INSPECT INITIAL STATE: call `view_env_state({"step": 0})`; inspect
+    """INSPECT INITIAL STATE: call `view_env_state` at step 0; inspect
   `task_language`, object_names, eef pose, `agentview_high.png`,
   `wrist_high.png` if useful, and call `view_camera_meta` if needed. Identify ALL target
 objects, destination surfaces, and relation landmarks named by task_language.
@@ -57,11 +57,8 @@ first stage of EVERY task, even ones that look simple — a wrong-target first
 grab is unrecoverable in single-attempt mode, so the cheap insurance is to
 identify all entities up front. Do the FINAL READY CHECK, then plan.
 """,
-    """EXECUTE one primitive at a time by calling its structured tool:
-
-    move_to({"xyz": [x, y, z], "gripper": -1, ...})
-    pi0_pick({"prompt": "...", "max_chunks": 20, ...})
-    release({})
+    """EXECUTE one primitive at a time by calling `move_to`, `pi0_pick`, or
+`release`. Each tool's schema defines its arguments.
 
 Each primitive tool blocks until the next state record is dumped and returns
 the new state view, log, and embedded images. Inspect `agentview_high.png` and
@@ -83,12 +80,13 @@ pushes/aligns as needed. Re-prove the cell from scratch; do not inherit the
 dead-end verdict.
 
 SAM3 localization aid — `segment` (no robot motion): instead of eyeballing
-a pixel, call `segment({"prompt":"the black bowl on the cookies box",
-"camera":"agentview"})`. It runs SAM3 on the current image, back-projects the
-mask via the matching world map, and returns a robust median `world_xyz` plus
-logical `segment_artifact` and `overlay_artifact` names. Inspect the embedded
-overlay image to confirm the right object. Use `camera":"wrist"` (after parking the eef ~15–20 cm over the
-target) for ±1–2 cm refinement, or `"point":[row,col]` for a point prompt.
+a pixel, call `segment` with a plain description of the target and the camera to
+use. It runs SAM3 on the current image, back-projects the mask via the matching
+world map, and returns a robust median `world_xyz` plus logical
+`segment_artifact` and `overlay_artifact` names. Inspect the embedded overlay
+image to confirm the right object. Use the wrist camera (after parking the eef
+~15–20 cm over the target) for ±1–2 cm refinement, or a point prompt for a
+single pixel.
 Text `prompt` and `point` are mutually exclusive; provide exactly one.
 ⚠ PROMPT PHRASING (SAM3 is sensitive): use a plain colour+shape+RELATION phrase,
 NEVER the internal/brand name from `object_names`/BDDL. `"the akita black bowl"`
@@ -167,15 +165,15 @@ def workflow_steps(
     )
 
 
-STEP_READ_LOCAL_MEMORY = """READ EACH AVAILABLE LOCAL MEMORY LAYER for the observed `task_language`:
+STEP_READ_LOCAL_MEMORY = """READ THE LOCAL MEMORY FILES for the observed `task_language`:
 - task audit: `{{memory_dir}}/task-specific/{{reference_tag}}.json`
 - task recipe: `{{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl`
 - task-family leaf: find the matching task/regime leaf under `{{memory_dir}}/task-family/`
 - global index: `{{memory_dir}}/MEMORY.md`, then only relevant leaves under
   `{{memory_dir}}/global/`
 
-If a layer is absent, state that explicitly and continue with the available
-validated layers. Record the exact files used in final `strategy_notes`."""
+If a file is absent, state that explicitly and continue with the available
+validated memory. Record the exact files used in final `strategy_notes`."""
 
 
 LOCAL_WORKFLOW_STEPS = (
@@ -192,14 +190,14 @@ LOCAL_WORKFLOW_STEPS = (
 
 STEP_READ_MEMORY = """READ MEMORY for the observed `task_language` and scene.
 
-a. **THIS TASK** — read the `task-family_*` write-up for this cell if one exists.
-   It carries the technique, per-entity `segment` phrasings, the failure table
-   with attempt numbers, and the fragility flags for exactly this task. If it
-   does not exist, say so and continue; you will be creating it.
+The `task-family_*` write-up for this cell, when it exists, carries the
+technique, per-entity `segment` phrasings, the failure table with attempt
+numbers, and the fragility flags for exactly this task. If it does not exist,
+say so and continue; you will be creating it.
 
-b. **GLOBAL** — use `{{memory_dir}}/MEMORY.md` to rule entries OUT fast, then
-   read the few leaves that match your scene. A keyword often matches several
-   near-identical files, so choose from the file BODY, not the index line.
+Use `{{memory_dir}}/MEMORY.md` to rule global entries OUT fast, then read the
+few leaves that match your scene. A keyword often matches several near-identical
+files, so choose from the file BODY, not the index line.
 
 RECORD the memory files you read in your audit (or state that none matched)."""
 
@@ -261,9 +259,8 @@ c. Call `finish`."""
 
 STEP_DISTIL = """DISTIL — consolidate this cell into memory. Budget ~25 tool calls.
 
-⚠ Write ONLY under `{{memory_inbox}}/` (via `write_text_file`). Use the shared
-proposal shape for field names, the bare `id`, and YAML quoting; in frontmatter
-`related:` is a plain list of bare ids and `[[...]]` is BODY-only syntax.
+⚠ Write ONLY under `{{memory_inbox}}/` (via `write_text_file`). The shared
+proposal contract defines the shape, the bare `id`, and YAML quoting.
 
 ⚠ THIS PASS RUNS ONLY WHEN THE CELL IS SOLVED. If it is not, write the unsolved
 audit (WORKFLOW), leave `wip/notes.md` and the attempt archives as they are, and
@@ -357,16 +354,10 @@ c. GLOBAL LAYER -> `{{memory_inbox}}/<bare-id>.md`, ONE lesson per file. This
      **Falsify:**      <the observation that would disprove this>
      **Related:**      <[[id]] links>
 
-d. DEDUPE — before writing any new global file, search: `list_dir` the memory
-   directory and `read_text_file` the plausible hits, comparing against the file
-   BODY, not the index line.
-     - ALREADY COVERED and consistent -> do NOT write a near-duplicate. Propose
-       the same bare `id` with `{{recipe_tag}}` added to `evidence.cells`; the
-       merge step accumulates evidence and raises confidence.
-     - COVERED BUT CONTRADICTED -> do NOT edit or overwrite it. Write a separate
-       proposal that cites the existing claim, your contradicting observation,
-       the evidence (attempt numbers + measurements), and the conditions under
-       which each version might hold.
+d. DEDUPE — before writing a global file, use the shared proposal contract:
+   corroborate an existing entry by proposing the same bare `id` with this cell
+   added, and raise a contradiction as a separate proposal rather than editing
+   the published entry. Compare against the file BODY, not the index line.
 
 e. REPORT in your final message: how many lessons you considered, how they split
    across the three layers, how many existing entries you corroborated, and how

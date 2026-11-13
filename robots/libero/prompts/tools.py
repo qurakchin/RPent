@@ -19,7 +19,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from robots.libero.prompts import workflow
-from rpent.prompt.utils import Numbered, PromptNode
+from rpent.prompt.assembly import PromptSection, section_source, sections
+from rpent.prompt.utils import Numbered
 
 PROVEN_LEVERS = """These techniques and per-task target zones transfer across seeds; the
 coordinates do not. The solved seed-0 reference is
@@ -164,12 +165,9 @@ LOCALIZATION = """This is the core of perception-isolated mode. To find where an
   `agentview.png` only if the high-resolution artifact is absent) and find the target
    object's pixel (row, col). (row = vertical/y from top, col = horizontal/x
    from left.)
-2. Call `back_project` on that pixel:
-
-       back_project({"row": ROW, "col": COL, "step": NN})
-
-   It uses the high-resolution world map by default. Pass `"resolution":"low"`
-   only if the pixel came from a 256x256 image. The geometry (K⁻¹ back-projection
+2. Call `back_project` on that pixel and step. It uses the high-resolution world
+   map by default; select the low-resolution map only for a pixel taken from a
+   256x256 image. The geometry (K⁻¹ back-projection
    + extrinsic) is already done for you. Just use the returned `world_xyz`; do
    NOT write back-projection math yourself unless debugging a tool failure. NEVER
    mix hi-res pixels with low-res world maps or vice versa.
@@ -295,11 +293,14 @@ WAM_OUTCOME = (
 
 def prompt_sections(
     variables: Mapping[str, object] | None = None,
-) -> Mapping[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the tool guidance for the selected policy and memory profile."""
     variables = variables or {}
     if variables.get("policy_kind") == "wam":
-        return {"ROLE": WAM_ROLE, "WORKFLOW": WAM_WORKFLOW, "OUTCOME": WAM_OUTCOME}
+        return sections(
+            __file__,
+            {"ROLE": WAM_ROLE, "WORKFLOW": WAM_WORKFLOW, "OUTCOME": WAM_OUTCOME},
+        )
     enabled = bool(variables.get("enable_direct_action", False))
     if variables.get("mode", "eval") == "explore":
         steps = workflow.EXPLORE_WORKFLOW_STEPS
@@ -307,11 +308,19 @@ def prompt_sections(
         steps = workflow.LOCAL_WORKFLOW_STEPS
     else:
         steps = workflow.EVALUATE_WORKFLOW_STEPS
-    return {
-        "PROVEN LEVERS": PROVEN_LEVERS,
-        "RUNTIME": RUNTIME,
-        "LOCALIZATION": LOCALIZATION,
-        "PERCEPTION ALGORITHM": PERCEPTION_ALGORITHM,
-        "WORKFLOW": Numbered(workflow.workflow_steps(steps, enabled)),
-        "KEY HYPERPARAMETERS": KEY_HYPERPARAMETERS,
-    }
+    own = sections(
+        __file__,
+        {
+            "PROVEN LEVERS": PROVEN_LEVERS,
+            "RUNTIME": RUNTIME,
+            "LOCALIZATION": LOCALIZATION,
+            "PERCEPTION ALGORITHM": PERCEPTION_ALGORITHM,
+            "KEY HYPERPARAMETERS": KEY_HYPERPARAMETERS,
+        },
+    )
+    steps_section = PromptSection(
+        "WORKFLOW",
+        {"WORKFLOW": Numbered(workflow.workflow_steps(steps, enabled))},
+        source=section_source(workflow.__file__),
+    )
+    return (*own[:4], steps_section, own[4])

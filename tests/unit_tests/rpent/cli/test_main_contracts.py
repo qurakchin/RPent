@@ -553,6 +553,8 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
     from rpent.tools import common
     from rpent.tools.toolkit import ToolResult
 
+    (tmp_path / "memory").mkdir()
+
     calls: dict[str, Any] = {}
     stores = []
     model_requests = 0

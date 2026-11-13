@@ -124,7 +124,12 @@ def test_fragments_do_not_depend_on_robot_variables() -> None:
         assert "{{" not in format_prompt(fragment(stem, stem).node)
 
 
-def test_build_robot_prompt_contributes_domain_tools_and_memory() -> None:
+def test_build_robot_prompt_contributes_domain_tools_and_memory(
+    tmp_path: Path,
+) -> None:
+    memory_dir = tmp_path / "memory"
+    memory_dir.mkdir()
+
     bundle = PromptBundle(
         system=lambda variables: {"DOMAIN": "domain knowledge"},
         user=lambda variables: {"TASK": "user task"},
@@ -132,7 +137,7 @@ def test_build_robot_prompt_contributes_domain_tools_and_memory() -> None:
         source="robots/demo/prompts",
     )
     variables = {
-        "memory_dir": "/memory",
+        "memory_dir": str(memory_dir),
         "task": "demo",
     }
     assembled = build_robot_prompt(
@@ -211,7 +216,10 @@ def test_delivered_digest_matches_each_planner_layout() -> None:
     assert delivered_prompt_sha256("flash", system=system, user=user) is None
 
 
-def test_bundle_assembly_keeps_the_declared_layer_order() -> None:
+def test_bundle_assembly_keeps_the_declared_layer_order(tmp_path: Path) -> None:
+    memory_dir = tmp_path / "memory"
+    memory_dir.mkdir()
+
     bundle = PromptBundle(
         system=lambda variables: {"DOMAIN": "domain knowledge"},
         user=lambda variables: {"TASK": "user task"},
@@ -221,7 +229,7 @@ def test_bundle_assembly_keeps_the_declared_layer_order() -> None:
     assembled = build_robot_prompt(
         bundle,
         robot_name="demo",
-        variables={"memory_dir": "/memory"},
+        variables={"memory_dir": str(memory_dir)},
         modes=run_modes(explore=True, dashboard=False, real_robot=True),
     )
 

@@ -21,30 +21,42 @@ from collections.abc import Mapping
 from robots.franka.prompts import system as system_parts
 from robots.franka.prompts import tools as tool_parts
 from robots.franka.prompts import user as user_parts
-from rpent.prompt.utils import Numbered, PromptNode
+from rpent.prompt.assembly import PromptSection, sections
+from rpent.prompt.utils import Numbered
 
 
-def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
+def system_prompt(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
     """Assemble the Franka system prompt."""
-    return {
-        "ROLE": system_parts.ROLE,
-        "RUNTIME": system_parts.RUNTIME,
-        "WORKFLOW": Numbered(system_parts.WORKFLOW),
-    }
+    return sections(
+        system_parts.__file__,
+        {
+            "ROLE": system_parts.ROLE,
+            "RUNTIME": system_parts.RUNTIME,
+            "WORKFLOW": Numbered(system_parts.WORKFLOW),
+        },
+    )
 
 
-def user_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
+def user_prompt(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
     """Assemble the task-specific initial user prompt."""
-    return {
-        "TASK": user_parts.TASK,
-        "TASK CONSTRAINTS": user_parts.CONSTRAINTS,
-        "BEGIN": user_parts.BEGIN,
-    }
+    return sections(
+        user_parts.__file__,
+        {
+            "TASK": user_parts.TASK,
+            "TASK CONSTRAINTS": user_parts.CONSTRAINTS,
+            "BEGIN": user_parts.BEGIN,
+        },
+        role="user",
+    )
 
 
 def prompt_sections(
     variables: Mapping[str, object] | None = None,
-) -> Mapping[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the Franka tool guidance for the tools layer."""
     return tool_parts.prompt_sections(variables)
 

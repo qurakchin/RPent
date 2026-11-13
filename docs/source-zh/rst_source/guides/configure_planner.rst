@@ -58,10 +58,11 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
    rpent --robot libero --suite libero_object_task --task 0 \
      --output-dir /tmp/libero-prompt --dump-prompt
 
-拼装顺序固定为：基础规则、运行模式契约、工具说明、机器人领域提示词和记忆
-协议。``prompt_sources.json`` 还会记录所选规划器接收两种角色的方式：
-``api`` 将二者分开，``claude_code`` 和 ``codex`` 则把系统提示词拼到第一条
-用户消息前面。
+拼装顺序固定为：基础规则、运行模式契约、工具说明、机器人领域提示词，以及本次
+运行可用的记忆说明。读取协议要求记忆语料已经存在；探索运行还会得到提案契约。
+``prompt_sources.json`` 中的每一段都记录文本所在的模块文件。该文件还会记录
+所选规划器接收两种角色的方式：``api`` 将二者分开，``claude_code`` 和 ``codex``
+则把系统提示词拼到第一条用户消息前面。
 
 .. _planner-direct-actions:
 

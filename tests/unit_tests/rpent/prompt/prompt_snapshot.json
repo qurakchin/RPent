@@ -15,7 +15,7 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "d285a67e23c643ed2d94caec242a9ce081e298aeef5ef81ee2f49717fac37905"
+    "prompt_sha256": "4e083da6c2ffa8c417c66288656da207d6616a2a1dbdcaf3fe96ceb724d63a6a"
   },
   "yam:explore": {
     "sections": [
@@ -35,7 +35,7 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "82b11019ae184465b36cf290829da15d02cbdb51c29e588b711e91e62486101e"
+    "prompt_sha256": "5a6e623c9a3d0597caacf0d07fff5cf9e5526aa06c5a2d40a413fb5cde96c0d3"
   },
   "yam:dashboard": {
     "sections": [
@@ -54,7 +54,7 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "b12d202a7237073af8a0f47c4a2e0c1a3c5a12ca1cd1d895d6b638891b568479"
+    "prompt_sha256": "a69d3b869ff99b0040bd6f36b603d467ef15f00255526a4597def4874466d306"
   },
   "libero:eval": {
     "sections": [
@@ -74,7 +74,7 @@
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "42cf90a9193602cb77ce723cd024f3a04759c67b899590cd07eafad660b5af99"
+    "prompt_sha256": "f64bf2f6f569b489ec2ff6a814d34c27b3e211e4c6315fe32f8135c35cd10336"
   },
   "libero:explore": {
     "sections": [
@@ -95,7 +95,7 @@
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "237427391038f06420ede3c9b2c520e3325d8ed36f1227c07f3b6feb2552e3de"
+    "prompt_sha256": "bb7fb61bd55a6dee200856dccf62374a1b6a8ff0a41f55efafe092d47dfb725a"
   },
   "libero:dashboard": {
     "sections": [
@@ -116,7 +116,7 @@
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "c6334b3783ad26fe932a6a2347a065d9a754fe407eabb31a4eb5490bed0947e8"
+    "prompt_sha256": "2ac25fc658ccf8df1b40eb5293cd2acf7984a4a4a7f6209d83abca7216ff5881"
   },
   "robocasa:eval": {
     "sections": [
@@ -138,7 +138,7 @@
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "01dcb2a1b050a15cd6b504d8cc1b38db3544525bf76b8b4e5c92f848c4059ee4"
+    "prompt_sha256": "b6c292c1956e993c8cafa0f05b5df4e217948fc45e97a39ea9c895645bdbf181"
   },
   "robocasa:explore": {
     "sections": [
@@ -161,7 +161,7 @@
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "331dee2da74f2e991006ff7feb81fe6c19d7a050bd628f29c64493c66602226a"
+    "prompt_sha256": "fcc5f3bb16ad208beefa4c187055750a2b4b235d0661b55d3351b6f5e4b73051"
   },
   "robocasa:dashboard": {
     "sections": [
@@ -184,7 +184,7 @@
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "04b9083f4bdfb542f014af94dd190ab0d778dbb6541847941b2251902b6a6673"
+    "prompt_sha256": "dedfcb9337eed635af96b6419558cb9ebd7edf37a9b2f195b07e39f6f589ee6e"
   },
   "robodojo:eval": {
     "sections": [
@@ -205,7 +205,7 @@
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "06c2183b0c38134f9eeaee743b1f76aa40c16273186c18f1d9d0cea58558ea8f"
+    "prompt_sha256": "51db88f0a5887bcf8e731d3c2f80e900d30ba6e877e19e9c3ee274c17c31e9ee"
   },
   "robodojo:explore": {
     "sections": [
@@ -229,7 +229,7 @@
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "18108ba6e263d55b5f67fb8765baefdb8607edb2128fcb9fccea7738485d761c"
+    "prompt_sha256": "1f5edb35d43d9a59a774e4d47f3ae94879ab6ab618469c9d88d0aa8cd06dba45"
   },
   "robodojo:dashboard": {
     "sections": [
@@ -251,7 +251,7 @@
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "d61e1a9f2ef234fe81c8c742dec7f4bac4a2084b99269c793ea3470625778f29"
+    "prompt_sha256": "c13ebfb66a652a43eaba99b19d0b60321ac8701296ad873cc57164d4260e0894"
   },
   "robotwin:eval": {
     "sections": [
@@ -271,7 +271,7 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "961fb407fc763cc8de47fcb57a367e9ea4064abbb5ea7175f6d74cd5706dfd3e"
+    "prompt_sha256": "5d90abb1d67b5ff05c19c665a9f51bb1db63259d8a3e3cbde7a69072e168e0cc"
   },
   "robotwin:explore": {
     "sections": [
@@ -295,7 +295,7 @@
       "BEGIN",
       "EXPLORE MODE"
     ],
-    "prompt_sha256": "52bf47e5d163eb1665865ccec2291d67055c809f3a333c1b3aa3394603a9b238"
+    "prompt_sha256": "e677f155b2e11d6c34668657fbbb70203bae3710fb693f41a733cb62f36a6768"
   },
   "robotwin:dashboard": {
     "sections": [
@@ -316,7 +316,7 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "408e8070602d9e9196f99ec36b39d30920fa4875855b8830aa2f8a694c2875c4"
+    "prompt_sha256": "6477118648d004466fe06befb0b7f7001968e07e936b356bbd92b1883374c458"
   },
   "franka:eval": {
     "sections": [
@@ -406,7 +406,7 @@
       "BEGIN",
       "EXPLORATION OUTPUT"
     ],
-    "prompt_sha256": "c5da201d9b6dbcc925f7b74eeb093cbce4822919e763d80d1ad47c1fe048679b"
+    "prompt_sha256": "b5512b171e81cca603da475e9b64fbad0f5e495aa31e263dda4becb941e933a6"
   },
   "dual_franka:dashboard": {
     "sections": [

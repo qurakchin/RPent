@@ -19,7 +19,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from robots.robodojo.prompts.policy import POLICY_PROMPTS
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 from rpent.utils.templates import substitute
 
 ROLE_AND_RULES = """You control RoboDojo's dual ARX-X5 arms through registered tools.
@@ -99,7 +99,8 @@ REWARD = """Do not request hidden reward details or evaluator internals."""
 OUTPUT_DISCIPLINE = """Record the observed outcome and uncertainties in
 {{output_dir}}/{{recipe_tag}}.json, including the native instruction, task, seed,
 layout, native_success, memory_files_read, missing references and material
-deviations from the reference strategy. Then call finish(status, summary).
+deviations from the reference strategy. Then call finish with the observed
+status and summary.
 Do not run an exploration sweep within an evaluation episode."""
 
 
@@ -108,13 +109,12 @@ published references before choosing an approach, when present:
 1. {{memory_dir}}/task-specific/{{reference_tag}}.json
 2. {{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl
 3. {{memory_dir}}/task-family/task-family_robodojo_{{env_cfg_type}}_t{{task}}.md
-4. {{memory_dir}}/MEMORY.md, then the global leaves relevant to this scene's
-   manipulation or failure mode. Usually one to three relevant leaves suffice.
+4. {{memory_dir}}/MEMORY.md for the global leaves relevant to this scene's
+   manipulation or failure mode; one to three usually suffice.
 
-Use read_text_file with max_chars=100000 for the task references. Check the
-returned size and content for truncation; if truncated, read again with
-max_chars at least equal to the reported size. Do not treat a partial read as
-the complete reference.
+Read each task reference completely. Check the returned size and content for
+truncation; if truncated, read again with a limit at least equal to the
+reported size. Do not treat a partial read as the complete reference.
 
 The reference is the same exact task variant explored at seed 0, layout 0.
 Keep standard and Random task-specific pairs and task-family notes separate:
@@ -138,9 +138,9 @@ reference strategy no longer fits the scene."""
 
 def system_prompt(
     variables: Mapping[str, object] | None = None,
-) -> PromptNode:
+) -> tuple[PromptSection, ...]:
     """Assemble the evaluation prompt for the selected feedback mode."""
-    sections = {
+    prompt = {
         "ROLE AND RULES": ROLE_AND_RULES,
         "READ ORDER": READ_ORDER,
         "MEMORY": MEMORY,
@@ -150,19 +150,19 @@ def system_prompt(
         "OUTPUT DISCIPLINE": OUTPUT_DISCIPLINE,
     }
     if (variables or {}).get("mode") == "eval-fair":
-        sections.pop("MEMORY")
-        sections["READ ORDER"] = (
+        prompt.pop("MEMORY")
+        prompt["READ ORDER"] = (
             "Inspect view_env_state and the head and wrist images before acting. "
             "Read the native instruction, note both arms' initial end-effector "
             "positions and orientations, and bind objects, destinations and arm "
             "roles from current observations."
         )
-        sections["REWARD AND SCORE"] = (
+        prompt["REWARD AND SCORE"] = (
             "Task success feedback is unavailable to this client."
         )
-        sections["OUTPUT DISCIPLINE"] = (
+        prompt["OUTPUT DISCIPLINE"] = (
             "Evaluation permits one episode without reset. Call finish with your "
             "observed outcome; do not claim a verified task verdict."
         )
     backend = (variables or {}).get("vla_backend") or "vpp2"
-    return substitute(sections, POLICY_PROMPTS[backend])
+    return sections(__file__, substitute(prompt, POLICY_PROMPTS[backend]))

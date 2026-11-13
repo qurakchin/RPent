@@ -117,11 +117,17 @@ def test_parse_config_resolves_local_memory_dir(tmp_path):
     assert config.prompt_vars["memory_dir"] == str(memory_dir.resolve())
 
 
+def _render_sections(sections, variables):
+    return "\n\n".join(
+        format_prompt(section.node, variables=variables) for section in sections
+    )
+
+
 def test_prompt_names_only_current_task_memory(tmp_path):
     memory_dir = tmp_path / "memory"
-    rendered = format_prompt(
+    rendered = _render_sections(
         system_prompt(),
-        variables={
+        {
             "task_name": "OpenDrawer",
             "memory_dir": str(memory_dir),
         },

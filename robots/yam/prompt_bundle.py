@@ -15,11 +15,13 @@ from collections.abc import Mapping
 from robots.yam.prompts import system as system_parts
 from robots.yam.prompts import tools as tool_parts
 from robots.yam.prompts import user as user_parts
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 
 
-def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
-    return {
+def system_prompt(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
+    node = {
         "ROLE": system_parts.ROLE,
         "READ ORDER": system_parts.READ_ORDER,
         **(
@@ -30,15 +32,22 @@ def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
         "RUNTIME": system_parts.RUNTIME,
         "SUCCESS": system_parts.SUCCESS,
     }
+    return sections(system_parts.__file__, node)
 
 
-def user_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
-    return {"CELL": user_parts.CELL, "BEGIN": user_parts.BEGIN}
+def user_prompt(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
+    return sections(
+        user_parts.__file__,
+        {"CELL": user_parts.CELL, "BEGIN": user_parts.BEGIN},
+        role="user",
+    )
 
 
 def prompt_sections(
     variables: Mapping[str, object] | None = None,
-) -> Mapping[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the YAM tool guidance for the tools layer."""
     return tool_parts.prompt_sections(variables)
 

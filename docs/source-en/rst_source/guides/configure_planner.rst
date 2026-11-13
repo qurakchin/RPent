@@ -75,10 +75,12 @@ its own session loop:
      --output-dir /tmp/libero-prompt --dump-prompt
 
 The assembly order is fixed: base rules, run-mode contract, tool guidance, the
-robot's domain prompt, and the memory protocol. ``prompt_sources.json`` also
-records how the selected planner receives the two roles; ``api`` keeps them
-separate, while ``claude_code`` and ``codex`` prefix the system prompt to the
-first user message.
+robot's domain prompt, and the memory guidance this run can use. The reading
+protocol requires an existing corpus; exploration also receives the proposal
+contract. Each section in ``prompt_sources.json`` names the module that owns its
+text. The file also records how the selected planner receives the two roles;
+``api`` keeps them separate, while ``claude_code`` and ``codex`` prefix the
+system prompt to the first user message.
 
 .. _planner-direct-actions:
 

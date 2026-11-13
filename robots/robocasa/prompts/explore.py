@@ -9,7 +9,8 @@ structured tools and layered-memory contract.
 from __future__ import annotations
 
 from robots.robocasa.prompts import evaluate as base
-from rpent.prompt.utils import BulletList, PromptNode
+from rpent.prompt.assembly import PromptSection, sections
+from rpent.prompt.utils import BulletList
 
 ROLE = """
 You are an LLM-in-the-loop robotic explorer for RoboCasa365 in
@@ -33,40 +34,34 @@ RULES = BulletList(
         "After navigation or base motion, re-localize because the arm frame changed.",
         "Inspect task_progress after every action; it is the environment's grounded feedback.",
         "Use reset only for an unrecoverable or deliberately completed experiment. Re-run perception after every reset.",
-        "Call finish(status='success') only after state.success is true. An unsolved finish is refused while this session still has attempts.",
+        "Call finish with status success only after state.success is true. An unsolved finish is refused while this session still has attempts.",
     ]
 )
 
 MEMORY = """
-Before acting, use `list_dir` directly on `{{memory_dir}}/task-specific/`,
-`{{memory_dir}}/task-family/`, and `{{memory_dir}}/global/` to find published
-memory. Use `read_text_file` to read the most task-specific RoboCasa entry
-first, then only task-family/global entries whose applicability matches this
-task. Check `{{memory_inbox}}/wip/` directly for handoff notes from earlier
-sessions. These directories may not exist yet; if `list_dir` reports
-`directory not found` or an empty listing, skip that location. Do not browse
+Published memory lives in `{{memory_dir}}/task-specific/`,
+`{{memory_dir}}/task-family/`, and `{{memory_dir}}/global/`; start with the
+most task-specific RoboCasa entry and check `{{memory_inbox}}/wip/` for handoff
+notes. Do not browse
 `{{memory_dir}}/_internal/` or `{{memory_dir}}/_internal/inbox/`; within
 `_internal/`, only the current inbox `{{memory_inbox}}/` and its contents are
 accessible.
 
-At every failed-attempt close-out, first write
-`{{output_dir}}/attempts/attempt_<N>_failed.json`. Record the attempt number,
+At every failed-attempt close-out, also write
+`{{output_dir}}/attempts/attempt_<N>_failed.json` with the attempt number,
 initial plan, commands and parameters tried, observed progress, bounded failure
-mechanism, and the next named lever. Then append the same concise evidence to
-`{{memory_inbox}}/wip/notes.md`. Phrase claims narrowly (for example, “this front-contact
-push stalled”) rather than declaring a fixture unreachable.
+mechanism, and the next named lever. Phrase claims narrowly (for example, “this
+front-contact push stalled”) rather than declaring a fixture unreachable.
 
-After success, produce concise proposed memory:
-- task-family: task technique, object/fixture recognition, ordering, robust parameter
-  ranges, task_progress milestones, and a failure table;
-- global: only genuinely cross-task lessons, each with applicability and
-  evidence. State “cause unknown” instead of inventing an explanation.
+After success, propose task-family material covering task technique,
+object/fixture recognition, ordering, robust parameter ranges, task_progress
+milestones, and a failure table; propose global material only for genuinely
+cross-task lessons, each with applicability and evidence.
 
-Every proposed file must be directly under `{{memory_inbox}}/` and begin with
-parseable YAML frontmatter in the shared shape. For RoboCasa, use
-`suite: robocasa`, `regime: {{split}}`, `task_id: {{task_name}}`, the verbatim
-initial task language, `evidence.cells: [{{recipe_tag}}]`, the attempt count,
-and the observed seed. Use the shared global shape for cross-task lessons.
+Use the shared task-family shape with `suite: robocasa`, `regime: {{split}}`,
+`task_id: {{task_name}}`, the verbatim initial task language,
+`evidence.cells: [{{recipe_tag}}]`, the attempt count, and the observed seed.
+Use the shared global shape for cross-task lessons.
 """
 
 WORKFLOW = """
@@ -92,13 +87,16 @@ as a distinct experiment and preserve useful evidence for the next session.
 """
 
 
-def system_prompt() -> dict[str, PromptNode]:
-    return {
-        "Role": ROLE,
-        "Goal and memory contract": GOAL,
-        "Rules": RULES,
-        "Memory": MEMORY,
-        "Workflow": WORKFLOW,
-        "Environment": base.ENVIRONMENT,
-        "Begin": base.NEXT,
-    }
+def system_prompt() -> tuple[PromptSection, ...]:
+    return sections(
+        __file__,
+        {
+            "Role": ROLE,
+            "Goal and memory contract": GOAL,
+            "Rules": RULES,
+            "Memory": MEMORY,
+            "Workflow": WORKFLOW,
+            "Environment": base.ENVIRONMENT,
+            "Begin": base.NEXT,
+        },
+    )

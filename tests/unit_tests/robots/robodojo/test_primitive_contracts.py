@@ -668,19 +668,19 @@ def test_policy_prompts_match_configured_backend(tmp_path, mode, backend, backen
     )
     system = assembled.system
     prompt = " ".join(system.split())
-    assert f"{backend}_act(" in prompt
+    assert f"{backend}_act" in prompt
     other = "vpp2" if backend == "awomo05" else "awomo05"
-    assert f"{other}_act(" not in prompt
+    assert f"{other}_act" not in prompt
     assert "{{" not in prompt
     if backend == "awomo05":
-        assert "no instruction parameter" in prompt
+        assert "no instruction input" in prompt
         assert "8, 16 and 24 actions" in prompt
         assert "VPP2" not in prompt
         assert "clarify the instruction" not in prompt
         if mode == "explore":
             assert "retry: instruction" not in prompt
     else:
-        assert "vpp2_act(instruction, chunks=1)" in prompt
+        assert "vpp2_act executes the supplied instruction" in prompt
         assert "24, 48 and 72 actions" in prompt
 
     task = assembled.user

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 
 LOCALIZATION = """
 PRIMARY TOOL — back_project_batch: Pass a list of [row, col] pixels from the
@@ -43,24 +43,24 @@ Use the navview camera to check if the path ahead is clear.
 """
 
 PRIMITIVES = """
-AVAILABLE PRIMITIVES:
-- navigate_to(xy, tol): Drive base to world (x,y).
-- move_base(forward, lateral, turn, steps): Raw base velocity (robot-local frame).
-- move_to(xyz, gripper): Arm servo to world xyz. OMIT gripper for carry-safe hold.
-- move_delta(dxyz): Relative arm nudge from current position.
-- rotate_pitch(target_pitch): Tilt wrist forward/back. Holds xyz.
-- set_gripper(gripper, steps): +1 close, -1 open.
-- release(steps): Open gripper to drop.
-- scripted_grasp(xyz): Coarse fallback grasp (open, hover, descend, close, lift).
-- rldx_skill(prompt): VLA full-body skill (arm + base).
-- rldx_arm(prompt): VLA arm-only skill (base clamped).
-- reset(): Restart episode (only in EXPLORE mode).
+AVAILABLE PRIMITIVES (arguments are defined by each tool's schema):
+- navigate_to: drive the base to a world (x, y) target.
+- move_base: raw base velocity in the robot-local frame.
+- move_to: servo the arm to a world xyz.
+- move_delta: relative arm nudge from the current position.
+- rotate_pitch: tilt the wrist forward or back while holding xyz.
+- set_gripper: close or open the gripper.
+- release: open the gripper to drop.
+- scripted_grasp: coarse fallback grasp (open, hover, descend, close, lift).
+- rldx_skill: VLA full-body skill (arm + base).
+- rldx_arm: VLA arm-only skill (base clamped).
+- reset: restart the episode (only in EXPLORE mode).
 
 PERCEPTION TOOLS:
-- view_env_state(step): Read state + images.
-- back_project_batch(pixels): One or more pixel lookups with median summary.
-- query_world_map(z_min, z_max, ...): Find objects by height/region.
-- finish(status, summary): Signal task completion.
+- view_env_state: read state and images.
+- back_project_batch: one or more pixel lookups with a median summary.
+- query_world_map: find objects by height or region.
+- finish: signal task completion.
 """
 
 VLA_RULES = """
@@ -90,19 +90,22 @@ GRIPPER RULES:
 - +1 = actively close the gripper.
 - -1 = actively open the gripper.
 - 'hold' = maintain current finger width (safe for carrying).
-- release(steps) is the safe way to drop an object.
+- release is the safe way to drop an object.
 - Carrying with -1 silently drops the object.
 """
 
 
 def prompt_sections(
     variables: Mapping[str, object] | None = None,
-) -> Mapping[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the RoboCasa tool guidance for this run."""
-    return {
-        "LOCALIZATION": LOCALIZATION,
-        "NAVIGATION": NAVIGATION,
-        "PRIMITIVES": PRIMITIVES,
-        "VLA RULES": VLA_RULES,
-        "GRIPPER RULES": GRIPPER_RULES,
-    }
+    return sections(
+        __file__,
+        {
+            "LOCALIZATION": LOCALIZATION,
+            "NAVIGATION": NAVIGATION,
+            "PRIMITIVES": PRIMITIVES,
+            "VLA RULES": VLA_RULES,
+            "GRIPPER RULES": GRIPPER_RULES,
+        },
+    )

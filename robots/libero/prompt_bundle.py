@@ -22,6 +22,7 @@ from robots.libero.prompts import evaluate as evaluate_parts
 from robots.libero.prompts import explore as explore_parts
 from robots.libero.prompts import tools as tool_parts
 from robots.libero.prompts import user as user_parts
+from rpent.prompt.assembly import PromptSection, sections
 from rpent.prompt.utils import PromptNode
 
 
@@ -38,24 +39,28 @@ def system_prompt(
     return evaluate_parts.system_prompt(variables)
 
 
-def user_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
+def user_prompt(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
     """Assemble the LIBERO user prompt tree."""
     if (variables or {}).get("policy_kind") == "wam":
-        return {
+        node = {
             "CELL": user_parts.CELL,
             "MEMORY": user_parts.WAM_MEMORY,
             "BEGIN": user_parts.WAM_BEGIN,
         }
-    return {
-        "CELL": user_parts.CELL,
-        "MODE": user_parts.MODE,
-        "BEGIN": user_parts.BEGIN,
-    }
+    else:
+        node = {
+            "CELL": user_parts.CELL,
+            "MODE": user_parts.MODE,
+            "BEGIN": user_parts.BEGIN,
+        }
+    return sections(user_parts.__file__, node, role="user")
 
 
 def prompt_sections(
     variables: Mapping[str, object] | None = None,
-) -> Mapping[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the LIBERO tool guidance for the selected policy and mode."""
     return tool_parts.prompt_sections(variables)
 

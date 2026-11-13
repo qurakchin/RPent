@@ -702,6 +702,8 @@ def test_explore_task_is_only_in_user_prompt():
     variables = {"mode": "explore"}
     system = prompt_bundle.system_prompt(variables)
     user = prompt_bundle.user_prompt(variables)
+    system_names = {section.name for section in system}
+    user_names = {section.name for section in user}
     for section in ("TASK", "TASK CONSTRAINTS"):
-        assert section not in system
-        assert section in user
+        assert section not in system_names
+        assert section in user_names
