@@ -80,28 +80,17 @@ Installation
 
 RoboTwin requires Python 3.11. The host must already provide a compatible
 CUDA toolkit/NVCC, a compiler toolchain, and the system GL/EGL/Vulkan
-libraries that SAPIEN depends on. Create an environment and install the
-RoboTwin dependency set:
-
-.. code-block:: bash
-
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   rpent-env install robotwin --venv .venv-robotwin
-   source .venv-robotwin/bin/activate
-
-On a fresh checkout where ``rpent-env`` is not installed yet, bootstrap it as
+libraries that SAPIEN depends on. Install the ``robotwin`` profile as
 described in :doc:`../get_started/installation`. You do not need to run the
 RLinf installer or clone RoboTwin separately.
 
 For networks closer to Chinese mirrors, set uv's index environment variables
-for the install:
+before running that install command:
 
 .. code-block:: bash
 
-   UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple \
-   UV_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple \
-     rpent-env install robotwin --venv .venv-robotwin
+   export UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple
+   export UV_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
 
 .. note::
 

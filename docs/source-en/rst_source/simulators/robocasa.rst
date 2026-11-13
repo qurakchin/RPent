@@ -82,19 +82,9 @@ Installation and Resources
 --------------------------
 
 Use Linux, an NVIDIA GPU, working CUDA/EGL, ``git``, and
-`uv <https://docs.astral.sh/uv/getting-started/installation/>`_. Create a separate
-Python 3.10 environment. If you already have the repository, enter it and start
-at the third line:
-
-.. code-block:: bash
-
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   rpent-env install robocasa --venv .venv-robocasa
-   source .venv-robocasa/bin/activate
-
-On a fresh checkout where ``rpent-env`` is not installed yet, bootstrap it as
-described in :doc:`../get_started/installation`. The profile installs a
+`uv <https://docs.astral.sh/uv/getting-started/installation/>`_. The
+``robocasa`` profile needs Python 3.10; install it as described in
+:doc:`../get_started/installation`. The profile installs a
 CUDA-enabled Torch and torchvision pair; RLDX requires Torch >= 2.7 and
 torchvision >= 0.22. If your driver needs a different build, reinstall the
 matching pair with ``uv pip install`` using the
@@ -575,8 +565,9 @@ VLA Inference Check
 ~~~~~~~~~~~~~~~~~~~
 
 Complete :ref:`VLA configuration <robocasa-vla-configuration>`, then select an
-available GPU and a fresh output directory. Install the ``dev`` profile alongside it with
-``rpent-env install dev --venv .venv-robocasa`` if you need test dependencies:
+available GPU and a fresh output directory. If you need test dependencies,
+reinstall the profile with ``--dev``:
+``rpent-env install robocasa --venv .venv-robocasa --dev``.
 
 .. code-block:: bash
 

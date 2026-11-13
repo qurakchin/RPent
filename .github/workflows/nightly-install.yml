@@ -25,6 +25,10 @@ jobs:
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m rpent.cli.env check --all
+      - name: Lock is up to date
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.env lock "${{ matrix.profile }}" --check
       - name: Fresh install
         run: |
           uv run --no-project --python 3.11 --with packaging -- \

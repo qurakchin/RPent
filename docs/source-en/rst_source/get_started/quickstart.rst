@@ -23,14 +23,14 @@ Create the LIBERO-PRO environment and activate it:
    git clone https://github.com/RLinf/RPent.git
    cd RPent
    uv run --no-project --python 3.11 --with packaging -- \
-     python -m rpent.cli.env install libero-pro --venv .venv
-   source .venv/bin/activate
+     python -m rpent.cli.env install libero-pro --venv .venv-libero-pro
+   source .venv-libero-pro/bin/activate
 
 The profile pins Python, the RLinf revision, Pi0.5, SAM 3.0, and the LIBERO
-packages together. See :doc:`installation` for every profile, external model
-environments, and diagnostics.
+packages together. See :doc:`installation` for every profile, its install
+command, external model environments, and diagnostics.
 
-Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv`` and set the checkpoint paths and API key again.
+Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv-libero-pro`` and set the checkpoint paths and API key again.
 
 2. Download Assets and Models
 -----------------------------

@@ -39,13 +39,14 @@ planner、robot 或 tool 集成，都能帮助项目持续发展。
 ```bash
 # 创建并启用开发环境。
 uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.env install dev --venv .venv
-source .venv/bin/activate
+  python -m rpent.cli.env install dev --venv .venv-dev
+source .venv-dev/bin/activate
 
-# 开发 robot 时，改为加装对应配方。
-rpent-env install libero-pro --venv .venv --dev  # LIBERO
-rpent-env install robocasa --venv .venv --dev    # RoboCasa
-rpent-env install robotwin --venv .venv --dev    # RoboTwin
+# 开发 robot 时，在该配方自己的虚拟环境中加装测试依赖。
+# 不同配方的依赖锁定不同，不能共用同一个虚拟环境。
+rpent-env install libero-pro --venv .venv-libero-pro --dev  # LIBERO
+rpent-env install robocasa --venv .venv-robocasa --dev       # RoboCasa
+rpent-env install robotwin --venv .venv-robotwin --dev       # RoboTwin
 
 # 安装并启用仓库 hooks。
 uv pip install pre-commit==4.6.2

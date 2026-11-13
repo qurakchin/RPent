@@ -98,24 +98,24 @@ Installation and Resources
 
 For a first LIBERO-PRO run, complete the installation, asset downloads, and model setup in :doc:`../get_started/quickstart`. Continue here to select tasks and reproduce experiments.
 
-For another variant, install the matching profile in an isolated environment with
-:doc:`rpent-env <../get_started/installation>`, then download its assets. Install only one LIBERO variant per
-Python environment:
+For another variant, install the matching profile from
+:doc:`../get_started/installation` in an isolated environment, then download
+its assets. Install only one LIBERO variant per Python environment:
 
 .. list-table::
    :header-rows: 1
 
    * - Variant
-     - Install
+     - Profile
      - Assets
    * - ``standard``
-     - ``rpent-env install libero``
+     - ``libero``
      - ``libero-download-assets --skip-existing``
    * - ``pro``
-     - ``rpent-env install libero-pro``
+     - ``libero-pro``
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
-     - ``rpent-env install libero-plus``
+     - ``libero-plus``
      - ``liberoplus-download-assets --skip-existing``
 
 Each profile includes Pi0.5 (``rpent-openpi``), SAM3, and the RLinf runtime

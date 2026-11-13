@@ -1,7 +1,7 @@
 安装
 ====
 
-RPent 安装的是具名环境配方，而不是一组 extra。``envs/`` 中的每个配方选择组件及其放置方式，每个组件在 ``component.toml`` 中声明自己的依赖。``rpent-env`` 创建虚拟环境，只安装该配方的内容，对每个组件执行导入探针，并写入安装指纹。
+RPent 安装的是具名环境配方，而不是一组 extra。``envs/`` 中的每个配方选择组件及其放置方式，每个组件在 ``component.toml`` 中声明自己的依赖。``rpent-env`` 创建虚拟环境，只安装该配方的内容，对每个在本地安装的组件执行导入探针，并写入安装指纹。
 
 环境要求
 --------
@@ -18,27 +18,29 @@ RPent 安装的是具名环境配方，而不是一组 extra。``envs/`` 中的�
    rpent-env list
    rpent-env check --all
 
-``check`` 读取清单和配方，计算 ``requires`` 闭包，报告放置方式冲突、重复锁定、不支持的 Python 版本和平台不匹配。它不会下载任何依赖。
+``check`` 读取清单和配方，计算 ``requires`` 闭包，报告放置方式冲突、重复锁定、不支持的 Python 版本、平台不匹配，以及已声明但不再覆盖当前依赖的锁。它不会下载任何依赖。
 
 安装配方
 --------
 
-在源码目录中把配方安装到虚拟环境：
+在源码目录中把配方安装到独立的虚拟环境：
 
 .. code-block:: bash
 
-   rpent-env install libero-pro --venv .venv
-   source .venv/bin/activate
+   rpent-env install libero-pro --venv .venv-libero-pro
+   source .venv-libero-pro/bin/activate
 
 新检出的仓库还没有 ``rpent-env`` 命令。可以先不安装 RPent，直接引导它：
 
 .. code-block:: bash
 
    uv run --no-project --python 3.11 --with packaging -- \
-     python -m rpent.cli.env install libero-pro --venv .venv
-   source .venv/bin/activate
+     python -m rpent.cli.env install libero-pro --venv .venv-libero-pro
+   source .venv-libero-pro/bin/activate
 
-重复执行会复用环境并修复过期安装。配方有锁时安装器使用锁；``--dev`` 追加的测试依赖不在锁内，此时改用生成的 requirements 解析。``--dry-run`` 只打印生成的 requirements。配方把组件放到外部环境时，安装器会打印该环境的安装命令；请在同一个源码目录中执行。
+每个配方使用自己的虚拟环境。不同配方锁定不同的仿真器、机器人和模型运行时，安装器会拒绝在已安装其他配方的环境中安装；请为它指定另一个 ``--venv``。
+
+重复执行会复用环境并修复过期安装。配方有锁时安装器使用锁，并先检查锁是否仍覆盖全部直接依赖；锁过期时会失败并给出重新生成的 ``rpent-env lock <配方>`` 命令。``--dev`` 追加的测试依赖不在锁内，此时改用生成的 requirements 解析。``--dry-run`` 只打印生成的 requirements。配方把组件放到外部环境时，安装器会打印该环境的安装命令；请在同一个源码目录中执行。
 
 配方
 ----
@@ -93,13 +95,43 @@ RPent 安装的是具名环境配方，而不是一组 extra。``envs/`` 中的�
      - 3.11
      - 单能力诊断环境。
 
+安装命令
+--------
+
+每个配方对应下面一条安装命令。新检出的仓库需要按上文先加上 ``uv run
+--no-project --python 3.11 --with packaging -- python -m rpent.cli.env`` 前缀。
+
+.. code-block:: bash
+
+   rpent-env install minimal --venv .venv-minimal
+   rpent-env install dev --venv .venv-dev
+   rpent-env install libero --venv .venv-libero
+   rpent-env install libero-pro --venv .venv-libero-pro
+   rpent-env install libero-plus --venv .venv-libero-plus
+   rpent-env install libero-pro-flywheel --venv .venv-libero-pro-flywheel
+   rpent-env install libero-pro-molmo --venv .venv-libero-pro-molmo
+   rpent-env install libero-openpi-external --venv .venv-libero-openpi-external
+   rpent-env install franka --venv .venv-franka
+   rpent-env install dual-franka --venv .venv-dual-franka
+   rpent-env install robocasa --venv .venv-robocasa
+   rpent-env install robotwin --venv .venv-robotwin
+   rpent-env install robodojo --venv .venv-robodojo
+   rpent-env install robodojo-sim --venv .venv-robodojo-sim
+   rpent-env install yam --venv .venv-yam
+   rpent-env install molmo --venv .venv-molmo
+   rpent-env install geometry-eval --venv .venv-geometry-eval
+   rpent-env install rlinf --venv .venv-rlinf
+   rpent-env install sam3 --venv .venv-sam3
+   rpent-env install openpi --venv .venv-openpi
+   rpent-env install flywheel --venv .venv-flywheel
+
 诊断与复现
 ----------
 
 .. code-block:: bash
 
-   rpent-env doctor --venv .venv
-   rpent-env inspect --venv .venv
+   rpent-env doctor --venv .venv-libero-pro
+   rpent-env inspect --venv .venv-libero-pro
    rpent-env lock --all
    rpent-env lock --all --check
 

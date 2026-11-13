@@ -121,14 +121,14 @@ RPent is built for four kinds of users:
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # Recommended default (LIBERO-PRO):
 uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.env install libero-pro --venv .venv
-source .venv/bin/activate
+  python -m rpent.cli.env install libero-pro --venv .venv-libero-pro
+source .venv-libero-pro/bin/activate
 
-# Other environment profiles:
-rpent-env install robocasa --venv .venv    # RoboCasa
-rpent-env install robotwin --venv .venv    # RoboTwin
-rpent-env install franka --venv .venv      # Franka
-rpent-env install dual-franka --venv .venv # Dual Franka
+# Other profiles use their own virtualenv:
+rpent-env install robocasa --venv .venv-robocasa       # RoboCasa
+rpent-env install robotwin --venv .venv-robotwin       # RoboTwin
+rpent-env install franka --venv .venv-franka           # Franka
+rpent-env install dual-franka --venv .venv-dual-franka # Dual Franka
 ```
 
 `libero-pro` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every profile, compatibility extras, and diagnostics.

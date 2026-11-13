@@ -73,25 +73,12 @@ RoboDojo
 --------------
 
 NVIDIA 驱动版本建议参考 `Isaac Sim 5.1 官方系统要求 <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html>`_。\
-宿主机还需具备构建 cuRobo 所需的 CUDA toolkit/NVCC 和编译工具链。从 RPent 根目录创建独立环境并安装依赖：
-
-.. code-block:: bash
-
-   rpent-env install robodojo --venv .venv-robodojo
-   source .venv-robodojo/bin/activate
-
-新检出的仓库还没有 ``rpent-env`` 时，按 :doc:`../get_started/installation` 引导。配方安装 RoboDojo 运行时、SAM 3.0 和 Pi0.5；其组件清单提供 NVIDIA 软件包索引和 RoboDojo 依赖覆盖文件。
+宿主机还需具备构建 cuRobo 所需的 CUDA toolkit/NVCC 和编译工具链。按 :doc:`../get_started/installation` 安装 ``robodojo`` 配方即可。该配方安装 RoboDojo 运行时、SAM 3.0 和 Pi0.5；其组件清单提供 NVIDIA 软件包索引和 RoboDojo 依赖覆盖文件。
 
 .. note::
 
    Blackwell GPU 需要 CUDA 12.8 版 PyTorch。本项目固定的 PyTorch 2.7.0 也提供 CUDA 12.6 构建，\
-   但该构建不支持 Blackwell。使用这类 GPU 时，首次安装及后续重新安装都通过 ``UV_TORCH_BACKEND`` \
-   选择 CUDA 12.8 构建：
-
-   .. code-block:: bash
-
-      UV_TORCH_BACKEND=cu128 \
-        rpent-env install robodojo --venv .venv-robodojo
+   但该构建不支持 Blackwell。使用这类 GPU 时，在首次安装及后续重新安装前都导出 ``UV_TORCH_BACKEND=cu128``，以选择 CUDA 12.8 构建。
 
    如果环境中已安装 ``torch==2.7.0+cu126``，uv 会认为它满足版本要求，继续保留原有安装。\
    此时需在环境中显式替换：

@@ -39,14 +39,14 @@ described in :doc:`../get_started/installation`.
 
 **Control machine installation**
 
-From the RPent repository root on the control machine, install the ``yam``
-profile, then add RLinf, the i2rt SDK and the required build dependencies:
+Install the ``yam`` profile from :doc:`../get_started/installation` into
+``.venv-yam``, then add RLinf, the i2rt SDK and the required build
+dependencies:
 
 .. code-block:: bash
 
    cd /path/to/RPent
-   rpent-env install yam --venv .venv
-   source .venv/bin/activate
+   source .venv-yam/bin/activate
    uv pip install --torch-backend cpu \
      --build-constraints /path/to/RLinf/requirements/embodied/envs/yam-build-constraints.txt \
      -e /path/to/RLinf \
@@ -56,23 +56,22 @@ profile, then add RLinf, the i2rt SDK and the required build dependencies:
 **Inference machine installation**
 
 On the inference machine, use RLinf's installer to install YAM and OpenPI
-dependencies into the virtual environment, then install RPent with the ``yam``
-profile:
+dependencies into ``.venv-yam``, then install the ``yam`` profile from
+:doc:`../get_started/installation` into the same environment:
 
 .. code-block:: bash
 
    cd /path/to/RLinf
    bash requirements/install.sh embodied --model openpi --env yam \
-     --venv /path/to/RPent/.venv --install-rlinf
+     --venv /path/to/RPent/.venv-yam --install-rlinf
    cd /path/to/RPent
-   rpent-env install yam --venv .venv
-   source .venv/bin/activate
+   source .venv-yam/bin/activate
    uv pip check
 
 If system dependencies are already installed, append ``--no-root`` to the installer
 command.
 
-In each new terminal, enter the RPent repository on that machine and activate ``.venv``.
+In each new terminal, enter the RPent repository on that machine and activate ``.venv-yam``.
 
 .. _yam-calibration:
 
@@ -203,7 +202,7 @@ Before using Codex, configure separate runtime directories and log in by followi
 Start the Two-Machine Services
 ------------------------------
 
-Activate the installed ``.venv`` on each machine and start the services as follows:
+Activate the installed ``.venv-yam`` on each machine and start the services as follows:
 
 * **Control machine**: runs RPent, ENV and operator commands, with both arm CAN
   interfaces and all three cameras connected.
@@ -219,7 +218,7 @@ consistent:
 .. code-block:: bash
 
    cd /path/to/RPent
-   source .venv/bin/activate
+   source .venv-yam/bin/activate
    export TASK_ID=1
 
 **1. Control machine: start ENV**
