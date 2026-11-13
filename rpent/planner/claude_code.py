@@ -55,6 +55,7 @@ from rpent.planner.base import (
     strip_mcp_prefix,
 )
 from rpent.planner.utils.http_mcp_server import mcp_result
+from rpent.prompt.assembly import prefix_system_prompt
 from rpent.session import MissingInfo, Payload
 from rpent.session.claude_capture import ClaudeTraceCapture
 from rpent.session.env_capture import ToolCallCapture
@@ -118,7 +119,7 @@ class ClaudeCodePlanner(Planner):
             raise ValueError(
                 "input_queue and dashboard_interaction cannot be used together"
             )
-        prompt = f"{system_prompt}\n\n{user_message}" if system_prompt else user_message
+        prompt = prefix_system_prompt(system_prompt, user_message)
         return asyncio.run(
             self._solve_async(
                 prompt,

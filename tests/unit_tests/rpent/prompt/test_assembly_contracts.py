@@ -17,7 +17,6 @@ import pytest
 from rpent.prompt.artifacts import (
     EFFECTIVE_PROMPT,
     PROMPT_SOURCES,
-    delivered_prompt_sha256,
     delivered_prompt_text,
     write_prompt_artifacts,
 )
@@ -28,6 +27,7 @@ from rpent.prompt.assembly import (
     build_robot_prompt,
     fragment,
     mode_sections,
+    prefix_system_prompt,
     prompt_sha256,
     run_modes,
 )
@@ -43,6 +43,24 @@ def _layers() -> PromptLayers:
         domain=(PromptSection("DOMAIN", "domain knowledge", "robot/domain.py"),),
         memory=(fragment("memory_protocol", "MEMORY — HOW TO READ"),),
     )
+
+
+def test_prompt_bundle_render_keeps_the_pre_assembly_api() -> None:
+    bundle = PromptBundle(
+        system=lambda variables: {"DOMAIN": "domain knowledge"},
+        user=lambda variables: "user task",
+    )
+
+    assert "domain knowledge" in bundle.render("system")
+    assert bundle.render("user", variables={}) == "user task\n"
+
+    # Section contributions need their layer and provenance; rendering them as
+    # one bare node would silently drop both.
+    with pytest.raises(ValueError, match="assemble_prompt"):
+        PromptBundle(
+            system=lambda variables: (PromptSection("X", "x", "robot/domain.py"),),
+            user=lambda variables: "user task",
+        ).render("system")
 
 
 def test_assemble_prompt_renders_fixed_layer_order() -> None:
@@ -119,12 +137,14 @@ def test_run_modes_and_memory_sections_follow_the_run() -> None:
     assert run_modes(explore=False, dashboard=False, real_robot=False) == ("evaluate",)
     assert run_modes(explore=True, dashboard=True, real_robot=True) == (
         "explore",
-        "dashboard",
+        "interactive",
         "real_robot",
     )
 
     names = [section.name for section in mode_sections(("evaluate", "real_robot"))]
     assert names == ["RUN MODE — EVALUATION", "RUN MODE — REAL ROBOT"]
+    interactive = mode_sections(("interactive",))
+    assert [section.name for section in interactive] == ["RUN MODE — INTERACTIVE"]
 
 
 def test_fragments_do_not_depend_on_robot_variables() -> None:
@@ -132,8 +152,8 @@ def test_fragments_do_not_depend_on_robot_variables() -> None:
         "base",
         "mode_evaluate",
         "mode_explore",
-        "mode_dashboard",
-        "mode_real_robot",
+        "interactive",
+        "real_robot",
         "memory_protocol",
         "memory_proposals",
         "memory_transfer",
@@ -207,30 +227,29 @@ def test_write_prompt_artifacts_records_layout_and_sources(tmp_path: Path) -> No
     assert sources["planner_prompt_layout"] == "system_prefixed_to_user"
     assert sources["modes"] == ["evaluate"]
     assert sources["prompt_sha256"] == assembled.prompt_sha256
+    assert "delivered_prompt_sha256" not in sources
     assert sources["user_message_sha256"] == hashlib.sha256(b"do the task").hexdigest()
     assert [section["name"] for section in sources["sections"]] == [
         section["name"] for section in assembled.sections
     ]
 
 
-def test_delivered_digest_matches_each_planner_layout() -> None:
+def test_delivered_text_uses_the_same_prefix_helper_as_the_planners() -> None:
     system, user = "system text\n", "user text\n"
 
-    # claude_code/codex prepend the system prompt to the first user message.
-    prefixed = f"{system}\n\n{user}"
-    assert delivered_prompt_text("claude_code", system=system, user=user) == prefixed
-    assert delivered_prompt_sha256("claude_code", system=system, user=user) == (
-        hashlib.sha256(prefixed.encode("utf-8")).hexdigest()
+    # The planners and the artifact both call this helper.
+    assert prefix_system_prompt(system, user) == f"{system}\n\n{user}"
+    assert delivered_prompt_text("claude_code", system=system, user=user) == (
+        prefix_system_prompt(system, user)
+    )
+    assert delivered_prompt_text("codex", system=system, user=user) == (
+        prefix_system_prompt(system, user)
     )
 
-    # api sends two messages, so its delivery digest is the pair digest.
+    # api sends two messages; flash never receives the prompt.
     assert delivered_prompt_text("api", system=system, user=user) is None
-    assert delivered_prompt_sha256("api", system=system, user=user) == prompt_sha256(
-        system, user
-    )
-
-    # flash never receives the prompt.
-    assert delivered_prompt_sha256("flash", system=system, user=user) is None
+    assert delivered_prompt_text("flash", system=system, user=user) is None
+    assert prefix_system_prompt("", user) == user
 
 
 def test_bundle_assembly_keeps_the_declared_layer_order(tmp_path: Path) -> None:

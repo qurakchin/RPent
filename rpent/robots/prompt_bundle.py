@@ -25,7 +25,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
 from rpent.prompt.assembly import PromptSection
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.utils import PromptNode, format_prompt
 
 PromptFactory = Callable[..., "PromptNode | Sequence[PromptSection]"]
 PromptSectionsFactory = Callable[
@@ -38,10 +38,12 @@ class PromptBundle:
     """Python-defined prompt factories for one robot.
 
     ``system`` and ``user`` are the robot's domain contribution. The shared
-    assembly layer inserts base rules, run-mode contracts, tool guidance, and
-    memory pointers around them. ``prompt_sections`` contributes the guidance
-    for the tools this robot exposes; it takes the same variables and must stay
-    a pure function so ``--dump-prompt`` can render without starting a runtime.
+    assembly layer inserts base rules, run-mode contracts, shared tool-family
+    guidance, and memory pointers around them. ``prompt_sections`` contributes
+    guidance for tools that exist only in this slice, such as native tools; it
+    must not repeat a tool family's guidance and may be omitted when the slice
+    adds no native tool. It takes the same variables and must stay a pure
+    function so ``--dump-prompt`` can render without starting a runtime.
     ``source`` is the fallback provenance; contributions built with
     :func:`rpent.prompt.assembly.sections` record their own module instead.
     """
@@ -50,3 +52,28 @@ class PromptBundle:
     user: PromptFactory
     prompt_sections: PromptSectionsFactory | None = None
     source: str = ""
+
+    def render(
+        self,
+        variant: str,
+        *,
+        variables: Mapping[str, object] | None = None,
+    ) -> str:
+        """Render one prompt variant (``"system"`` or ``"user"``).
+
+        This is the pre-assembly helper for callers that need one rendered
+        variant. Factories that return ``PromptSection`` contributions are
+        rendered with their layers by :func:`rpent.prompt.assembly.assemble_prompt`;
+        passing them here is an error because the sections would lose their
+        provenance.
+        """
+        if variant not in ("system", "user"):
+            raise ValueError(f"unknown prompt variant: {variant!r}")
+        node = getattr(self, variant)(variables)
+        if isinstance(node, Sequence) and not isinstance(node, (str, bytes)):
+            if any(isinstance(section, PromptSection) for section in node):
+                raise ValueError(
+                    "PromptSection contributions are rendered by assemble_prompt, "
+                    "not PromptBundle.render"
+                )
+        return format_prompt(node, variables=variables)

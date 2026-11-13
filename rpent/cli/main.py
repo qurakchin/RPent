@@ -62,7 +62,6 @@ from rpent.planner.base import (
 )
 from rpent.planner.check import BASE_URL_ENV_BY_PLANNER
 from rpent.prompt.artifacts import (
-    delivered_prompt_sha256,
     effective_prompt_markdown,
     write_prompt_artifacts,
 )
@@ -682,7 +681,6 @@ def main() -> int:
     environment_metrics: dict = {}
     memory_manager: MemoryManager | None = None
     first_prompt_sha: str | None = None
-    first_delivered_sha: str | None = None
     try:
         if first_user_msg is not None:
             dashboard_events.emit(RunStartedEvent())
@@ -720,11 +718,6 @@ def main() -> int:
                     user_message=session_msg,
                 )
                 first_prompt_sha = assembled.prompt_sha256
-                first_delivered_sha = delivered_prompt_sha256(
-                    args.planner,
-                    system=assembled.system,
-                    user=session_msg,
-                )
             if getattr(robot_spec, "supports_exploration", False):
                 toolkit = get_toolkit(
                     robot_name,
@@ -872,7 +865,6 @@ def main() -> int:
         "environment_success": environment_success,
         "stats": stats,
         "prompt_sha256": first_prompt_sha or assembled.prompt_sha256,
-        "delivered_prompt_sha256": first_delivered_sha,
         "messages": _serialize_messages(messages),
     }
     with open(transcript_path, "a") as f:

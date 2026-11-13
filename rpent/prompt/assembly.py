@@ -16,15 +16,20 @@
 
 Every robot contributes only its domain knowledge. Shared rules live in
 ``rpent/prompt/fragments``, run modes add their own contract, and the tool
-surface contributes the guidance for the tools it exposes. The layer order is
-fixed so a reader can predict where a rule lives:
+families contribute the guidance for the tools they expose. A slice may still
+contribute guidance for tools that exist only in that robot through
+``PromptBundle.prompt_sections``; it must not restate a family's tool. The layer
+order is fixed so a reader can predict where a rule lives:
 
     base -> mode -> tool families -> robot domain -> memory
 
 Prompt rendering stays independent of the robot runtime: tool contributions are
-declared by the robot's ``PromptBundle.prompt_sections`` and are pure functions
-of the prompt variables. ``--dump-prompt`` therefore renders a full prompt
-without starting simulators or models.
+pure functions of the prompt variables. ``--dump-prompt`` therefore renders a
+full prompt without starting simulators or models.
+
+:data:`PLANNER_PROMPT_LAYOUT` and :func:`prefix_system_prompt` describe how a
+planner frames the two roles. The planners call the same helper so the recorded
+layout and the delivered text cannot drift apart.
 """
 
 from __future__ import annotations
@@ -36,7 +41,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
-from rpent.prompt.utils import PromptNode, format_prompt
+from rpent.prompt.utils import SECTION_SEPARATOR, PromptNode, format_prompt
 from rpent.utils.config import get_repo_root
 
 if TYPE_CHECKING:
@@ -61,9 +66,19 @@ PLANNER_PROMPT_LAYOUT: dict[str, str] = {
 _MODES: dict[str, tuple[str, str]] = {
     "evaluate": ("mode_evaluate", "RUN MODE — EVALUATION"),
     "explore": ("mode_explore", "RUN MODE — EXPLORATION"),
-    "dashboard": ("mode_dashboard", "RUN MODE — DASHBOARD"),
-    "real_robot": ("mode_real_robot", "RUN MODE — REAL ROBOT"),
+    "interactive": ("interactive", "RUN MODE — INTERACTIVE"),
+    "real_robot": ("real_robot", "RUN MODE — REAL ROBOT"),
 }
+
+
+def prefix_system_prompt(system: str, user: str) -> str:
+    """Return the single message a planner sends when it cannot separate roles.
+
+    Claude Code and Codex prepend the system prompt to the first user message.
+    Both planners and :mod:`rpent.prompt.artifacts` call this helper so the
+    delivered text has one implementation.
+    """
+    return f"{system}\n\n{user}" if system else user
 
 
 @dataclass(frozen=True)
@@ -187,10 +202,16 @@ def mode_sections(modes: Sequence[str]) -> tuple[PromptSection, ...]:
 
 
 def run_modes(*, explore: bool, dashboard: bool, real_robot: bool) -> tuple[str, ...]:
-    """Compose the run modes that apply to one session."""
+    """Compose the axes that apply to one session.
+
+    ``dashboard`` selects the interactive axis; the Dashboard is its current
+    implementation, not a separate axis. ``policy_mode`` is the fourth axis in
+    ``a_global`` 2.2 and is added by a_4 together with its ``mode_code``
+    fragment; until that lands, this helper must not invent code-mode rules.
+    """
     modes = ["explore" if explore else "evaluate"]
     if dashboard:
-        modes.append("dashboard")
+        modes.append("interactive")
     if real_robot:
         modes.append("real_robot")
     return tuple(modes)
@@ -227,7 +248,10 @@ def build_robot_prompt(
     """Assemble one robot's system and user prompts.
 
     Args:
-        bundle: The robot's domain prompt factories and optional tool sections.
+        bundle: The robot's domain prompt factories and optional guidance for
+            tools that exist only in this slice. Shared tool usage comes from
+            the tool families (a_3); a bundle with no ``prompt_sections`` is
+            valid.
         robot_name: Registry name, used as the default source label.
         variables: Prompt variables passed to every contribution.
         modes: Run modes such as ``("evaluate", "real_robot")``.
@@ -309,7 +333,7 @@ def assemble_prompt(
                     "sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
                 }
             )
-        rendered[role] = "\n\n\n".join(parts)
+        rendered[role] = SECTION_SEPARATOR.join(parts)
         if rendered[role]:
             rendered[role] += "\n"
 
@@ -352,7 +376,8 @@ def prompt_sha256(system: str, user: str) -> str:
     """Return the digest of the assembled system and user prompts.
 
     This is the digest of the two roles as assembled, not necessarily of the
-    single message a planner receives. Use
-    :func:`rpent.prompt.artifacts.delivered_prompt_sha256` for that layout.
+    single message a planner receives. ``prompt_sources.json`` records the
+    planner layout separately, and ``effective_prompt.md`` contains the exact
+    text a prefixing planner sends.
     """
     return hashlib.sha256(f"system\0{system}\0user\0{user}".encode("utf-8")).hexdigest()

@@ -36,7 +36,7 @@ from rpent.dashboard.events import RunStartedEvent
 from rpent.evaluation import RunFinalizationContext
 from rpent.memory import MemoryManager
 from rpent.planner.base import build_planner, is_recoverable_agent_error
-from rpent.prompt.artifacts import delivered_prompt_sha256, write_prompt_artifacts
+from rpent.prompt.artifacts import write_prompt_artifacts
 from rpent.prompt.assembly import build_robot_prompt, run_modes
 from rpent.robots import get_toolkit
 from rpent.session.planner_capture import end_planner_task, start_planner_task
@@ -228,7 +228,6 @@ def _run_dashboard_task(
     environment_success = None
     environment_metrics: dict = {}
     prompt_sha256 = ""
-    delivered_prompt_digest: str | None = None
     try:
         task_daemons, task_runtime_kwargs = robot_spec.init_runtime(
             task_args,
@@ -302,11 +301,6 @@ def _run_dashboard_task(
                 )
                 if session_number == 1:
                     prompt_sha256 = assembled.prompt_sha256
-                    delivered_prompt_digest = delivered_prompt_sha256(
-                        task_args.planner,
-                        system=assembled.system,
-                        user=session_message,
-                    )
                 if getattr(task_args, "explore", False):
                     state.begin_planner_session(
                         video_path=state_output_dir / "episode.mp4",
@@ -476,7 +470,6 @@ def _run_dashboard_task(
             "environment_success": environment_success,
             "stats": stats,
             "prompt_sha256": prompt_sha256,
-            "delivered_prompt_sha256": delivered_prompt_digest,
             "messages": _serialize_messages(messages),
         }
         try:

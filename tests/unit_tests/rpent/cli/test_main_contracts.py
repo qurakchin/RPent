@@ -1113,13 +1113,13 @@ def test_dump_prompt_renders_without_syncing_or_creating_memory(
 
     printed = capsys.readouterr().out
     assert "OPERATING RULES" in printed
-    assert "delivered_prompt_sha256" in printed
+    assert "prompt_sha256" in printed
     assert not memory_root.exists()
 
     sources = json.loads((tmp_path / "run" / "prompt_sources.json").read_text())
     assert sources["planner_prompt_layout"] == "separate_system"
     assert len(sources["prompt_sha256"]) == 64
-    assert sources["delivered_prompt_sha256"] == sources["prompt_sha256"]
+    assert "delivered_prompt_sha256" not in sources
     assert (tmp_path / "run" / "effective_prompt.md").exists()
 
 
