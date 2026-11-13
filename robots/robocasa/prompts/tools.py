@@ -29,9 +29,6 @@ CAMERA IMAGE ROLES:
   The pixel coordinates map directly to the world map.
 - nav_view: Base-mounted forward-down camera. Floor pixels (z≈0) are walkable.
 - wrist: Eye-in-hand camera. MOVES with gripper. Good for close-range refinement.
-
-TIP: Sample several pixels on the object and median their xy for robustness.
-A single pixel may hit a background gap or edge.
 """
 
 NAVIGATION = """
@@ -42,9 +39,7 @@ navigate_to with tol=0.6m stops about 0.6m in front of the target, facing it.
 Use move_base for fine adjustments (small turns, short forward/backward nudges).
 Keep each move_base modest: forward ≤ 0.4, turn ≤ 0.3, steps ≤ 20.
 
-Use the navview camera to check if the path ahead is clear. The navview world map
-shows floor pixels at z≈0; query_world_map(z_min=0.0, z_max=0.12, camera='navview')
-finds walkable floor.
+Use the navview camera to check if the path ahead is clear.
 """
 
 PRIMITIVES = """

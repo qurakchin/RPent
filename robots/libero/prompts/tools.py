@@ -21,18 +21,10 @@ from collections.abc import Mapping
 from robots.libero.prompts import workflow
 from rpent.prompt.utils import Numbered, PromptNode
 
-PROVEN_LEVERS = """These are battle-tested on seed 0 of THIS suite. You are now running a DIFFERENT
-seed — object/fixture positions differ, so RE-LOCALIZE everything per scene
-(never hard-code an xyz). But the TECHNIQUES and the per-task target zones
-transfer directly. After inspecting the initial `task_language`, read the solved
-seed-0 reference (if present): `{{memory_dir}}/task-specific/{{reference_tag}}.json` (+
-`{{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl`)
-— it has the winning strategy_notes and command sequence from seed 0.
-Reuse its approach; re-derive every coordinate from THIS scene.
-The recipe is ONLY the command sequence. You must ALSO read the matching task
-memory — it carries the WHY, the parameter ranges, and the
-failure modes you need to adapt the recipe to this seed. A recipe read without
-its memory is half the picture; consult BOTH before planning.
+PROVEN_LEVERS = """These techniques and per-task target zones transfer across seeds; the
+coordinates do not. The solved seed-0 reference is
+`{{memory_dir}}/task-specific/{{reference_tag}}.json` plus
+`{{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl`.
 
 CRITICAL MECHANICS (cost many wasted attempts before they were nailed):
 - **GRIPPER SIGN**: in `move_to` / `set_gripper`, `gripper:+1` = CLOSE/hold,
@@ -268,7 +260,7 @@ KEY_HYPERPARAMETERS = """- Single-step xy within ±0.30 or OSC flips IK; split l
 - lift_thresh 0.05 (flat) / 0.08 (slippery tall bottles).
 - step_clip 0.025 (empty/box) / 0.015 (cans) / 0.012 (tall bottles).
 - Frame: state.robot0_eef_pos[2] ≈ 0.68 LIVING_ROOM / 1.17 KITCHEN / 0.26 object.
-- BOWL: eef_y = plate_y + 0.045. TALL BOTTLES: carry z=0.30, drop without descending.
+- TALL BOTTLES: carry z=0.30, drop without descending.
 - Approach high-then-vertical; recover by re-pick, not hover."""
 
 WAM_ROLE = (

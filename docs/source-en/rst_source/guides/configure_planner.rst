@@ -52,10 +52,19 @@ directory for evaluation runs, or ``sessions/session_NNN/`` for exploration
 sessions. ``effective_prompt.md`` contains the rendered system prompt and user
 message, and ``prompt_sources.json`` records the robot, planner, modes, section
 names, sources, and hashes of the assembled prompt and the opening user message.
-The transcript stores only ``prompt_sha256``.
+The transcript stores ``prompt_sha256`` and ``delivered_prompt_sha256`` for the
+run's first session; later exploration sessions keep their own artifacts under
+``sessions/session_NNN/``. The
+first hashes the assembled system and user messages; the second hashes the text
+the planner actually receives, so the two differ for planners that concatenate
+the roles. For ``api`` it equals ``prompt_sha256``; for ``claude_code`` and
+``codex`` it is the SHA-256 of the prefixed single message; ``flash`` ignores
+the prompt and records ``null``.
 
 Add ``--dump-prompt`` to any robot command to render the prompt, write both
-files, print the result, and exit without starting simulators or models:
+files, print the result, and exit without starting simulators or models. The
+dump runs before the run's memory preparation, so it neither creates nor syncs
+memory. It cannot be combined with ``--dashboard``, which needs a live session:
 
 .. code-block:: bash
 

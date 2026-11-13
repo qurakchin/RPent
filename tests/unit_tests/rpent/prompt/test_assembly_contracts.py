@@ -17,6 +17,8 @@ import pytest
 from rpent.prompt.artifacts import (
     EFFECTIVE_PROMPT,
     PROMPT_SOURCES,
+    delivered_prompt_sha256,
+    delivered_prompt_text,
     write_prompt_artifacts,
 )
 from rpent.prompt.assembly import (
@@ -176,3 +178,82 @@ def test_write_prompt_artifacts_records_layout_and_sources(tmp_path: Path) -> No
     assert [section["name"] for section in sources["sections"]] == [
         section["name"] for section in assembled.sections
     ]
+
+
+def test_delivered_digest_matches_each_planner_layout() -> None:
+    system, user = "system text\n", "user text\n"
+
+    # claude_code/codex prepend the system prompt to the first user message.
+    prefixed = f"{system}\n\n{user}"
+    assert delivered_prompt_text("claude_code", system=system, user=user) == prefixed
+    assert delivered_prompt_sha256("claude_code", system=system, user=user) == (
+        hashlib.sha256(prefixed.encode("utf-8")).hexdigest()
+    )
+
+    # api sends two messages, so its delivery digest is the pair digest.
+    assert delivered_prompt_text("api", system=system, user=user) is None
+    assert delivered_prompt_sha256("api", system=system, user=user) == prompt_sha256(
+        system, user
+    )
+
+    # flash never receives the prompt.
+    assert delivered_prompt_sha256("flash", system=system, user=user) is None
+
+
+def test_bundle_assembly_keeps_the_declared_layer_order() -> None:
+    bundle = PromptBundle(
+        system=lambda variables: {"DOMAIN": "domain knowledge"},
+        user=lambda variables: {"TASK": "user task"},
+        prompt_sections=lambda variables: {"TOOL": "tool knowledge"},
+        source="robots/demo/prompts",
+    )
+    assembled = build_robot_prompt(
+        bundle,
+        robot_name="demo",
+        variables={"memory_dir": "/memory"},
+        modes=run_modes(explore=True, dashboard=False, real_robot=True),
+    )
+
+    assert [section["name"] for section in assembled.sections] == [
+        "OPERATING RULES",
+        "RUN MODE — EXPLORATION",
+        "RUN MODE — REAL ROBOT",
+        "TOOL",
+        "DOMAIN",
+        "MEMORY — HOW TO READ",
+        "MEMORY — PROPOSALS AND MERGING",
+        "TASK",
+    ]
+
+
+def test_memory_proposal_fragment_names_the_fields_the_merge_validates() -> None:
+    from rpent.memory.manager import _validate
+
+    text = format_prompt(fragment("memory_proposals", "proposals").node)
+    for field in (
+        "id",
+        "scope",
+        "confidence",
+        "evidence.cells",
+        "task-family",
+        "global",
+        "suite",
+        "regime",
+        "task_id",
+        "task_language",
+        "kind",
+        "title",
+        "applies_when",
+    ):
+        assert field in text
+
+    valid = {
+        "scope": "global",
+        "kind": "strategy",
+        "confidence": "single-shot",
+        "title": "t",
+        "applies_when": "when",
+    }
+    with pytest.raises(ValueError, match="evidence.cells"):
+        _validate(dict(valid, evidence={"cells": []}))
+    _validate(dict(valid, evidence={"cells": ["cell"]}))

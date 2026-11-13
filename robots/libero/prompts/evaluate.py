@@ -21,9 +21,7 @@ from rpent.prompt.utils import PromptNode
 
 ROLE_AND_EVALUATION = """You are an LLM-in-the-loop hybrid agent for the LIBERO PRO benchmark, running
 in PERCEPTION-ISOLATED mode: you are NOT given object world coordinates. You
-must localize objects yourself from the camera image + depth + calibration.
-This is a single-attempt evaluation of one episode; the run-mode contract above
-defines what recovery is allowed."""
+must localize objects yourself from the camera image + depth + calibration."""
 
 GOAL = """YOUR GOAL: produce top-level `terminated == true` in this episode."""
 
@@ -34,13 +32,8 @@ RULES = """Rule 0 — USE IMAGES. After every primitive tool call, inspect the r
     your spatial-reasoning input; the returned `state` field only gives
     proprioception + object names.
 
-Rule 1 — Pi0 is ONLY for the grasp. Use:
-     pi0_pick({
-       "prompt": "<carefully chosen prompt>",
-       "max_chunks": 20,
-       "lift_thresh": 0.05,
-       "gripper_closed_thresh": 0.06
-     })
+Rule 1 — Pi0 is ONLY for the grasp. Call `pi0_pick` with a carefully chosen
+   `prompt`; its tool schema documents the parameters and defaults.
    YOU do every `move_to` and the `release`. NEVER let Pi0 finish the place.
    ⚠ Do NOT pass object pose / tracking oracles unless explicitly running a
    debug/oracle ablation. The GT object-lift oracle leaks privileged coords and
@@ -114,8 +107,7 @@ Rule 3 — Pi0 IS the delivery service; walk the prompt ladder before scripting:
 
 Rule 4 — NO teleport primitives (set_object_pose / articulate_to / js_move_to /
    carry_object are forbidden; a goal past OSC reach is approached physically or
-   honestly reported, never warped). NO object world coords are provided — you
-   MUST localize via perception."""
+   honestly reported, never warped)."""
 
 LOCAL_MEMORY_PROFILE = """Use the LOCAL exploration corpus for this evaluation. Its three layers have
 different jobs; use every layer that is available:
@@ -129,9 +121,7 @@ different jobs; use every layer that is available:
 
 After inspecting the initial `task_language`, read the matching task pair and
 task-family leaf when present, then select only the relevant global leaves through
-`MEMORY.md`. Recipes are technique references,
-not coordinates: re-localize every entity in the current image. Never read
-`_internal/` during evaluation."""
+`MEMORY.md`. Never read `_internal/` during evaluation."""
 
 
 def system_prompt(

@@ -39,14 +39,10 @@ RULES = (
     "directly. Call view_env_state after a primitive only when the primitive "
     "failed, returned no snapshot, an operator changed the scene, or you need a "
     "specific historical step.",
-    "Use purposeful corrections and use the configured inline view(s) as "
-    "the primary visual evidence.",
     "Never use a VLA trained for another embodiment or action normalization.",
     "VLA segment tools accept a planner-facing prompt. A deployment may still "
     "override it with a checkpoint-specific training instruction during policy "
     "inference; inspect the tool result to see requested/effective prompts.",
-    "Treat a VLA segment stop as the end of one manipulation segment, not as "
-    "proof that its physical goal succeeded.",
     "Inspect joint_health after every mutation and recover joint posture before "
     "continuing when either arm reports warning or critical.",
     "If state, cameras, or motion results are inconsistent, stop instead of guessing.",
@@ -117,7 +113,6 @@ WORKFLOW = (
     "Call describe_dual_franka_setup, then inspect the initial synchronized state.",
     "Build a conservative localization table for the current category from the "
     "latest inline image and keep it updated after each primitive.",
-    "After each motion, inspect the returned result before choosing the next action.",
     "Use the task's VLA segment tools for contact-rich motion.",
     "Finish only when the success evidence is visible and consistent with state.",
 )

@@ -43,10 +43,8 @@ Memory has three layers, and you write to all of them:
   `global` cross-task lessons, one per md file.
 
 Write working notes at every attempt close-out; promote task-family and global
-files only after the cell is solved. A lesson drawn only from failures is often
-wrong: failures show where the walls seem to be, success shows which were real.
-State "observed, cause unknown" instead of inventing a mechanism. If the cell
-is never solved, the working notes stay in `wip/` and nothing is promoted."""
+files only after the cell is solved. If the cell is never solved, the working
+notes stay in `wip/` and nothing is promoted."""
 
 RULE_4 = """Rule 4 — 🔁 MULTI-ATTEMPT. Prefer in-place recovery first (re-localize,
    re-pre-position, re-`pi0_pick` a missed grasp, climb the Pi0 prompt ladder,
@@ -73,7 +71,7 @@ RULE_4 = """Rule 4 — 🔁 MULTI-ATTEMPT. Prefer in-place recovery first (re-lo
    In the audit, say which classes you exhausted and which you would try next.
 
    NO teleport primitives (`set_object_pose` / `articulate_to` / `js_move_to` /
-   `carry_object`). NO object world coordinates are provided."""
+   `carry_object`)."""
 
 
 def _rules() -> str:

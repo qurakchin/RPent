@@ -30,6 +30,7 @@ from robots.robodojo.toolkit import RoboDojoToolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
 from rpent.planner.flash import FlashPlanner
+from rpent.prompt.assembly import build_robot_prompt, run_modes
 from rpent.tools import ToolResult
 
 
@@ -475,9 +476,13 @@ def test_mode_tools_state_and_prompt_gate(monkeypatch, tmp_path, eval_fair, fake
         "reference_tag": "put_bottles_into_dustbin_s0_l0",
         "seed": 0,
     }
-    prompt = bundle.render("system", variables=variables) + bundle.render(
-        "user", variables=variables
+    assembled = build_robot_prompt(
+        bundle,
+        robot_name="robodojo",
+        variables=variables,
+        modes=run_modes(explore=False, dashboard=False, real_robot=False),
     )
+    prompt = assembled.system + assembled.user
     for name in ("get_reward_details", "get_safety_status", "privileged"):
         assert name not in prompt
     assert ("read_text_file" in names) is not eval_fair
@@ -488,10 +493,14 @@ def test_mode_tools_state_and_prompt_gate(monkeypatch, tmp_path, eval_fair, fake
             in toolkit.execute_tool("get_reward_details", {}).data["error"]
         )
         bundle = robot_spec.get_robot_spec().prompts
-        variables = {"mode": "eval-fair", "task": "pick", "layout": 0}
-        prompt = bundle.render("system", variables=variables) + bundle.render(
-            "user", variables=variables
+        variables = {**variables, "task": "pick"}
+        assembled = build_robot_prompt(
+            bundle,
+            robot_name="robodojo",
+            variables=variables,
+            modes=run_modes(explore=False, dashboard=False, real_robot=False),
         )
+        prompt = assembled.system + assembled.user
         for word in ("get_reward_details", "get_safety_status", "predicate"):
             assert word not in prompt
         assert not toolkit.solved()

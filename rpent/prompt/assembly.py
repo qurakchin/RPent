@@ -304,5 +304,10 @@ def _normalize(
 
 
 def prompt_sha256(system: str, user: str) -> str:
-    """Return the digest recorded for the exact prompt a planner received."""
+    """Return the digest of the assembled system and user prompts.
+
+    This is the digest of the two roles as assembled, not necessarily of the
+    single message a planner receives. Use
+    :func:`rpent.prompt.artifacts.delivered_prompt_sha256` for that layout.
+    """
     return hashlib.sha256(f"system\0{system}\0user\0{user}".encode("utf-8")).hexdigest()

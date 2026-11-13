@@ -1080,3 +1080,69 @@ def test_invalid_memory_source_fails_before_startup(
         cli.main()
     assert exc.value.code == 2
     assert message in capsys.readouterr().err
+
+
+def test_dump_prompt_renders_without_syncing_or_creating_memory(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    cli = _cli_module()
+    memory_root = tmp_path / "memory-root"
+    monkeypatch.setattr(cli, "get_memory_dir", lambda name: memory_root / name)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rpent",
+            "--robot",
+            "robotwin",
+            "--task-name",
+            "block_hammer_beat",
+            "--seed",
+            "1",
+            "--dump-prompt",
+            "--output-dir",
+            str(tmp_path / "run"),
+        ],
+    )
+
+    assert cli.main() == 0
+
+    printed = capsys.readouterr().out
+    assert "OPERATING RULES" in printed
+    assert "delivered_prompt_sha256" in printed
+    assert not memory_root.exists()
+
+    sources = json.loads((tmp_path / "run" / "prompt_sources.json").read_text())
+    assert sources["planner_prompt_layout"] == "separate_system"
+    assert len(sources["prompt_sha256"]) == 64
+    assert sources["delivered_prompt_sha256"] == sources["prompt_sha256"]
+    assert (tmp_path / "run" / "effective_prompt.md").exists()
+
+
+def test_dump_prompt_rejects_the_dashboard_combination(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli = _cli_module()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rpent",
+            "--robot",
+            "libero",
+            "--suite",
+            "libero_object",
+            "--task",
+            "0",
+            "--dashboard",
+            "--dump-prompt",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+
+    assert exc.value.code == 2
+    assert "--dump-prompt cannot be used with --dashboard" in capsys.readouterr().err

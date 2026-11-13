@@ -33,11 +33,10 @@ head and wrist images, read the native instruction, and note both arms' initial
 end-effector positions and orientations. Bind objects, destinations and arm
 roles from current observations."""
 
-PHASE_CHECKS = """Before the first motion, read the native instruction, inspect the scene,
-and read episode_status.step_limit and remaining_steps from view_env_state.
-Consult relevant memory when permitted by the run mode. State a brief phase
-plan covering the required subgoals, arm roles, observable completion
-conditions and any required final robot posture.
+PHASE_CHECKS = """Before the first motion, read episode_status.step_limit and
+remaining_steps from view_env_state. Consult relevant memory when permitted by
+the run mode. State a brief phase plan covering the required subgoals, arm
+roles, observable completion conditions and any required final robot posture.
 
 The task must reach native success within the available action budget;
 if remaining_steps reaches zero without native success, the episode fails.
@@ -60,7 +59,6 @@ about the target, clearance and held-object state through available images
 and read-only queries before spending motion steps. Keep these checks focused
 and within the run timeout.
 
-Issue one action, inspect its fresh result, then decide again.
 Track the phase, each hand's contents, protected relations, the first unmet
 condition and the next observable gate. Apply only checks relevant to the
 current instruction and phase:
@@ -83,8 +81,7 @@ current instruction and phase:
 Occlusion leaves a condition unconfirmed, not automatically failed or satisfied.
 Use another available view before making an unsupported correction. Continue
 useful progress within the phase; advance dependent phases only when their
-prerequisites are supported. After two ineffective repetitions of an unchanged
-analytic target, re-observe and change the plan.
+prerequisites are supported.
 
 RoboDojo placement and arrangement tasks commonly require both
 arms to return to their initial end-effector positions and orientations. When
@@ -97,16 +94,13 @@ checks, not a complete obstacle model of objects or the opposite arm.
 Choose visible clearances and conservative waypoints. Path subsampling can
 skip a planned detour. Do not claim collision-free motion or exact arrival."""
 
-REWARD = """The environment judges task success; a tool completing its
-commands does not establish success. Do not request hidden reward details."""
+REWARD = """Do not request hidden reward details or evaluator internals."""
 
 OUTPUT_DISCIPLINE = """Record the observed outcome and uncertainties in
 {{output_dir}}/{{recipe_tag}}.json, including the native instruction, task, seed,
 layout, native_success, memory_files_read, missing references and material
 deviations from the reference strategy. Then call finish(status, summary).
-Do not claim success from a successful tool call alone. Evaluation permits one
-episode without reset. Recover in place using fresh observations and supported
-strategies; do not run an exploration sweep. Stop motion on native success."""
+Do not run an exploration sweep within an evaluation episode."""
 
 
 MEMORY = """After inspecting the current instruction and scene, read these
@@ -127,7 +121,6 @@ Keep standard and Random task-specific pairs and task-family notes separate:
 do not substitute one variant's recipe for the other's. If a reference is
 missing, record that absence and proceed from the available relevant global
 guidance and current observations. Do not read _internal/ or failed-run drafts.
-Memory is read-only; write the evaluation audit only under {{output_dir}}.
 
 Use the JSON and task-family notes to understand phase order, observable gates,
 controller choices, recovery reasons and applicability limits. Use the JSONL
@@ -135,19 +128,12 @@ as evidence of actual calls, SAM3 descriptions and {{policy_name}} chunk choices
 successful episode can include failed approaches and corrective detours:
 identify which actions made progress rather than replaying every call.
 
-Transfer strategies and checks, not scene geometry. Re-identify objects and
-destinations, measure poses, heights, clearances and held-object offsets from
-current images and depth, and choose arms for current reach unless the native
-instruction requires a particular arm. Revalidate SAM3 identity and contact
-geometry; historical pixels, coordinates and grasp offsets are not targets.
-Adapt chunk length to the next observation gate using the control rules below.
-
-Apply a global lesson only when its stated conditions match; check its limits
-and counterevidence. Distinguish observed success, a proposed explanation and
-untested applicability. Single-seed evidence, including a probable lesson,
-does not establish cross-seed reliability. The current instruction and fresh
-observations override memory. Protect achieved relations and correct only the
-remaining blocker when a reference strategy no longer fits the scene."""
+Choose arms for current reach unless the native instruction requires a
+particular arm. Revalidate SAM3 identity and contact geometry; historical
+pixels, coordinates and grasp offsets are not targets. Single-seed evidence,
+including a probable lesson, does not establish cross-seed reliability.
+Protect achieved relations and correct only the remaining blocker when a
+reference strategy no longer fits the scene."""
 
 
 def system_prompt(

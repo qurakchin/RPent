@@ -1,0 +1,288 @@
+{
+  "yam:eval": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 REAL ROBOT",
+      "ROLE",
+      "READ ORDER",
+      "RUNTIME",
+      "PERCEPTION",
+      "CONTROL",
+      "POLICY AVAILABILITY",
+      "SUCCESS",
+      "MEMORY \u2014 HOW TO READ",
+      "CELL",
+      "BEGIN"
+    ],
+    "prompt_sha256": "48d80a29f8424c8dd7a9f1e0624c90d8a6da6c7f945c908ae5419360affcda1c"
+  },
+  "yam:explore": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EXPLORATION",
+      "RUN MODE \u2014 REAL ROBOT",
+      "ROLE",
+      "READ ORDER",
+      "REAL-ROBOT EXPLORE",
+      "RUNTIME",
+      "PERCEPTION",
+      "CONTROL",
+      "POLICY AVAILABILITY",
+      "SUCCESS",
+      "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 PROPOSALS AND MERGING",
+      "CELL",
+      "BEGIN"
+    ],
+    "prompt_sha256": "2da6a10d6f00452c6e50a3073561b0cc112667a4cd572b4a2dbde02b5292f486"
+  },
+  "libero:eval": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "PROVEN LEVERS",
+      "RUNTIME",
+      "LOCALIZATION",
+      "PERCEPTION ALGORITHM",
+      "WORKFLOW",
+      "KEY HYPERPARAMETERS",
+      "ROLE AND EVALUATION",
+      "YOUR GOAL",
+      "RULES (NON-NEGOTIABLE)",
+      "MEMORY \u2014 HOW TO READ",
+      "CELL",
+      "MODE",
+      "BEGIN"
+    ],
+    "prompt_sha256": "42cf90a9193602cb77ce723cd024f3a04759c67b899590cd07eafad660b5af99"
+  },
+  "libero:explore": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EXPLORATION",
+      "PROVEN LEVERS",
+      "RUNTIME",
+      "LOCALIZATION",
+      "PERCEPTION ALGORITHM",
+      "WORKFLOW",
+      "KEY HYPERPARAMETERS",
+      "ROLE AND MODE",
+      "YOUR GOAL",
+      "RULES (NON-NEGOTIABLE)",
+      "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 PROPOSALS AND MERGING",
+      "CELL",
+      "MODE",
+      "BEGIN"
+    ],
+    "prompt_sha256": "3a046c12b30ba11dff96cfdfd564aab80d41dd5abcd3828662bf2db30a9ae89d"
+  },
+  "robocasa:eval": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "LOCALIZATION",
+      "NAVIGATION",
+      "PRIMITIVES",
+      "VLA RULES",
+      "GRIPPER RULES",
+      "Intro",
+      "Goal",
+      "Rules",
+      "Memory",
+      "Workflow",
+      "Environment",
+      "Next",
+      "MEMORY \u2014 HOW TO READ",
+      "Task",
+      "Mode"
+    ],
+    "prompt_sha256": "01dcb2a1b050a15cd6b504d8cc1b38db3544525bf76b8b4e5c92f848c4059ee4"
+  },
+  "robocasa:explore": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EXPLORATION",
+      "LOCALIZATION",
+      "NAVIGATION",
+      "PRIMITIVES",
+      "VLA RULES",
+      "GRIPPER RULES",
+      "Role",
+      "Goal and memory contract",
+      "Rules",
+      "Memory",
+      "Workflow",
+      "Environment",
+      "Begin",
+      "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 PROPOSALS AND MERGING",
+      "Task",
+      "Mode"
+    ],
+    "prompt_sha256": "0924b6dd69193c1aa0ed437a0be4499ef0263c52d052e9d0bb1976abc844308e"
+  },
+  "robodojo:eval": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "TOOL ACCESS",
+      "PERCEPTION",
+      "AVAILABLE OPERATIONS",
+      "VLA AND PRIMITIVE CONTROL",
+      "ROLE AND RULES",
+      "READ ORDER",
+      "MEMORY",
+      "PHASE CHECKS AND COMPLETION",
+      "SAFETY",
+      "REWARD AND SCORE",
+      "OUTPUT DISCIPLINE",
+      "MEMORY \u2014 HOW TO READ",
+      "TASK",
+      "BEGIN"
+    ],
+    "prompt_sha256": "06c2183b0c38134f9eeaee743b1f76aa40c16273186c18f1d9d0cea58558ea8f"
+  },
+  "robodojo:explore": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EXPLORATION",
+      "TOOL ACCESS",
+      "PERCEPTION",
+      "AVAILABLE OPERATIONS",
+      "VLA AND PRIMITIVE CONTROL",
+      "ROLE AND RULES",
+      "EXPLORATION GOAL",
+      "READ ORDER AND MEMORY TRANSFER",
+      "PHASE CHECKS AND COMPLETION",
+      "SAFETY",
+      "REWARD AND SCORE",
+      "EXPLORATION",
+      "OUTPUT DISCIPLINE",
+      "MEMORY CONSOLIDATION",
+      "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 PROPOSALS AND MERGING",
+      "TASK",
+      "BEGIN"
+    ],
+    "prompt_sha256": "ab2677a5ff0efd21b13a873d7978436cc1e913f9d350771a41bc112b293f3f4d"
+  },
+  "robotwin:eval": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "VLA AND PRIMITIVE CONTROL",
+      "PERCEPTION",
+      "ROLE",
+      "READ ORDER",
+      "CLEAN-TO-RANDOMIZED TRANSFER",
+      "ACCURACY-FIRST LOOP",
+      "CONDITIONAL TASK-FAMILY PLAYBOOKS",
+      "RUNTIME",
+      "BUDGET AND SUCCESS",
+      "MODE",
+      "MEMORY \u2014 HOW TO READ",
+      "CELL",
+      "BEGIN"
+    ],
+    "prompt_sha256": "961fb407fc763cc8de47fcb57a367e9ea4064abbb5ea7175f6d74cd5706dfd3e"
+  },
+  "robotwin:explore": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EXPLORATION",
+      "VLA AND PRIMITIVE CONTROL",
+      "PERCEPTION",
+      "ROLE",
+      "READ ORDER",
+      "MEMORY",
+      "CLEAN-TO-RANDOMIZED TRANSFER",
+      "ACCURACY-FIRST LOOP",
+      "CONDITIONAL TASK-FAMILY PLAYBOOKS",
+      "RUNTIME",
+      "BUDGET AND SUCCESS",
+      "OUTPUT",
+      "MODE",
+      "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 PROPOSALS AND MERGING",
+      "CELL",
+      "BEGIN",
+      "EXPLORE MODE"
+    ],
+    "prompt_sha256": "33c08db9eb7bdb2cd9530e59f34dec0589c369a5634f6a9bef2a47923c798ddf"
+  },
+  "franka:eval": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 REAL ROBOT",
+      "ROLE",
+      "RUNTIME",
+      "SAFETY RULES",
+      "WORKFLOW",
+      "MEMORY \u2014 HOW TO READ",
+      "TASK",
+      "TASK CONSTRAINTS",
+      "BEGIN"
+    ],
+    "prompt_sha256": "6239e0fdfe0c90ba67f4697259c845edf0fe8952b70a4e186ad1eb75dcb188a2"
+  },
+  "franka:explore": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EXPLORATION",
+      "RUN MODE \u2014 REAL ROBOT",
+      "ROLE",
+      "RUNTIME",
+      "SAFETY RULES",
+      "WORKFLOW",
+      "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 PROPOSALS AND MERGING",
+      "TASK",
+      "TASK CONSTRAINTS",
+      "BEGIN"
+    ],
+    "prompt_sha256": "76cdb4ea515e379e9b354b65306d9e0d4154e1011fbf9a0b226f110c39d12e3c"
+  },
+  "dual_franka:eval": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EVALUATION",
+      "RUN MODE \u2014 REAL ROBOT",
+      "ROLE",
+      "RUNTIME",
+      "SAFETY RULES",
+      "CAMERA AND PROJECTION RULES",
+      "VLA SEGMENT GATES",
+      "WORKFLOW",
+      "MEMORY \u2014 HOW TO READ",
+      "TASK",
+      "TASK CONSTRAINTS",
+      "BEGIN"
+    ],
+    "prompt_sha256": "1cecb8365f8ed362b1a8a6c9a1ca515142de11900e68826f21dde736f5802997"
+  },
+  "dual_franka:explore": {
+    "sections": [
+      "OPERATING RULES",
+      "RUN MODE \u2014 EXPLORATION",
+      "RUN MODE \u2014 REAL ROBOT",
+      "ROLE",
+      "EXPLORATION MODE",
+      "RUNTIME",
+      "SAFETY RULES",
+      "CAMERA AND PROJECTION RULES",
+      "VLA SEGMENT GATES",
+      "EXPLORATION WORKFLOW",
+      "LAYERED MEMORY",
+      "MEMORY \u2014 HOW TO READ",
+      "MEMORY \u2014 PROPOSALS AND MERGING",
+      "TASK",
+      "TASK CONSTRAINTS",
+      "BEGIN",
+      "EXPLORATION OUTPUT"
+    ],
+    "prompt_sha256": "95d31e8331cb356df96aac5a9053d37d2a27c6dcf7f1bdfb36048975e1f3e97b"
+  }
+}
