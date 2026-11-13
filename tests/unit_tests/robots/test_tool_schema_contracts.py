@@ -32,11 +32,11 @@ from robots.robodojo.toolkit import RoboDojoToolkit
 from robots.robotwin.toolkit import RoboTwinToolkit
 from robots.yam import tools as yam_tools
 from robots.yam.toolkit import YamToolkit
-from rpent.tools import iter_tools
+from rpent.tools import Toolkit, iter_tools
 from rpent.tools.common import CommonTools
 
 TOOL_DECLARATIONS = {
-    "common": list(iter_tools(CommonTools)),
+    "common": list(iter_tools(CommonTools, Toolkit)),
     "franka": list(
         iter_tools(franka_tools.FrankaPrimitives, franka_tools, franka_perception)
     ),
@@ -116,7 +116,11 @@ def test_tool_declarations_match_pre_refactor_contracts(group: str) -> None:
         for name, item in expected.items()
     }
     assert len(actual) == len(declarations)
-    added = {"wam_act"} if group == "libero" else set()
+    # ``finish`` moved from the common file tools to the toolkit base, so
+    # declaration lists built from a toolkit class now include it.
+    added = {"finish"} if group in {"dual_franka", "libero"} else set()
+    if group == "libero":
+        added.add("wam_act")
     assert actual.keys() == expected.keys() | added
     for name in expected:
         assert actual[name] == expected[name], f"{group}/{name}"

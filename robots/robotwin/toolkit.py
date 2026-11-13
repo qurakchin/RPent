@@ -225,34 +225,33 @@ class RoboTwinToolkit(Toolkit):
         """Collect declarations without constructing an environment.
 
         The registration path binds handlers to one instance; this snapshot is
-        used by offline schema checks and documentation tooling.
+        used by offline schema checks and documentation tooling. It runs the
+        same family ``tools(capabilities)`` path as registration so declared
+        and registered surfaces cannot drift when a family gains a new gate.
         """
-        from rpent.tools.motion_tools import MotionTools
-        from rpent.tools.policy_tools import PolicyTools
-        from rpent.tools.scene_tools import view_env_state
-        from rpent.tools.world_coordinates import query_world_map
+        from types import SimpleNamespace
 
         views, calibrated_views = _declared_views(
             env_runtime_contract(
                 task_name="declared", task_config="declared", seed=0
             )
         )
-        geometry = GeometryTools(provider=object()).tools(
-            Capabilities(
-                depth_views=views,
-                calibrated_views=calibrated_views,
-                grounding=False,
-            )
+        backend = "wam" if policy_kind == "wam" else "lingbot"
+        tool_name = "wam_act" if policy_kind == "wam" else "lingbot_act"
+        capabilities = Capabilities(
+            execution={"reset": True, "step": True, "chunk_step": True},
+            depth_views=views,
+            calibrated_views=calibrated_views,
+            grounding=False,
+            policy_backends=(backend,),
         )
-        policy = iter_tools(PolicyTools)
-        policy_name = "wam_act" if policy_kind == "wam" else "lingbot_act"
+        binding = SimpleNamespace(backend=backend, tool_name=tool_name)
         return [
-            view_env_state,
-            *geometry,
-            query_world_map,
-            *iter_tools(MotionTools),
-            next(item for item in policy if item.name == policy_name),
-            *iter_tools(MemoryTools),
+            *SceneTools(state=object()).tools(capabilities),
+            *GeometryTools(provider=object()).tools(capabilities),
+            *MotionTools(object()).tools(capabilities),
+            *PolicyTools(binding).tools(capabilities),
+            *MemoryTools(object()).tools(capabilities),
             *iter_tools(RoboTwinPrimitives),
             cls.render,
         ]

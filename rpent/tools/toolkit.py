@@ -34,8 +34,8 @@ from pydantic import ValidationError
 from rpent.dashboard.events import DashboardEventSink, StepRecordEvent
 from rpent.session import Payload
 from rpent.session.env_capture import current_tool_call
-from rpent.tools.base import Tool, ToolResult, iter_tools
-from rpent.tools.execution import track_execution
+from rpent.tools.base import ExecutionStatus, Tool, ToolResult, iter_tools, tool
+from rpent.tools.execution import ExecutionTrace, track_execution
 from rpent.utils.logging import get_logger
 from rpent.utils.templates import substitute
 
@@ -138,7 +138,7 @@ def _failure_result(
     data: dict[str, Any] | None = None,
     no_execution: bool = True,
     execution_uncertain: bool = False,
-    execution_status: str = "not_started",
+    execution_status: ExecutionStatus = "not_started",
 ) -> ToolResult:
     """Build a framework-level failure with explicit execution layers."""
     return ToolResult(
@@ -149,6 +149,20 @@ def _failure_result(
         execution_uncertain=execution_uncertain,
         execution_status=execution_status,
     )
+
+
+def _framework_error_layers(
+    trace: ExecutionTrace,
+) -> tuple[bool, bool, ExecutionStatus]:
+    """Layers for a framework failure after the handler ran.
+
+    A write that was already issued may have reached the environment, so its
+    outcome is unknown even when result encoding fails afterwards. Without a
+    write, the framework can still assert that nothing executed.
+    """
+    if trace.issued:
+        return False, True, "unknown"
+    return True, False, "not_started"
 
 
 class Toolkit:
@@ -227,11 +241,11 @@ class Toolkit:
                 self.add_tool(declaration)
 
     def _register_common_tools(self) -> None:
-        from rpent.tools.common import CommonTools
+        from rpent.tools.file_tools import FileTools
 
-        common = CommonTools(memory=self._memory)
+        files = FileTools(memory=self._memory)
         self._memory.check_layout()
-        for declaration in iter_tools(common):
+        for declaration in iter_tools(files):
             if declaration.name in {"read_text_file", "list_dir"}:
                 declaration = replace(
                     declaration,
@@ -239,6 +253,17 @@ class Toolkit:
                     + self._memory.file_tool_description,
                 )
             self.add_tool(declaration)
+        self.add_tool(self.finish)
+
+    @tool(readonly=True)
+    def finish(self, status: str, summary: str) -> ToolResult:
+        """Call when the task is complete or unrecoverable. Halts the agent loop. Save any artifacts (recipe, audit) BEFORE calling finish.
+
+        Args:
+            status: Outcome, e.g. 'success', 'failure', or 'stuck'.
+            summary: Short natural-language summary of the run.
+        """
+        return ToolResult(data={"_finish": True, "status": status, "summary": summary})
 
     # ------------------------------------------------------------------
     # Planner-facing API
@@ -312,14 +337,28 @@ class Toolkit:
                         capture.start(action_source=tool.action_source)
                     native = tool(**kwargs)
                 except TypeError as exc:
-                    native = _failure_result(
-                        "validation",
-                        f"bad arguments for {name}: {exc}",
-                        data={
-                            "error": f"bad arguments for {name}: {exc}",
-                            "got": input_dict,
-                        },
-                    )
+                    if trace.issued:
+                        message = (
+                            f"tool {name} failed after issuing a write: "
+                            f"TypeError: {exc}"
+                        )
+                        native = _failure_result(
+                            "execution_uncertain",
+                            message,
+                            data={"error": message, "got": input_dict},
+                            no_execution=False,
+                            execution_uncertain=True,
+                            execution_status="unknown",
+                        )
+                    else:
+                        native = _failure_result(
+                            "validation",
+                            f"bad arguments for {name}: {exc}",
+                            data={
+                                "error": f"bad arguments for {name}: {exc}",
+                                "got": input_dict,
+                            },
+                        )
                 except ToolCancelled as exc:
                     native = _failure_result(
                         "cancelled",
@@ -390,12 +429,25 @@ class Toolkit:
                     if not native.is_error:
                         native.data["error"] = message
                         native.error = {
-                            "code": "execution_uncertain",
+                            "code": (
+                                "execution_uncertain"
+                                if trace.issued
+                                else "execution_failed"
+                            ),
                             "message": message,
                         }
                     native.data.setdefault("traceback", traceback.format_exc())
-                    native.execution_uncertain = True
-                    native.execution_status = "partial"
+                    if trace.issued:
+                        # Missing after-state does not tell us how much of the
+                        # issued request ran, so the receipt is no longer
+                        # authoritative. Keep the reported value as evidence.
+                        if native.execution_status is not None:
+                            native.data.setdefault(
+                                "reported_execution_status", native.execution_status
+                            )
+                        native.no_execution = False
+                        native.execution_uncertain = True
+                        native.execution_status = "unknown"
                 else:
                     record = self._state.latest_record()
                     if native.is_error:
@@ -417,11 +469,26 @@ class Toolkit:
                 json.dumps(native.to_dict(), allow_nan=False, default=str)
             except (TypeError, ValueError) as exc:
                 message = f"Tool result serialization failed: {exc}"
+                no_execution, uncertain, status = _framework_error_layers(trace)
+                reported_status = native.execution_status
                 native = replace(
                     native,
-                    data={"error": message},
+                    data={
+                        "error": message,
+                        "reported_execution_status": reported_status,
+                    },
                     call_ok=False,
-                    error={"code": "execution_failed", "message": message},
+                    error={
+                        "code": (
+                            "execution_uncertain"
+                            if trace.issued
+                            else "execution_failed"
+                        ),
+                        "message": message,
+                    },
+                    no_execution=no_execution,
+                    execution_uncertain=uncertain,
+                    execution_status=status,
                 )
             if capture is not None:
                 cancelled = native.error is not None and (

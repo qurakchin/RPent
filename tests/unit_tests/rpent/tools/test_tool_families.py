@@ -36,10 +36,10 @@ def _names(family, capabilities: Capabilities | None) -> set[str]:
     return {declaration.name for declaration in family.tools(capabilities)}
 
 
-def test_scene_family_publishes_world_queries_only_with_depth() -> None:
+def test_scene_family_publishes_world_queries_without_a_depth_gate() -> None:
     family = SceneTools(state=SimpleNamespace())
 
-    assert _names(family, Capabilities()) == {"view_env_state"}
+    assert _names(family, Capabilities()) == {"view_env_state", "query_world_map"}
     assert _names(family, Capabilities(depth_views=("head",))) == {
         "view_env_state",
         "query_world_map",

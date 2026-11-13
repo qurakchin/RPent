@@ -43,7 +43,7 @@ from rpent.dashboard.events import RunStartedEvent, TranscriptEvent, UsageEvent
 from rpent.dashboard.state import DashboardState
 from rpent.planner.api_loop import ApiAgentLoop
 from rpent.session import EnvState, Payload
-from rpent.tools import Toolkit, ToolResult, common
+from rpent.tools import Toolkit, ToolResult
 from rpent.tools import tool as declare_tool
 
 FINISH_ARGS = {"status": "success", "summary": "done"}
@@ -71,7 +71,7 @@ class RobotToolkit(Toolkit):
         super().__init__(dashboard_events=events, memory=SimpleNamespace(), state=state)
 
     def _register_common_tools(self):
-        self.add_tool(common.CommonTools.finish.with_handler(self.finish))
+        self.add_tool(Toolkit.finish.with_handler(self.finish))
         self.register(
             "observe", lambda: ToolResult(data={"position": 1}, images=[b"image"])
         )
@@ -200,7 +200,7 @@ def test_refused_finish_retries_without_claiming_success(tmp_path):
             return {"error": "finish refused; verify the environment"}
         return {"_finish": True, **args}
 
-    toolkit.register("finish", guarded_finish, common.CommonTools.finish)
+    toolkit.register("finish", guarded_finish, Toolkit.finish)
     histories = []
 
     async def stream(messages, info):
@@ -224,7 +224,7 @@ def test_persistent_finish_refusal_stops_at_request_budget(tmp_path):
     toolkit.register(
         "finish",
         lambda **args: {"error": "finish refused"},
-        common.CommonTools.finish,
+        Toolkit.finish,
     )
 
     async def stream(messages, info):
@@ -704,7 +704,7 @@ def test_dashboard_message_during_finish_is_unsent(tmp_path):
         time.sleep(0.05)
         return {"_finish": True, **args}
 
-    toolkit.register("finish", finish_and_submit, common.CommonTools.finish)
+    toolkit.register("finish", finish_and_submit, Toolkit.finish)
     result, _, _ = solve(
         tmp_path,
         TestModel(call_tools=[], custom_output_args=FINISH_ARGS),
@@ -1159,7 +1159,7 @@ def test_offline_http_planner_preserves_non_streaming_responses(include_image):
                         "type": "function",
                         "function": {
                             "name": "finish",
-                            "parameters": common.CommonTools.finish.input_schema,
+                            "parameters": Toolkit.finish.input_schema,
                         },
                     }
                 ],

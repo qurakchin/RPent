@@ -14,12 +14,24 @@
 
 """Agent tool declarations, handlers, and result serialization."""
 
-from rpent.tools.base import Tool, ToolResult, iter_tools, tool, tool_error
+from rpent.tools.base import (
+    EXECUTION_STATUSES,
+    ExecutionStatus,
+    Tool,
+    ToolResult,
+    iter_tools,
+    tool,
+    tool_error,
+)
 from rpent.tools.capabilities import Capabilities, ToolFamily
+from rpent.tools.file_tools import FileTools
 from rpent.tools.toolkit import Toolkit
 
 __all__ = [
     "Capabilities",
+    "EXECUTION_STATUSES",
+    "ExecutionStatus",
+    "FileTools",
     "Tool",
     "ToolFamily",
     "Toolkit",

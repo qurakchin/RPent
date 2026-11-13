@@ -31,19 +31,19 @@ from pydantic import BaseModel, ConfigDict, Field, create_model
 
 from rpent.tools.base import Tool, ToolResult, tool
 from rpent.tools.capabilities import Capabilities, ToolFamily
-from rpent.tools.observation import (
-    Grounder,
-    Observation,
-    ObservationError,
-    ObservationProvider,
-    Segmenter,
-)
 from rpent.utils.logging import get_logger
 from toolkits.geometry.core import (
     GeometryConfig,
     depth_region_mask,
     fit_mask,
     observation_world_xyz,
+)
+from toolkits.geometry.observation import (
+    Grounder,
+    Observation,
+    ObservationError,
+    ObservationProvider,
+    Segmenter,
 )
 
 logger = get_logger("toolkits.geometry")
@@ -54,7 +54,12 @@ _QUANTITIES = ("center", "extent", "z_range", "orientation")
 
 @dataclass(frozen=True)
 class GeometryToolConfig:
-    """Host configuration for localization quality and defaults."""
+    """Host configuration for localization quality and defaults.
+
+    ``GeometryConfig`` holds the corpus-calibrated defaults. A host may pass a
+    stricter or looser config; slices that do not override it use the defaults
+    recorded with the evaluation corpus.
+    """
 
     quality: GeometryConfig = field(default_factory=GeometryConfig)
     default_quantities: tuple[Quantity, ...] = ("center", "extent")

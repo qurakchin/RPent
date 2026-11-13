@@ -180,9 +180,8 @@ class MotionTools(ToolFamily):
         capabilities: Capabilities | None = None,
         config: Mapping[str, Any] | None = None,
     ) -> Sequence[Tool]:
-        if capabilities is not None and not (
-            capabilities.execution.get("step")
-            or capabilities.execution.get("chunk_step")
+        if capabilities is not None and not capabilities.supports_execution(
+            "step", "chunk_step"
         ):
             # A declared host that cannot step or chunk cannot move either.
             logger.info(

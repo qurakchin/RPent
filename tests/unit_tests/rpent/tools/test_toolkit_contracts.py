@@ -128,7 +128,7 @@ def test_common_file_tools_dispatch_offline_without_capturing_robot_state(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr("rpent.tools.common.get_output_dir", lambda: tmp_path)
+    monkeypatch.setattr("rpent.tools.file_tools.get_output_dir", lambda: tmp_path)
     toolkit = _ContractToolkit(tmp_path / "state")
     text_file = tmp_path / "files" / "note.txt"
 
@@ -270,7 +270,7 @@ def test_file_writes_are_limited_to_the_run_output_directory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     output_dir = tmp_path / "run"
-    monkeypatch.setattr("rpent.tools.common.get_output_dir", lambda: output_dir)
+    monkeypatch.setattr("rpent.tools.file_tools.get_output_dir", lambda: output_dir)
     toolkit = _ContractToolkit(tmp_path / "state")
 
     inside = toolkit.execute_tool(
@@ -343,6 +343,37 @@ def test_readonly_declarations_bind_methods_and_execution_guards(
     assert calls == [{"prefix": "pre-", "value": "bound"}]
     assert toolkit.capture_calls == []
     assert toolkit.events.events == []
+
+
+def test_iter_tools_resolves_one_declaration_per_tool_name() -> None:
+    class Base:
+        @tool(name="shared", readonly=True)
+        def declared(self) -> ToolResult:
+            """Base declaration."""
+            return ToolResult(data={})
+
+    class Derived(Base):
+        @tool(name="shared", readonly=True)
+        def _replacement(self) -> ToolResult:
+            """Derived declaration."""
+            return ToolResult(data={})
+
+    class Later:
+        @tool(name="shared", readonly=True)
+        def other(self) -> ToolResult:
+            """Later declaration."""
+            return ToolResult(data={})
+
+    derived = list(iter_tools(Derived))
+    assert [declaration.name for declaration in derived] == ["shared"]
+    assert derived[0].description == "Derived declaration."
+
+    # The first owner keeps a name it declared; later owners only contribute
+    # names that are still unclaimed.
+    first_owner = list(iter_tools(Derived, Later))
+    assert [declaration.description for declaration in first_owner] == [
+        "Derived declaration."
+    ]
 
 
 def test_internal_resource_binding_is_not_a_model_argument(
@@ -572,7 +603,7 @@ def test_toolkit_cooperatively_cancels_and_cleans_up_active_operation(
 def test_common_file_read_waits_for_write_without_state_capture(tmp_path, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-    monkeypatch.setattr("rpent.tools.common.get_output_dir", lambda: tmp_path)
+    monkeypatch.setattr("rpent.tools.file_tools.get_output_dir", lambda: tmp_path)
     toolkit = _ContractToolkit(tmp_path)
     path = tmp_path / "audit.json"
     path.write_text("old")

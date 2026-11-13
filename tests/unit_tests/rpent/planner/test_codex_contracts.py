@@ -38,8 +38,7 @@ from rpent.planner.codex import (
 )
 from rpent.planner.utils.http_mcp_server import HttpMcpServer
 from rpent.session import EnvState, MissingInfo, Payload, codex_capture
-from rpent.tools import ToolResult
-from rpent.tools.common import CommonTools
+from rpent.tools import Toolkit, ToolResult
 
 
 class RecordingSink:
@@ -66,9 +65,7 @@ class FakeToolkit:
         return self._state
 
     def list_tools(self):
-        return (
-            CommonTools.finish.with_handler(lambda **kwargs: ToolResult(data=kwargs)),
-        )
+        return (Toolkit.finish.with_handler(lambda **kwargs: ToolResult(data=kwargs)),)
 
     def execute_tool(self, name: str, args: dict[str, Any]) -> ToolResult:
         return ToolResult(data={"name": name, "args": args})

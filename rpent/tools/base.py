@@ -34,6 +34,15 @@ from pydantic_core import core_schema
 ParamsT = ParamSpec("ParamsT")
 MAX_TOOL_TEXT_BYTES = 60000
 
+ExecutionStatus = Literal["completed", "partial", "rejected", "not_started", "unknown"]
+EXECUTION_STATUSES: tuple[ExecutionStatus, ...] = (
+    "completed",
+    "partial",
+    "rejected",
+    "not_started",
+    "unknown",
+)
+
 
 @dataclass
 class ToolResult:
@@ -53,7 +62,7 @@ class ToolResult:
     error: dict[str, Any] | None = None
     no_execution: bool = False
     execution_uncertain: bool = False
-    execution_status: str | None = None
+    execution_status: ExecutionStatus | None = None
 
     @property
     def is_error(self) -> bool:
@@ -337,7 +346,13 @@ def iter_tools(*owners: Any) -> Iterator[Tool]:
 
     Instance tools are bound to their owner. Inherited methods are included unless
     overridden; properties and other descriptors are not evaluated during discovery.
+    An attribute in a derived class shadows a base attribute with the same name;
+    declarations that share a tool name under different attribute names resolve the
+    same way, keeping the most derived one. Owners are visited in order and the
+    first declaration of a tool name owns it, matching ``add_tool``'s default
+    where replacement is explicit.
     """
+    declarations: dict[str, Tool] = {}
     for owner in owners:
         cls = owner if isinstance(owner, type) else type(owner)
         members: dict[str, Any] = {}
@@ -345,6 +360,11 @@ def iter_tools(*owners: Any) -> Iterator[Tool]:
             members.update(vars(base))
         if not isinstance(owner, type):
             members.update(getattr(owner, "__dict__", {}))
+        own: dict[str, Tool] = {}
         for attribute, value in members.items():
             if isinstance(value, Tool):
-                yield getattr(owner, attribute)
+                declaration = getattr(owner, attribute)
+                own[declaration.name] = declaration
+        for name, declaration in own.items():
+            declarations.setdefault(name, declaration)
+    yield from declarations.values()
