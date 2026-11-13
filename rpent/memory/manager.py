@@ -17,10 +17,12 @@
 from __future__ import annotations
 
 import fcntl
+import hashlib
 import json
 import os
 import re
 import shutil
+import time
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -243,7 +245,29 @@ class MemoryManager:
         return resolved, sorted(os.listdir(resolved)) if resolved.exists() else None
 
     def record_read(self, path: Path, content: str) -> None:
-        """Record the content delivered by a file tool, when audit is required."""
+        """Append one memory read to ``_internal/audit/reads.jsonl``.
+
+        The audit lives outside the published layers and is written for
+        read-only runs too. A read-only filesystem or audit failure must not
+        make the content unavailable, so failures are logged and ignored.
+        """
+        resolved = Path(path).resolve()
+        if not resolved.is_relative_to(self._root) or not resolved.is_file():
+            return
+        audit = self._root / "_internal" / "audit" / "reads.jsonl"
+        record = {
+            "path": str(resolved.relative_to(self._root)),
+            "cell": self._inbox_cell_tag,
+            "bytes": len(content.encode("utf-8")),
+            "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+            "at_ns": time.time_ns(),
+        }
+        try:
+            audit.parent.mkdir(parents=True, exist_ok=True)
+            with audit.open("a") as file:
+                file.write(json.dumps(record, sort_keys=True) + "\n")
+        except OSError as exc:
+            logger.warning("could not record memory read audit for %s: %s", path, exc)
 
     def load_leaf(self, path: str | Path) -> tuple[Path, dict[str, Any], str]:
         """Authorize and parse one memory leaf.
@@ -385,7 +409,12 @@ class MemoryManager:
                         source_cell = str(record.get("cell") or cell_tag)
                         if outcome not in {"confirmed", "contradicted"}:
                             raise ValueError(f"unknown outcome: {outcome!r}")
-                    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+                    except (
+                        KeyError,
+                        TypeError,
+                        ValueError,
+                        json.JSONDecodeError,
+                    ) as exc:
                         result["skipped"].append(f"corroboration: {exc}")
                         continue
                     target = next(
@@ -404,9 +433,7 @@ class MemoryManager:
                     try:
                         target_metadata, target_body = _split_frontmatter(target)
                     except ValueError as exc:
-                        result["skipped"].append(
-                            f"corroboration: {target.name}: {exc}"
-                        )
+                        result["skipped"].append(f"corroboration: {target.name}: {exc}")
                         continue
                     if outcome == "confirmed":
                         target_metadata = _merge_evidence(

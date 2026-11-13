@@ -109,9 +109,10 @@ robots/robotwin/guides/GUIDE_RPENT.md and re-observe after every primitive."""
 PERCEPTION = """Use the head view as semantic authority for identity,
 distractors, destinations, language relations, and global progress. Use the
 matching current wrist view to refine geometry for that same chosen candidate;
-do not let it silently switch to a look-alike. Call geometry with a described
-target and the quantities you need, or with a [row,col] pixel measured on the
-named view. It returns a world-frame center, extent, pixel_rc, fit_accepted, and
+do not let it silently switch to a look-alike. RoboTwin has no grounding
+service, so call geometry with a [row,col] pixel measured on the named view and
+the quantities you need; a described target is rejected. It returns a world-frame
+center, extent, pixel_rc, fit_accepted, and
 warnings; inspect status and warnings instead of reading a rejected fit as
 usable. Use query_world_map for deterministic samples from a known world map.
 Pair RGB, depth, and world maps from the same step and view. Relocalize after

@@ -44,15 +44,17 @@ class MemoryTools(ToolFamily):
     ) -> Sequence[Tool]:
         return tuple(iter_tools(self))
 
+    # The audit append is append-only and concurrency-safe; recall never
+    # mutates the published corpus or the environment.
     @tool(readonly=True)
     def recall(
         self,
         query: str,
         *,
-        scope: Literal["all", "global", "task-family"] = "all",
+        scope: Literal["all", "global", "task-family", "task-specific"] = "all",
         limit: Annotated[int, Field(ge=1, le=20)] = 5,
     ) -> ToolResult:
-        """Search published memory for prior findings. Returns matching notes with confidence and paths; inspect a match before relying on it.
+        """Search published memory for prior findings. Returns matching notes with confidence and paths; inspect a match before relying on it. Every delivered match is recorded in the memory read audit.
 
         Args:
             query: Words to look for in titles and note bodies.
@@ -62,11 +64,38 @@ class MemoryTools(ToolFamily):
         terms = [term.lower() for term in query.split() if term.strip()]
         if not terms:
             return tool_error("validation", "query must contain at least one word")
-        scopes = ("global", "task-family") if scope == "all" else (scope,)
+        scopes = (
+            ("global", "task-family", "task-specific") if scope == "all" else (scope,)
+        )
         matches: list[dict[str, Any]] = []
         for layer in scopes:
             directory = self._memory.root / layer
             if not directory.is_dir():
+                continue
+            if layer == "task-specific":
+                for path in sorted(
+                    (*directory.glob("*.json"), *directory.glob("*.jsonl"))
+                ):
+                    try:
+                        resolved = self._memory.authorize_read(path)
+                        text = resolved.read_text(errors="replace")
+                    except (OSError, PermissionError):
+                        continue
+                    score = sum(text.lower().count(term) for term in terms)
+                    if score == 0:
+                        continue
+                    self._memory.record_read(resolved, text)
+                    matches.append(
+                        {
+                            "path": str(resolved),
+                            "scope": layer,
+                            "title": resolved.stem,
+                            "confidence": None,
+                            "applies_when": None,
+                            "snippet": text.strip()[:400],
+                            "score": score,
+                        }
+                    )
                 continue
             for path in sorted(directory.glob("*.md")):
                 try:
@@ -83,6 +112,7 @@ class MemoryTools(ToolFamily):
                 score = sum(haystack.count(term) for term in terms)
                 if score == 0:
                     continue
+                self._memory.record_read(resolved, body)
                 matches.append(
                     {
                         "path": str(resolved),
@@ -104,7 +134,7 @@ class MemoryTools(ToolFamily):
             }
         )
 
-    @tool(readonly=True)
+    @tool
     def remember(
         self,
         *,
@@ -138,7 +168,9 @@ class MemoryTools(ToolFamily):
             return tool_error("validation", f"unknown memory kind: {kind}")
         metadata: dict[str, Any] = {"scope": scope, "confidence": "single-shot"}
         if scope == "global":
-            metadata.update({"kind": kind, "title": title, "applies_when": applies_when})
+            metadata.update(
+                {"kind": kind, "title": title, "applies_when": applies_when}
+            )
         else:
             metadata.update(
                 {
@@ -165,7 +197,7 @@ class MemoryTools(ToolFamily):
             }
         )
 
-    @tool(readonly=True)
+    @tool
     def corroborate(
         self,
         memory_id: str,

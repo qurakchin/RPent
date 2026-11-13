@@ -15,16 +15,9 @@
   },
   "geometry": {
     "name": "geometry",
-    "description": "Localize one visible target from the current or a recorded camera view. Returns a world-frame center and axis-aligned extent with quality flags. Give a natural-language target when the runtime can ground it, or a [row,col] pixel measured on the selected view. Read-only; does not move the robot.",
+    "description": "Localize one visible target from the current or a recorded camera view. This host has no grounding service, so pass a [row,col] pixel measured on the selected view. Returns a world-frame center and axis-aligned extent with quality flags. Read-only; does not move the robot.",
     "input_schema": {
       "properties": {
-        "target": {
-          "description": "Natural-language target, e.g. 'the red block on the left'.",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
         "pixel": {
           "description": "[row, col] chosen on the selected view; skips grounding.",
           "items": {
@@ -70,7 +63,10 @@
           ]
         }
       },
-      "type": "object"
+      "type": "object",
+      "required": [
+        "pixel"
+      ]
     }
   },
   "query_world_map": {
@@ -297,7 +293,7 @@
   },
   "recall": {
     "name": "recall",
-    "description": "Search published memory for prior findings. Returns matching notes with confidence and paths; inspect a match before relying on it.",
+    "description": "Search published memory for prior findings. Returns matching notes with confidence and paths; inspect a match before relying on it. Every delivered match is recorded in the memory read audit.",
     "input_schema": {
       "properties": {
         "query": {
@@ -309,7 +305,8 @@
           "enum": [
             "all",
             "global",
-            "task-family"
+            "task-family",
+            "task-specific"
           ],
           "type": "string"
         },

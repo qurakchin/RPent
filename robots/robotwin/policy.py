@@ -31,16 +31,11 @@ class RoboTwinPolicyBinding:
     def __init__(self, primitives: RoboTwinPrimitives) -> None:
         self._primitives = primitives
         self.kind = primitives.policy_kind
+        self.backend = "wam" if self.kind == "wam" else "lingbot"
         self.tool_name = "wam_act" if self.kind == "wam" else "lingbot_act"
-        self.model_name = (
-            "the selected WAM" if self.kind == "wam" else "LingBot-VLA"
-        )
+        self.model_name = "the selected WAM" if self.kind == "wam" else "LingBot-VLA"
         self.use_length = MODEL_SPEC.use_length if self.kind != "wam" else None
-        self.action_type = (
-            primitives.model.action_type
-            if self.kind == "wam"
-            else "ee"
-        )
+        self.action_type = primitives.model.action_type if self.kind == "wam" else "ee"
 
     def check_cancelled(self) -> None:
         self._primitives.check_cancelled()

@@ -22,13 +22,15 @@ steps so callers cannot consume an intermediate value as a final answer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal
+from dataclasses import dataclass, field, replace
+from functools import partial
+from typing import Annotated, Any, Literal, Mapping, Sequence
 
 import numpy as np
 from pydantic import Field
 
-from rpent.tools.base import ToolResult, tool
+from rpent.tools.base import Tool, ToolResult, tool
+from rpent.tools.capabilities import Capabilities, ToolFamily
 from rpent.tools.observation import (
     Grounder,
     Observation,
@@ -190,9 +192,7 @@ def estimate_geometry(
     mask: np.ndarray | None = None
     if segmenter is not None:
         try:
-            mask = segmenter.segment(
-                observation.rgb, point=pixel_rc, query=target
-            )
+            mask = segmenter.segment(observation.rgb, point=pixel_rc, query=target)
         except Exception as exc:
             return _error(
                 "need_observation",
@@ -356,9 +356,8 @@ def geometry(
     pixel: Annotated[list[int], Field(min_length=2, max_length=2)] | None = None,
     view: str | None = None,
     step: int | None = None,
-    quantities: Annotated[
-        list[Quantity], Field(min_length=1, max_length=4)
-    ] | None = None,
+    quantities: Annotated[list[Quantity], Field(min_length=1, max_length=4)]
+    | None = None,
 ) -> ToolResult:
     """Localize one visible target from the current or a recorded camera view. Returns a world-frame center and axis-aligned extent with quality flags. Give a natural-language target when the runtime can ground it, or a [row,col] pixel measured on the selected view. Read-only; does not move the robot.
 
@@ -397,4 +396,63 @@ def geometry(
     return ToolResult(data=payload)
 
 
-__all__ = ["GeometryToolConfig", "estimate_geometry", "geometry"]
+class GeometryTools(ToolFamily):
+    """Publish ``geometry`` when the host has calibrated depth views."""
+
+    name = "geometry"
+
+    def __init__(
+        self,
+        *,
+        provider: ObservationProvider,
+        grounder: Grounder | None = None,
+        segmenter: Segmenter | None = None,
+        config: GeometryToolConfig | None = None,
+    ) -> None:
+        self._provider = provider
+        self._grounder = grounder
+        self._segmenter = segmenter
+        self._config = config or GeometryToolConfig()
+
+    def tools(
+        self,
+        capabilities: Capabilities | None = None,
+        config: Mapping[str, Any] | None = None,
+    ) -> Sequence[Tool]:
+        if capabilities is not None and not (
+            capabilities.has_depth() and capabilities.has_calibration()
+        ):
+            return ()
+        declaration = geometry.with_handler(
+            partial(
+                geometry,
+                provider=self._provider,
+                grounder=self._grounder,
+                segmenter=self._segmenter,
+                config=self._config,
+            )
+        )
+        if capabilities is not None and not capabilities.grounding:
+            schema = declaration.input_schema
+            schema["properties"].pop("target", None)
+            schema["required"] = ["pixel"]
+            declaration = replace(
+                declaration,
+                description=(
+                    "Localize one visible target from the current or a recorded "
+                    "camera view. This host has no grounding service, so pass a "
+                    "[row,col] pixel measured on the selected view. Returns a "
+                    "world-frame center and axis-aligned extent with quality "
+                    "flags. Read-only; does not move the robot."
+                ),
+                _input_schema=schema,
+            )
+        return (declaration,)
+
+
+__all__ = [
+    "GeometryToolConfig",
+    "GeometryTools",
+    "estimate_geometry",
+    "geometry",
+]

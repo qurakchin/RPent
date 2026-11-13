@@ -43,6 +43,7 @@ from rpent.session import EnvState, Payload
 from rpent.session.env_capture import CapturingEnvClient, ToolCallCapture
 from rpent.tools import Toolkit, ToolResult, tool
 from rpent.tools.direct_action import direct_action_tool
+from rpent.tools.execution import track_execution
 from rpent.tools.policy_tools import PolicyConfig, PolicyTools
 from rpent.utils import templates
 from rpent.utils.rpc import RpcError
@@ -226,8 +227,6 @@ def test_toolkit_constructs_and_captures_an_initial_observation(
         "geometry",
         "query_world_map",
         "recall",
-        "remember",
-        "corroborate",
     }
     assert len(dumped) == 1
     assert dumped[0]["log"] == {
@@ -432,6 +431,21 @@ def test_chunk_returns_only_executed_steps_with_distinct_observations(
         for camera in observation["observation"].values():
             np.testing.assert_array_equal(camera["rgb"], np.full((2, 2, 3), count))
             np.testing.assert_array_equal(camera["intrinsic_cv"], np.eye(3))
+
+
+def test_environment_writes_are_marked_before_the_rpc(facade, make_server_and_client):
+    with make_server_and_client(facade, "socket") as rpc:
+        client = RoboTwinEnvClient(rpc, expected_meta=facade.get_env_meta())
+        with track_execution() as trace:
+            client.reset()
+            client.step(np.zeros(14))
+            client.chunk_step(np.zeros((2, 14)))
+        assert trace.writes == ["reset", "step", "chunk_step"]
+
+        with pytest.raises(ValueError, match="single action"):
+            with track_execution() as invalid:
+                client.step(np.zeros((2, 14)))
+        assert invalid.writes == []
 
 
 def test_old_frame_format_is_rejected_before_reset(facade, make_server_and_client):

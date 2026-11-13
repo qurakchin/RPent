@@ -45,7 +45,7 @@ from rpent.tools.scene_tools import (
 )
 from rpent.tools.toolkit import Toolkit
 from rpent.utils.logging import get_output_dir
-from toolkits.geometry.tool import GeometryToolConfig
+from toolkits.geometry.tool import GeometryToolConfig, GeometryTools
 
 if TYPE_CHECKING:
     from robots.robotwin.env_client import RoboTwinEnvClient
@@ -147,6 +147,7 @@ class RoboTwinToolkit(Toolkit):
         grounder = MolmoGrounder(molmo) if molmo is not None else None
         segmenter = Sam3Segmenter(sam3) if sam3 is not None else None
         views = tuple(ROBOTWIN_CAMERA_NAMES)
+        binding = RoboTwinPolicyBinding(self._primitives)
         self._capabilities = Capabilities(
             env=dict(getattr(self._primitives.env, "server_meta", {}) or {}),
             execution=dict(
@@ -154,7 +155,7 @@ class RoboTwinToolkit(Toolkit):
             ),
             segmentation=segmenter is not None,
             grounding=grounder is not None,
-            policy_backends=(self._policy_kind,),
+            policy_backends=(binding.backend,),
             real_robot=False,
             depth_views=views,
             calibrated_views=views,
@@ -162,17 +163,16 @@ class RoboTwinToolkit(Toolkit):
         )
         provider = EnvStateObservationProvider(
             self._state,
-            default_view="head_camera",
+            default_view="head",
             camera_conventions=dict.fromkeys(views, "opengl"),
         )
-        binding = RoboTwinPolicyBinding(self._primitives)
         self.add_tools(
-            SceneTools(
-                state=self._state,
+            SceneTools(state=self._state),
+            GeometryTools(
                 provider=provider,
-                config=GeometryToolConfig(),
                 grounder=grounder,
                 segmenter=segmenter,
+                config=GeometryToolConfig(),
             ),
             MotionTools(RoboTwinMotionBackend(self._primitives)),
             PolicyTools(
@@ -195,13 +195,20 @@ class RoboTwinToolkit(Toolkit):
         from rpent.tools.policy_tools import PolicyTools
         from rpent.tools.scene_tools import view_env_state
         from rpent.tools.world_coordinates import query_world_map
-        from toolkits.geometry.tool import geometry
 
+        views = tuple(ROBOTWIN_CAMERA_NAMES)
+        geometry = GeometryTools(provider=object()).tools(
+            Capabilities(
+                depth_views=views,
+                calibrated_views=views,
+                grounding=False,
+            )
+        )
         policy = iter_tools(PolicyTools)
         policy_name = "wam_act" if policy_kind == "wam" else "lingbot_act"
         return [
             view_env_state,
-            geometry,
+            *geometry,
             query_world_map,
             *iter_tools(MotionTools),
             next(item for item in policy if item.name == policy_name),

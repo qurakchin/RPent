@@ -29,7 +29,7 @@ import numpy as np
 from rpent.tools.observation import Observation
 from toolkits.geometry.core import GeometryConfig
 from toolkits.geometry.evaluation.corpus import render_case
-from toolkits.geometry.evaluation.references import reference_from_render
+from toolkits.geometry.evaluation.references import reference_from_case
 from toolkits.geometry.tool import GeometryToolConfig, estimate_geometry
 
 
@@ -73,7 +73,7 @@ def replay_case(
 ) -> dict[str, Any]:
     """Run one case and compare it with its analytic reference."""
     rendered = render_case(case)
-    reference = reference_from_render(rendered).as_dict()
+    reference = reference_from_case(rendered.case).as_dict()
     config = GeometryToolConfig(quality=quality or GeometryConfig())
     payload = estimate_geometry(
         _observation(rendered),

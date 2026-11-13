@@ -28,6 +28,7 @@ from robots.robotwin.robot_spec import (
     RoboTwinActionType,
 )
 from rpent.robots.components.env_client_base import BaseEnvClient
+from rpent.tools.execution import mark_write_issued
 from rpent.utils.rpc import RpcClient
 
 
@@ -88,6 +89,7 @@ class RoboTwinEnvClient(BaseEnvClient):
 
     def reset(self) -> tuple[dict[str, Any], dict[str, Any]]:
         """Reset to the TaskRun seed and validate the native result."""
+        mark_write_issued("reset")
         result = self._client.call("env.reset", timeout_s=self._TIMEOUT_S["env.reset"])
         observation, info = self._require_result_tuple(result, 2, "env.reset")
         if not isinstance(observation, dict):
@@ -118,6 +120,7 @@ class RoboTwinEnvClient(BaseEnvClient):
             raise ValueError("RoboTwin common action must be a single action")
         flat = flat[0]
         self._require_common_active()
+        mark_write_issued("step")
         result = self._client.call(
             "env.step",
             args=(flat,),
@@ -149,6 +152,7 @@ class RoboTwinEnvClient(BaseEnvClient):
         ):
             raise ValueError("env.chunk_step does not support return_all_frames=True")
         self._require_common_active()
+        mark_write_issued("chunk_step")
         result = self._client.call(
             "env.chunk_step",
             args=(array,),

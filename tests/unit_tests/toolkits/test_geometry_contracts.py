@@ -27,16 +27,12 @@ from toolkits.geometry.core import (
     observation_world_xyz,
 )
 from toolkits.geometry.evaluation import corpus, experiment, metrics, replay
-from toolkits.geometry.evaluation.references import reference_from_render
+from toolkits.geometry.evaluation.references import reference_from_case
 from toolkits.geometry.tool import GeometryToolConfig, estimate_geometry
 
 
 def _clean_case() -> dict:
-    return next(
-        case
-        for case in corpus.build_cases()
-        if case["group"] == "clean"
-    )
+    return next(case for case in corpus.build_cases() if case["group"] == "clean")
 
 
 def _observation(rendered: corpus.RenderedCase) -> Observation:
@@ -90,9 +86,7 @@ def test_depth_region_mask_stops_at_the_target_boundary() -> None:
     case = _clean_case()
     rendered = corpus.render_case(case)
 
-    mask = depth_region_mask(
-        rendered.depth, rendered.rgb, tuple(case["pixel"])
-    )
+    mask = depth_region_mask(rendered.depth, rendered.rgb, tuple(case["pixel"]))
 
     assert mask[tuple(case["pixel"])]
     assert mask.sum() >= 40
@@ -100,17 +94,32 @@ def test_depth_region_mask_stops_at_the_target_boundary() -> None:
 
 
 def test_fit_reports_the_analytic_surface_without_quality_warnings() -> None:
-    rendered = corpus.render_case(_clean_case())
-    reference = reference_from_render(rendered)
+    case = _clean_case()
+    rendered = corpus.render_case(case)
+    reference = reference_from_case(case)
 
-    fit = fit_mask(
-        rendered.exact_world_xyz, rendered.exact_mask
-    )
+    fit = fit_mask(rendered.exact_world_xyz, rendered.exact_mask)
 
     np.testing.assert_allclose(fit.center, reference.center, atol=1e-9)
     np.testing.assert_allclose(fit.extent, reference.extent, atol=1e-9)
     assert fit.accepted is True
     assert fit.warnings == ()
+
+
+def test_independent_reference_reproduces_the_rendered_exact_surface() -> None:
+    for case in corpus.build_cases():
+        rendered = corpus.render_case(case)
+        points = rendered.exact_world_xyz[rendered.exact_mask]
+        points = points[np.isfinite(points).all(axis=1)]
+        reference = reference_from_case(case)
+
+        np.testing.assert_allclose(
+            reference.center, np.median(points, axis=0), atol=1e-12
+        )
+        np.testing.assert_allclose(
+            reference.extent, points.max(axis=0) - points.min(axis=0), atol=1e-12
+        )
+        assert reference.visible_points == len(points)
 
 
 def test_fit_refuses_a_mask_with_no_points() -> None:
@@ -127,7 +136,7 @@ def test_fit_refuses_a_mask_with_no_points() -> None:
 def test_estimate_geometry_matches_the_frozen_reference() -> None:
     case = _clean_case()
     rendered = corpus.render_case(case)
-    reference = reference_from_render(rendered)
+    reference = reference_from_case(case)
 
     payload = estimate_geometry(
         _observation(rendered),
@@ -139,12 +148,13 @@ def test_estimate_geometry_matches_the_frozen_reference() -> None:
 
     assert payload["status"] in {"usable", "warning"}
     assert payload["fit_accepted"] is True
-    assert np.linalg.norm(
-        np.asarray(payload["center"]["value"]) - reference.center
-    ) < 0.005
-    assert np.linalg.norm(
-        np.asarray(payload["extent"]["value"]) - reference.extent
-    ) < 0.02
+    assert (
+        np.linalg.norm(np.asarray(payload["center"]["value"]) - reference.center)
+        < 0.005
+    )
+    assert (
+        np.linalg.norm(np.asarray(payload["extent"]["value"]) - reference.extent) < 0.02
+    )
     assert payload["center"]["unit"] == "metre"
     assert payload["method"]["back_projection"] == "depth_and_calibration"
     assert payload["pixel_rc"] == case["pixel"]
@@ -174,15 +184,13 @@ def test_estimate_geometry_reports_missing_and_invalid_inputs() -> None:
         == "pixel_out_of_bounds"
     )
     assert (
-        estimate_geometry(
-            observation, target="the block", pixel=None
-        )["error"]["code"]
+        estimate_geometry(observation, target="the block", pixel=None)["error"]["code"]
         == "grounding_unavailable"
     )
     assert (
-        estimate_geometry(
-            observation, pixel=(0, 0), quantities=("volume",)
-        )["error"]["code"]
+        estimate_geometry(observation, pixel=(0, 0), quantities=("volume",))["error"][
+            "code"
+        ]
         == "invalid_quantity"
     )
 
