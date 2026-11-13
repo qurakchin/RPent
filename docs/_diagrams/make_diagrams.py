@@ -73,9 +73,9 @@ LABELS = {
         "env": "环境层",
         "dashboard": ("Web Dashboard", "Session · TaskRun · SSE"),
         "cli": ("CLI / TUI", "rpent --robot &lt;name&gt;"),
-        "planner": ("Planner", "api · claude_code · codex · flash"),
-        "toolkit": ("Toolkit", "工具定义 · 调用分发 · ToolResult"),
-        "memory": ("MemoryManager", "读取 · 合并 · 索引"),
+        "planner": ("规划器（Planner）", "api · claude_code · codex · flash"),
+        "toolkit": ("工具集（Toolkit）", "工具定义 · 调用分发 · ToolResult"),
+        "memory": ("记忆管理器（MemoryManager）", "读取 · 合并 · 索引"),
         "prompts": ("提示词", "system · user 模板"),
         "vla": ("VLA / WAM 服务", "Pi0.5 · RLDX-1 · LingBot-VLA<BR/>VPP2 · Awomo05"),
         "perception": ("感知服务", "SAM3 · Molmo2<BR/>（Flash 定位）"),
@@ -111,7 +111,7 @@ def node(lang: str, key: str, role: str) -> str:
     group = ", group=spine" if key in ("toolkit", "env_service") else ""
     return (
         f'  {key} [label=<<FONT POINT-SIZE="13"><B>{title}</B></FONT>'
-        f'<BR/><FONT POINT-SIZE="10" COLOR="#4b5563">{detail}</FONT>>,'
+        f'<BR/><FONT POINT-SIZE="12" COLOR="#4b5563">{detail}</FONT>>,'
         f' fillcolor="{color["fill"]}", color="{color["border"]}"{group}];\n'
     )
 
@@ -207,7 +207,7 @@ def flow_dot(lang: str) -> str:
           fillcolor="#fff8e1", color="#e0c36b", fontsize=10, margin="0.12,0.08",
           penwidth=1.0];
   f_end -> f_note [style=dotted, arrowhead=none];
-  f_fail [label=<<FONT POINT-SIZE="13"><B>{labels["f_fail"][0]}</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">{labels["f_fail"][1]}</FONT>>, fillcolor="#fef3e2", color="#d9a05b"];
+  f_fail [label=<<FONT POINT-SIZE="13"><B>{labels["f_fail"][0]}</B></FONT><BR/><FONT POINT-SIZE="12" COLOR="#4b5563">{labels["f_fail"][1]}</FONT>>, fillcolor="#fef3e2", color="#d9a05b"];
 }}
 """
 

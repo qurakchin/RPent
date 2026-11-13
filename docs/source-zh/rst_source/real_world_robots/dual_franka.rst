@@ -57,14 +57,13 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
 
 后续命令在仓库根目录和该环境中执行。新开终端时，重新激活 ``.venv`` 并设置所需的模型环境变量。
 
-需要本地分割时，在环境节点下载 SAM3 权重：
+需要本地分割时，在环境节点下载 SAM3 权重。下载块由 :ref:`quickstart-download` 维护：
 
 .. code-block:: bash
 
    uv pip install modelscope
-   modelscope download --model facebook/sam3 sam3.pt \
-     --local_dir ./checkpoints/sam3
-   export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
+
+.. include:: /_snippets/sam3-download.rst
 
 未设置该变量或 ``--sam3-endpoint`` 时，分割功能不可用；仅安装 extra 不会下载权重。VLA checkpoint 配置见 :ref:`dual-franka-vla`。
 

@@ -340,9 +340,8 @@ tasks with ``--task-id``; left and right refer to the top camera view:
      - Yes
 
 Tasks ``1`` and ``2`` both sort three bottles. They also require moving the bowls to
-uncover the spoons, putting the white spoon into the white bowl and the pink spoon into
-the pink bowl, and returning the bowls to their original marked positions: white on the
-left and pink on the right.
+uncover the spoons. Each spoon goes into the bowl of the same color. The bowls then
+return to their marked positions: white on the left and pink on the right.
 
 The examples below use task ``1``, seed ``0`` and a step limit of ``1000``. ENV and
 RPent must use the same settings.
@@ -464,7 +463,7 @@ Verification Status
 -------------------
 
 The v0.1 release notes and :doc:`YAM demo page <../real_world_demos/yam>` record
-demos in which YAM reads bottle and bag labels to sort drinks, checks a grasp
+demos. In them, YAM reads bottle and bag labels to sort drinks, checks a grasp
 with a small test lift, adjusts its wrist when a path is obstructed, and moves
 bowls to reach a hidden spoon. These are demonstration records, not a
 success-rate evaluation. This page reports no episode count or success rate,

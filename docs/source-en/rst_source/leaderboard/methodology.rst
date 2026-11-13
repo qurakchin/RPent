@@ -16,7 +16,9 @@ covers counting and reporting. Results are rendered from
    :read-when: You are reading a success rate, adding a result, or checking denominators
    :skip-when: You only need to run a task; the platform page states its own success signal
 
-**Page map:** success → episodes and denominators → aggregation → counts and estimates → provenance → runtime and tokens → reproduction.
+**Page map:** success → episodes and denominators → retries and timeouts →
+aggregation → counts and estimates → what a result records → provenance →
+runtime and tokens → reproduction.
 
 Success
 -------
@@ -70,6 +72,14 @@ Aggregation
 A row with ``status: derived`` is computed from component rows and is not an
 independent run. Its calculation is recorded in ``results.json``.
 
+Retries and timeouts
+--------------------
+
+An episode that times out counts once, as a failure. An episode that never
+produced an environment outcome because a service failed may be rerun; the
+source record notes the rerun, and only the completed attempt is counted. The
+leaderboard does not record retry counts for sources that do not state them.
+
 Counts and estimates
 --------------------
 
@@ -83,6 +93,15 @@ direction.
 External baselines are transcribed from the cited paper tables or project
 pages; RPent has not re-run them. Their protocol may differ from RPent's, so
 read the source notes before comparing rows.
+
+What a result records
+---------------------
+
+A result is comparable only when it names the input set in
+:doc:`Reproducing a Result <reproduction>`: benchmark and protocol, task matrix
+and denominator, checkpoint, planner configuration, memory revision, code
+commit, hardware, and retry and timeout settings. ``results.json`` stores the
+fields the source provides and leaves the rest empty; it does not infer them.
 
 Provenance
 ----------
@@ -108,7 +127,8 @@ hardware for every source.
 Reproduction
 ------------
 
-Each simulator guide documents its reproduction command and matrix. Reproducing
-a published score requires the same checkpoint, memory revision, seed matrix,
-and success signal. A single successful episode validates the installation and
-execution path, not benchmark performance.
+:doc:`Reproducing a Result <reproduction>` turns one row into a checklist of
+versions, hardware, matrix, success signal, aggregation, cost, and raw data.
+Each simulator guide documents its reproduction command. A single successful
+episode validates the installation and execution path, not benchmark
+performance.

@@ -45,7 +45,7 @@ RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械�
 
 手眼标定使用 ROS 的 `easy_handeye <https://github.com/IFL-CAMP/easy_handeye>`_ 完成。它为每台相机生成一个 YAML （外部相机为 eye-on-base，腕部相机为 eye-on-hand），默认保存在 ``~/.ros/easy_handeye/`` 下。
 
-RPent 会直接加载这些 YAML 文件：在机器人配置的 ``perception.calibration`` 下，将每台相机映射到对应的 easy_handeye YAML 即可（仓库中的 ``robots/franka/config/example.yaml`` 已经包含该映射）：
+RPent 会直接加载这些 YAML 文件。在机器人配置的 ``perception.calibration`` 下，把每台相机映射到对应的 easy_handeye YAML 即可。仓库中的 ``robots/franka/config/example.yaml`` 已经包含该映射：
 
 .. code-block:: yaml
 

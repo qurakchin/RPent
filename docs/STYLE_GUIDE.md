@@ -310,7 +310,7 @@ the remaining roles.
 | Simulator | Overview → Installation → model configuration → Run a Task → View Results → task/reference sections → memory and exploration → Experiment Reproduction → Common Problems |
 | Real-world robot | Safety and Stopping → Installation → Calibration → Robot Configuration → model configuration → Start Services → Run a Task (task selection, planner setup, and manual skill checks as H3) → View Results (tool reference as H3) → Verification Status → Exploration Mode and replay |
 | User guide | What this guide covers → prerequisites → the procedure → how to check the result → options and reference → Common Problems → next step |
-| Developer guide | Contract or purpose → numbered steps 1..n → conventions and reference → tests → next step |
+| Developer guide | Purpose or contract → Prerequisites (extension pages) → numbered steps 1..n → conventions and reference → tests → troubleshooting and next step |
 
 The platform and robot tables above are the authoritative role names for those
 two families. The guide and developer families use these role names:
@@ -322,7 +322,24 @@ two families. The guide and developer families use these role names:
 - **Reference:** *Common Options*, *Command-Line Reference*, *Reference*; put
   parameter tables here, not between procedure steps.
 - **Failure guidance:** *Common Problems* in a page; *Troubleshooting* only as
-  the shared guide's title.
+  the shared guide's title. Extension pages end with *Troubleshooting and next
+  steps*, which covers only failures caused by the new extension and links to
+  the next guide the reader may need.
+
+The extension pages (`add_robot`, `add_primitive`, `add_action_model`,
+`add_planner`) use one sequence so a reader can move between them:
+
+| Role | Heading |
+| --- | --- |
+| Purpose | *When to add …*; name who needs the change and what it enables |
+| Prerequisites | *Prerequisites*; list packages, access, and pages to read first |
+| Add or register | one section per code area, in the order the reader edits them |
+| Runtime wiring | *Runtime wiring*; behavior and defaults that the new code relies on |
+| Test | *Test*; name the test file or command that proves the change |
+| Troubleshooting and next steps | *Troubleshooting and next steps* |
+
+Keep the same role names in both languages: 何时新增、前置条件、实现或注册、运行时接线、
+测试、排查与下一步.
 
 ### One name per role
 
@@ -412,9 +429,17 @@ structure. Preserve code identifiers, model names, flags, and filenames.
 Write current behavior, not a summary of why the change matters. Remove
 sentences that raise the tone without adding a fact ("this closes the loop",
 "it is not just X but Y", "ultimately"). A technical page does not need a
-closing paragraph that restates its importance. Split a Chinese sentence longer
-than about 40 characters into an action, its object, and its condition; put a
-long condition first or in its own sentence.
+closing paragraph that restates its importance.
+
+One sentence carries one action. The soft limit is 40 Chinese characters or 35
+English words; at 80 Chinese characters or 60 English words, split the sentence
+before review. Split into an action, its object, and its condition, and put a
+long condition first or in its own sentence. Replace a semicolon chain,
+parenthetical, and em-dash aside with separate sentences rather than shortening
+the facts. `python3 _checks/check_prose.py` reports sentences above the soft
+limit; `--strict` fails only above the hard limit, so the report is advisory.
+Fix the sentence, or, when the length is required by a quotation or a list of
+identifiers, put `# noqa: long-sentence` on the paragraph's first source line.
 
 Use Chinese punctuation in Chinese prose and spaces between Chinese text and
 Latin identifiers. Chinese prose paragraphs and list items may stay on one

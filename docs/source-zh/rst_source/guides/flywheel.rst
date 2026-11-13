@@ -198,7 +198,7 @@ LIBERO-PRO VLA 微调结果
 
 使用 RPent 采集的成功轨迹，对 ``RLinf-Pi05-LIBERO-130-fullshot-SFT`` 进行微调，并在 RPent 中替换 VLA 模型进行对比评测。
 
-评测使用 ``libero_goal_swap`` 的 task 0–9、seed 25–34，每组共 100 场。两组使用相同的 DeepSeek-V4.1-Flash-1017 规划器（reasoning effort 为 ``none``）并加载 Hugging Face 数据集 ``RLinf/RPent-memory`` 中的 ``libero/GPT_5.5_xhigh`` 任务记忆。
+评测使用 ``libero_goal_swap`` 的 task 0–9、seed 25–34，每组共 100 场。两组使用相同的 DeepSeek-V4.1-Flash-1017 规划器，reasoning effort 为 ``none``。两组都加载 Hugging Face 数据集 ``RLinf/RPent-memory`` 中的 ``libero/GPT_5.5_xhigh`` 任务记忆。
 
 成功率如下：
 
@@ -222,7 +222,7 @@ RoboTwin VLA 微调结果
 
 使用 RPent 采集的成功轨迹，对 ``LingBot-VLA-RoboTwin-EEF-ckpt1500`` 进行微调，并在 RPent 中替换 VLA 模型进行对比评测。
 
-评测覆盖 RoboTwin ``demo_randomized`` 中与训练相同的 10 个任务，每任务 5 个固定测试场景，每组共 50 场。两组使用相同的 DeepSeek-V4.1-Flash-1017 规划器（reasoning effort 为 ``none``）并加载 Hugging Face 数据集 ``RLinf/RPent-memory`` 中的 ``robotwin/`` 任务记忆（GPT-5.5 生成，推理强度为 ``xhigh``）。
+评测覆盖 RoboTwin ``demo_randomized`` 中与训练相同的 10 个任务，每任务 5 个固定测试场景，每组共 50 场。两组使用相同的 DeepSeek-V4.1-Flash-1017 规划器，reasoning effort 为 ``none``。两组都加载 Hugging Face 数据集 ``RLinf/RPent-memory`` 中的 ``robotwin/`` 任务记忆，该记忆由 GPT-5.5 以 ``xhigh`` 推理强度生成。
 
 成功率如下：
 

@@ -34,6 +34,11 @@ jobs:
       - name: Check page headers, maps, and step numbering
         working-directory: docs
         run: python3 _checks/check_structure.py
+      # Soft limits are reported, not enforced; only sentences above the hard
+      # limit (80 Chinese characters or 60 English words) fail the job.
+      - name: Check sentence length
+        working-directory: docs
+        run: python3 _checks/check_prose.py --strict
 
   build:
     name: Build (${{ matrix.language }})

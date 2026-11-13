@@ -26,4 +26,7 @@ Switch views for suite-level results, and open the table view for exact counts
 and episode coverage. :doc:`Time & Token Costs <time-token-costs>` reports the
 runtime and token measurements for the same configurations.
 
+**Page map:** headline rates → suite tables → source records → protocol. To
+rerun a row, start from :doc:`Reproducing a Result <reproduction>`.
+
 .. rpent-leaderboard:: performance

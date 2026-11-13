@@ -7,36 +7,9 @@
    :alt: RPent
    :class: rpent-home-logo
 
-RPent（Recursive Physical Agent）是一个开源框架，用于构建在物理世界交互中积累经验、改进行为的具身智能体。它不限定基础模型，将感知（perception）、推理（reasoning）、记忆（memory）、执行（execution）和自我演进（self-evolution）整合到统一的智能体框架中。智能体通过持续交互反思和调整行为，积累经验、获得新能力，并逐步拓展初始设计的能力边界。
+RPent（Recursive Physical Agent）是一个开源框架，用于构建在物理世界交互中积累经验、改进行为的具身智能体。它不限定基础模型，将感知（perception）、推理（reasoning）、记忆（memory）、执行（execution）和自我演进（self-evolution）整合到统一的智能体循环中。
 
-RPent 面向机器人学与具身智能的研究者和工程师：用同一套评测流程比较基础模型、规划器和记忆策略，或在仿真与真机上运行同一个智能体循环。
-
-侧栏按读者要做的事组织：开始、在仿真中运行、部署真机、观看演示、比较结果、配置功能或扩展框架。
-
-侧栏按读者要做的事组织，而不是按仓库目录：
-
-.. list-table::
-   :header-rows: 1
-   :widths: 24 76
-
-   * - 栏目
-     - 回答的问题
-   * - 开始使用
-     - RPent 是什么，怎样完成第一个任务？
-   * - 仿真环境
-     - 该运行哪个仿真平台，怎样复现它的结果？
-   * - 真实机器人
-     - 怎样安全地部署和操作一台真机？
-   * - 真实世界演示
-     - 任务在硬件上实际执行是什么样？
-   * - 排行榜
-     - 各方法如何比较，这些数字统计的是什么？
-   * - 使用指南
-     - 怎样配置记忆、规划器、工具、命令行、Dashboard 或远程服务？
-   * - 原理与开发
-     - RPent 内部如何工作，怎样扩展？
-   * - 项目资源
-     - 论文报告了什么，怎样贡献，v0.1 有哪些变化？
+RPent 面向机器人学与具身智能的研究者和工程师：用同一套评测流程比较基础模型、规划器和记忆策略，或在仿真与真机上运行同一个智能体循环。读完 :doc:`快速开始 <rst_source/get_started/quickstart>`，你会完成安装、跑通一个 LIBERO-PRO 任务，并找到它的结果文件。
 
 .. button-ref:: rst_source/get_started/quickstart
    :ref-type: doc
@@ -46,40 +19,54 @@ RPent 面向机器人学与具身智能的研究者和工程师：用同一套�
 
    安装 RPent 并运行第一个任务
 
-.. grid:: 1 1 2 2
+.. grid:: 1 2 2 2
    :gutter: 3
 
-   .. grid-item-card:: RPent 简介
-      :link: rst_source/get_started/overview
+   .. grid-item-card:: 1. 跑一个任务
+      :link: rst_source/get_started/quickstart
       :link-type: doc
 
-      了解规划、感知、动作和记忆如何协同完成任务。
+      先读 :doc:`快速开始 <rst_source/get_started/quickstart>`，再进入
+      :doc:`LIBERO <rst_source/simulators/libero>`、
+      :doc:`RoboCasa365 <rst_source/simulators/robocasa>`、
+      :doc:`RoboTwin <rst_source/simulators/robotwin>` 或
+      :doc:`RoboDojo <rst_source/simulators/robodojo>`。真机部署见
+      :doc:`单臂 Franka <rst_source/real_world_robots/franka>`、
+      :doc:`双臂 Franka <rst_source/real_world_robots/dual_franka>` 和
+      :doc:`YAM <rst_source/real_world_robots/yam>`，任务视频见
+      :doc:`真实世界演示 <rst_source/real_world_demos/franka>`。
 
-   .. grid-item-card:: 记忆与探索
-      :link: rst_source/guides/memory
-      :link-type: doc
-
-      使用已有任务经验，或通过探索积累本地记忆。
-
-   .. grid-item-card:: 排行榜
+   .. grid-item-card:: 2. 比较结果
       :link: rst_source/leaderboard/index
       :link-type: doc
 
-      查看评测成绩、运行耗时和 Token 开销。
+      阅读 :doc:`评测成绩 <rst_source/leaderboard/performance>`、
+      :doc:`评测协议 <rst_source/leaderboard/methodology>` 和
+      :doc:`耗时与 Token 开销 <rst_source/leaderboard/time-token-costs>`。
 
-   .. grid-item-card:: 真实世界演示
-      :link: rst_source/real_world_demos/franka
+   .. grid-item-card:: 3. 配置智能体
+      :link: rst_source/guides/memory
       :link-type: doc
 
-      观看双臂 Franka 任务演示，并进入对应的部署文档。
+      配置 :doc:`记忆 <rst_source/guides/memory>`、
+      :doc:`工具 <rst_source/guides/configure_primitives>`、
+      :doc:`规划器 <rst_source/guides/configure_planner>`、
+      :doc:`命令行 <rst_source/guides/cli>`、
+      :doc:`Dashboard <rst_source/guides/dashboard>`、
+      :doc:`Flash 模式 <rst_source/guides/flash>`、
+      :doc:`数据飞轮 <rst_source/guides/flywheel>` 或
+      :doc:`远程服务 <rst_source/guides/advanced_deployment>`。
 
-   .. grid-item-card:: 扩展 RPent
+   .. grid-item-card:: 4. 理解与扩展
       :link: rst_source/development/architecture
       :link-type: doc
 
-      了解执行流程，添加机器人、动作原语或规划器。
-
-选择环境：:doc:`LIBERO <rst_source/simulators/libero>` · :doc:`RoboCasa365 <rst_source/simulators/robocasa>` · :doc:`RoboTwin <rst_source/simulators/robotwin>`。真机部署见 :doc:`单臂 Franka <rst_source/real_world_robots/franka>`、:doc:`双臂 Franka <rst_source/real_world_robots/dual_franka>` 和 :doc:`YAM <rst_source/real_world_robots/yam>`。
+      先读 :doc:`系统架构 <rst_source/development/architecture>`，再
+      :doc:`添加机器人 <rst_source/development/add_robot>`、
+      :doc:`动作原语 <rst_source/development/add_primitive>`、
+      :doc:`动作模型 <rst_source/development/add_action_model>` 或
+      :doc:`规划器 <rst_source/development/add_planner>`。背景见
+      :doc:`Harness VLA <rst_source/resources/harnessvla>`。
 
 .. toctree::
    :maxdepth: 2
@@ -135,6 +122,7 @@ RPent 面向机器人学与具身智能的研究者和工程师：用同一套�
    评测成绩 <rst_source/leaderboard/performance>
    评测协议 <rst_source/leaderboard/methodology>
    耗时与 Token 开销 <rst_source/leaderboard/time-token-costs>
+   复现一条成绩 <rst_source/leaderboard/reproduction>
 
 .. toctree::
    :maxdepth: 2

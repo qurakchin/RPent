@@ -7,12 +7,12 @@ digraph flow {
   edge [color="#7c889a", penwidth=1.3, arrowsize=0.7, fontname="Hiragino Sans GB,Noto Sans CJK SC,sans-serif",
         fontsize=10.5, fontcolor="#4b5563"];
 
-  f_cli [label=<<FONT POINT-SIZE="13"><B>CLI</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">加载 RobotSpec · 解析 RunConfig</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
-  f_session [label=<<FONT POINT-SIZE="13"><B>Session / TaskRun</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">同步记忆 · 构造规划器 · 渲染提示词</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
-  f_services [label=<<FONT POINT-SIZE="13"><B>运行服务</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">VLA · 感知 · 环境</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
-  f_loop [label=<<FONT POINT-SIZE="13"><B>规划循环</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">list_tools → execute_tool → ToolResult</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
-  f_end [label=<<FONT POINT-SIZE="13"><B>规划结束</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">finish · 回合上限 · 错误</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
-  f_result [label=<<FONT POINT-SIZE="13"><B>运行产物</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">episode.mp4 · transcript · run.log</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  f_cli [label=<<FONT POINT-SIZE="13"><B>CLI</B></FONT><BR/><FONT POINT-SIZE="12" COLOR="#4b5563">加载 RobotSpec · 解析 RunConfig</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  f_session [label=<<FONT POINT-SIZE="13"><B>Session / TaskRun</B></FONT><BR/><FONT POINT-SIZE="12" COLOR="#4b5563">同步记忆 · 构造规划器 · 渲染提示词</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  f_services [label=<<FONT POINT-SIZE="13"><B>运行服务</B></FONT><BR/><FONT POINT-SIZE="12" COLOR="#4b5563">VLA · 感知 · 环境</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  f_loop [label=<<FONT POINT-SIZE="13"><B>规划循环</B></FONT><BR/><FONT POINT-SIZE="12" COLOR="#4b5563">list_tools → execute_tool → ToolResult</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  f_end [label=<<FONT POINT-SIZE="13"><B>规划结束</B></FONT><BR/><FONT POINT-SIZE="12" COLOR="#4b5563">finish · 回合上限 · 错误</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
+  f_result [label=<<FONT POINT-SIZE="13"><B>运行产物</B></FONT><BR/><FONT POINT-SIZE="12" COLOR="#4b5563">episode.mp4 · transcript · run.log</FONT>>, fillcolor="#ede7f6", color="#9575cd"];
   f_cli -> f_session;
   f_session -> f_services;
   f_services -> f_loop [label="环境观测"];
@@ -25,5 +25,5 @@ digraph flow {
           fillcolor="#fff8e1", color="#e0c36b", fontsize=10, margin="0.12,0.08",
           penwidth=1.0];
   f_end -> f_note [style=dotted, arrowhead=none];
-  f_fail [label=<<FONT POINT-SIZE="13"><B>工具失败 / 超时</B></FONT><BR/><FONT POINT-SIZE="10" COLOR="#4b5563">错误返回规划器</FONT>>, fillcolor="#fef3e2", color="#d9a05b"];
+  f_fail [label=<<FONT POINT-SIZE="13"><B>工具失败 / 超时</B></FONT><BR/><FONT POINT-SIZE="12" COLOR="#4b5563">错误返回规划器</FONT>>, fillcolor="#fef3e2", color="#d9a05b"];
 }

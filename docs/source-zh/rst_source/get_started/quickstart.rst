@@ -38,7 +38,7 @@
    uv venv --python 3.11
    source .venv/bin/activate
 
-先安装 OpenPI 要求的 PyTorch。下面的命令使用 CUDA 12.8 索引；如果 GPU 和 NVIDIA 驱动需要其他构建，按 `PyTorch previous-versions 页面 <https://pytorch.org/get-started/previous-versions/>`_ 把 ``cu128`` 换成对应索引。然后安装 LIBERO-PRO：
+先安装 OpenPI 要求的 PyTorch。下面的命令使用 CUDA 12.8 索引。如果 GPU 和 NVIDIA 驱动需要其他构建，按 `PyTorch previous-versions 页面 <https://pytorch.org/get-started/previous-versions/>`_ 把 ``cu128`` 换成对应索引。然后安装 LIBERO-PRO：
 
 .. code-block:: bash
 
@@ -47,6 +47,8 @@
    uv pip install -e ".[libero-pro]"
 
 后续命令都在这个终端和 RPent 仓库目录中执行。重新打开终端时，先激活 ``.venv``，再设置下文的模型路径；如果使用 API Key，也要重新导出。
+
+.. _quickstart-download:
 
 2. 下载仿真资源和模型
 ------------------------------
@@ -57,21 +59,17 @@
 
    liberopro-download-assets --skip-existing
 
-再下载 Pi0.5 和 SAM3，设置模型路径：
+再下载 Pi0.5 和 SAM3，设置模型路径。这两个下载块由本页维护，其他页面只写差异并链接回这里：
 
 .. code-block:: bash
 
    uv pip install "huggingface_hub>=0.34,<1.0" modelscope
-   hf download RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT \
-     --exclude optimizer.pt \
-     --local-dir ./checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT
-   modelscope download --model facebook/sam3 sam3.pt \
-     --local_dir ./checkpoints/sam3
 
-   export PI05_CHECKPOINT_PATH="$PWD/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT"
-   export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
+.. include:: /_snippets/pi05-libero-checkpoint.rst
 
-Pi0.5 用于执行机器人动作，SAM3 用于定位图像中的物体。SAM3 也可从 Hugging Face 下载，授权和替代下载方法见 :doc:`../simulators/libero`。
+.. include:: /_snippets/sam3-download.rst
+
+Pi0.5 用于执行机器人动作，SAM3 用于定位图像中的物体。SAM3 的访问授权见 :doc:`../simulators/libero`。
 
 3. 配置规划器并检查连接
 ---------------------------------
@@ -83,7 +81,7 @@ Pi0.5 用于执行机器人动作，SAM3 用于定位图像中的物体。SAM3 �
    export ANTHROPIC_API_KEY="YOUR_API_KEY"
    rpent-check-llm --planner claude_code --model claude-opus-4-8
 
-使用 Anthropic 官方服务时无需设置 ``ANTHROPIC_BASE_URL``。自定义服务地址和其他规划器的配置见 :doc:`../guides/configure_planner`。连接检查通过后再启动任务；它只验证模型服务的认证和连通性。只有在既检测不到 API Key、也检测不到 Claude Code 登录时，检查才会报告缺少凭据。
+使用 Anthropic 官方服务时无需设置 ``ANTHROPIC_BASE_URL``。自定义服务地址和其他规划器的配置见 :doc:`../guides/configure_planner`。连接检查通过后再启动任务。它只验证模型服务的认证和连通性。只有同时检测不到 API Key 和 Claude Code 登录时，检查才会报告缺少凭据。
 
 4. 运行第一个任务
 ------------------------
@@ -97,7 +95,7 @@ Pi0.5 用于执行机器人动作，SAM3 用于定位图像中的物体。SAM3 �
      --planner claude_code --model claude-opus-4-8 \
      --output-dir ./logs/first-libero-pro
 
-终端会依次显示环境、视觉语言动作模型（VLA）和 SAM3 服务的启动状态，随后输出规划器对话与工具调用。结束后查看 ``logs/first-libero-pro/``。再次运行时，请换一个输出目录以保留前一次记录。
+终端会依次显示环境、视觉语言动作模型（VLA）和 SAM3 服务的启动状态。之后输出规划器对话与工具调用。结束后查看 ``logs/first-libero-pro/``。再次运行时，请换一个输出目录以保留前一次记录。
 
 5. 查看结果
 ---------------

@@ -17,11 +17,15 @@ RPent separates task planning, tool execution, and environment operation. The pl
 .. figure:: ../../../_static/img/architecture-en.svg
    :alt: RPent layers: user, agent, model and environment services, and environments
    :width: 100%
+   :target: ../../../_static/img/architecture-en.svg
 
    Read from top to bottom. A user entry point sends a task to the planner;
    the planner drives the toolkit, which calls services; services hold the
    simulator or robot connection. Solid arrows are calls, dashed arrows are
-   inputs, and double arrows are shared connections.
+   inputs, and double arrows are shared connections. In the figure, SSE is
+   server-sent events; VLA is a vision-language-action model; WAM is a backend
+   that predicts one chunk of actions per call, such as Cosmos Policy and
+   Fast-WAM. Click the figure for the full-size image.
 
 Task Execution
 --------------
@@ -42,6 +46,7 @@ the next decision. The sequence below follows one run from CLI setup to cleanup.
    :alt: One RPent run from the CLI to saved run artifacts
    :width: 85%
    :align: center
+   :target: ../../../_static/img/execution-flow-en.svg
 
    Read from top to bottom. The CLI builds a session, services start, the
    planner loops until it stops, and artifacts are saved. A failing or

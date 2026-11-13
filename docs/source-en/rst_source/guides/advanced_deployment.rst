@@ -44,7 +44,8 @@ stop the old service and start a new one.
 Pi0.5 VLA Service
 -----------------
 
-On the VLA host, set the checkpoint path and start the HTTP service:
+On the VLA host, set the checkpoint path and start the HTTP service. The
+weights are downloaded in :ref:`quickstart-download`:
 
 .. code-block:: bash
 

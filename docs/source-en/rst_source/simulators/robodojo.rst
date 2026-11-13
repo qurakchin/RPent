@@ -144,18 +144,12 @@ VPP2 and Awomo05 worker setup, and offline NVIDIA assets, are in :doc:`robodojo_
 SAM3 Configuration
 ------------------
 
-SAM3 provides object segmentation. Request access on the
-`facebook/sam3 model page <https://huggingface.co/facebook/sam3>`_, then
-download ``sam3.pt`` and set its path:
+SAM3 provides object segmentation. The download block is maintained in
+:ref:`quickstart-download`; request access on the
+`facebook/sam3 model page <https://huggingface.co/facebook/sam3>`_ before the
+first command:
 
-.. code-block:: bash
-
-   hf download facebook/sam3 sam3.pt --local-dir /path/to/sam3
-   export SAM3_CHECKPOINT_PATH=/path/to/sam3/sam3.pt
-
-Alternatively, download the same file from
-`ModelScope <https://modelscope.cn/models/facebook/sam3>`_ and set
-``SAM3_CHECKPOINT_PATH`` to the local file.
+.. include:: /_snippets/sam3-download.rst
 
 Run a Task
 ----------

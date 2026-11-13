@@ -81,34 +81,21 @@ VLA Configuration
 
 Download the recommended SFT checkpoint
 `RLinf-Pi05-LIBERO-130-fullshot-SFT
-<https://huggingface.co/RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT>`_,
-then point at it via ``PI05_CHECKPOINT_PATH``:
+<https://huggingface.co/RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT>`_.
+The download and export commands are the same as in
+:ref:`quickstart-download`:
 
-.. code-block:: bash
-
-   hf download RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT \
-     --local-dir /path/to/rlinf-pi05-libero-130-fullshot-sft
-
-   export PI05_CHECKPOINT_PATH=/path/to/rlinf-pi05-libero-130-fullshot-sft
+.. include:: /_snippets/pi05-libero-checkpoint.rst
 
 SAM3 Configuration
 ------------------
 
-SAM 3.0 segmentation is enabled for every LIBERO run. Download ``sam3.pt``
-from `Hugging Face: facebook/sam3 <https://huggingface.co/facebook/sam3>`_
-or `ModelScope: facebook/sam3 <https://modelscope.cn/models/facebook/sam3>`_,
-then point at it via ``SAM3_CHECKPOINT_PATH``:
+SAM 3.0 segmentation is enabled for every LIBERO run. The download block is
+the same as in :ref:`quickstart-download`; request access to
+`facebook/sam3 <https://huggingface.co/facebook/sam3>`_ on Hugging Face before
+the first command:
 
-.. code-block:: bash
-
-   # Hugging Face (request access on the model page first)
-   hf auth login
-   hf download facebook/sam3 sam3.pt --local-dir /path/to/sam3
-
-   # ModelScope (use this instead of the Hugging Face commands above)
-   modelscope download --model facebook/sam3 sam3.pt --local_dir /path/to/sam3
-
-   export SAM3_CHECKPOINT_PATH=/path/to/sam3/sam3.pt
+.. include:: /_snippets/sam3-download.rst
 
 .. _minimal-command:
 

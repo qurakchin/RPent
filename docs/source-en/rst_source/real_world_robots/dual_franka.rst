@@ -87,14 +87,14 @@ calibration steps below.
 Run subsequent commands from the repository root in this environment. In a new
 terminal, activate ``.venv`` and set the required model variables again.
 
-Download SAM3 weights on the environment node if local segmentation is needed:
+Download SAM3 weights on the environment node if local segmentation is needed.
+The download block is maintained in :ref:`quickstart-download`:
 
 .. code-block:: bash
 
    uv pip install modelscope
-   modelscope download --model facebook/sam3 sam3.pt \
-     --local_dir ./checkpoints/sam3
-   export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
+
+.. include:: /_snippets/sam3-download.rst
 
 Without this variable or ``--sam3-endpoint``, segmentation is unavailable;
 installing the extra alone does not download weights. VLA checkpoints are

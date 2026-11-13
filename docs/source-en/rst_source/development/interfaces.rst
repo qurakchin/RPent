@@ -139,13 +139,12 @@ normal-CLI or Dashboard runtime hook:
    [protocol://]host:port    # defaults to http when protocol is omitted
 
 Common flags: ``--env-endpoint``, ``--am-endpoint``. The default ``http`` sends
-JSON over ``POST /call``, encoding NumPy arrays as
+JSON over ``POST /call``. It encodes NumPy arrays as
 ``{"__ndarray__": <base64>, "dtype": ..., "shape": ...}`` and NumPy scalars as
-``{"__npscalar__": <value>, "dtype": ...}`` so dtypes survive the round trip;
-switch to ``socket``
-for large or history-stacked nested-NumPy observations to move length-prefixed
-pickle frames and skip repeated JSON encoding. Pickle is unsafe on untrusted
-input, so only point ``socket`` at trusted endpoints.
+``{"__npscalar__": <value>, "dtype": ...}``, so dtypes survive the round trip.
+Switch to ``socket`` for large or history-stacked nested-NumPy observations. It
+moves length-prefixed pickle frames and skips repeated JSON encoding. Pickle is
+unsafe on untrusted input, so only point ``socket`` at trusted endpoints.
 
 Environment and VLA clients should normally subclass ``BaseEnvClient`` and
 ``BaseVLAClient``; their servers should subclass ``BaseEnvFacade`` and

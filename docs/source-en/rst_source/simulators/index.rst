@@ -3,7 +3,12 @@
 Simulators
 ============
 
-Choose a platform for installation and usage instructions.
+Choose a simulated platform to install and run, or to reproduce its reported
+results. Each page states the extra to install, the model checkpoint, the task
+selection, and the environment's success signal.
+
+**Page map:** :doc:`LIBERO <libero>` → :doc:`RoboCasa365 <robocasa>` →
+:doc:`RoboTwin <robotwin>` → :doc:`RoboDojo <robodojo>`.
 
 .. list-table::
    :header-rows: 1

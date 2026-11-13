@@ -9,10 +9,12 @@
    :read-when: 新增机器人包，或适配 RLinf 环境时
    :skip-when: 只使用已支持的平台；看该平台页面即可
 
-**本文结构：** 接入原则与约定 → 步骤 1–7 → 测试。
+**本文结构：** 接入原则与约定 → 前置条件 → 步骤 1–7 → 测试 → 排查与下一步。
 
 接入原则
 --------
+
+本页用于新增机器人包，或适配 RLinf 中尚无 RPent 接入的环境。只使用已支持平台时，直接看对应平台页。
 
 - **复用 RPent 公共抽象。** Env、VLA、运行时和 Memory 优先复用已有组件，例如 ``BaseEnvClient``、``BaseEnvFacade``、``BaseVLAClient``、 ``BaseVLAFacade`` 和 ``MemoryManager``。
 - **优先复用 RLinf 的 Env 或 VLA。** 如果 RLinf 已有对应实现，RPent 尽量只增加必要的适配层。
@@ -27,6 +29,14 @@
 - 环境侧的返回值必须可 pickle，且不包含 torch 对象。
 - 每个原语工具执行后要 dump 一次新的状态快照, 这样下一次 ``view_env_state`` 看到的是动作后的世界。
 - ``dump_state`` 是 Agent 获取环境状态的唯一数据来源；任何新的模态（例如触觉、力）都通过它提供。
+
+前置条件
+--------
+
+- 准备一个已支持的机器人包作为参照，例如 ``robots/libero/``。
+- 环境的 Python 依赖已能在目标机器上导入，并有一个能创建环境、执行一步动作的最小脚本。
+- 安装测试 extra（``pip install -e ".[test]"``），用于离线测试。
+- 确认 ``rpent --robot <name> --help`` 在当前环境下能运行；这一步用来排除顶层导入问题。
 
 接入步骤概览
 ------------
@@ -122,7 +132,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
        """
        ...
 
-``resolve_dashboard`` 是可选回调；环境不支持 Dashboard 控制时保持为 ``None``。支持时，由回调返回机器人包中定义的配置：其中 ``task`` 描述命令、校验字段、展示模板和输出目录名称；机器人专用的会话设置仍通过普通命令行参数传入；``runtime_components`` 定义界面中的服务列表；``primitives`` 按顺序列出 Dashboard 展示并允许直接执行的 Toolkit 动作。相机标签页根据每步记录的 PNG 图像文件自动生成。任务候选项应直接保存在该配置中，避免导入机器人包时依赖仿真器包。完整结构参考 ``robots/libero/robot_spec.py``。
+``resolve_dashboard`` 是可选回调；环境不支持 Dashboard 控制时保持为 ``None``。支持时，由回调返回机器人包中定义的配置。其中 ``task`` 描述命令、校验字段、展示模板和输出目录名称。机器人专用的会话设置仍通过普通命令行参数传入。``runtime_components`` 定义界面中的服务列表，``primitives`` 按顺序列出 Dashboard 展示并允许直接执行的 Toolkit 动作。相机标签页根据每步记录的 PNG 图像文件自动生成。任务候选项应直接保存在该配置中，避免导入机器人包时依赖仿真器包。完整结构参考 ``robots/libero/robot_spec.py``。
 
 ``_resolve_robot(name)`` 通过 ``importlib.import_module(f"robots.{name}")`` 动态加载机器人包。因此，只需将机器人包放在 ``robots/`` 下，无需维护中央注册列表。
 
@@ -166,7 +176,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 在 ``env_server`` 中定义与 client API 对应的 facade 类，例如 ``MyEnvFacade``。该类继承
 :class:`rpent.robots.components.env_facade_base.BaseEnvFacade`；基类已提供公共 RPC 路由和
-读写分派锁。子类实现公共环境方法，并通过 ``_register_rpc`` 增加环境专用路由。方法接收与 client 一致的位置参数和关键字参数，返回传输层支持的 Python / NumPy 值（不要返回 torch；agent 进程不导入 torch）。
+读写分派锁。子类实现公共环境方法，并通过 ``_register_rpc`` 增加环境专用路由。方法接收与 client 一致的位置参数和关键字参数。返回值必须是传输层支持的 Python / NumPy 值；不要返回 torch，agent 进程不导入 torch。
 
 .. code-block:: python
 
@@ -284,3 +294,14 @@ Dashboard 使用的 component 子集，以及启动与就绪等待辅助函数�
 新增机器人时，应先分别测试它使用的每个 runtime 组件，再跑一次完整调用链。每个组件都应实际调用一次并检查结果，仅能导入模块或通过服务健康检查还不够。
 
 离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v``；准备好 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v``。各组件与完整调用链的测试要点见 :doc:`add_robot_reference`。
+
+排查与下一步
+------------
+
+- **``rpent --robot myrobot --help`` 报 ModuleNotFoundError**：机器人包顶层导入了可选依赖；把这类导入移到实际使用处，保持包入口只重导出两个工厂。
+- **提示 unknown robot**：确认包目录在 ``robots/`` 下、``__init__.py`` 重导出了 ``get_robot_spec`` 和 ``get_toolkit``。
+- **环境服务起不来**：先用最小脚本验证环境的 ``reset`` 和 ``step``；再检查 ``get_env_meta`` 返回值是否可 pickle。
+- **Dashboard 没有相机或任务**：检查 ``resolve_dashboard`` 是否返回配置，以及每步是否保存了 PNG 图像。
+- **工具调用成功但状态不变**：确认原语在返回前调用了 ``env.step`` 或 ``chunk_step``，并 dump 了新状态。
+
+下一步：按 :doc:`add_primitive` 暴露动作工具，或按 :doc:`add_action_model` 接入模型服务。

@@ -7,36 +7,9 @@ Welcome to RPent
    :alt: RPent
    :class: rpent-home-logo
 
-RPent (Recursive Physical Agent) is an open-source framework for building embodied agents that accumulate experience and improve their behavior through interaction with the physical world. It supports different foundation models and integrates perception, reasoning, memory, execution, and self-evolution in a unified agent framework. Through ongoing interaction, agents reflect on and adjust their behavior, accumulate experience, and develop new capabilities beyond their initial design.
+RPent (Recursive Physical Agent) is an open-source framework for building embodied agents that accumulate experience and improve their behavior through interaction with the physical world. It supports different foundation models and integrates perception, reasoning, memory, execution, and self-evolution in a unified agent loop.
 
-RPent is for robotics and embodied-AI researchers and engineers who want to compare foundation models, planners, and memory strategies under one evaluation harness, or run the same agent loop in simulation and on a real robot.
-
-The navigation follows the reader's task: get started, run in simulation, deploy on a robot, watch a demo, compare results, configure a feature, or extend the framework.
-
-The navigation follows the reader's task rather than the project's file layout:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 24 76
-
-   * - Section
-     - Question it answers
-   * - Get Started
-     - What is RPent, and how do I complete one task?
-   * - Simulators
-     - Which simulated platform do I run, and how do I reproduce its results?
-   * - Real-World Robots
-     - How do I deploy and operate a physical robot safely?
-   * - Real-World Demos
-     - What does a task look like on the hardware?
-   * - Leaderboard
-     - How do the reported methods compare, and what do the numbers count?
-   * - Guides
-     - How do I configure memory, planners, tools, the CLI, the Dashboard, or remote services?
-   * - Concepts & Development
-     - How does RPent work inside, and how do I extend it?
-   * - Resources
-     - What does the paper report, how do I contribute, and what changed in v0.1?
+RPent is for robotics and embodied-AI researchers and engineers who want to compare foundation models, planners, and memory strategies under one evaluation harness, or run the same agent loop in simulation and on a real robot. After the Quick Start you will have installed RPent, run one LIBERO-PRO episode, and know where its result files are written.
 
 .. button-ref:: rst_source/get_started/quickstart
    :ref-type: doc
@@ -46,40 +19,54 @@ The navigation follows the reader's task rather than the project's file layout:
 
    Install RPent and run your first task
 
-.. grid:: 1 1 2 2
+.. grid:: 1 2 2 2
    :gutter: 3
 
-   .. grid-item-card:: Introduction to RPent
-      :link: rst_source/get_started/overview
+   .. grid-item-card:: 1. Run something
+      :link: rst_source/get_started/quickstart
       :link-type: doc
 
-      Learn how planning, perception, actions, and memory work together.
+      Start with :doc:`Quick Start <rst_source/get_started/quickstart>`, then
+      open :doc:`LIBERO <rst_source/simulators/libero>`,
+      :doc:`RoboCasa365 <rst_source/simulators/robocasa>`,
+      :doc:`RoboTwin <rst_source/simulators/robotwin>`, or
+      :doc:`RoboDojo <rst_source/simulators/robodojo>`. Deploy on
+      :doc:`Single-Arm Franka <rst_source/real_world_robots/franka>`,
+      :doc:`Dual-Arm Franka <rst_source/real_world_robots/dual_franka>`, or
+      :doc:`YAM <rst_source/real_world_robots/yam>`, and watch the
+      :doc:`real-world demos <rst_source/real_world_demos/franka>`.
 
-   .. grid-item-card:: Memory and Exploration
-      :link: rst_source/guides/memory
-      :link-type: doc
-
-      Use published experience or build memory through exploration.
-
-   .. grid-item-card:: Leaderboard
+   .. grid-item-card:: 2. Compare results
       :link: rst_source/leaderboard/index
       :link-type: doc
 
-      Compare reported success rates, runtime, and token costs.
+      Read :doc:`Performance <rst_source/leaderboard/performance>`, the
+      :doc:`Evaluation Protocol <rst_source/leaderboard/methodology>`, and
+      :doc:`Time & Token Costs <rst_source/leaderboard/time-token-costs>`.
 
-   .. grid-item-card:: Real-World Demos
-      :link: rst_source/real_world_demos/franka
+   .. grid-item-card:: 3. Configure the agent
+      :link: rst_source/guides/memory
       :link-type: doc
 
-      Watch dual-arm Franka tasks and follow the deployment guide.
+      Configure :doc:`memory <rst_source/guides/memory>`,
+      :doc:`tools <rst_source/guides/configure_primitives>`,
+      :doc:`planner <rst_source/guides/configure_planner>`, the
+      :doc:`CLI <rst_source/guides/cli>`, the
+      :doc:`Dashboard <rst_source/guides/dashboard>`,
+      :doc:`Flash mode <rst_source/guides/flash>`, the
+      :doc:`data flywheel <rst_source/guides/flywheel>`, or
+      :doc:`remote services <rst_source/guides/advanced_deployment>`.
 
-   .. grid-item-card:: Extend RPent
+   .. grid-item-card:: 4. Understand and extend
       :link: rst_source/development/architecture
       :link-type: doc
 
-      Understand the execution flow and add robots, tools, or planners.
-
-Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboCasa365 <rst_source/simulators/robocasa>`, or :doc:`RoboTwin <rst_source/simulators/robotwin>`. For robot deployment, see :doc:`Single-Arm Franka <rst_source/real_world_robots/franka>`, :doc:`Dual-Arm Franka <rst_source/real_world_robots/dual_franka>`, and :doc:`YAM <rst_source/real_world_robots/yam>`.
+      Follow the :doc:`architecture <rst_source/development/architecture>`, then
+      :doc:`add a robot <rst_source/development/add_robot>`, an
+      :doc:`action primitive <rst_source/development/add_primitive>`, an
+      :doc:`action model <rst_source/development/add_action_model>`, or a
+      :doc:`planner <rst_source/development/add_planner>`. Background:
+      :doc:`Harness VLA <rst_source/resources/harnessvla>`.
 
 .. toctree::
    :maxdepth: 2
@@ -135,6 +122,7 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    Performance <rst_source/leaderboard/performance>
    Evaluation Protocol <rst_source/leaderboard/methodology>
    Time & Token Costs <rst_source/leaderboard/time-token-costs>
+   Reproducing a Result <rst_source/leaderboard/reproduction>
 
 .. toctree::
    :maxdepth: 2

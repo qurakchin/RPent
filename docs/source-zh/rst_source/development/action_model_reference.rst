@@ -15,7 +15,7 @@
 按客户端隔离策略状态
 --------------------
 
-大多数 VLA 后端是无状态的：``predict`` 只做推理，不保存各客户端的中间状态，``session_id`` 可以忽略。但有些模型带按客户端隔离的策略状态（如 RLDX-1 的 memory/RTC），同一个 ``vla_server`` 服务多个客户端时，不同客户端的策略状态会互相污染，必须按 session 隔离。接入分三块：
+大多数 VLA 后端是无状态的：``predict`` 只做推理，不保存各客户端的中间状态，``session_id`` 可以忽略。但有些模型带按客户端隔离的策略状态，例如 RLDX-1 的 memory/RTC。同一个 ``vla_server`` 服务多个客户端时，各客户端的策略状态会互相污染，必须按 session 隔离。接入分三块：
 
 - **facade 侧**：构造 ``BaseVLAFacade`` 子类时传 ``enable_sessions=True`` 和 ``session_timeout_s``，并实现 ``_on_session_drop``——session 结束（客户端调用 ``session.close`` RPC 或空闲超时）时在这里清理该客户端的策略状态。需要显式重置时，额外提供 ``reset_session`` RPC（只清策略状态，不销毁 session）。``serve`` 必须传 ``session_sweep_s`` （> 0），让后台线程定期回收过期 session。
 

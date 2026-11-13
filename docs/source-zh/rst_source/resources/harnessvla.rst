@@ -23,7 +23,7 @@ Memory-Guided Agents*
 
 Harness VLA 将问题的重点从“如何训练更大的 VLA”转向“应该如何组织和调用已有的 VLA”。它把冻结的 VLA 封装为可重试的接触密集型 Action Primitive。Agentic Planner 再把它与一组规模较小且固定的 Analytic Primitives 组合。Planner 重新理解当前任务，为 VLA 创造合适的局部接管条件，检查执行结果，并在失败后重新组织后续操作。整个过程中 VLA 权重保持冻结。
 
-Harness VLA 是 RPent 的首篇论文。部署阶段不更新 VLA，也不扩展 Action Primitive library。在此条件下，Opus-4.7 在 LIBERO-PRO 上取得 **82.4%**，GPT-5.5 在 RoboCasa365 上取得 **57.1%**，Opus-4.7 在 RoboTwin C2R 上取得 **58.4%**。
+Harness VLA 是 RPent 的首篇论文。部署阶段不更新 VLA，也不扩展 Action Primitive library。在此条件下，Opus-4.7 在 LIBERO-PRO 上取得 **82.4%**，在 RoboTwin C2R 上取得 **58.4%**。GPT-5.5 在 RoboCasa365 上取得 **57.1%**。
 
 .. figure:: https://raw.githubusercontent.com/RLinf/misc/main/pic/harnessvla_scheme.png
    :alt: Harness VLA 框架概览

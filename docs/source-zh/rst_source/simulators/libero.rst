@@ -78,30 +78,16 @@ LIBERO
 VLA 配置
 --------
 
-下载推荐的 SFT checkpoint `RLinf-Pi05-LIBERO-130-fullshot-SFT <https://huggingface.co/RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT>`_，再将 ``PI05_CHECKPOINT_PATH`` 指向本地 checkpoint 目录：
+下载推荐的 SFT checkpoint `RLinf-Pi05-LIBERO-130-fullshot-SFT <https://huggingface.co/RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT>`_。下载与导出命令与 :ref:`quickstart-download` 相同：
 
-.. code-block:: bash
-
-   hf download RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT \
-     --local-dir /path/to/rlinf-pi05-libero-130-fullshot-sft
-
-   export PI05_CHECKPOINT_PATH=/path/to/rlinf-pi05-libero-130-fullshot-sft
+.. include:: /_snippets/pi05-libero-checkpoint.rst
 
 SAM3 配置
 ---------
 
-每次 LIBERO 运行都默认启用 SAM 3.0 分割。从 `Hugging Face: facebook/sam3 <https://huggingface.co/facebook/sam3>`_ 或 `ModelScope: facebook/sam3 <https://modelscope.cn/models/facebook/sam3>`_ 下载 ``sam3.pt``，再通过 ``SAM3_CHECKPOINT_PATH`` 指定本地 checkpoint：
+每次 LIBERO 运行都默认启用 SAM 3.0 分割。下载块与 :ref:`quickstart-download` 相同；首次执行前，先在 `facebook/sam3 <https://huggingface.co/facebook/sam3>`_ 页面申请访问权限：
 
-.. code-block:: bash
-
-   # Hugging Face（需要先在模型页面申请访问权限）
-   hf auth login
-   hf download facebook/sam3 sam3.pt --local-dir /path/to/sam3
-
-   # ModelScope（与上面的 Hugging Face 命令二选一）
-   modelscope download --model facebook/sam3 sam3.pt --local_dir /path/to/sam3
-
-   export SAM3_CHECKPOINT_PATH=/path/to/sam3/sam3.pt
+.. include:: /_snippets/sam3-download.rst
 
 .. _minimal-command:
 

@@ -34,7 +34,7 @@ LIBERO 环境服务
 Pi0.5 VLA 服务
 --------------
 
-在 VLA 主机上设置 checkpoint 路径并启动 HTTP 服务：
+在 VLA 主机上设置 checkpoint 路径并启动 HTTP 服务。权重下载见 :ref:`quickstart-download`：
 
 .. code-block:: bash
 

@@ -123,16 +123,10 @@ VPP2、Awomo05 的 worker 配置和离线 NVIDIA 素材见 :doc:`robodojo_refere
 SAM3 配置
 ---------
 
-SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingface.co/facebook/sam3>`_ 申请访问权限，\
-再下载 ``sam3.pt`` 并设置路径：
+SAM3 用于物体分割。下载块由 :ref:`quickstart-download` 维护；首次执行前，先在
+`facebook/sam3 模型页面 <https://huggingface.co/facebook/sam3>`_ 申请访问权限：
 
-.. code-block:: bash
-
-   hf download facebook/sam3 sam3.pt --local-dir /path/to/sam3
-   export SAM3_CHECKPOINT_PATH=/path/to/sam3/sam3.pt
-
-也可以从 `ModelScope <https://modelscope.cn/models/facebook/sam3>`_ 下载同一文件，\
-再将 ``SAM3_CHECKPOINT_PATH`` 指向本地文件。
+.. include:: /_snippets/sam3-download.rst
 
 运行一个任务
 ------------
@@ -241,7 +235,7 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 
 使用记忆见 :doc:`../guides/memory`。
 
-评测时，规划器只读取记忆库中的内容，不对其进行修改。规划器参考同一任务版本在 seed 0、layout 0 上生成的 JSON 任务记录和 JSONL 动作序列，以及对应的 task-family 经验和相关 global 经验。普通版与 ``*_random`` 版本的参考文件分开使用；缺少参考时，规划器记录缺失并根据当前观测继续。其他探索场景的产物可以作为经验保留，但不是评测 prompt 的默认参考。
+评测时，规划器只读取记忆库中的内容，不对其进行修改。规划器参考同一任务版本在 seed 0、layout 0 上生成的任务记录和动作序列。记录为 JSON，动作序列为 JSONL。对应的 task-family 经验和相关 global 经验也作为参考。普通版与 ``*_random`` 版本的参考文件分开使用；缺少参考时，规划器记录缺失并根据当前观测继续。其他探索场景的产物可以作为经验保留，但不是评测 prompt 的默认参考。
 
 使用已准备的本地记忆进行评测：
 
@@ -273,9 +267,9 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 
 使用 ``--task stack_blocks_random`` 探索保存好的随机化版本。``--random`` 参数会生成新场景，因此探索模式不支持它。两个示例中的 ``--max-episode-steps 10000`` 都不会提高任务自身的原生动作步数上限。``--planner-timeout-s`` 限制每个规划会话的总耗时，包括模型推理和工具调用。
 
-规划器读取 ``robots/robodojo/guides/GUIDE_RPENT.md`` 并使用对应模式的 prompt。探索期间，失败尝试记录保存在运行输出中，工作笔记保存在当前场景的 ``_internal/inbox/<cell>/wip/``。环境判定任务成功后，RPent 按调用顺序，将最后一次尝试中符合导出条件的运动命令，以及返回掩码且未报错的 SAM3 调用，保存到 ``<cell>_recipe.jsonl``。SAM3 返回掩码不代表识别到了正确对象，仍需检查图像。规划器另行写入对应的 ``<cell>.json`` 任务记录，并整理 task-family 和 global 经验草稿。
+规划器读取 ``robots/robodojo/guides/GUIDE_RPENT.md`` 并使用对应模式的 prompt。探索期间，失败尝试记录保存在运行输出中，工作笔记保存在当前场景的 ``_internal/inbox/<cell>/wip/``。环境判定任务成功后，RPent 保存最后一次尝试中的有效调用到 ``<cell>_recipe.jsonl``。保存内容按调用顺序排列，包括符合导出条件的运动命令，以及返回掩码且未报错的 SAM3 调用。SAM3 返回掩码不代表识别到了正确对象，仍需检查图像。规划器另行写入对应的 ``<cell>.json`` 任务记录，并整理 task-family 和 global 经验草稿。
 
-默认情况下，探索结束后，RPent 将成功任务的 JSON 记录及配套 JSONL 动作序列保存到本地 ``task-specific/``，将通过格式校验的经验草稿合并到 ``task-family/`` 和 ``global/``，并更新记忆索引 ``MEMORY.md``。使用 ``--no-auto-merge-memory`` 可关闭自动合并，保留输出供手动审核。这些操作只写入本地文件，不会上传到 Hugging Face；公开共享的记忆需在数据集仓库中另行审核。目录结构见 :doc:`../development/memory`。
+默认情况下，探索结束后 RPent 保存成功任务的 JSON 记录及配套 JSONL 动作序列到本地 ``task-specific/``。通过格式校验的经验草稿合并到 ``task-family/`` 和 ``global/``，记忆索引 ``MEMORY.md`` 同时更新。使用 ``--no-auto-merge-memory`` 可关闭自动合并，保留输出供手动审核。这些操作只写入本地文件，不会上传到 Hugging Face；公开共享的记忆需在数据集仓库中另行审核。目录结构见 :doc:`../development/memory`。
 
 常用参数
 --------
@@ -301,7 +295,7 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 初始观测和运动反馈包含 ``episode_status.step`` （已用原生动作步数）、``step_limit`` （总步数上限）和 ``remaining_steps`` （剩余步数）。
 这些计数对应观测保存时的状态；顶层 ``step`` 是观测记录编号。读取历史观测不会消耗动作步数。
 
-``vpp2_act(instruction, chunks=1)`` 执行指定子任务。每个 chunk 预测 32 个双臂 EE16 绝对目标（每臂 xyz、wxyz 和夹爪），通过原生 EE 控制执行前 24 步；``chunks=1`` 时返回规划器，继续下一块时重新推理。VPP2 使用初始 RGB 帧和间隔为 25 个动作的 8 个历史采样。策略动作和 Primitive 动作都会更新历史，切换子任务时保留历史；看图和 ``render`` 不增加动作时刻。动作反馈缺失后，策略历史失效，直到 reset；无法 reset 时，需开始新回合才能恢复 VPP2。
+``vpp2_act(instruction, chunks=1)`` 执行指定子任务。每个 chunk 预测 32 个双臂 EE16 绝对目标，每臂含 xyz、wxyz 和夹爪。原生 EE 控制执行前 24 步。``chunks=1`` 时返回规划器，继续下一块时重新推理。VPP2 使用初始 RGB 帧和间隔为 25 个动作的 8 个历史采样。策略动作和 Primitive 动作都会更新历史，切换子任务时保留历史；看图和 ``render`` 不增加动作时刻。动作反馈缺失后，策略历史失效，直到 reset；无法 reset 时，需开始新回合才能恢复 VPP2。
 
 选择 Awomo05 后端时，使用 ``awomo05_act(chunks=1)`` 按官方完整任务指令执行双臂关节目标。任务指令取自回合初始观测，在该回合内保持不变。每块执行 8 步并逐步更新观测，下一块重新推理；``chunks`` 限制单次调用的动作块数。模型历史跨调用保留，也包含运动 Primitive 执行后的观测。取消后不续接剩余动作；推理或执行结果不确定时，需检查错误并开始新回合，不应直接重试。
 

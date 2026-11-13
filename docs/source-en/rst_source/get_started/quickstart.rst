@@ -52,6 +52,8 @@ Then install LIBERO-PRO:
 
 Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv`` and set the checkpoint paths again, and export the API key if you use one.
 
+.. _quickstart-download:
+
 2. Download Assets and Models
 -----------------------------
 
@@ -61,21 +63,20 @@ Download the LIBERO-PRO scene assets. ``--skip-existing`` reuses files already d
 
    liberopro-download-assets --skip-existing
 
-Download Pi0.5 and SAM3, then set their paths:
+Download Pi0.5 and SAM3, then set their paths. These two download blocks are
+maintained on this page; other pages state only their differences and link
+here.
 
 .. code-block:: bash
 
    uv pip install "huggingface_hub>=0.34,<1.0" modelscope
-   hf download RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT \
-     --exclude optimizer.pt \
-     --local-dir ./checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT
-   modelscope download --model facebook/sam3 sam3.pt \
-     --local_dir ./checkpoints/sam3
 
-   export PI05_CHECKPOINT_PATH="$PWD/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT"
-   export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
+.. include:: /_snippets/pi05-libero-checkpoint.rst
 
-Pi0.5 executes robot actions; SAM3 locates objects in images. SAM3 is also available on Hugging Face; see :doc:`../simulators/libero` for access and alternative download instructions.
+.. include:: /_snippets/sam3-download.rst
+
+Pi0.5 executes robot actions; SAM3 locates objects in images. See
+:doc:`../simulators/libero` for SAM3 access requests.
 
 3. Configure and Check the Planner
 ----------------------------------

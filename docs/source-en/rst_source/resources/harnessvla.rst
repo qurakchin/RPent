@@ -81,10 +81,10 @@ within a unified framework:
   Memory captures reusable success patterns, failure modes, and recovery
   strategies across tasks to guide subsequent planning.
 
-During exploration, the Agentic Planner starts from a single seed task instance
-to discover an effective division of labor between Analytic Primitives and the
-VLA, then distills successful execution strategies and recovery experience into
-Task-Specific Memory and Global Memory. At deployment time, the Agentic Planner
+During exploration, the Agentic Planner starts from a single seed task instance.
+It discovers an effective division of labor between Analytic Primitives and the
+VLA. It then distills successful execution strategies and recovery experience
+into Task-Specific Memory and Global Memory. At deployment time, the Agentic Planner
 combines these memories with live observations to dynamically rebind targets
 and spatial parameters, allowing validated strategies to adapt to changes in
 target bindings and spatial layouts.

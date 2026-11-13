@@ -296,16 +296,15 @@ robot runtime:
    rpent-check-llm --planner claude_code
    rpent-check-llm --planner codex --json
 
-It exits ``0`` on success and ``1`` on any failure, and classifies the
-failure as one of ``missing_config``, ``unsupported_provider``,
-``missing_api_key``, ``auth_failed``, ``invalid_model``, ``network_error``,
-``provider_error``, or ``sdk_error``. Use ``--json`` for scripting and
-CI. ``--base-url`` applies to ``api`` only; the SDK planners read
-``ANTHROPIC_BASE_URL`` or ``CODEX_BASE_URL``, and passing the flag with either
-is an error. ``--timeout-s`` overrides the diagnostic timeout (30 s for
-``api``, 90 s for the two SDK backends, or 25 s when an SDK backend runs on a
-CLI login without its credential variable; the ``1200`` s run default is never
-reused).
+It exits ``0`` on success and ``1`` on any failure. The failure is classified
+as one of ``missing_config``, ``unsupported_provider``, ``missing_api_key``,
+``auth_failed``, ``invalid_model``, ``network_error``, ``provider_error``, or
+``sdk_error``. Use ``--json`` for scripting and CI. ``--base-url`` applies to
+``api`` only. The SDK planners read ``ANTHROPIC_BASE_URL`` or
+``CODEX_BASE_URL``, and passing the flag with either is an error.
+``--timeout-s`` overrides the diagnostic timeout: 30 s for ``api``, 90 s for
+the two SDK backends, or 25 s when an SDK backend runs on a CLI login without
+its credential variable. The ``1200`` s run default is never reused.
 
 Before using the Dashboard, run the same check in a terminal with the
 planner and model settings you intend to use for the task. The Dashboard
@@ -326,7 +325,7 @@ integration steps, and validation requirements.
 Configure Planner Limits
 ------------------------
 
-``--max-turns N`` sets the planner's turn limit; the default is ``100``.
+``--max-turns N`` sets the planner's turn limit; :doc:`cli` lists the default.
 A turn is not a robot action: one model response can request several tools.
 The counting rule depends on the backend:
 

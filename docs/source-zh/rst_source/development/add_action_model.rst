@@ -9,7 +9,20 @@
    :read-when: 新增或替换动作模型时
    :skip-when: 只需要工具声明；见 :doc:`add_primitive`
 
-**本文结构：** 共享架构 → 添加 VLA → 添加 WAM → 测试。
+**本文结构：** 何时新增动作模型 → 前置条件 → 共享架构 → 添加 VLA →
+添加 WAM → 测试 → 排查与下一步。
+
+何时新增动作模型
+----------------
+
+当平台还没有目标模型的 client，或模型的观测与动作布局和平台原生控制不一致时，才新增动作模型。如果该模型与平台组合已经支持，直接按平台页使用 ``--am-backend`` 和 endpoint 部署，不要另写集成。
+
+前置条件
+--------
+
+- 能提供观测并执行原生动作块的平台 client；见 :doc:`add_robot`。
+- 模型的推理入口与权重，或一个已运行的服务。
+- 两侧的数据布局：相机顺序、状态向量、动作维度和 chunk 长度。差异在 adapter 中解决，不要改平台 client。
 
 共享架构
 --------
@@ -160,3 +173,13 @@ WAM 的通信协议、生命周期和平台检查清单见 :doc:`action_model_re
 ----
 
 新增模型与平台组合时，扩展已有的适配器、RPC 和平台测试。测试位置、GPU 环境要求、运行命令，以及集成检查与任务成功率评测的区别，统一见 ``tests/README.md``。
+
+排查与下一步
+------------
+
+- **worker 启动了，但预测总被拒绝**：核对 adapter 声明的控制方式与平台 ``control.py`` 描述的动作布局是否一致。
+- **环境执行的步数不对**：worker 的 chunk 大小必须与平台 ``chunk_step`` 的长度一致；除非模型契约另有规定，不要只在 adapter 里截断。
+- **回合之间预测漂移**：在回合边界重置模型历史，见 :doc:`action_model_reference` 中的 ``reset_native``。
+- **服务单独可用，接入 RPent 后失败**：比较 endpoint 协议（HTTP 或 socket）和 ``wam.get_model_meta`` 返回的元数据。
+
+下一步：按 :doc:`../guides/advanced_deployment` 部署已有服务，或在 :doc:`action_model_reference` 中查看协议与生命周期。

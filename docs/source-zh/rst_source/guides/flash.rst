@@ -124,7 +124,7 @@ RPent 将实时锚点位置与计划保存的偏移组合成新的路点，再�
 
 audit 必须包含非空的 ``task_language`` （或 ``perturbed_task_language``）以及 ``libero_terminated: true``。audit 和 recipe 的文件名，以及 audit 中存在的 suite/task/seed 字段，必须指向同一次运行。
 
-如果运行中保存了 ``segment_*.json`` 分割结果，可通过 ``--segments`` 指定目录；否则生成器会根据任务指令以及 recipe 中按顺序记录的抓取、释放或可动机构操作，生成供 Molmo 使用的语义锚点。相邻的 ``move_to`` 和 ``move_pose`` 坐标会被保存成相对锚点的 XY 偏移，供 Flash 执行时使用。
+如果运行中保存了 ``segment_*.json`` 分割结果，可通过 ``--segments`` 指定目录。否则生成器根据任务指令和 recipe 中的操作顺序，生成供 Molmo 使用的语义锚点。操作包括抓取、释放和可动机构动作。相邻的 ``move_to`` 和 ``move_pose`` 坐标会被保存成相对锚点的 XY 偏移，供 Flash 执行时使用。
 
 关系解析覆盖 LIBERO-PRO 全部 80 个任务：Spatial、Object、Goal、Long（``10``）各自的 task 和 swap suite。Long 任务的操作顺序会被保留，例如先打开炉灶再放置物体，或者先把物体放进设备再关闭设备。
 
@@ -140,7 +140,7 @@ audit 必须包含非空的 ``task_language`` （或 ``perturbed_task_language``
 LIBERO-PRO 评测结果
 -----------------------
 
-在 LIBERO-PRO 完整的 800 次运行中（Spatial、Object、Goal 和 Long；task/swap；每个任务 10 个 seed），Flash Mode 成功 581 次（72.63%）。两个没有成功源轨迹、因而没有计划的任务按 0/10 保守计入。八项评测成绩见 :doc:`评测成绩 <../leaderboard/performance>`。
+LIBERO-PRO 的完整评测共 800 次运行。它覆盖 Spatial、Object、Goal 和 Long 四个套件，含 task 与 swap，每个任务 10 个 seed。Flash Mode 成功 581 次（72.63%）。两个没有成功源轨迹、因而没有计划的任务按 0/10 保守计入。八项评测成绩见 :doc:`评测成绩 <../leaderboard/performance>`。
 
 :doc:`耗时与 Token 开销 <../leaderboard/time-token-costs>` 报告 Flash Mode 的平均每回合耗时和输出 token。均值包含成功、失败和超时的评测回合；token 仅统计评测阶段的输出。
 
@@ -151,7 +151,7 @@ RPent Flash Mode 直接使用官方发布的 GPT-5.5 探索记忆。Molmo2-8B �
 
 下图保留早期 Flash/Codex 对比。图中的 Flash 耗时取每个计划对应的成功源回合，与上方统计全部评测回合的平均耗时口径不同。
 
-图中对比三种配置：Flash Mode、不使用 reasoning 的 Codex（500/800，62.50%）和 high reasoning Codex（628/800，78.50%）。成功率与上方使用同一套 800 次运行口径。
+图中对比三种配置：Flash Mode、不使用 reasoning 的 Codex，以及 high reasoning Codex。后两者分别为 500/800（62.50%）和 628/800（78.50%）。成功率与上方使用同一套 800 次运行口径。
 
 .. image:: https://raw.githubusercontent.com/RLinf/misc/main/rpent/flash/flash_libero_pro_performance_time.png
    :alt: Flash Mode 与 Codex 在 LIBERO-PRO 全系列上的逐任务成功率和执行时间对比

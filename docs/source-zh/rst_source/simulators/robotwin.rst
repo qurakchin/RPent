@@ -258,7 +258,7 @@ RPent 默认使用 RoboTwin 的 ``demo_randomized`` 任务配置，该配置带�
 
 本次评测中，156 次运行成功，58 次任务失败，36 次运行超时。
 
-评测覆盖 RoboTwin 的 50 个任务，每个任务运行 5 次，共计 250 次。每个任务使用的 5 个 seed 来自 ``robots/robotwin/eval/demo_randomized.json``，均经 RoboTwin 官方 expert 程序验证。由于不同任务的可解 seed 可能不同，请根据该文件为每个任务选择对应 seed，不要对所有任务统一使用一组固定 seed。对于表中列出的任务与 seed 组合，RPent 会按该 seed 复位到对应场景，再使用表内的 ``task_language`` 作为任务指令；未列出的自定义 seed 仍使用 RoboTwin 原生环境生成的指令。
+评测覆盖 RoboTwin 的 50 个任务，每个任务运行 5 次，共计 250 次。每个任务使用的 5 个 seed 来自 ``robots/robotwin/eval/demo_randomized.json``，均经 RoboTwin 官方 expert 程序验证。不同任务的可解 seed 可能不同。请根据该文件为每个任务选择对应 seed，不要对所有任务统一使用一组固定 seed。表中列出任务与 seed 组合时，RPent 按该 seed 复位到对应场景，再使用表内的 ``task_language`` 作为任务指令。未列出的自定义 seed 仍使用 RoboTwin 原生环境生成的指令。
 
 单次运行的复现命令如下：
 

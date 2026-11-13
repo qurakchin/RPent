@@ -11,7 +11,27 @@ native action executor. Tool declarations and state capture are described in
    :read-when: You are adding or replacing an action model
    :skip-when: You only need tool declarations; see :doc:`add_primitive`
 
-**Page map:** shared architecture → add a VLA → add a WAM → tests.
+**Page map:** when to add one → prerequisites → shared architecture → add a VLA
+→ add a WAM → tests → troubleshooting and next steps.
+
+When to add an action model
+---------------------------
+
+Add an action model when a platform has no client for the model you want to run,
+or when the model's observation or action layout differs from the platform's
+native controls. If the model and platform pair is already supported, deploy it
+with the platform page's ``--am-backend`` and endpoint instead of writing a new
+integration.
+
+Prerequisites
+-------------
+
+- A platform client that exposes observations and executes native action chunks;
+  see :doc:`add_robot`.
+- The model's inference entry point and weights, or a running model service.
+- The data layout of both sides: camera order, state vector, action dimension,
+  and chunk length. Mismatches are resolved in the adapter, not in the platform
+  client.
 
 Shared Architecture
 -------------------
@@ -236,10 +256,27 @@ and per-run worker startup.
 
 .. _wam-protocol:
 
-Tests
------
+Test
+----
 
 Extend the existing adapter, RPC and platform tests for each new model/platform
 pair. Test locations, GPU prerequisites, commands and the distinction between
 integration checks and task-success benchmarks are documented in
 ``tests/README.md``.
+
+Troubleshooting and next steps
+------------------------------
+
+- **The worker starts but every prediction is rejected.** Check that the
+  adapter's declared control mode and the platform's ``control.py`` describe
+  the same action layout.
+- **The environment executes the wrong number of steps.** The worker's chunk
+  size and the platform's ``chunk_step`` length must match; do not trim inside
+  the adapter unless the model contract says to.
+- **Stateful predictions drift between episodes.** Reset model history at the
+  episode boundary; see ``reset_native`` in :doc:`action_model_reference`.
+- **The service works alone but not with RPent.** Compare the endpoint protocol
+  (HTTP or socket) and the model metadata returned by ``wam.get_model_meta``.
+
+Next: deploy an existing service in :doc:`../guides/advanced_deployment`, or
+review the protocol and lifecycle in :doc:`action_model_reference`.

@@ -15,4 +15,7 @@ columns report output tokens or total tokens as the source records them. For
 example, Flash Mode reports 60.19 s per episode across the 800 LIBERO-PRO cases,
 while Codex + GPT-6 Astra (low) reports 412.14 s.
 
+**Page map:** runtime → tokens → source notes. Recording a new cost row is part
+of :doc:`Reproducing a Result <reproduction>`.
+
 .. rpent-leaderboard:: time-token-costs

@@ -100,11 +100,11 @@
 环境参数
 ------------
 
-LIBERO 使用 ``--suite``、``--task``、``--seed`` 和 ``--libero-type`` 选择任务；类型由套件名推断（基础套件为 ``standard``，扰动套件为 ``pro``），``--libero-type`` 或 ``LIBERO_TYPE`` 可覆盖推断结果，扰动套件必须使用 ``pro``。RoboCasa365 和 RoboTwin 使用 ``--task-name``。Franka 使用 ``--task-id`` 和 ``--robot-config``。具体选项见 :doc:`../simulators/libero`、:doc:`../simulators/robocasa`、:doc:`../simulators/robotwin`、:doc:`../real_world_robots/franka` 和 :doc:`../real_world_robots/dual_franka`。
+LIBERO 用 ``--suite``、``--task``、``--seed`` 和 ``--libero-type`` 选择任务。类型默认由套件名推断：基础套件为 ``standard``，扰动套件为 ``pro``。``--libero-type`` 或 ``LIBERO_TYPE`` 可覆盖推断结果；扰动套件必须使用 ``pro``。RoboCasa365 和 RoboTwin 用 ``--task-name`` 选择任务。Franka 用 ``--task-id`` 和 ``--robot-config``。具体选项见 :doc:`../simulators/libero`、:doc:`../simulators/robocasa`、:doc:`../simulators/robotwin`、:doc:`../real_world_robots/franka` 和 :doc:`../real_world_robots/dual_franka`。
 
-``--env-endpoint``、``--am-endpoint`` 和 LIBERO 的 ``--sam3-endpoint`` 分别连接已有的环境、动作模型（VLA 或 WAM）和 SAM3 服务。RPent RPC 地址格式为 ``[protocol://]host:port``，默认协议为 ``http``；LingBot 使用原生 WebSocket，见 :doc:`../simulators/robotwin`。GPU 分配和远程服务见 :doc:`advanced_deployment`。
+``--env-endpoint``、``--am-endpoint`` 和 LIBERO 的 ``--sam3-endpoint`` 分别连接已有服务：环境、动作模型（VLA 或 WAM）和 SAM3。RPent RPC 地址格式为 ``[protocol://]host:port``，默认协议为 ``http``。LingBot 使用原生 WebSocket，见 :doc:`../simulators/robotwin`。GPU 分配和远程服务见 :doc:`advanced_deployment`。
 
-``--am-backend`` 选择当前平台支持的一个动作模型。LIBERO、Franka、dual-Franka 和 YAM 默认使用 ``pi05``，RoboTwin 默认 ``lingbot``，RoboCasa 默认 ``rldx``，RoboDojo 默认 ``vpp2``。VLA 和 WAM 共用 ``--am-endpoint`` 连接已有服务，共用 ``--am-checkpoint``、``--am-python``、``--am-root`` 和 ``--am-cuda-device`` 配置本地部署。使用 endpoint 时，显式传入本地部署参数会报错。
+``--am-backend`` 选择当前平台支持的一个动作模型。LIBERO、Franka、dual-Franka 和 YAM 默认使用 ``pi05``。RoboTwin 默认 ``lingbot``，RoboCasa 默认 ``rldx``，RoboDojo 默认 ``vpp2``。VLA 和 WAM 共用 ``--am-endpoint`` 连接已有服务，共用 ``--am-checkpoint``、``--am-python``、``--am-root`` 和 ``--am-cuda-device`` 配置本地部署。使用 endpoint 时，显式传入本地部署参数会报错。
 
 WAM 采用 ``local`` 记忆模式并注册记忆文件工具，默认目录按后端区分，可通过 ``--memory-dir`` 指定目录；目前不支持 HF 记忆、Flash 和探索模式。模型启动参数及支持的组合见 :doc:`../development/add_action_model`。
 

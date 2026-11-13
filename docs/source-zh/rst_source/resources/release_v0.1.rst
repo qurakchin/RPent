@@ -8,7 +8,7 @@ RPent v0.1 版本发布 🎉
 
 RPent（Recursive Physical Agent）是面向真实物理世界的开源具身智能体框架。它连接通用大模型、VLA 模型、记忆与机器人接口，通过任务规划、执行反馈和经验复用完成物理世界任务。
 
-v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划，接入 LIBERO 系列、RoboCasa365、RoboTwin、RoboDojo 等仿真环境，以及单臂 Franka、双臂 Franka 和 YAM 真机，提供 Memory、Flash Mode、交互式 CLI 与 Web Dashboard。RPent 已在多种仿真环境和真机任务中完成验证，并在 LIBERO-PRO 等仿真基准上报告任务成功率；对比方法与统计口径见 :doc:`排行榜 <../leaderboard/index>`。
+v0.1 支持使用 Codex、Claude Code 等 Agent Harness 进行任务规划。它接入 LIBERO 系列、RoboCasa365、RoboTwin 和 RoboDojo 等仿真环境。真机侧支持单臂 Franka、双臂 Franka 和 YAM。它还提供 Memory、Flash Mode、交互式 CLI 与 Web Dashboard。RPent 已在多种仿真环境和真机任务中完成验证，并在 LIBERO-PRO 等仿真基准上报告任务成功率。对比方法与统计口径见 :doc:`排行榜 <../leaderboard/index>`。
 
 .. page-head::
    :for: 要确认 v0.1 包含什么、旧命令如何变化的读者
@@ -126,7 +126,7 @@ RPent 评测结果
 RPent v0.1 测试结果
 ----------------------------------------------
 
-RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布版本测试、180 回合论文配置抽样复现，以及 15 回合记忆复用测试。在双臂 Franka 和 YAM 上完成三项真机任务验证。
+RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成三项测试。发布版本测试 180 回合，论文配置抽样复现 180 回合，记忆复用 15 回合。在双臂 Franka 和 YAM 上完成三项真机任务验证。
 
 每个任务在一个指定 seed 下运行一次，计为一个测试回合。仿真任务采用环境原生成功判定，失败及超时均计入测试回合数。成功率按成功回合数占比计算。发布版本测试与论文复现的耗时和 Token 用量为每回合平均值，汇总按回合数加权计算。本节为所选任务的发布验证结果，完整基准成绩见文末 Leaderboard。
 
@@ -443,7 +443,7 @@ RPent v0.1 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上完成 180 回合发布�
 
 在 LIBERO-PRO、RoboCasa365 和 RoboTwin 上验证环境安装、探索生成记忆及重启后复用流程。每个环境使用 5 个 seed 测试，共 15 回合。成功率仅统计记忆复用阶段，探索回合单独记录。
 
-LIBERO-PRO 与 RoboCasa365 使用 seed 0 探索、seed 1 至 seed 5 测试。RoboTwin 在 demo_clean 中探索，在 demo_randomized 的 seed 100000、100001、100003、100004、100005 上测试。表中耗时与 Token 用量对应探索阶段。
+LIBERO-PRO 与 RoboCasa365 使用 seed 0 探索、seed 1 至 seed 5 测试。RoboTwin 在 demo_clean 中探索。测试使用 demo_randomized 的 seed 100000、100001、100003、100004、100005。表中耗时与 Token 用量对应探索阶段。
 
 .. list-table::
    :header-rows: 1

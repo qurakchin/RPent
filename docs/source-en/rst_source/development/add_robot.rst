@@ -11,10 +11,15 @@ simulated robot into RPent's LLM-in-the-loop runner. Use
    :read-when: You are adding a robot package or adapting an RLinf environment
    :skip-when: You only operate a supported platform; use its page
 
-**Page map:** integration rules and conventions → steps 1–7 → test coverage.
+**Page map:** integration rules and conventions → prerequisites → steps 1–7 →
+test coverage → troubleshooting and next steps.
 
 Integration Guidelines
 ----------------------
+
+This page is for adding a robot package or adapting an RLinf environment that
+RPent does not support yet. If you only operate a supported platform, use its
+page instead.
 
 - **Reuse RPent abstractions.** Prefer existing Env, VLA, runtime, and memory
   components such as ``BaseEnvClient``, ``BaseEnvFacade``,
@@ -42,6 +47,17 @@ Conventions Worth Keeping
   ``view_env_state`` call reflects the post-action world.
 - Treat ``dump_state`` as the source of truth for what the agent sees — any new
   modality (e.g. tactile, force) goes through it.
+
+Prerequisites
+-------------
+
+- A supported robot package to use as the reference, such as
+  ``robots/libero/``.
+- The environment's Python dependencies importable on the target machine, and a
+  minimal script that creates the environment and executes one step.
+- The test extra (``pip install -e ".[test]"``) for the offline tests.
+- ``rpent --robot <name> --help`` working in the current environment; this
+  rules out top-level import problems before you add code.
 
 Integration Steps
 -----------------
@@ -151,13 +167,13 @@ these two functions:
 
 ``resolve_dashboard`` is an optional callback. Leave it as ``None`` if the
 environment does not support Dashboard control. Otherwise, return a spec defined
-in the robot package: its ``task`` section describes the command, validated fields, display
-template, and output slug; robot-specific Session settings remain normal CLI
-arguments; ``runtime_components`` describes service rows;
-and ``primitives`` is the ordered allowlist of Toolkit actions displayed and
+in the robot package. Its ``task`` section describes the command, validated
+fields, display template, and output slug. Robot-specific Session settings
+remain normal CLI arguments. ``runtime_components`` describes service rows, and
+``primitives`` is the ordered allowlist of Toolkit actions displayed and
 executable as Dashboard controls. Camera tabs are discovered from the PNG
-artifacts in each recorded step. Keep task suggestions in the spec so
-importing the robot does not require simulator packages. See
+artifacts in each recorded step. Keep task suggestions in the spec so importing
+the robot does not require simulator packages. See
 ``robots/libero/robot_spec.py`` for the reference shape.
 
 The callback receives the parsed session arguments, so it can select components
@@ -333,11 +349,11 @@ state needed for the current run. It exposes one method per primitive tool
 descriptions, including readers such as ``view_env_state`` and ``back_project``.
 
 **Per-step state dump** — ``dump_state(primitives, env_state, log)`` opens
-``env_state.record_step(...)`` and receives the allocated step index; the
+``env_state.record_step(...)`` and receives the allocated step index. The
 ``StepRecord`` is appended and committed immediately. Save large observations
-through ``env_state.save(...)`` — inside a ``record_step`` block the ``step``
-argument may be omitted (it defaults to the new step), pass an explicit
-``step=<int>`` to target a different step, and ``step=None`` for run-level
+through ``env_state.save(...)``. Inside a ``record_step`` block the ``step``
+argument may be omitted, since it defaults to the new step. Pass an explicit
+``step=<int>`` to target a different step, or ``step=None`` for run-level
 artifacts. ``EnvState`` adds every successfully saved base name to the step's
 flat ``artifacts`` set automatically. Readers use the canonical artifact
 filenames rather than maintaining a parallel observation index.
@@ -390,3 +406,23 @@ Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``; after
 preparing the robot's GPU resources, run ``pytest tests/e2e_tests/myrobot -v``.
 Component coverage and the policy-chain checklist are in
 :doc:`add_robot_reference`.
+
+Troubleshooting and next steps
+------------------------------
+
+- **``rpent --robot myrobot --help`` raises ModuleNotFoundError.** The package
+  imports an optional dependency at module scope; move that import to its use
+  site and keep ``__init__.py`` to the two factory exports.
+- **The robot is reported as unknown.** Check that the package lives under
+  ``robots/`` and that ``__init__.py`` re-exports ``get_robot_spec`` and
+  ``get_toolkit``.
+- **The environment service does not start.** Verify the environment's
+  ``reset`` and ``step`` with the minimal script, then check that
+  ``get_env_meta`` returns picklable values.
+- **The Dashboard has no cameras or tasks.** Check that ``resolve_dashboard``
+  returns a configuration and that each step saved its PNG images.
+- **A tool call succeeds but the state does not change.** Confirm the primitive
+  calls ``env.step`` or ``chunk_step`` and dumps a new state before returning.
+
+Next: expose action tools in :doc:`add_primitive`, or connect a model service in
+:doc:`add_action_model`.
