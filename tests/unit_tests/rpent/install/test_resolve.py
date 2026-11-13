@@ -82,7 +82,7 @@ def test_external_placement_uses_named_environment(
         placements=("in-env", "external-env"),
         default_placement="external-env",
     )
-    profile = make_profile("flash", {"molmo": Selection(env="molmo")})
+    profile = make_profile("flash", {"molmo": Selection(profile="molmo")})
     external = make_profile("molmo", {"molmo": Selection()})
     catalog = make_catalog(components=[molmo], profiles={"molmo": external})
 
@@ -100,7 +100,7 @@ def test_external_environment_must_exist_and_include_the_component(
         "molmo", kind="capability", placements=("in-env", "external-env")
     )
     profile = make_profile(
-        "flash", {"molmo": Selection(placement="external-env", env="molmo")}
+        "flash", {"molmo": Selection(placement="external-env", profile="molmo")}
     )
     unrelated = make_profile("unrelated", {})
     catalog = make_catalog(components=[molmo], profiles={"unrelated": unrelated})
@@ -118,7 +118,7 @@ def test_external_profile_without_the_component_is_reported(
         "molmo", kind="capability", placements=("in-env", "external-env")
     )
     profile = make_profile(
-        "flash", {"molmo": Selection(placement="external-env", env="molmo")}
+        "flash", {"molmo": Selection(placement="external-env", profile="molmo")}
     )
     external = make_profile("molmo", {})
     catalog = make_catalog(components=[molmo], profiles={"molmo": external})
@@ -235,7 +235,7 @@ def test_declared_conflict_in_separate_environments_is_allowed(
         "shared",
         {
             "alpha": Selection(),
-            "beta": Selection(placement="external-env", env="beta"),
+            "beta": Selection(placement="external-env", profile="beta"),
         },
     )
     catalog = make_catalog(

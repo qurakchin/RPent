@@ -46,7 +46,7 @@ def resolution(make_component, make_profile, make_catalog):
         "alpha",
         {
             "alpha": Selection(variant="pro"),
-            "molmo": Selection(placement="external-env", env="molmo"),
+            "molmo": Selection(placement="external-env", profile="molmo"),
         },
         dependencies=["pytest"],
     )

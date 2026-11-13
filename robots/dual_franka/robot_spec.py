@@ -25,6 +25,11 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from capabilities._base.runtime import (
+    AMConfig,
+    add_am_args,
+    select_am,
+)
 from robots.dual_franka.prompt_bundle import system_prompt, user_prompt
 from robots.dual_franka.runtime_config import DEFAULT_CONFIG
 from robots.dual_franka.tasks import DUAL_FRANKA_TASKS, get_dual_franka_task
@@ -35,11 +40,6 @@ from robots.franka.runtime_config import (
 from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
-    AMConfig,
-    add_am_args,
-    select_am,
-)
 from rpent.robots.prompt_bundle import PromptBundle
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 from rpent.robots.runtime import try_spawn_server, try_wait_server
@@ -302,7 +302,7 @@ def _vla_server_command(
 ) -> list[str]:
     command = [
         "-m",
-        "rpent.robots.components.pi05_vla_server",
+        "capabilities.openpi.server",
         "--embodiment",
         "dual_franka",
         "--transport",
@@ -427,9 +427,9 @@ def _init_runtime(
     supply descriptions directly instead of selecting a registered task.
     """
     select_am(args, "dual_franka")
+    from capabilities.openpi.client import Pi05VLAClient
+    from capabilities.sam3.client import Sam3Client
     from robots.dual_franka.env_client import DualFrankaEnvClient
-    from rpent.robots.components.pi05_vla_client import Pi05VLAClient
-    from rpent.robots.components.sam3.client import Sam3Client
 
     available = {"env", "vla", "sam3"}
     selected = available if components is None else components

@@ -12,28 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared robot components (base classes, pi05 VLA servers/clients, SAM3)."""
+"""Compatibility aliases for the environment and model base classes.
 
-from rpent.robots.components.am_client_base import (
-    BaseAMClient,
-    BaseVLAClient,
-    BaseWAMClient,
-)
-from rpent.robots.components.am_facade_base import (
-    BaseAMFacade,
-    BaseVLAFacade,
-    BaseWAMFacade,
-)
-from rpent.robots.components.env_client_base import BaseEnvClient
-from rpent.robots.components.env_facade_base import BaseEnvFacade
+The implementations moved out of ``rpent/robots/components/``: the env bases
+live in ``rpent/env/`` and the model bases in ``capabilities/_base/``. This
+module keeps the old import path working for one release; import the new
+modules instead.
+"""
 
-__all__ = [
-    "BaseAMClient",
-    "BaseAMFacade",
-    "BaseEnvClient",
-    "BaseEnvFacade",
-    "BaseVLAClient",
-    "BaseVLAFacade",
-    "BaseWAMClient",
-    "BaseWAMFacade",
-]
+from importlib import import_module
+
+_ALIASES = {
+    "BaseAMClient": "capabilities._base.client",
+    "BaseVLAClient": "capabilities._base.client",
+    "BaseWAMClient": "capabilities._base.client",
+    "BaseAMFacade": "capabilities._base.facade",
+    "BaseVLAFacade": "capabilities._base.facade",
+    "BaseWAMFacade": "capabilities._base.facade",
+    "BaseEnvClient": "rpent.env.client",
+    "BaseEnvFacade": "rpent.env.facade",
+}
+
+__all__ = sorted(_ALIASES)
+
+
+def __getattr__(name: str):
+    module_name = _ALIASES.get(name)
+    if module_name is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    return getattr(import_module(module_name), name)

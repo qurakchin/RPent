@@ -1,0 +1,11 @@
+schema = 1
+name = "dual-franka-real"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/dual-franka-real.lock"
+# Compatibility alias: the extra name predates the profile rename.
+extra = "dual-franka"
+description = "Dual-arm Franka with Pi0.5 and SAM 3.0."
+
+[components.dual_franka]
+placement = "in-env"

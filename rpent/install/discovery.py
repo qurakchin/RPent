@@ -21,15 +21,23 @@ from pathlib import Path
 from typing import Iterable
 
 from rpent.install.errors import InstallConfigError
-from rpent.install.manifest import Component, Profile, load_component, load_profile
+from rpent.install.manifest import (
+    Component,
+    Profile,
+    load_component,
+    load_deps_component,
+    load_profile,
+)
 from rpent.utils.config import get_repo_root
 
-#: Every component root, the expected kind, and the glob that finds it.
+#: Every component root and the glob that finds it. Directory kinds read a
+#: ``component.toml``; the ``deps`` kind reads one file per component.
 COMPONENT_ROOTS = (
     ("robots/*/component.toml", "robot"),
     ("toolkits/*/component.toml", "toolkit"),
-    ("rpent/robots/components/*/component.toml", "capability"),
+    ("capabilities/*/component.toml", "capability"),
     ("rpent/*/component.toml", "capability"),
+    ("envs/deps/*.toml", "deps"),
 )
 
 
@@ -75,7 +83,10 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
     repo_root = (root or get_repo_root()).resolve()
     components: dict[str, Component] = {}
     for manifest, expected_kind in _component_manifests(repo_root):
-        component = load_component(manifest)
+        if expected_kind == "deps":
+            component = load_deps_component(manifest)
+        else:
+            component = load_component(manifest)
         if component.kind != expected_kind:
             raise InstallConfigError(
                 f"{manifest}: kind {component.kind!r} does not match the "
@@ -89,7 +100,58 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
             )
         components[component.name] = component
     _check_conflicts(components)
+    _check_deps_consumers(components)
+    _check_imports(components)
     return _close_conflicts(components)
+
+
+def _check_imports(components: dict[str, Component]) -> None:
+    """Require ``imports`` to name a co-installed component of the same kind."""
+    reverse = {
+        other.name: set(other.requires)
+        for other in components.values()
+        if not other.is_deps
+    }
+    for component in components.values():
+        for other in component.imports:
+            target = components.get(other)
+            if target is None:
+                raise InstallConfigError(
+                    f"{component.manifest_path}: imports references unknown "
+                    f"component {other!r}"
+                )
+            if target.kind != component.kind:
+                raise InstallConfigError(
+                    f"{component.manifest_path}: imports {other!r} must name a "
+                    f"{component.kind} component, not {target.kind!r}"
+                )
+            if other not in component.requires and component.name not in reverse[other]:
+                raise InstallConfigError(
+                    f"{component.manifest_path}: imports {other!r}, but neither "
+                    "component requires the other; add it to requires so the "
+                    "pair installs together"
+                )
+
+
+def _check_deps_consumers(components: dict[str, Component]) -> None:
+    """Require every deps component to serve at least two components."""
+    consumers: dict[str, list[str]] = {name: [] for name in components}
+    for component in components.values():
+        if component.is_deps:
+            continue
+        for required in component.requires:
+            if required in consumers:
+                consumers[required].append(component.name)
+    for name, component in components.items():
+        if not component.is_deps:
+            continue
+        used_by = sorted(set(consumers[name]))
+        if len(used_by) < 2:
+            raise InstallConfigError(
+                f"{component.manifest_path}: deps component {name!r} is required "
+                f"by {', '.join(used_by) or 'no component'}; a single consumer "
+                "belongs in that component's own dependencies"
+            )
 
 
 def _check_conflicts(components: dict[str, Component]) -> None:
@@ -132,10 +194,21 @@ def _close_conflicts(components: dict[str, Component]) -> dict[str, Component]:
 
 
 def discover_profiles(root: Path | None = None) -> dict[str, Profile]:
-    """Load every profile under ``envs/`` in ``root``."""
+    """Load every profile under ``envs/`` in ``root``.
+
+    Raises:
+        InstallConfigError: ``root`` is not a source checkout with ``envs/``.
+    """
     repo_root = (root or get_repo_root()).resolve()
+    envs = repo_root / "envs"
+    if not envs.is_dir():
+        raise InstallConfigError(
+            f"{envs} does not exist; environment profiles ship with the source "
+            "checkout, so run rpent-env from the repository root or reinstall "
+            "RPent in editable mode (pip install -e .)"
+        )
     profiles: dict[str, Profile] = {}
-    for path in sorted((repo_root / "envs").glob("*.toml")):
+    for path in sorted(envs.glob("*.toml")):
         if _is_metadata_file(path):
             continue
         profile = load_profile(path)

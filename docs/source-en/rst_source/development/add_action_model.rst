@@ -16,7 +16,7 @@ the missing transforms.
 
 VLA and WAM share AM base classes for RPC registration and prediction dispatch.
 VLA retains its existing model-specific payloads and inference paths. WAM uses
-the physical observation and native control declarations in ``am_contracts.py``
+the physical observation and native control declarations in ``capabilities/_base/contracts.py``
 to connect platform clients to model adapters.
 
 The WAM execution path illustrates the platform/model boundary:
@@ -47,15 +47,15 @@ toolkit owns registration, cancellation, state capture and recording.
      - Define native action order, semantics and execution mode.
    * - ``robots/<platform>/wam_client.py``
      - Select a compatible controller and attach execution identity to observations.
-   * - ``rpent/robots/components/am_contracts.py``
+   * - ``capabilities/_base/contracts.py``
      - Declare shared physical observations/native control and WAM-specific capability, request and result dictionaries in separate sections.
-   * - ``am_client_base.py``
+   * - ``capabilities/_base/client.py``
      - Define the shared ``BaseAMClient`` and its VLA/WAM subclasses; share prediction dispatch and timeouts, keeping each contract's arguments and checks.
-   * - ``am_facade_base.py``
+   * - ``capabilities/_base/facade.py``
      - Share prediction routes, optional model metadata and RPC session setup through ``BaseAMFacade``; keep VLA and WAM behavior in subclasses.
-   * - ``am_runtime.py``
+   * - ``capabilities/_base/runtime.py``
      - Register common deployment options, resolve VLA/WAM settings into ``AMConfig``, and start workers with their Python, working directory and GPU configuration.
-   * - ``rpent/robots/components/pi05_vla_client.py``
+   * - ``capabilities/openpi/client.py``
      - Adapt platform observations and model outputs for Pi0.5; other VLA integrations provide their own model clients.
    * - ``<model>/runtime_config.py``
      - Supply WAM model-specific arguments, defaults and configuration requirements.
@@ -76,9 +76,9 @@ For a WAM worker, the call chain is:
 .. code-block:: text
 
    robot_spec._init_runtime()
-     -> am_runtime.select_am(args, platform): resolve AMConfig and model options
+     -> runtime.select_am(args, platform): resolve AMConfig and model options
      -> robots.runtime.try_spawn_server(spawn_fn)
-          -> am_runtime.start_wam_service(config, output_dir)
+          -> runtime.start_wam_service(config, output_dir)
                -> AMConfig.spawn_worker() -> ProcessDaemon.start()
                -> make_rpc_client()
                -> return daemon + RPC client
@@ -95,7 +95,7 @@ log on a failed spawn. The shared
 ``robots/runtime.py`` owns readiness, component status and group cleanup after
 resource handoff. Borrowed endpoints return no owned daemon.
 
-``am_runtime.add_am_args(parser, platform=...)`` registers supported backends
+``runtime.add_am_args(parser, platform=...)`` registers supported backends
 and common options. GPU selection and compatibility aliases are documented in
 :doc:`../guides/cli`.
 
@@ -114,7 +114,7 @@ primitive requires a few additional components:
 
 1. **Write ``vla_server.py``.** This process owns only the model weights
    and CUDA context. Use
-   :class:`rpent.robots.components.am_facade_base.BaseVLAFacade` as the base
+   :class:`capabilities._base.facade.BaseVLAFacade` as the base
    class, implement ``predict``, and register any additional model RPCs by
    extending ``_register_rpc``:
 
@@ -132,17 +132,17 @@ primitive requires a few additional components:
    ``shutdown``, parent-death detection, and resource cleanup.
 
 2. **Write a model client.** Subclass
-   :class:`rpent.robots.components.am_client_base.BaseVLAClient`, which
+   :class:`capabilities._base.client.BaseVLAClient`, which
    provides the common ``vla.predict`` call, and add only the
    environment-specific input / output adaptation. See
-   ``rpent.robots.components.pi05_vla_client.Pi05VLAClient`` for the LIBERO
+   ``capabilities.openpi.client.Pi05VLAClient`` for the LIBERO
    implementation.
 
 3. **Add a method to the primitives.** In the current
    robot's primitives class, call the model client, pass
    the returned action chunk to the environment, and return a
    ``ToolResult``. The model client API is
-   :meth:`rpent.robots.components.pi05_vla_client.Pi05VLAClient.predict`,
+   :meth:`capabilities.openpi.client.Pi05VLAClient.predict`,
    which reads the instruction from ``env_obs["task_descriptions"]`` and
    returns a ``[chunk, action_dim]`` numpy action chunk (batch dim already
    stripped):
@@ -229,11 +229,11 @@ request construction, action denormalization and rotation conversion; its
 RPent reuses its existing LIBERO client and maps observations and predictions
 at that boundary. These backends require different checkpoints.
 
-1. Create a model package under ``rpent/robots/components/``. Its
+1. Create a model package under ``capabilities/``. Its
    ``server.py`` subclasses ``BaseWAMFacade`` and implements
    ``predict_native``; provide a required ``(encode, decode)`` adapter pair.
 2. Register each supported platform in the model's ``ADAPTERS`` mapping
-   using ``WAMAdapterSpec`` from ``am_facade_base.py``. The model metadata factory declares checkpoint
+   using ``WAMAdapterSpec`` from ``capabilities/_base/facade.py``. The model metadata factory declares checkpoint
    identity, camera/state requirements, native control and executable chunk size.
    Encode physical observations into model inputs; decode predictions into the
    declared platform action format.
@@ -242,7 +242,7 @@ at that boundary. These backends require different checkpoints.
    initialization; the platform checks control compatibility before executing
    predictions. The client retains metadata in ``model_meta``.
 4. Add model deployment options in ``runtime_config.py`` and register the
-   backend in ``am_runtime.WAM_BACKENDS``; model-specific launch logic stays
+   backend in ``runtime.WAM_BACKENDS``; model-specific launch logic stays
    in the model package. Declare session usage in the
    model package, and implement ``reset_native`` if inference retains
    session history.
@@ -332,7 +332,7 @@ simulator in the RPent environment. From the provisioned Cosmos source directory
 .. code-block:: bash
 
    PYTHONPATH=/path/to/RPent /path/to/cosmos/.venv/bin/python \
-     -m rpent.robots.components.cosmos_policy.server \
+     -m capabilities.cosmos_policy.server \
      --checkpoint /path/to/cosmos-libero --cuda-device 0 --port 8116
 
 The checkpoint directory contains ``Cosmos-Policy-LIBERO-Predict2-2B.pt``,
@@ -361,7 +361,7 @@ not implement its three-camera/qpos14 interface.
 
    CUDA_VISIBLE_DEVICES=0 PYTHONPATH=/path/to/RPent \
      /path/to/fast-wam/venv/bin/python \
-     -m rpent.robots.components.fast_wam.server \
+     -m capabilities.fast_wam.server \
      --platform libero --checkpoint /path/to/fast-wam-libero.pt \
      --config /path/to/worker.yaml --dataset-stats /path/to/dataset_stats.json \
      --port 8117
@@ -407,7 +407,7 @@ SGLang dependencies. The RPC worker runs in that environment:
 .. code-block:: bash
 
    PYTHONPATH=/path/to/RPent:/path/to/RLinf /path/to/sglang-env/bin/python \
-     -m rpent.robots.components.cosmos3.server \
+     -m capabilities.cosmos3.server \
      --platform libero --checkpoint nvidia/cosmos3-nano-libero10-sdg-export-S2_s43 \
      --config /path/to/cosmos3.yaml \
      --sglang-endpoint http://127.0.0.1:30000 --port 8118

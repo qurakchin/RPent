@@ -1,9 +1,0 @@
-schema = 1
-name = "franka"
-python = "3.11"
-platform = "linux-x86_64"
-lock = "envs/locks/franka.lock"
-description = "Single-arm Franka with Pi0.5."
-
-[components.franka]
-placement = "in-env"

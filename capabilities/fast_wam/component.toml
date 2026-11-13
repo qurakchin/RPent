@@ -1,0 +1,13 @@
+schema = 1
+name = "fast_wam"
+kind = "capability"
+probe = "capabilities.fast_wam.server"
+python = ">=3.10,<3.13"
+platforms = ["linux-x86_64"]
+placement = ["external-env", "remote"]
+default_placement = "external-env"
+docs = "docs/source-en/rst_source/development/add_action_model.rst"
+
+# Model weights and the Fast-WAM runtime are supplied by the deployment; the
+# RPent worker owns only request translation.
+dependencies = []

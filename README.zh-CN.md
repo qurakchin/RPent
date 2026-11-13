@@ -125,10 +125,10 @@ uv run --no-project --python 3.11 --with packaging -- \
 source .venv-libero-pro/bin/activate
 
 # 其他配方使用各自的虚拟环境：
-rpent-env install robocasa --venv .venv-robocasa       # RoboCasa
-rpent-env install robotwin --venv .venv-robotwin       # RoboTwin
-rpent-env install franka --venv .venv-franka           # Franka
-rpent-env install dual-franka --venv .venv-dual-franka # 双臂 Franka
+rpent-env install robocasa-sim --venv .venv-robocasa-sim          # RoboCasa
+rpent-env install robotwin-sim --venv .venv-robotwin-sim          # RoboTwin
+rpent-env install franka-real --venv .venv-franka-real            # Franka
+rpent-env install dual-franka-real --venv .venv-dual-franka-real  # 双臂 Franka
 ```
 
 `libero-pro` 是默认推荐配方。全部配方、兼容 extra 和诊断方法见

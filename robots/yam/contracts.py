@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from rpent.robots.components.am_platforms import YAM_VLA_CONTRACT
+from capabilities._base.platforms import YAM_VLA_CONTRACT
 
 YAM_CAMERA_NAMES = ("top", "left", "right")
 YAM_STATUS_KEYS = (

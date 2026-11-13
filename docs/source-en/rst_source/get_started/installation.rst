@@ -78,7 +78,7 @@ Profiles
      - 3.11
      - Test and lint dependencies; add it to another profile with
        ``rpent-env install <profile> --dev``.
-   * - ``libero`` / ``libero-pro`` / ``libero-plus``
+   * - ``libero-sim`` / ``libero-pro`` / ``libero-plus``
      - 3.11
      - LIBERO variant with RLinf, Pi0.5, and SAM 3.0.
    * - ``libero-pro-flywheel``
@@ -86,33 +86,33 @@ Profiles
      - LIBERO-PRO with LeRobot trajectory export.
    * - ``libero-pro-molmo``
      - 3.11
-     - LIBERO-PRO with Molmo grounding in the external ``molmo`` environment.
+     - LIBERO-PRO with Molmo grounding in the external ``molmo-server`` environment.
    * - ``libero-openpi-external``
      - 3.11
-     - LIBERO-PRO that attaches to Pi0.5 in the external ``openpi`` environment
+     - LIBERO-PRO that attaches to Pi0.5 in the external ``openpi-server`` environment
        with ``--am-endpoint``.
-   * - ``franka`` / ``dual-franka``
+   * - ``franka-real`` / ``dual-franka-real``
      - 3.11
      - Real Franka hardware; dual-arm adds SAM 3.0.
-   * - ``robocasa``
+   * - ``robocasa-sim``
      - 3.10
      - RoboCasa365 with RLinf's RoboCasa and RLDX stack.
-   * - ``robotwin``
+   * - ``robotwin-sim``
      - 3.11
      - RoboTwin with LingBot-VLA and cuRobo.
-   * - ``robodojo`` / ``robodojo-sim``
+   * - ``robodojo-sim``
      - 3.11
      - RoboDojo with its RLinf fork and Isaac Sim runtime.
-   * - ``yam``
+   * - ``yam-real``
      - 3.11
      - YAM control and inference dependencies.
-   * - ``molmo``
+   * - ``molmo-server``
      - 3.11
      - Standalone Molmo server environment (``core = false``).
    * - ``geometry-eval``
      - 3.11
      - Geometry toolkit with its frozen CPU evaluation corpus.
-   * - ``rlinf`` / ``sam3`` / ``openpi`` / ``flywheel``
+   * - ``sam3-server`` / ``openpi-server``
      - 3.11
      - Single-capability diagnostic environments.
 
@@ -127,25 +127,22 @@ rpent.cli.env`` as shown above.
 
    rpent-env install minimal --venv .venv-minimal
    rpent-env install dev --venv .venv-dev
-   rpent-env install libero --venv .venv-libero
+   rpent-env install libero-sim --venv .venv-libero-sim
    rpent-env install libero-pro --venv .venv-libero-pro
    rpent-env install libero-plus --venv .venv-libero-plus
    rpent-env install libero-pro-flywheel --venv .venv-libero-pro-flywheel
    rpent-env install libero-pro-molmo --venv .venv-libero-pro-molmo
    rpent-env install libero-openpi-external --venv .venv-libero-openpi-external
-   rpent-env install franka --venv .venv-franka
-   rpent-env install dual-franka --venv .venv-dual-franka
-   rpent-env install robocasa --venv .venv-robocasa
-   rpent-env install robotwin --venv .venv-robotwin
-   rpent-env install robodojo --venv .venv-robodojo
+   rpent-env install franka-real --venv .venv-franka-real
+   rpent-env install dual-franka-real --venv .venv-dual-franka-real
+   rpent-env install robocasa-sim --venv .venv-robocasa-sim
+   rpent-env install robotwin-sim --venv .venv-robotwin-sim
    rpent-env install robodojo-sim --venv .venv-robodojo-sim
-   rpent-env install yam --venv .venv-yam
-   rpent-env install molmo --venv .venv-molmo
+   rpent-env install yam-real --venv .venv-yam-real
+   rpent-env install molmo-server --venv .venv-molmo-server
    rpent-env install geometry-eval --venv .venv-geometry-eval
-   rpent-env install rlinf --venv .venv-rlinf
-   rpent-env install sam3 --venv .venv-sam3
-   rpent-env install openpi --venv .venv-openpi
-   rpent-env install flywheel --venv .venv-flywheel
+   rpent-env install sam3-server --venv .venv-sam3-server
+   rpent-env install openpi-server --venv .venv-openpi-server
 
 Diagnose and reproduce
 ----------------------
@@ -167,7 +164,7 @@ newer), because current GPU wheels are not published for older baselines. A
 profile whose components need a newer baseline sets ``manylinux``; for example
 RoboDojo uses ``manylinux = "2_35"`` for Isaac Sim 5.1 wheels. ``lock --all``
 reports a profile that cannot resolve on the current host and continues with
-the rest; the ``robotwin`` lock needs a Linux host with ``CUDA_HOME`` set
+the rest; the ``robotwin-sim`` lock needs a Linux host with ``CUDA_HOME`` set
 because cuRobo builds metadata during resolution. Regenerate locks with a
 current ``uv``: an older release can resolve different versions for the same
 inputs, so its output disagrees with the committed lock.

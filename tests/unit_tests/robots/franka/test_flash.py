@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from capabilities.molmo.client import MolmoResult
 from robots.franka.flash import common
 from robots.franka.flash.replay import (
     authorize_runtime,
@@ -30,7 +31,6 @@ from robots.franka.flash.replay import (
     prepare,
     replay,
 )
-from rpent.robots.components.molmo.client import MolmoResult
 from rpent.tools import ToolResult
 
 

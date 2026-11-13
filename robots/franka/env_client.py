@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from rpent.robots.components.env_client_base import BaseEnvClient
+from rpent.env.client import BaseEnvClient
 from rpent.utils.rpc import RpcClient
 
 

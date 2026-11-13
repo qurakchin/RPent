@@ -5,8 +5,10 @@ platform = "linux-x86_64"
 # Isaac Sim 5.1 wheels are published for glibc 2.35 and newer.
 manylinux = "2_35"
 lock = "envs/locks/robodojo-sim.lock"
+# Compatibility alias: the extra name predates the profile rename.
+extra = "robodojo"
 extra-index-urls = ["https://pypi.nvidia.com"]
-description = "RoboDojo Isaac Sim runtime used as an external environment."
+description = "RoboDojo / Isaac Sim with Pi0.5, SAM 3.0, and VPP2 or Awomo05."
 
-[components.robodojo-sim]
+[components.robodojo]
 placement = "in-env"

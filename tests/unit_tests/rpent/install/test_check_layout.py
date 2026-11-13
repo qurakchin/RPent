@@ -21,8 +21,9 @@ from pathlib import Path
 SCRIPT = Path(__file__).resolve().parents[4] / "scripts" / "check_layout.py"
 
 
-def _component(write_toml, root, name, kind, *, requires=()):
-    rendered = ", ".join(f'"{item}"' for item in requires)
+def _component(write_toml, root, name, kind, *, requires=(), imports=()):
+    required = ", ".join(f'"{item}"' for item in requires)
+    imported = ", ".join(f'"{item}"' for item in imports)
     write_toml(
         f"{root}/{name}/component.toml",
         f"""
@@ -30,7 +31,8 @@ def _component(write_toml, root, name, kind, *, requires=()):
         name = "{name}"
         kind = "{kind}"
         probe = "{name}"
-        requires = [{rendered}]
+        requires = [{required}]
+        imports = [{imported}]
         """,
     )
 
@@ -88,7 +90,9 @@ def test_apple_double_python_files_are_ignored(tmp_path, write_toml):
 
 
 def test_declared_coinstalled_extension_allows_cross_robot_import(tmp_path, write_toml):
-    _component(write_toml, "robots", "alpha", "robot", requires=["beta"])
+    _component(
+        write_toml, "robots", "alpha", "robot", requires=["beta"], imports=["beta"]
+    )
     _component(write_toml, "robots", "beta", "robot")
     _write(
         tmp_path / "robots" / "alpha" / "module.py",
@@ -101,12 +105,61 @@ def test_declared_coinstalled_extension_allows_cross_robot_import(tmp_path, writ
     assert "layout ok" in result.stdout
 
 
+def test_unowned_top_level_entries_are_reported(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    (tmp_path / "scratch").mkdir()
+    (tmp_path / "notes.txt").write_text("", encoding="utf-8")
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "top-level directory 'scratch'" in result.stdout
+    assert "root file 'notes.txt'" in result.stdout
+
+
+def test_core_must_not_name_a_concrete_robot(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _write(
+        tmp_path / "rpent" / "planner.py",
+        'if robot == "alpha":\n    pass\n',
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "core names 'alpha'" in result.stdout
+
+
+def test_slice_entry_must_load_lazily(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _write(
+        tmp_path / "robots" / "alpha" / "__init__.py",
+        "from robots.alpha.spec import get_robot_spec\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "slice __init__.py must stay lazy" in result.stdout
+
+
+def test_role_file_over_limit_is_a_warning(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _write(tmp_path / "robots" / "alpha" / "spec.py", "x = 1\n" * 81)
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0
+    assert "layout ok" in result.stdout
+    assert "warning: spec.py has 81 lines" in result.stdout
+
+
 def test_capability_toolkit_and_core_imports_are_rejected(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
-    _component(write_toml, "rpent/robots/components", "sam3", "capability")
+    _component(write_toml, "capabilities", "sam3", "capability")
     _component(write_toml, "toolkits", "geometry", "toolkit")
     _write(
-        tmp_path / "rpent" / "robots" / "components" / "sam3" / "client.py",
+        tmp_path / "capabilities" / "sam3" / "client.py",
         "from robots.alpha import robot_spec\n",
     )
     _write(

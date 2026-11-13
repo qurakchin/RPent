@@ -18,7 +18,7 @@ from functools import lru_cache
 
 import numpy as np
 
-from rpent.components import require
+from rpent.install import require
 
 
 @lru_cache(maxsize=6)

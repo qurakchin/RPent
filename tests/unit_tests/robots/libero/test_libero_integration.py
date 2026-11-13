@@ -25,11 +25,11 @@ from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 from robots.libero import toolkit as libero_toolkit
 from robots.libero.tools import LiberoPrimitives
 from rpent.dashboard.events import NullDashboardEventSink
+from rpent.env.action_spec import validate_action
 from rpent.flywheel.flywheel import select_vla_segments
 from rpent.flywheel.reader import iter_trajectories
 from rpent.memory import MemoryManager
 from rpent.planner.api_loop import ApiAgentLoop
-from rpent.robots.components.action_spec import validate_action
 from rpent.session import EnvState, Payload
 from rpent.session.env_capture import CapturingEnvClient, ToolCallCapture
 from rpent.tools import ToolResult

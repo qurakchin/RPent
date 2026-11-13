@@ -12,4 +12,4 @@ variant = "pro"
 # resolver split and point the grounder at the ``molmo`` profile over RPC.
 [components.molmo]
 placement = "external-env"
-env = "molmo"
+profile = "molmo-server"

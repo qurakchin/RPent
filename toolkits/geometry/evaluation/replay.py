@@ -26,10 +26,10 @@ from typing import Any
 
 import numpy as np
 
-from rpent.tools.observation import Observation
 from toolkits.geometry.core import GeometryConfig
 from toolkits.geometry.evaluation.corpus import render_case
 from toolkits.geometry.evaluation.references import reference_from_case
+from toolkits.geometry.observation import Observation
 from toolkits.geometry.tool import GeometryToolConfig, estimate_geometry
 
 

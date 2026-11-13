@@ -26,7 +26,7 @@ Use Linux and Python 3.11. This guide uses two machines:
 * **Inference machine**: runs the Pi0.5 VLA service on an NVIDIA GPU.
 
 Use the same RPent code and RLinf commit on both machines. Prepare both checkouts
-first, then install the ``yam`` profile on each machine as described below:
+first, then install the ``yam-real`` profile on each machine as described below:
 
 .. code-block:: bash
 
@@ -39,14 +39,14 @@ described in :doc:`../get_started/installation`.
 
 **Control machine installation**
 
-Install the ``yam`` profile from :doc:`../get_started/installation` into
-``.venv-yam``, then add RLinf, the i2rt SDK and the required build
+Install the ``yam-real`` profile from :doc:`../get_started/installation` into
+``.venv-yam-real``, then add RLinf, the i2rt SDK and the required build
 dependencies:
 
 .. code-block:: bash
 
    cd /path/to/RPent
-   source .venv-yam/bin/activate
+   source .venv-yam-real/bin/activate
    uv pip install --torch-backend cpu \
      --build-constraints /path/to/RLinf/requirements/embodied/envs/yam-build-constraints.txt \
      -e /path/to/RLinf \
@@ -56,22 +56,22 @@ dependencies:
 **Inference machine installation**
 
 On the inference machine, use RLinf's installer to install YAM and OpenPI
-dependencies into ``.venv-yam``, then install the ``yam`` profile from
+dependencies into ``.venv-yam-real``, then install the ``yam-real`` profile from
 :doc:`../get_started/installation` into the same environment:
 
 .. code-block:: bash
 
    cd /path/to/RLinf
    bash requirements/install.sh embodied --model openpi --env yam \
-     --venv /path/to/RPent/.venv-yam --install-rlinf
+     --venv /path/to/RPent/.venv-yam-real --install-rlinf
    cd /path/to/RPent
-   source .venv-yam/bin/activate
+   source .venv-yam-real/bin/activate
    uv pip check
 
 If system dependencies are already installed, append ``--no-root`` to the installer
 command.
 
-In each new terminal, enter the RPent repository on that machine and activate ``.venv-yam``.
+In each new terminal, enter the RPent repository on that machine and activate ``.venv-yam-real``.
 
 .. _yam-calibration:
 
@@ -202,7 +202,7 @@ Before using Codex, configure separate runtime directories and log in by followi
 Start the Two-Machine Services
 ------------------------------
 
-Activate the installed ``.venv-yam`` on each machine and start the services as follows:
+Activate the installed ``.venv-yam-real`` on each machine and start the services as follows:
 
 * **Control machine**: runs RPent, ENV and operator commands, with both arm CAN
   interfaces and all three cameras connected.
@@ -218,7 +218,7 @@ consistent:
 .. code-block:: bash
 
    cd /path/to/RPent
-   source .venv-yam/bin/activate
+   source .venv-yam-real/bin/activate
    export TASK_ID=1
 
 **1. Control machine: start ENV**
@@ -238,7 +238,7 @@ then run:
 
 .. code-block:: bash
 
-   python -m rpent.robots.components.pi05_vla_server \
+   python -m capabilities.openpi.server \
      --embodiment yam --model-path "$YAM_MODEL_PATH" \
      --norm-stats-path "$YAM_MODEL_PATH/norm_stats.json" \
      --transport socket --host 127.0.0.1 --port 8220

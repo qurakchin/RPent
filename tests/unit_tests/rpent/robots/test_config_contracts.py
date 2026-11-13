@@ -22,6 +22,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from capabilities._base import runtime
 from robots.dual_franka.runtime_config import (
     DEFAULT_CONFIG as DUAL_FRANKA_DEFAULT_CONFIG,
 )
@@ -33,7 +34,6 @@ from robots.franka.runtime_config import (
     set_robot_config_path,
 )
 from rpent.robots import get_robot_spec
-from rpent.robots.components import am_runtime
 from rpent.utils.config import get_memory_dir
 
 
@@ -115,7 +115,7 @@ def test_local_vla_gpu_override_reaches_worker(
 
     module = importlib.import_module(f"robots.{robot_name}.robot_spec")
     factory = Mock()
-    monkeypatch.setattr(am_runtime, "ProcessDaemon", factory)
+    monkeypatch.setattr(runtime, "ProcessDaemon", factory)
     monkeypatch.setattr(daemon, "ProcessDaemon", factory)
     monkeypatch.setattr(daemon, "pick_free_port", lambda: 8116)
     if hasattr(module, "ProcessDaemon"):
@@ -321,7 +321,7 @@ def test_legacy_am_options_use_one_destination(alias, canonical, value):
 def test_inapplicable_am_options_fail_before_startup(platform, options, message):
     args = _parser(platform, dashboard=True).parse_args(options)
     with pytest.raises(ValueError, match=message):
-        am_runtime.select_am(args, platform)
+        runtime.select_am(args, platform)
 
 
 def test_backend_choices_are_scoped_to_platform():
@@ -337,11 +337,11 @@ def test_environment_defaults_do_not_become_explicit_launch_options(
     monkeypatch.setenv("PI05_CHECKPOINT_PATH", str(tmp_path))
     parser = _parser("libero", dashboard=True)
     args = parser.parse_args([])
-    selected = am_runtime.select_am(args, "libero")
+    selected = runtime.select_am(args, "libero")
     assert selected.checkpoint == str(tmp_path)
     assert args.am_checkpoint is None
     args.am_endpoint = "http://host:8000"
-    assert am_runtime.select_am(args, "libero").checkpoint is None
+    assert runtime.select_am(args, "libero").checkpoint is None
     assert selected.endpoint is None
 
 
@@ -362,7 +362,7 @@ def test_relative_model_python_is_resolved_before_changing_worker_directory(
             "model",
         ]
     )
-    selected = am_runtime.select_am(args, "libero")
+    selected = runtime.select_am(args, "libero")
     assert selected.python == str(interpreter)
     assert selected.root == worker_root
 
@@ -371,7 +371,7 @@ def test_relative_model_python_is_resolved_before_changing_worker_directory(
     "robot_name,default_backend", [("libero", "pi05"), ("robotwin", "lingbot")]
 )
 def test_am_backend_selects_one_model_category(robot_name, default_backend):
-    from rpent.robots.components.am_runtime import select_am
+    from capabilities._base.runtime import select_am
 
     parser = _parser(robot_name, dashboard=True)
     args = parser.parse_args(["--am-endpoint", "http://localhost:8116"])
@@ -684,7 +684,7 @@ def test_robotwin_cli_defaults_can_come_from_environment(
     )
 
     assert args.robotwin_assets_path == "/offline/assets"
-    assert am_runtime.select_am(args, "robotwin").checkpoint == "/offline/model"
+    assert runtime.select_am(args, "robotwin").checkpoint == "/offline/model"
     from robots.robotwin.robot_spec import _resolve_lingbot_robot_config
 
     monkeypatch.setattr(Path, "is_file", lambda self: True)

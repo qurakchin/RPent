@@ -78,7 +78,7 @@ C2R 使用干净场景中的成功轨迹作为经验，在随机场景中评测�
 安装
 ----
 
-RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVCC、编译工具链以及 SAPIEN 依赖的系统级 GL/EGL/Vulkan 库。按 :doc:`../get_started/installation` 安装 ``robotwin`` 配方即可；用户不需要运行 RLinf 安装器，也不需要单独克隆 RoboTwin。
+RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVCC、编译工具链以及 SAPIEN 依赖的系统级 GL/EGL/Vulkan 库。按 :doc:`../get_started/installation` 安装 ``robotwin-sim`` 配方即可；用户不需要运行 RLinf 安装器，也不需要单独克隆 RoboTwin。
 
 国内网络可在执行该安装命令前设置 uv 的镜像环境变量：
 
@@ -89,11 +89,11 @@ RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVC
 
 .. note::
 
-   ``robotwin`` 配方使用 SAPIEN 3.0.0b1。其他版本可能改变仿真观测，导致模型效果下降。
+   ``robotwin-sim`` 配方使用 SAPIEN 3.0.0b1。其他版本可能改变仿真观测，导致模型效果下降。
 
 .. note::
 
-   ``robotwin`` 配方中的 RoboTwin 与 LingBot 运行时已作为发布包安装到 PyPI； cuRobo 仍从 GitHub 官方 tag 源码构建，因此即使配置了 PyPI 镜像，安装时仍需能访问 GitHub。
+   ``robotwin-sim`` 配方中的 RoboTwin 与 LingBot 运行时已作为发布包安装到 PyPI； cuRobo 仍从 GitHub 官方 tag 源码构建，因此即使配置了 PyPI 镜像，安装时仍需能访问 GitHub。
 
 下载仿真资源
 ------------

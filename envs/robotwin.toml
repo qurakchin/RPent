@@ -1,9 +1,0 @@
-schema = 1
-name = "robotwin"
-python = "3.11"
-platform = "linux-x86_64"
-lock = "envs/locks/robotwin.lock"
-description = "RoboTwin simulation with LingBot-VLA and cuRobo."
-
-[components.robotwin]
-placement = "in-env"

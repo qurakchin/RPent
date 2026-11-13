@@ -56,7 +56,7 @@ Torch and Transformers versions. Molmo's model code also needs
 component manifests declare those two mutually exclusive, so
 ``rpent-env check`` rejects a profile that places both in one environment.
 
-Install the ``molmo`` profile into a separate environment with the command
+Install the ``molmo-server`` profile into a separate environment with the command
 from :doc:`../get_started/installation`; its lock installs the pinned PyTorch
 and torchvision. If your GPU or driver needs a different CUDA build, reinstall
 the pair from the PyTorch index afterwards, replacing ``<CUDA_TAG>`` with a
@@ -65,7 +65,7 @@ compatible build such as ``cu126`` or ``cu128`` (see the
 
 .. code-block:: bash
 
-   uv pip install --python .venv-molmo/bin/python \
+   uv pip install --python .venv-molmo-server/bin/python \
      --reinstall-package torch --reinstall-package torchvision \
      torch torchvision --index-url "https://download.pytorch.org/whl/<CUDA_TAG>/"
 
@@ -79,8 +79,8 @@ Download ``allenai/Molmo2-8B`` from `Hugging Face
 .. code-block:: bash
 
    export MOLMO_CHECKPOINT_PATH=/path/to/Molmo2-8B
-   PYTHONPATH=/path/to/RPent .venv-molmo/bin/python \
-     rpent/robots/components/molmo/server.py \
+   PYTHONPATH=/path/to/RPent .venv-molmo-server/bin/python \
+     capabilities/molmo/server.py \
      --transport http --host 127.0.0.1 --port 20703
 
 Run a Plan

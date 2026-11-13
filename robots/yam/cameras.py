@@ -26,7 +26,7 @@ import numpy as np
 
 from robots.yam.contracts import YAM_CAMERA_NAMES
 from robots.yam.geometry import YamCalibration, load_calibration
-from rpent.components import require
+from rpent.install import require
 
 
 @dataclass

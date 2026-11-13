@@ -83,7 +83,7 @@ Installation and Resources
 
 Use Linux, an NVIDIA GPU, working CUDA/EGL, ``git``, and
 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_. The
-``robocasa`` profile needs Python 3.10; install it as described in
+``robocasa-sim`` profile needs Python 3.10; install it as described in
 :doc:`../get_started/installation`. The profile installs a
 CUDA-enabled Torch and torchvision pair; RLDX requires Torch >= 2.7 and
 torchvision >= 0.22. If your driver needs a different build, reinstall the
@@ -567,7 +567,7 @@ VLA Inference Check
 Complete :ref:`VLA configuration <robocasa-vla-configuration>`, then select an
 available GPU and a fresh output directory. If you need test dependencies,
 reinstall the profile with ``--dev``:
-``rpent-env install robocasa --venv .venv-robocasa --dev``.
+``rpent-env install robocasa-sim --venv .venv-robocasa-sim --dev``.
 
 .. code-block:: bash
 
@@ -627,12 +627,12 @@ Downloads and Assets
 Startup and Inference
 ~~~~~~~~~~~~~~~~~~~~~
 
-- **Missing RLDX interfaces in an old environment:** reinstall the ``robocasa`` profile, then reinstall ``rlinf-rldx`` in the
+- **Missing RLDX interfaces in an old environment:** reinstall the ``robocasa-sim`` profile, then reinstall ``rlinf-rldx`` in the
   environment. Older PyPI wheels can lack required interfaces even with the same
   version number.
 - **Missing navigation camera:** if the error names ``mobilebase0_navview``,
-  reinstall the ``robocasa`` profile to update Robosuite rather than patching XML.
-- **Directory permission errors:** use the source dependencies installed by the ``robocasa`` profile; XML conversion should write temporary files. Set
+  reinstall the ``robocasa-sim`` profile to update Robosuite rather than patching XML.
+- **Directory permission errors:** use the source dependencies installed by the ``robocasa-sim`` profile; XML conversion should write temporary files. Set
   ``NUMBA_CACHE_DIR`` to a writable directory without changing package permissions.
 - **CUDA/EGL unavailable:** select Torch/torchvision for your machine, then run
   the :ref:`environment checks <environment-smoke-tests>` to verify GPU operations

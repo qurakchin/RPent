@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-from rpent.robots.components.am_contracts import AMObservation
+from capabilities._base.contracts import AMObservation
 
 
 def physical_observation(raw_obs: dict[str, Any]) -> AMObservation:

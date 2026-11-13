@@ -33,12 +33,12 @@ from robots.robocasa.prompt_bundle import system_prompt
 from robots.robocasa.toolkit import _capture_robocasa_call
 from robots.robocasa.vla_server import _normalize_legacy_processor_geometry
 from rpent.dashboard.events import NullDashboardEventSink
+from rpent.env.action_spec import box_action_spec
+from rpent.env.facade import BaseEnvFacade
 from rpent.flywheel.flywheel import select_vla_segments
 from rpent.flywheel.reader import iter_trajectories, read_array
 from rpent.memory import MemoryManager
 from rpent.prompt.utils import format_prompt
-from rpent.robots.components.action_spec import box_action_spec
-from rpent.robots.components.env_facade_base import BaseEnvFacade
 from rpent.session import EnvState, Payload
 from rpent.session.env_capture import CapturingEnvClient, ToolCallCapture
 from rpent.tools import Toolkit, ToolResult, iter_tools

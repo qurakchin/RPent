@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import numpy as np
 
-from rpent.tools.observation import Observation
 from toolkits.geometry.core import (
     GeometryConfig,
     back_project,
@@ -31,6 +30,7 @@ from toolkits.geometry.evaluation.references import (
     reference_from_case,
     visible_surface,
 )
+from toolkits.geometry.observation import Observation
 from toolkits.geometry.tool import GeometryToolConfig, estimate_geometry
 
 

@@ -14,7 +14,7 @@
 
 """RoboTwin action layouts for native qpos and end-effector execution."""
 
-from rpent.robots.components.am_platforms import (
+from capabilities._base.platforms import (
     ROBOTWIN_CONTROLLERS,
     ROBOTWIN_EEF,
     ROBOTWIN_QPOS,

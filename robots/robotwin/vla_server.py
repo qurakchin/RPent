@@ -26,8 +26,8 @@ from typing import Any
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from capabilities._base.facade import BaseVLAFacade
 from robots.robotwin.robot_spec import MODEL_SPEC, vla_runtime_contract
-from rpent.robots.components.am_facade_base import BaseVLAFacade
 from rpent.utils.daemon import watch_parent_death
 
 

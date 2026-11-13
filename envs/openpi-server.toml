@@ -1,0 +1,11 @@
+schema = 1
+name = "openpi-server"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/openpi-server.lock"
+# Compatibility alias: the extra name predates the profile rename.
+extra = "openpi"
+description = "Pi0.5 policy runtime used as a diagnostic environment."
+
+[components.openpi]
+placement = "in-env"

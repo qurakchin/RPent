@@ -69,7 +69,7 @@ VLA/WAM 的服务、客户端、adapter 与会话生命周期见 :doc:`add_actio
 .. code-block:: python
 
    from rpent.utils.rpc.main_thread_serve import MainThreadServeMixin
-   from rpent.robots.components.env_facade_base import BaseEnvFacade
+   from rpent.env.facade import BaseEnvFacade
 
    class MyEnvFacade(MainThreadServeMixin, BaseEnvFacade):
        ...
