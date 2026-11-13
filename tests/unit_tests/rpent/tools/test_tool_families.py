@@ -107,6 +107,28 @@ def test_toolkit_reports_a_rejected_target_as_a_call_failure(tmp_path) -> None:
     assert result.no_execution is True
 
 
+def test_policy_family_logs_an_undeclared_backend(caplog) -> None:
+    family = PolicyTools(
+        SimpleNamespace(backend="lingbot", tool_name="lingbot_act"),
+    )
+
+    with caplog.at_level("WARNING", logger="rpent.tools.policy"):
+        assert family.tools(Capabilities(policy_backends=("wam",))) == ()
+
+    assert "not declared" in caplog.text
+    assert "lingbot" in caplog.text
+
+
+def test_geometry_family_logs_which_capability_is_missing(caplog) -> None:
+    family = GeometryTools(provider=SimpleNamespace())
+
+    with caplog.at_level("INFO", logger="rpent.toolkits.geometry"):
+        assert family.tools(Capabilities(depth_views=("head",))) == ()
+
+    assert "geometry tool omitted" in caplog.text
+    assert "calibrated_views" in caplog.text
+
+
 def test_motion_family_requires_a_declared_step_transport() -> None:
     family = MotionTools(SimpleNamespace())
 

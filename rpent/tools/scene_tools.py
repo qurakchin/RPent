@@ -32,6 +32,9 @@ from rpent.tools.base import Tool, ToolResult, tool
 from rpent.tools.capabilities import Capabilities, ToolFamily
 from rpent.tools.observation import Observation, ObservationError
 from rpent.tools.world_coordinates import artifact_name, query_world_map
+from rpent.utils.logging import get_logger
+
+logger = get_logger("tools.scene")
 
 if TYPE_CHECKING:
     from rpent.session import EnvState, StepRecord
@@ -346,6 +349,11 @@ class SceneTools(ToolFamily):
                 query_world_map.with_handler(
                     partial(query_world_map, env_state=self._state)
                 )
+            )
+        else:
+            logger.info(
+                "query_world_map omitted: no declared depth views (%s)",
+                list(capabilities.depth_views),
             )
         return tuple(declarations)
 

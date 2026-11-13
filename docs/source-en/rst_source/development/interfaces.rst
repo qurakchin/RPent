@@ -54,9 +54,10 @@ functions implemented in ``robot_spec.py`` for ``main.py`` to call:
 construct a :class:`~rpent.memory.MemoryManager` (rooted at the configured
 ``config.prompt_vars["memory_dir"]``, falling back to
 ``get_memory_dir(robot_name)`` when unset) and pass it to the toolkit.
-The manager is required; the toolkit always registers the common file tools,
-``recall`` / ``remember`` / ``corroborate``, and ``finish``. Memory access
-permissions are configured on the manager. Robots that need
+The manager is required; the toolkit always registers the common file tools
+and ``finish``. Toolkits that adopt the shared memory family additionally
+register ``recall`` / ``remember`` / ``corroborate`` (RoboTwin currently does).
+Memory access permissions are configured on the manager. Robots that need
 extra toolkit arguments may declare them as keyword-only parameters; LIBERO
 additionally uses ``mode``, ``attempts_per_session``, and ``state_output_dir``.
 

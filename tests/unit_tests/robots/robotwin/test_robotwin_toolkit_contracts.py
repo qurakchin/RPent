@@ -167,6 +167,22 @@ def _readonly_names(robot_toolkit: Toolkit) -> set[str]:
     }
 
 
+def test_policy_capability_comes_from_the_connected_client() -> None:
+    from robots.robotwin.toolkit import _connected_policy_backend
+    from robots.robotwin.vla_client import LingBotVLAClient
+    from robots.robotwin.wam_client import RoboTwinWAMClient
+
+    assert (
+        _connected_policy_backend(RoboTwinWAMClient.__new__(RoboTwinWAMClient), "vla")
+        == "wam"
+    )
+    assert (
+        _connected_policy_backend(LingBotVLAClient.__new__(LingBotVLAClient), "wam")
+        == "lingbot"
+    )
+    assert _connected_policy_backend(object(), "vla") == "vla"
+
+
 def test_fake_and_real_implement_toolkit_primitive_protocol() -> None:
     for primitive_type in (RoboTwinPrimitives, FakeRoboTwinPrimitives):
         missing = {

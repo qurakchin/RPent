@@ -144,6 +144,26 @@ def test_domain_error_keeps_call_ok_true_and_marks_the_call_completed(
     assert result.to_dict()["call_ok"] is True
 
 
+def test_explicit_no_execution_is_not_reported_as_completed(tmp_path: Path) -> None:
+    toolkit = _Toolkit(tmp_path)
+
+    @tool(readonly=True)
+    def refuse_before_write() -> ToolResult:
+        """Report a request that never reached the environment."""
+        return ToolResult(
+            data={"error": "target is unreachable"},
+            no_execution=True,
+            call_ok=True,
+        )
+
+    toolkit.add_tool(refuse_before_write)
+    result = toolkit.execute_tool("refuse_before_write", {})
+
+    assert result.no_execution is True
+    assert result.execution_status == "not_started"
+    assert result.to_dict()["execution_status"] == "not_started"
+
+
 def test_successful_call_reports_completed_without_extra_layers(
     tmp_path: Path,
 ) -> None:

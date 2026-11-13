@@ -29,7 +29,10 @@ from pydantic import Field
 
 from rpent.tools.base import Tool, ToolResult, iter_tools, tool
 from rpent.tools.capabilities import Capabilities, ToolFamily
-from rpent.tools.motion_tools import stop_reason
+from rpent.tools.motion_tools import _execution_layer, stop_reason
+from rpent.utils.logging import get_logger
+
+logger = get_logger("tools.policy")
 
 
 class PolicyBinding(Protocol):
@@ -93,6 +96,12 @@ class PolicyTools(ToolFamily):
         ):
             # Declared capabilities are authoritative: an undeclared backend
             # has no tool, even if the binding object exists.
+            logger.warning(
+                "policy tool omitted: connected backend %r is not declared in "
+                "policy_backends=%s",
+                self._binding.backend,
+                list(capabilities.policy_backends),
+            )
             return ()
         declarations = {
             declaration.name: declaration for declaration in iter_tools(self)
@@ -148,7 +157,8 @@ class PolicyTools(ToolFamily):
                 executed += int(binding.execute(actions))
             binding.check_cancelled()
         status = binding.episode_status()
-        reached = executed == requested
+        reached = requested > 0 and executed == requested
+        execution_status, no_execution = _execution_layer(requested, executed)
         return ToolResult(
             data={
                 "completed": reached,
@@ -170,7 +180,9 @@ class PolicyTools(ToolFamily):
                 "agent_prompt_ignored": prompt is not None and not override_prompt,
                 "ignored_agent_prompt": prompt if not override_prompt else None,
                 "episode_status": dict(status),
-            }
+            },
+            no_execution=no_execution,
+            execution_status=execution_status,
         )
 
     @tool

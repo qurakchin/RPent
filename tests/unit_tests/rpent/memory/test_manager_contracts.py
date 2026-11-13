@@ -440,3 +440,36 @@ def test_memory_manager_refuses_to_complete_an_existing_partial_task_pair(
     assert result["task"] == 0
     assert result["skipped"] == ["incomplete existing task audit/recipe pair"]
     assert not (task_dir / f"{cell}_recipe.jsonl").exists()
+
+
+def test_conflict_drafts_from_the_prompt_are_archived_not_published(
+    tmp_path: Path,
+) -> None:
+    memory_dir = tmp_path / "memory"
+    output_dir = tmp_path / "run"
+    output_dir.mkdir()
+    cell = "10_task_t2_s0"
+    _write_memory_leaf(
+        memory_dir / "global" / "hammer_grasp.md",
+        memory_id="hammer_grasp",
+        scope="global",
+        cells=[cell],
+    )
+    inbox = memory_dir / "_internal" / "inbox" / cell
+    inbox.mkdir(parents=True)
+    (inbox / "conflict_hammer_grasp.md").write_text(
+        "The hammer must be grasped by the handle, not the head.\n"
+    )
+
+    result = MemoryManager(memory_dir).merge_memory(
+        cell_tag=cell,
+        run_state_dir=output_dir,
+        solved=False,
+    )
+
+    assert result["conflicts"] == 1
+    assert result["global"] == 0
+    assert result["skipped"] == []
+    archived = memory_dir / "_internal" / "conflicts" / f"hammer_grasp__from_{cell}.md"
+    assert "grasped by the handle" in archived.read_text()
+    assert not (memory_dir / "global" / "conflict_hammer_grasp.md").exists()

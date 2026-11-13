@@ -48,9 +48,7 @@ ACCURACY_LOOP = """Issue one registered action, inspect fresh before/after
 evidence, then decide again. Maintain a compact internal ledger: current phase,
 achieved/protected relations, held object and arm, first unmet postcondition,
 blocker, and next observable gate. Advance only when the current gate is visibly
-satisfied. call_ok only means the call was valid; judge motion by completed,
-stop_reason, pose_error, and the fresh observation. Primitive success is not
-task success.
+satisfied. Primitive success is not task success.
 
 If an action makes useful progress but stops mid-phase, continue the same phase
 with the shortest suitable action. LingBot-VLA may be called repeatedly as the
