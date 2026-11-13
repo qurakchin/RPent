@@ -39,7 +39,6 @@ from rpent.planner.claude_code import (
 )
 from rpent.session import EnvState, Payload
 from rpent.tools import Toolkit, ToolResult, tool
-from rpent.tools.common import CommonTools
 from rpent.utils.logging import init_output_dir
 
 
@@ -68,7 +67,7 @@ class FakeToolkit:
         self.cancel_calls = 0
         self._tools = (
             self.inspect_scene,
-            CommonTools.finish.with_handler(lambda **kwargs: ToolResult(data=kwargs)),
+            Toolkit.finish.with_handler(lambda **kwargs: ToolResult(data=kwargs)),
         )
 
     @tool(readonly=True)

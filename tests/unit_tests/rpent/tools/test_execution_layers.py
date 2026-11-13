@@ -16,12 +16,20 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
+from rpent.session.base import EnvState
+from rpent.session.env_capture import ToolCallCapture
 from rpent.tools import Toolkit, ToolResult, tool
-from rpent.tools.execution import mark_write_issued
+from rpent.tools.execution import (
+    WriteRequest,
+    mark_write_issued,
+    track_execution,
+    writes_issued,
+)
 from rpent.tools.toolkit import ToolCancelled
 
 
@@ -164,6 +172,116 @@ def test_explicit_no_execution_is_not_reported_as_completed(tmp_path: Path) -> N
     assert result.to_dict()["execution_status"] == "not_started"
 
 
+def test_serialization_failure_without_a_write_stays_not_started(
+    tmp_path: Path,
+) -> None:
+    toolkit = _Toolkit(tmp_path)
+
+    @tool(readonly=True)
+    def unencodable() -> ToolResult:
+        """Return a value that cannot be encoded as strict JSON."""
+        return ToolResult(data={"value": float("nan")})
+
+    toolkit.add_tool(unencodable)
+    result = toolkit.execute_tool("unencodable", {})
+
+    assert result.call_ok is False
+    assert result.error["code"] == "execution_failed"
+    assert result.no_execution is True
+    assert result.execution_uncertain is False
+    assert result.execution_status == "not_started"
+    assert result.data["reported_execution_status"] == "completed"
+    assert "serialization failed" in result.data["error"]
+
+
+def test_serialization_failure_after_a_write_is_execution_uncertain(
+    tmp_path: Path,
+) -> None:
+    toolkit = _Toolkit(tmp_path)
+
+    @tool(readonly=True)
+    def unencodable_after_write() -> ToolResult:
+        """Write, then return a result that cannot be encoded."""
+        mark_write_issued("step")
+        return ToolResult(data={"value": float("nan")})
+
+    toolkit.add_tool(unencodable_after_write)
+    result = toolkit.execute_tool("unencodable_after_write", {})
+
+    assert result.call_ok is False
+    assert result.error["code"] == "execution_uncertain"
+    assert result.no_execution is False
+    assert result.execution_uncertain is True
+    assert result.execution_status == "unknown"
+    assert result.data["reported_execution_status"] == "completed"
+
+
+def test_state_capture_failure_after_a_write_is_execution_uncertain(
+    tmp_path: Path,
+) -> None:
+    toolkit = _Toolkit(tmp_path)
+
+    @tool
+    def write_then_capture_fails() -> ToolResult:
+        """Write, then let the framework fail to capture the after-state."""
+        mark_write_issued("step")
+        return ToolResult(data={"value": 3}, execution_status="completed")
+
+    toolkit.add_tool(write_then_capture_fails)
+    result = toolkit.execute_tool("write_then_capture_fails", {})
+
+    assert result.execution_uncertain is True
+    assert result.no_execution is False
+    assert result.execution_status == "unknown"
+    assert result.error["code"] == "execution_uncertain"
+    assert result.data["reported_execution_status"] == "completed"
+    assert "state_capture_error" in result.data
+
+
+def test_state_capture_failure_without_a_write_keeps_the_reported_layer(
+    tmp_path: Path,
+) -> None:
+    toolkit = _Toolkit(tmp_path)
+
+    @tool
+    def capture_fails_without_a_write() -> ToolResult:
+        """Report no execution, then let state capture fail."""
+        return ToolResult(
+            data={"value": 3},
+            no_execution=True,
+            execution_status="not_started",
+        )
+
+    toolkit.add_tool(capture_fails_without_a_write)
+    result = toolkit.execute_tool("capture_fails_without_a_write", {})
+
+    assert result.execution_uncertain is False
+    assert result.no_execution is True
+    assert result.execution_status == "not_started"
+    assert result.error["code"] == "execution_failed"
+    assert "state_capture_error" in result.data
+
+
+def test_type_error_after_a_write_is_not_reported_as_validation(
+    tmp_path: Path,
+) -> None:
+    toolkit = _Toolkit(tmp_path)
+
+    @tool(readonly=True)
+    def raises_type_error_after_write() -> ToolResult:
+        """Write, then fail with a TypeError from the handler."""
+        mark_write_issued("step")
+        raise TypeError("handler bug")
+
+    toolkit.add_tool(raises_type_error_after_write)
+    result = toolkit.execute_tool("raises_type_error_after_write", {})
+
+    assert result.error["code"] == "execution_uncertain"
+    assert result.no_execution is False
+    assert result.execution_uncertain is True
+    assert result.execution_status == "unknown"
+
+
 def test_successful_call_reports_completed_without_extra_layers(
     tmp_path: Path,
 ) -> None:
@@ -186,3 +304,52 @@ def test_successful_call_reports_completed_without_extra_layers(
         "call_ok": True,
         "execution_status": "completed",
     }
+
+
+def test_write_requests_keep_issue_order_and_transport_identity() -> None:
+    with track_execution("episode-1") as trace:
+        mark_write_issued("reset", request_id="req-1")
+        mark_write_issued("step")
+        assert writes_issued() is True
+
+    assert trace.episode_id == "episode-1"
+    assert trace.requests == [
+        WriteRequest(kind="reset", sequence=0, request_id="req-1"),
+        WriteRequest(kind="step", sequence=1, request_id=None),
+    ]
+    assert trace.writes == ["reset", "step"]
+    assert writes_issued() is False
+
+
+def test_write_marks_outside_a_trace_are_ignored() -> None:
+    mark_write_issued("step")
+
+    assert writes_issued() is False
+
+
+def test_track_execution_attaches_and_clears_the_capture_ledger(
+    tmp_path: Path,
+) -> None:
+    capture = ToolCallCapture(EnvState(tmp_path / "state"), "T1")
+
+    with capture.bind():
+        with track_execution() as trace:
+            assert capture.execution_trace is trace
+            mark_write_issued("step")
+
+    assert capture.execution_trace is None
+    assert trace.writes == ["step"]
+
+
+def test_write_ledger_follows_the_capture_into_a_worker_thread(
+    tmp_path: Path,
+) -> None:
+    capture = ToolCallCapture(EnvState(tmp_path / "state"), "T1")
+
+    with capture.bind(), track_execution("episode-1") as trace:
+        # ``asyncio.to_thread`` copies the calling context, which carries the
+        # capture and therefore the write ledger.
+        asyncio.run(asyncio.to_thread(mark_write_issued, "step", request_id="req-1"))
+
+    assert trace.writes == ["step"]
+    assert trace.requests[0].request_id == "req-1"

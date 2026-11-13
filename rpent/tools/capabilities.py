@@ -67,12 +67,18 @@ class Capabilities:
             return bool(self.calibrated_views)
         return view in self.calibrated_views
 
+    def supports_execution(self, *names: str) -> bool:
+        """Whether the connected env declares any of these execution methods."""
+        return any(bool(self.execution.get(name)) for name in names)
+
 
 class ToolFamily:
     """A capability-gated group of declarations.
 
-    Families only register and trim tools. Implementations that need their own
-    evaluation corpus live under ``toolkits/``.
+    Families own the planner-facing surface: tool names, schemas, capability
+    trimming, and lightweight execution helpers that need no independent
+    evaluation corpus. Implementations that need frozen inputs and their own
+    report live under ``toolkits/``.
     """
 
     name = "tools"

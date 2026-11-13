@@ -104,18 +104,22 @@ allows concurrent readonly calls and skips post-action state capture. Handlers r
 and ``images`` holds PNG bytes.
 
 ``ToolResult`` also separates the call from its physical effects. ``call_ok``
-reports whether the arguments reached the handler; ``error.code`` distinguishes
+reports whether the call was valid and the framework completed dispatch: the
+tool existed, the arguments validated, and the result could be encoded. It never
+means the requested action succeeded. ``error.code`` distinguishes
 ``validation``, ``unknown_tool``, ``refused``, ``execution_failed``,
 ``execution_uncertain``, and ``cancelled``. ``no_execution`` marks a request that
 definitely did not touch the environment, while ``execution_uncertain`` marks a
 state-changing request that may have outlived the call. ``execution_status``
-records ``completed``, ``partial``, ``not_started``, or ``unknown``. A successful
-call does not imply that the requested task succeeded. Domain handlers normally
-set only ``data``; use ``tool_error`` when a request is rejected before any
-environment write. ``ToolResult.to_text()`` includes these layers.
+records ``completed``, ``partial``, ``rejected``, ``not_started``, or
+``unknown``; ``rejected`` means the environment refused the request before
+executing it. A successful call does not imply that the requested task
+succeeded. Domain handlers normally set only ``data``; use ``tool_error`` when a
+request is rejected before any environment write. ``ToolResult.to_text()``
+includes these layers.
 
-The base class registers common file and memory tools; call ``super().__init__()`` then
-``add_tool`` for robot tools. Shared tool families in ``rpent/tools``
+The base class registers the common file tools and ``finish``; call
+``super().__init__()`` then ``add_tool`` for robot tools. Shared tool families in ``rpent/tools``
 (``SceneTools``, ``MotionTools``, ``MemoryTools``, ``PolicyTools``) expose
 ``tools(capabilities, config)``. Register them with
 ``add_tools(family, ..., capabilities=services, config=...)`` so each family

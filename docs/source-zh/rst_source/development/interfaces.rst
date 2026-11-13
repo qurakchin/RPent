@@ -81,9 +81,9 @@ Planner
 
 用 ``@tool`` 声明函数或方法，参数类型注解和 Google 风格 docstring 提供 schema 与说明；``@tool(readonly=True)`` 允许只读工具并行执行，并跳过动作后的状态采集。处理函数返回 ``ToolResult(data=..., images=...)``：``data`` 保存领域数据，按需包含 ``error`` 或 ``_finish``；``images`` 保存 PNG 字节。
 
-``ToolResult`` 还区分调用本身与实际执行。``call_ok`` 表示参数是否送达处理函数；``error.code`` 区分 ``validation``、``unknown_tool``、``refused``、``execution_failed``、``execution_uncertain`` 和 ``cancelled``。``no_execution`` 表示请求肯定没有触及环境，``execution_uncertain`` 表示可能已经发出的状态变更请求未获得确定结果。``execution_status`` 记录 ``completed``、``partial``、``not_started`` 或 ``unknown``。调用成功不代表目标任务成功。领域工具通常只设置 ``data``；请求在任何环境写入之前被拒绝时，使用 ``tool_error`` 构造结果。``ToolResult.to_text()`` 会包含上述各层信息。
+``ToolResult`` 还区分调用本身与实际执行。``call_ok`` 表示调用本身有效且框架完成了分发：工具存在、参数通过校验、结果可以编码；它从不表示动作成功。``error.code`` 区分 ``validation``、``unknown_tool``、``refused``、``execution_failed``、``execution_uncertain`` 和 ``cancelled``。``no_execution`` 表示请求肯定没有触及环境，``execution_uncertain`` 表示可能已经发出的状态变更请求未获得确定结果。``execution_status`` 记录 ``completed``、``partial``、``rejected``、``not_started`` 或 ``unknown``；``rejected`` 表示环境在执行前拒绝了请求。调用成功不代表目标任务成功。领域工具通常只设置 ``data``；请求在任何环境写入之前被拒绝时，使用 ``tool_error`` 构造结果。``ToolResult.to_text()`` 会包含上述各层信息。
 
-基类负责注册公共文件和记忆工具。子类调用 ``super().__init__()`` 后，用 ``add_tool`` 追加本机器人工具。``rpent/tools`` 中的共享工具族（``SceneTools``、``MotionTools``、``MemoryTools``、``PolicyTools``）提供 ``tools(capabilities, config)``；通过 ``add_tools(family, ..., capabilities=services, config=...)`` 注册后，各族只发布当前主机已连接的能力。逐步状态与 ``view_env_state`` 见 :doc:`add_primitive`。
+基类负责注册公共文件工具和 ``finish``。子类调用 ``super().__init__()`` 后，用 ``add_tool`` 追加本机器人工具。``rpent/tools`` 中的共享工具族（``SceneTools``、``MotionTools``、``MemoryTools``、``PolicyTools``）提供 ``tools(capabilities, config)``；通过 ``add_tools(family, ..., capabilities=services, config=...)`` 注册后，各族只发布当前主机已连接的能力。逐步状态与 ``view_env_state`` 见 :doc:`add_primitive`。
 
 被多个机器人复用的工具放在 ``toolkits/<name>/`` 下，且不导入 ``robots/``。``toolkits/geometry`` 提供 ``geometry`` 工具及仅依赖 CPU 的评估：``geometry-eval --output-dir <dir>`` 重放冻结的合成语料，并写出清单、原始结果和报告。合成参考用于检查流水线一致性，不代表真实传感器的精度基线。
 
