@@ -194,14 +194,15 @@ Separate Codex Configuration and Login
 Use separate directories to avoid mixing RPent's configuration and session history
 with your everyday Codex development setup.
 
-In the terminal that runs RPent, activate ``.venv`` and set separate Codex
-configuration and session directories from the repository root. Repeat this setup
-in each new terminal used to run RPent:
+In the terminal that runs RPent, activate that profile's virtual environment
+(for example ``.venv-libero-pro``) and set separate Codex configuration and
+session directories from the repository root. Repeat this setup in each new
+terminal used to run RPent:
 
 .. code-block:: bash
 
    cd /path/to/RPent
-   source .venv/bin/activate
+   source .venv-libero-pro/bin/activate
    export CODEX_HOME="$PWD/.codex-rpent-live"
    export CODEX_SQLITE_HOME="$CODEX_HOME"
    export CODEX_SERVICE_TIER=fast

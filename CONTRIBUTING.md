@@ -42,13 +42,14 @@ Use a branch name that reflects the change, such as
 ```bash
 # Create and activate the development environment.
 uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.env install dev --venv .venv
-source .venv/bin/activate
+  python -m rpent.cli.env install dev --venv .venv-dev
+source .venv-dev/bin/activate
 
-# For robot work, add the matching profile instead.
-rpent-env install libero-pro --venv .venv --dev  # LIBERO
-rpent-env install robocasa --venv .venv --dev    # RoboCasa
-rpent-env install robotwin --venv .venv --dev    # RoboTwin
+# For robot work, install that profile into its own virtualenv with the test
+# packages. Profiles cannot share a virtualenv because their pins differ.
+rpent-env install libero-pro --venv .venv-libero-pro --dev  # LIBERO
+rpent-env install robocasa --venv .venv-robocasa --dev       # RoboCasa
+rpent-env install robotwin --venv .venv-robotwin --dev       # RoboTwin
 
 # Install and enable the repository hooks.
 uv pip install pre-commit==4.6.2

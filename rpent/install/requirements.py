@@ -29,10 +29,6 @@ try:  # Python 3.11+
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
-#: Installed into every profile by default; profiles may opt out with
-#: ``core = false`` when they only host an external model service.
-CORE_REQUIREMENTS_FILE = ".rpent"
-
 
 def read_core_dependencies(root: Path) -> tuple[str, ...]:
     """Return ``[project].dependencies`` from the checkout's pyproject.toml."""

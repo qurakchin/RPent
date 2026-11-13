@@ -9,12 +9,14 @@ requires = ["rlinf", "openpi", "sam3"]
 # numpy<2, and RoboTwin's runtime ships incompatible MuJoCo/Torch builds.
 env_conflicts = ["franka", "dual_franka", "robotwin"]
 placement = ["in-env"]
+variant_required = true
 docs = "docs/source-en/rst_source/simulators/libero.rst"
 
 [optional]
-# A profile must pick a variant; the variants differ in the simulator package
-# they install. `plus` cannot inherit `standard` because LIBERO-plus requires
-# robosuite<1.5, while the standard package pins a newer robosuite.
+# The variants differ in the simulator package they install, so every profile
+# that includes LIBERO must pick one. `plus` cannot inherit `standard` because
+# LIBERO-plus requires robosuite<1.5, while the standard package pins a newer
+# robosuite.
 standard = [
   "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent",
   # MuJoCo 3.4+ changes LIBERO settling, misplacing objects and reducing task

@@ -79,29 +79,17 @@ Installation and Resources
 For NVIDIA driver recommendations, see the `Isaac Sim 5.1 system requirements
 <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html>`_.
 The host also needs the CUDA toolkit/NVCC and a compiler toolchain to build
-cuRobo. From the RPent root, create an environment and install the dependencies:
-
-.. code-block:: bash
-
-   rpent-env install robodojo --venv .venv-robodojo
-   source .venv-robodojo/bin/activate
-
-On a fresh checkout where ``rpent-env`` is not installed yet, bootstrap it as
-described in :doc:`../get_started/installation`. The profile installs the
-RoboDojo runtime, SAM 3.0, and Pi0.5; its component manifest supplies the
-NVIDIA package index and the RoboDojo requirements override.
+cuRobo. Install the ``robodojo`` profile as described in
+:doc:`../get_started/installation`. The profile installs the RoboDojo runtime,
+SAM 3.0, and Pi0.5; its component manifest supplies the NVIDIA package index
+and the RoboDojo requirements override.
 
 .. note::
 
    Blackwell GPUs need the CUDA 12.8 build of PyTorch. The pinned PyTorch 2.7.0
    also has a CUDA 12.6 build, but that build does not support Blackwell. On
-   these GPUs, select the CUDA 12.8 build for both initial installation and
-   reinstallation with ``UV_TORCH_BACKEND``:
-
-   .. code-block:: bash
-
-      UV_TORCH_BACKEND=cu128 \
-        rpent-env install robodojo --venv .venv-robodojo
+   these GPUs, export ``UV_TORCH_BACKEND=cu128`` before both the initial
+   installation and any reinstallation.
 
    If ``torch==2.7.0+cu126`` is already installed, uv considers it compatible
    with the version requirement and keeps it. In that case, replace it in the

@@ -134,6 +134,8 @@ class Component:
     env_conflicts: tuple[str, ...]
     placements: tuple[str, ...]
     default_placement: str
+    default_variant: str | None
+    variant_required: bool
     dependencies: tuple[str, ...]
     optional: dict[str, tuple[str, ...]]
     overrides: tuple[Path, ...]
@@ -214,10 +216,21 @@ def load_component(path: Path) -> Component:
             f"{path}: 'default_placement' must be one of {', '.join(placements)}"
         )
     optional = _optional_groups(data, path)
-    default_variant = data.get("variant")
+    default_variant = _optional_string(data, "variant", path)
     if default_variant is not None and default_variant not in optional:
         raise InstallConfigError(
             f"{path}: 'variant' {default_variant!r} is not an optional group"
+        )
+    variant_required = data.get("variant_required", False)
+    if not isinstance(variant_required, bool):
+        raise InstallConfigError(f"{path}: 'variant_required' must be a boolean")
+    if variant_required and not optional:
+        raise InstallConfigError(
+            f"{path}: 'variant_required' is set but there are no [optional] groups"
+        )
+    if variant_required and default_variant is not None:
+        raise InstallConfigError(
+            f"{path}: 'variant_required' cannot be combined with a default 'variant'"
         )
     overrides = tuple(
         path.parent / relative for relative in _string_list(data, "overrides", path)
@@ -236,6 +249,8 @@ def load_component(path: Path) -> Component:
         env_conflicts=_string_list(data, "env_conflicts", path),
         placements=placements,
         default_placement=default_placement,
+        default_variant=default_variant,
+        variant_required=variant_required,
         dependencies=_string_list(data, "dependencies", path),
         optional=optional,
         overrides=overrides,

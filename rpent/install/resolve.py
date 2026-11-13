@@ -287,7 +287,16 @@ def resolve(
         component = catalog.components[name]
         selection = selections.get(name)
         variant = selection.variant if selection is not None else None
-        if variant is not None and variant not in component.optional:
+        if variant is None:
+            variant = component.default_variant
+        if variant is None and component.variant_required:
+            resolution.errors.append(
+                f"component {name!r} requires a variant; add "
+                f"'variant = \"...\"' under [components.{name}] in "
+                f"envs/{profile.name}.toml; expected one of "
+                f"{', '.join(sorted(component.optional))}"
+            )
+        elif variant is not None and variant not in component.optional:
             resolution.errors.append(
                 f"component {name!r} has no optional group {variant!r}; "
                 f"expected one of {', '.join(sorted(component.optional)) or '<none>'}"
@@ -310,6 +319,23 @@ def resolve(
                 if selection is not None and selection.env is not None
                 else component.name
             )
+            external = catalog.profiles.get(env)
+            if env == profile.name:
+                resolution.errors.append(
+                    f"component {name!r} cannot use the profile's own environment "
+                    f"{env!r} as its external environment"
+                )
+            elif external is None:
+                resolution.errors.append(
+                    f"component {name!r} uses external environment {env!r}, but "
+                    f"envs/{env}.toml does not exist; add the profile or set "
+                    f"'env' to an existing one"
+                )
+            elif name not in external.components:
+                resolution.errors.append(
+                    f"external environment {env!r} does not install component "
+                    f"{name!r}; add [components.{name}] to envs/{env}.toml"
+                )
         elif placement == "in-env":
             env = profile.name
         else:

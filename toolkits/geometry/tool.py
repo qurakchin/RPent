@@ -22,13 +22,15 @@ steps so callers cannot consume an intermediate value as a final answer.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Annotated, Any, Literal
+from dataclasses import dataclass, field, replace
+from functools import partial
+from typing import Annotated, Any, Literal, Mapping, Sequence
 
 import numpy as np
-from pydantic import Field
+from pydantic import BaseModel, ConfigDict, Field, create_model
 
-from rpent.tools.base import ToolResult, tool
+from rpent.tools.base import Tool, ToolResult, tool
+from rpent.tools.capabilities import Capabilities, ToolFamily
 from rpent.tools.observation import (
     Grounder,
     Observation,
@@ -394,4 +396,94 @@ def geometry(
     return ToolResult(data=payload)
 
 
-__all__ = ["GeometryToolConfig", "estimate_geometry", "geometry"]
+def _pixel_only_arguments(schema: type[BaseModel]) -> type[BaseModel]:
+    """Return the argument model for a host without a grounding service.
+
+    ``target`` disappears from the schema, and ``pixel`` becomes a required
+    non-null list. ``extra="forbid"`` makes a described target a call-time
+    validation error instead of a silently ignored keyword.
+    """
+    fields: dict[str, Any] = {}
+    for name, info in schema.model_fields.items():
+        if name == "target":
+            continue
+        if name == "pixel":
+            fields[name] = (
+                Annotated[list[int], Field(min_length=2, max_length=2)],
+                Field(..., description=info.description),
+            )
+            continue
+        fields[name] = (info.annotation, info)
+    return create_model(
+        f"{schema.__name__}NoGrounding",
+        __module__=schema.__module__,
+        __config__=ConfigDict(extra="forbid", allow_inf_nan=False),
+        **fields,
+    )
+
+
+class GeometryTools(ToolFamily):
+    """Publish ``geometry`` when the host has calibrated depth views."""
+
+    name = "geometry"
+
+    def __init__(
+        self,
+        *,
+        provider: ObservationProvider,
+        grounder: Grounder | None = None,
+        segmenter: Segmenter | None = None,
+        config: GeometryToolConfig | None = None,
+    ) -> None:
+        self._provider = provider
+        self._grounder = grounder
+        self._segmenter = segmenter
+        self._config = config or GeometryToolConfig()
+
+    def tools(
+        self,
+        capabilities: Capabilities | None = None,
+        config: Mapping[str, Any] | None = None,
+    ) -> Sequence[Tool]:
+        if capabilities is not None and not (
+            capabilities.has_depth() and capabilities.has_calibration()
+        ):
+            return ()
+        declaration = geometry.with_handler(
+            partial(
+                geometry,
+                provider=self._provider,
+                grounder=self._grounder,
+                segmenter=self._segmenter,
+                config=self._config,
+            )
+        )
+        if capabilities is not None and not capabilities.grounding:
+            schema = declaration.input_schema
+            schema["properties"].pop("target", None)
+            schema["properties"]["pixel"] = {
+                **schema["properties"]["pixel"],
+                "type": "array",
+            }
+            schema["required"] = ["pixel"]
+            declaration = replace(
+                declaration,
+                description=(
+                    "Localize one visible target from the current or a recorded "
+                    "camera view. This host has no grounding service, so pass a "
+                    "[row,col] pixel measured on the selected view. Returns a "
+                    "world-frame center and axis-aligned extent with quality "
+                    "flags. Read-only; does not move the robot."
+                ),
+                args_schema=_pixel_only_arguments(declaration.args_schema),
+                _input_schema=schema,
+            )
+        return (declaration,)
+
+
+__all__ = [
+    "GeometryToolConfig",
+    "GeometryTools",
+    "estimate_geometry",
+    "geometry",
+]

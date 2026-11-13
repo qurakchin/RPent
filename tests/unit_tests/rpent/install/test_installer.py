@@ -198,6 +198,9 @@ exit 0
 
 
 def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatch):
+    lock = repo / "envs/locks/alpha.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
 
@@ -214,7 +217,7 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
 def test_install_uses_the_profile_lock_when_it_exists(repo, tmp_path, monkeypatch):
     lock = repo / "envs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
-    lock.write_text("numpy==2.0.0\n", encoding="utf-8")
+    lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
     fingerprint = install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
@@ -224,12 +227,44 @@ def test_install_uses_the_profile_lock_when_it_exists(repo, tmp_path, monkeypatc
     assert fingerprint["lock"] == "envs/locks/alpha.lock"
 
 
+def test_install_rejects_a_lock_that_lost_a_requirement(repo, tmp_path, monkeypatch):
+    lock = repo / "envs/locks/alpha.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text("numpy==2.0.0\n", encoding="utf-8")
+    _fake_uv(tmp_path, monkeypatch)
+
+    with pytest.raises(InstallError, match="does not cover 'packaging'"):
+        install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+
+
+def test_install_rejects_a_missing_declared_lock(repo, tmp_path, monkeypatch):
+    _fake_uv(tmp_path, monkeypatch)
+
+    with pytest.raises(InstallError, match="does not exist"):
+        install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+
+
+def test_install_refuses_a_venv_belonging_to_another_profile(
+    repo, tmp_path, monkeypatch
+):
+    lock = repo / "envs/locks/alpha.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "rpent-install.json").write_text('{"profile": "beta"}\n', encoding="utf-8")
+
+    with pytest.raises(InstallError, match="already installed for profile 'beta'"):
+        install("alpha", root=repo, venv=venv, verbose=False)
+
+
 def test_install_with_dev_resolves_instead_of_using_the_lock(
     repo, tmp_path, monkeypatch
 ):
     lock = repo / "envs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
-    lock.write_text("numpy==2.0.0\n", encoding="utf-8")
+    lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
     fingerprint = install(

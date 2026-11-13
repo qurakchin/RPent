@@ -81,19 +81,22 @@ def test_conflicts_pair_incompatible_extras_and_skip_dev(catalog):
     assert '{ extra = "alpha" }, { extra = "beta" }' in generated.text
 
 
-def test_repository_manifests_declare_the_openpi_molmo_conflict():
+def test_repository_manifests_declare_the_robotwin_molmo_conflict():
     components = discover().components
 
-    assert "openpi" in components["molmo"].env_conflicts
-    assert "molmo" in components["openpi"].env_conflicts
+    assert "robotwin" in components["molmo"].env_conflicts
+    assert "molmo" in components["robotwin"].env_conflicts
+    # OpenPI follows Molmo's Transformers range, so they are compatible.
+    assert "molmo" not in components["openpi"].env_conflicts
 
 
-def test_repository_extras_inherit_the_conflict_through_requires():
+def test_repository_extras_keep_only_the_real_molmo_conflict():
     generated = generate(discover())
 
-    # LIBERO requires OpenPI, so deploying Molmo alongside it is the same
-    # transformers incompatibility even though LIBERO itself never names Molmo.
-    assert ("libero", "molmo") in generated.conflicts
+    # RoboTwin pins transformers 4.51.3 and Molmo needs >=4.57. LIBERO and
+    # OpenPI resolve transformers 4.57.6, which satisfies Molmo.
+    assert ("molmo", "robotwin") in generated.conflicts
+    assert ("libero", "molmo") not in generated.conflicts
 
 
 def test_replace_block_requires_markers_and_is_idempotent(catalog):

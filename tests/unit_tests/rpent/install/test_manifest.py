@@ -62,6 +62,83 @@ def test_component_manifest_reads_declarations(write_toml):
         component.dependencies_for("missing")
 
 
+def test_component_declares_a_default_variant(write_toml):
+    path = write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "robots.alpha"
+        variant = "standard"
+
+        [optional]
+        standard = ["standard-dep"]
+        pro = ["pro-dep"]
+        """,
+    )
+
+    component = load_component(path)
+
+    assert component.default_variant == "standard"
+    assert not component.variant_required
+
+
+def test_component_rejects_a_required_variant_with_a_default(write_toml):
+    path = write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "robots.alpha"
+        variant = "standard"
+        variant_required = true
+
+        [optional]
+        standard = ["standard-dep"]
+        """,
+    )
+
+    with pytest.raises(
+        InstallConfigError, match="cannot be combined with a default 'variant'"
+    ):
+        load_component(path)
+
+
+def test_component_rejects_unknown_default_variant_and_empty_requirement(
+    write_toml,
+):
+    unknown = write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "robots.alpha"
+        variant = "missing"
+
+        [optional]
+        standard = ["standard-dep"]
+        """,
+    )
+    empty = write_toml(
+        "robots/beta/component.toml",
+        """
+        schema = 1
+        name = "beta"
+        kind = "robot"
+        probe = "robots.beta"
+        variant_required = true
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="'variant' 'missing'"):
+        load_component(unknown)
+    with pytest.raises(InstallConfigError, match="no \\[optional\\] groups"):
+        load_component(empty)
+
+
 def test_component_name_must_match_directory(write_toml):
     path = write_toml(
         "robots/alpha/component.toml",

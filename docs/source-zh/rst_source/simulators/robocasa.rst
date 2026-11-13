@@ -81,16 +81,7 @@ Target50 包含以下任务类别，完整任务、seed 和运行限制见本页
 安装与资源准备
 ---------------------
 
-需要 Linux、NVIDIA GPU、可用的 CUDA/EGL，以及 ``git`` 和 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_。使用独立的 Python 3.10 环境；已有仓库请先进入该目录，再从第三行开始：
-
-.. code-block:: bash
-
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   rpent-env install robocasa --venv .venv-robocasa
-   source .venv-robocasa/bin/activate
-
-新检出的仓库还没有 ``rpent-env`` 时，按 :doc:`../get_started/installation` 引导。配方会安装一组成对的 CUDA Torch 与 torchvision；RLDX 要求 Torch >= 2.7、torchvision >= 0.22。若驱动需要其他构建，可按 `PyTorch 安装说明 <https://pytorch.org/get-started/locally/>`_ 用 ``uv pip install`` 重新安装匹配的版本；国内可使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_。
+需要 Linux、NVIDIA GPU、可用的 CUDA/EGL，以及 ``git`` 和 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_。``robocasa`` 配方使用 Python 3.10，按 :doc:`../get_started/installation` 安装该配方。配方会安装一组成对的 CUDA Torch 与 torchvision；RLDX 要求 Torch >= 2.7、torchvision >= 0.22。若驱动需要其他构建，可按 `PyTorch 安装说明 <https://pytorch.org/get-started/locally/>`_ 用 ``uv pip install`` 重新安装匹配的版本；国内可使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_。
 
 .. list-table::
    :header-rows: 1
@@ -440,7 +431,7 @@ Target50 包含 50 个厨房任务，共运行 340 次。以下使用 Codex、GP
 VLA 推理检查
 ~~~~~~~~~~~~
 
-完成 :ref:`VLA 配置 <robocasa-vla-configuration>` 后，选择空闲 GPU 和新的输出目录运行。需要测试依赖时，先运行 ``rpent-env install dev --venv .venv-robocasa`` 加装 ``dev`` 配方：
+完成 :ref:`VLA 配置 <robocasa-vla-configuration>` 后，选择空闲 GPU 和新的输出目录运行。需要测试依赖时，用 ``--dev`` 重新安装该配方：``rpent-env install robocasa --venv .venv-robocasa --dev``。
 
 .. code-block:: bash
 

@@ -8,9 +8,6 @@ platforms = ["linux-x86_64"]
 # `pi05_vla_server` module serves calls from `rpent --am-endpoint`. External
 # placement keeps OpenPI's Torch/Transformers pins out of the robot env.
 placement = ["in-env", "external-env"]
-# OpenPI pins transformers 4.53.2; Molmo's model code needs >=4.57. Profiles
-# keep Molmo in its own external environment instead of mixing the two pins.
-env_conflicts = ["molmo"]
 docs = "docs/source-en/rst_source/development/add_action_model.rst"
 
 dependencies = [

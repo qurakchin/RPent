@@ -23,12 +23,12 @@
    git clone https://github.com/RLinf/RPent.git
    cd RPent
    uv run --no-project --python 3.11 --with packaging -- \
-     python -m rpent.cli.env install libero-pro --venv .venv
-   source .venv/bin/activate
+     python -m rpent.cli.env install libero-pro --venv .venv-libero-pro
+   source .venv-libero-pro/bin/activate
 
-配方会一起锁定 Python、RLinf 版本、Pi0.5、SAM 3.0 和 LIBERO 相关依赖。全部配方、外部模型环境和诊断方法见 :doc:`installation`。
+配方会一起锁定 Python、RLinf 版本、Pi0.5、SAM 3.0 和 LIBERO 相关依赖。全部配方、各自的安装命令、外部模型环境和诊断方法见 :doc:`installation`。
 
-后续命令都在这个终端和 RPent 仓库目录中执行。重新打开终端时，先激活 ``.venv``，再设置下文的模型路径与 API Key。
+后续命令都在这个终端和 RPent 仓库目录中执行。重新打开终端时，先激活 ``.venv-libero-pro``，再设置下文的模型路径与 API Key。
 
 2. 下载仿真资源和模型
 ------------------------------

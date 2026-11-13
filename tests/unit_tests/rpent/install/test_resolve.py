@@ -39,6 +39,40 @@ def test_requires_closure_adds_components_with_default_placement(
     assert resolution.environments() == {"alpha": ("alpha", "sam3")}
 
 
+def test_default_variant_is_used_when_the_profile_omits_one(
+    make_component, make_profile, make_catalog
+):
+    robot = make_component(
+        "alpha",
+        dependencies=["base-dep"],
+        default_variant="standard",
+        optional={"standard": ("standard-dep",)},
+    )
+    profile = make_profile("alpha", {"alpha": Selection()})
+    catalog = _catalog(make_catalog, robot)
+
+    resolution = resolve(profile, catalog)
+
+    assert resolution.ok
+    assert resolution.components["alpha"].variant == "standard"
+    assert resolution.dependencies_for("alpha") == ("base-dep", "standard-dep")
+
+
+def test_required_variant_must_be_selected(make_component, make_profile, make_catalog):
+    robot = make_component(
+        "alpha",
+        variant_required=True,
+        optional={"standard": ("standard-dep",), "pro": ("pro-dep",)},
+    )
+    profile = make_profile("alpha", {"alpha": Selection()})
+    catalog = _catalog(make_catalog, robot)
+
+    resolution = resolve(profile, catalog)
+
+    assert not resolution.ok
+    assert any("requires a variant" in error for error in resolution.errors)
+
+
 def test_external_placement_uses_named_environment(
     make_component, make_profile, make_catalog
 ):
@@ -49,13 +83,52 @@ def test_external_placement_uses_named_environment(
         default_placement="external-env",
     )
     profile = make_profile("flash", {"molmo": Selection(env="molmo")})
-    catalog = _catalog(make_catalog, molmo)
+    external = make_profile("molmo", {"molmo": Selection()})
+    catalog = make_catalog(components=[molmo], profiles={"molmo": external})
 
     resolution = resolve(profile, catalog)
 
     assert resolution.ok
     assert resolution.external_components()["molmo"].env == "molmo"
     assert resolution.nonempty_environments() == {"molmo": ("molmo",)}
+
+
+def test_external_environment_must_exist_and_include_the_component(
+    make_component, make_profile, make_catalog
+):
+    molmo = make_component(
+        "molmo", kind="capability", placements=("in-env", "external-env")
+    )
+    profile = make_profile(
+        "flash", {"molmo": Selection(placement="external-env", env="molmo")}
+    )
+    unrelated = make_profile("unrelated", {})
+    catalog = make_catalog(components=[molmo], profiles={"unrelated": unrelated})
+
+    resolution = resolve(profile, catalog)
+
+    assert not resolution.ok
+    assert any("envs/molmo.toml does not exist" in error for error in resolution.errors)
+
+
+def test_external_profile_without_the_component_is_reported(
+    make_component, make_profile, make_catalog
+):
+    molmo = make_component(
+        "molmo", kind="capability", placements=("in-env", "external-env")
+    )
+    profile = make_profile(
+        "flash", {"molmo": Selection(placement="external-env", env="molmo")}
+    )
+    external = make_profile("molmo", {})
+    catalog = make_catalog(components=[molmo], profiles={"molmo": external})
+
+    resolution = resolve(profile, catalog)
+
+    assert not resolution.ok
+    assert any(
+        "does not install component 'molmo'" in error for error in resolution.errors
+    )
 
 
 def test_unknown_component_is_reported(make_component, make_profile, make_catalog):
@@ -114,17 +187,18 @@ def test_declared_conflict_in_one_environment_is_reported(
 def test_conflict_reaches_components_pulled_in_by_requires(
     make_component, make_profile, make_catalog
 ):
-    robot = make_component("alpha", requires=["openpi"])
-    openpi = make_component("openpi", env_conflicts=["molmo"])
-    molmo = make_component("molmo", env_conflicts=["openpi"])
-    profile = make_profile("shared", {"alpha": Selection(), "molmo": Selection()})
-    catalog = _catalog(make_catalog, robot, openpi, molmo)
+    robot = make_component("alpha", requires=["policy"])
+    policy = make_component("policy", env_conflicts=["grounder"])
+    grounder = make_component("grounder", env_conflicts=["policy"])
+    profile = make_profile("shared", {"alpha": Selection(), "grounder": Selection()})
+    catalog = _catalog(make_catalog, robot, policy, grounder)
 
     resolution = resolve(profile, catalog)
 
     assert not resolution.ok
     assert (
-        "places 'molmo' and 'openpi' in the same environment" in (resolution.errors[0])
+        "places 'grounder' and 'policy' in the same environment"
+        in (resolution.errors[0])
     )
 
 
@@ -164,7 +238,10 @@ def test_declared_conflict_in_separate_environments_is_allowed(
             "beta": Selection(placement="external-env", env="beta"),
         },
     )
-    catalog = _catalog(make_catalog, alpha, beta)
+    catalog = make_catalog(
+        components=[alpha, beta],
+        profiles={"beta": make_profile("beta", {"beta": Selection()})},
+    )
 
     resolution = resolve(profile, catalog)
 

@@ -16,27 +16,17 @@ Install
 
 Install RPent on both Linux control nodes with matching code, Python, Ray and
 RLinf versions. Nodes running VLA or SAM3 locally need an NVIDIA GPU.
-Use the same installation workflow as :doc:`../get_started/quickstart`:
-
-.. code-block:: bash
-
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   rpent-env install dual-franka --venv .venv
-   source .venv/bin/activate
-
-On a fresh checkout where ``rpent-env`` is not installed yet, bootstrap it as
-described in :doc:`../get_started/installation`. The ``dual-franka`` profile
-includes both Franka arms and local SAM 3.0.
+Install the ``dual-franka`` profile as described in
+:doc:`../get_started/installation`; it includes both Franka arms and local
+SAM 3.0.
 
 If Python package downloads are slow, set the
-`Tsinghua PyPI mirror <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_ for
-the install:
+`Tsinghua PyPI mirror <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_
+before running that install command:
 
 .. code-block:: bash
 
-   UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple \
-     rpent-env install dual-franka --venv .venv
+   export UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 
 The mirror changes only the Python package index; it does not proxy Git
 repositories, direct download URLs or model weights.
@@ -46,7 +36,8 @@ The calibration state reader also needs libfranka development files; see the
 calibration steps below.
 
 Run subsequent commands from the repository root in this environment. In a new
-terminal, activate ``.venv`` and set the required model variables again.
+terminal, activate ``.venv-dual-franka`` and set the required model variables
+again.
 
 Download SAM3 weights on the environment node if local segmentation is needed:
 
@@ -207,7 +198,7 @@ Robot Configuration
 -------------------
 
 If calibration used a separate Python environment, reactivate RPent's
-``.venv`` before running the following commands.
+``.venv-dual-franka`` before running the following commands.
 
 Review and edit the checked-in development defaults before enabling motion:
 
@@ -337,7 +328,7 @@ Before using Codex, configure separate runtime directories and log in by followi
 Start the Two-node Ray Cluster
 ------------------------------
 
-Activate the installed ``.venv`` on each node before starting Ray. The default
+Activate the installed ``.venv-dual-franka`` on each node before starting Ray. The default
 placement in ``robots/dual_franka/runtime_config.py`` is:
 
 * Node ``0`` is the Ray head: it runs RPent, the environment worker, the

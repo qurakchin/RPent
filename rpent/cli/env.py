@@ -30,6 +30,7 @@ from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.fingerprint import current_venv
 from rpent.install.installer import install, resolve_install_target
 from rpent.install.lock import lock_profiles
+from rpent.install.locks import lock_problems
 from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import Resolution, resolve
 from rpent.utils.config import get_repo_root
@@ -76,10 +77,11 @@ def command_check(args: argparse.Namespace) -> int:
             continue
         core = read_core_dependencies(args.root) if profile.core else ()
         resolution = resolve(profile, catalog, core_dependencies=core)
-        if not resolution.ok:
+        problems = lock_problems(profile, resolution, args.root, core_dependencies=core)
+        if not resolution.ok or problems:
             failed = True
             print(f"profile {name}: FAIL")
-            for error in resolution.errors:
+            for error in [*resolution.errors, *problems]:
                 print(f"  {error}")
             continue
         print(f"profile {name}: ok")

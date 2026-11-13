@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -25,15 +26,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from packaging.specifiers import InvalidSpecifier, SpecifierSet
+
 from rpent.install.discovery import Catalog, discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     freeze_sha256,
+    read_fingerprint,
     runtime_platform,
     source_state,
     write_fingerprint,
 )
-from rpent.install.manifest import Profile, Selection
+from rpent.install.locks import lock_problems
+from rpent.install.manifest import Component, Profile, Selection
 from rpent.install.requirements import (
     read_core_dependencies,
     render_requirements,
@@ -122,6 +127,39 @@ def _with_dev(profile: Profile, catalog: Catalog) -> Profile:
     )
 
 
+def _supported_python(component: Component) -> str:
+    """Return the running Python, or the nearest minor the component supports.
+
+    A single-component install is a diagnostic run from the current
+    interpreter. When the interpreter is outside the component's range, fall
+    back to the highest supported minor so ``uv venv`` can create a usable
+    environment instead of failing every component check.
+    """
+    host = f"{sys.version_info.major}.{sys.version_info.minor}"
+    if component.python is None:
+        return host
+    try:
+        supported = SpecifierSet(component.python)
+    except InvalidSpecifier:
+        return host
+    if supported.contains(host, prereleases=True):
+        return host
+    candidates: set[tuple[int, int]] = set()
+    for specifier in supported:
+        match = re.fullmatch(r"(\d+)\.(\d+)", specifier.version)
+        if match is None:
+            continue
+        major, minor = int(match.group(1)), int(match.group(2))
+        candidates.add((major, minor))
+        if minor:
+            candidates.add((major, minor - 1))
+    for major, minor in sorted(candidates, reverse=True):
+        value = f"{major}.{minor}"
+        if supported.contains(value, prereleases=True):
+            return value
+    return host
+
+
 def component_profile(
     component_name: str,
     catalog: Catalog,
@@ -132,7 +170,7 @@ def component_profile(
     return Profile(
         name=component_name,
         path=root / "envs" / f"{component_name}.toml",
-        python=f"{sys.version_info.major}.{sys.version_info.minor}",
+        python=_supported_python(catalog.components[component_name]),
         platform=runtime_platform(),
         components={component_name: Selection()},
         dependencies=(),
@@ -206,6 +244,24 @@ def install(
             "requirements": main_requirements,
             "external_environments": sorted(external),
         }
+
+    # A lock is only a guarantee while it still covers the manifests. Check
+    # before touching the virtualenv so a stale lock fails fast with the
+    # command that regenerates it. `--dev` appends packages the lock does not
+    # contain, so it installs from the generated requirements instead.
+    if not include_dev:
+        problems = lock_problems(profile, resolution, repo_root, core_dependencies=core)
+        if problems:
+            raise InstallError("\n".join(problems))
+
+    existing = read_fingerprint(destination)
+    if existing is not None and existing.get("profile") != profile.name:
+        raise InstallError(
+            f"{destination} is already installed for profile "
+            f"{existing.get('profile')!r}; profiles cannot share a virtualenv "
+            f"because their dependencies differ. Install {profile.name!r} into "
+            f"its own environment, for example `--venv {default_venv(repo_root, profile)}`"
+        )
 
     requirements_path.parent.mkdir(parents=True, exist_ok=True)
     requirements_path.write_text(main_requirements, encoding="utf-8")
