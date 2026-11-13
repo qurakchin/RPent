@@ -68,6 +68,15 @@ PROVIDER_ID = "rpent_proxy"
 PROVIDER_ENV_KEY = "RPENT_CODEX_PROVIDER_KEY"
 _LOOPBACK_NO_PROXY_HOSTS = ("127.0.0.1", "localhost")
 
+# Sandbox applied to model-generated shell commands. ``full-access`` lets the
+# planner reach the same services as its tools; ``read-only`` blocks shell
+# network access, so an evaluation observes only tool-driven robot actions.
+_SANDBOX_MODES = {
+    "read-only": openai_codex.Sandbox.read_only,
+    "workspace-write": openai_codex.Sandbox.workspace_write,
+    "full-access": openai_codex.Sandbox.full_access,
+}
+
 
 def _codex_environment() -> dict[str, str]:
     """Build the Codex child environment with direct access to its local MCP."""
@@ -103,6 +112,7 @@ class CodexPlanner(Planner):
         output_path: str | Path | None = None,
         model: str | None = None,
         reasoning_effort: str = "none",
+        sandbox: str = "full-access",
     ):
         """Initialize the Codex SDK backend."""
         self._output_dir = str(output_dir)
@@ -117,11 +127,14 @@ class CodexPlanner(Planner):
         self._dashboard_events = dashboard_events
         if reasoning_effort not in REASONING_EFFORTS:
             raise ValueError(f"unsupported reasoning effort: {reasoning_effort}")
+        if sandbox not in _SANDBOX_MODES:
+            raise ValueError(f"unsupported sandbox: {sandbox}")
+        self._sandbox = sandbox
         self._thread_options = {
             "approval_mode": openai_codex.ApprovalMode.deny_all,
             "cwd": self._repo_root,
             "model": self._model,
-            "sandbox": openai_codex.Sandbox.full_access,
+            "sandbox": _SANDBOX_MODES[sandbox],
         }
         if self._service_tier:
             self._thread_options["service_tier"] = self._service_tier
@@ -233,6 +246,7 @@ class CodexPlanner(Planner):
         worker: threading.Thread | None = None
         error: str | None = None
         error_type = "error"
+        stop_reason: str | None = None
         try:
             mcp_url = mcp_server.start()
             logger.info("mcp http endpoint: %s", mcp_url)
@@ -258,6 +272,7 @@ class CodexPlanner(Planner):
             if not state["session_done"].wait(timeout=self._timeout_s):
                 error = f"Codex SDK timed out after {self._timeout_s}s"
                 error_type = "timeout"
+                stop_reason = "timeout"
             elif "error" in state:
                 exc = state["error"]
                 error = f"{type(exc).__name__}: {exc}"
@@ -308,6 +323,7 @@ class CodexPlanner(Planner):
                 **recorder.stats(),
             },
             error=error,
+            stop_reason=stop_reason,
         )
 
     def _output_paths(self) -> tuple[Path, Path, Path]:
@@ -451,6 +467,7 @@ class CodexPlanner(Planner):
         )
         chunks: list[str] = []
         error: str | None = None
+        stop_reason: str | None = None
         started = time.time()
 
         mcp_server = HttpMcpServer(toolkit)
@@ -503,6 +520,7 @@ class CodexPlanner(Planner):
                     await asyncio.wait_for(session.run(prompt), timeout=self._timeout_s)
                 except asyncio.TimeoutError:
                     error = f"Codex SDK timed out after {self._timeout_s}s"
+                    stop_reason = "timeout"
                     control.end()
                     _write_jsonl(raw_f, {"type": "timeout", "message": error})
                 except Exception as exc:
@@ -547,6 +565,7 @@ class CodexPlanner(Planner):
                 **recorder.stats(),
             },
             error=error or session.error or recorder.error,
+            stop_reason=stop_reason,
         )
 
     # -- config builder ----------------------------------------------------
@@ -557,6 +576,7 @@ class CodexPlanner(Planner):
             base_url=self._base_url,
             api_key=self._api_key,
             cwd=self._repo_root,
+            sandbox=self._sandbox,
             trace_root=trace_root,
         )
 
@@ -719,6 +739,7 @@ class _Recorder:
     turns: int = 0
     _seen_usage: set[tuple[int, ...]] = field(default_factory=set)
     tool_calls: int = 0
+    usage_observed: bool = False
     usage: dict[str, int] = field(
         default_factory=lambda: {
             "total_input_tokens": 0,
@@ -731,8 +752,18 @@ class _Recorder:
     finish_result: dict[str, Any] | None = None
     error: str | None = None
 
-    def stats(self) -> dict[str, int]:
-        return {"turns_used": self.turns, "tool_calls": self.tool_calls, **self.usage}
+    def stats(self) -> dict[str, object]:
+        """Return counters with the zeroed ``usage`` distinguishable from None.
+
+        ``usage_observed`` tells consumers whether the SDK reported any token
+        totals. Without it, the zeroed ``usage`` values mean "unknown".
+        """
+        return {
+            "turns_used": self.turns,
+            "tool_calls": self.tool_calls,
+            "usage_observed": self.usage_observed,
+            **self.usage,
+        }
 
     def observe(self, event: Any) -> str:
         method = str(_get(event, "method", ""))
@@ -861,6 +892,7 @@ class _Recorder:
             return False
         self._seen_usage.add(key)
         self.usage = updated
+        self.usage_observed = True
         self.turns += 1
         self.dashboard_events.emit(
             UsageEvent(
@@ -919,6 +951,7 @@ def build_codex_config(
     base_url: str | None,
     api_key: str | None,
     cwd: str,
+    sandbox: str = "full-access",
     trace_root: Path | None = None,
 ) -> Any:
     """Build the Codex child config with optional native rollout tracing.
@@ -929,6 +962,8 @@ def build_codex_config(
         base_url: Custom Responses-compatible endpoint, or ``None``.
         api_key: Key exported to the child as ``RPENT_CODEX_PROVIDER_KEY``.
         cwd: Working directory handed to the Codex child process.
+        sandbox: Sandbox mode name; restricted modes need the MCP approval
+            override to reach RPent tools under ``deny_all``.
         trace_root: Directory where Codex writes native rollout traces. If ``None``,
             the child inherits the parent's ``CODEX_ROLLOUT_TRACE_ROOT`` setting.
 
@@ -940,7 +975,9 @@ def build_codex_config(
         env[PROVIDER_ENV_KEY] = api_key
     if trace_root is not None:
         env["CODEX_ROLLOUT_TRACE_ROOT"] = str(trace_root.resolve())
-    config_overrides = _codex_mcp_config_overrides(mcp_url=mcp_url, base_url=base_url)
+    config_overrides = _codex_mcp_config_overrides(
+        mcp_url=mcp_url, base_url=base_url, sandbox=sandbox
+    )
     # Project development instructions and skills are excluded from planner context.
     config_overrides.append("project_doc_max_bytes=0")
     disabled_skills = [
@@ -1086,10 +1123,17 @@ def _codex_mcp_config_overrides(
     *,
     mcp_url: str | None,
     base_url: str | None,
+    sandbox: str = "full-access",
 ) -> list[str]:
     config: list[tuple[str, Any]] = []
     if mcp_url:
         config.append(("mcp_servers.rpent.url", mcp_url))
+        # A restricted sandbox asks for approval before every MCP call, and
+        # RPent's policy denies all prompts. The server is the planner's own
+        # tool boundary, so approve its tools explicitly. This does not grant
+        # shell permissions.
+        if sandbox != "full-access":
+            config.append(("mcp_servers.rpent.default_tools_approval_mode", "approve"))
     if base_url:
         normalized = base_url.rstrip("/")
         if not normalized.endswith("/v1"):
