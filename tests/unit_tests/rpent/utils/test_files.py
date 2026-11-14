@@ -68,6 +68,31 @@ def test_failed_replace_keeps_the_previous_file(
     assert not list(tmp_path.glob(".*.tmp"))
 
 
+@pytest.mark.parametrize(
+    ("process_umask", "expected"),
+    [(0o022, 0o644), (0o077, 0o600)],
+)
+def test_new_file_honors_the_process_umask(
+    tmp_path: Path,
+    process_umask: int,
+    expected: int,
+) -> None:
+    """A new artifact must not be more readable than the umask allows.
+
+    The previous implementation forced ``0o644`` on every new file, so a run
+    started under ``umask 077`` still produced world-readable logs and prompt
+    artifacts.
+    """
+    target = tmp_path / "run.log"
+    previous = os.umask(process_umask)
+    try:
+        write_text_atomic(target, "new\n")
+    finally:
+        os.umask(previous)
+
+    assert stat.S_IMODE(target.stat().st_mode) == expected
+
+
 def test_existing_mode_is_preserved(tmp_path: Path) -> None:
     target = tmp_path / "run.log"
     target.write_text("old\n", encoding="utf-8")

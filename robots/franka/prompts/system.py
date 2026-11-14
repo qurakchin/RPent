@@ -23,5 +23,4 @@ WORKFLOW = (
     "spatial plan from both camera views.",
     "Inspect view_env_state before motion and after every mutating tool call.",
     "If state, cameras, or motion results disagree, stop instead of guessing.",
-    "Finish only when the success evidence is visible and consistent with state.",
 )

@@ -38,7 +38,12 @@ from pathlib import Path
 
 import pytest
 
-from rpent.prompt.assembly import build_robot_prompt, fragment, run_axes
+from rpent.prompt.assembly import (
+    PromptSection,
+    build_robot_prompt,
+    fragment,
+    run_axes,
+)
 from rpent.prompt.utils import format_prompt
 from rpent.robots import get_robot_spec
 from rpent.robots.prompt_bundle import PromptBundle
@@ -50,7 +55,7 @@ ROOT = Path(__file__).resolve().parents[4]
 #: per-slice ceilings below already bound the total; this one binds after a
 #: slice is reduced, so the freed ceiling cannot be reused by another slice.
 #: The model-facing bound is :data:`PROMPT_SLICE_RENDERED_BUDGET`.
-PROMPT_SOURCE_LINE_BUDGET = 2395
+PROMPT_SOURCE_LINE_BUDGET = 2393
 #: Design target for slice-owned prompt source (``a_2`` §7): the hand-written
 #: slice prompts together, including the code-mode prompts ``a_4`` adds. This
 #: branch counts ``robots/<robot>/prompts/*.py`` plus ``prompt_bundle.py``
@@ -62,10 +67,10 @@ PROMPT_SLICE_LINE_BUDGET = {
     "libero": 845,
     "robodojo": 434,
     "robocasa": 308,
-    "dual_franka": 268,
+    "dual_franka": 267,
     "robotwin": 265,
     "yam": 203,
-    "franka": 72,
+    "franka": 71,
 }
 
 #: Acceptances that describe what the model reads, in rendered lines: the
@@ -78,11 +83,27 @@ PROMPT_SLICE_RENDERED_BUDGET = {
     "libero": 479,
     "robodojo": 256,
     "robocasa": 178,
-    "dual_franka": 100,
+    "dual_franka": 98,
     "robotwin": 154,
     "yam": 112,
-    "franka": 45,
+    "franka": 43,
 }
+#: Rendered slice text in exploration mode. The evaluation ceilings above do
+#: not cover the exploration workflow, which is the larger of the two for every
+#: slice, so each slice that reaches exploration needs its own no-growth
+#: ceiling. ``franka`` does not support exploration and has no entry.
+PROMPT_EXPLORE_SLICE_RENDERED_BUDGET = {
+    "libero": 622,
+    "robodojo": 309,
+    "robocasa": 182,
+    "robotwin": 182,
+    "yam": 178,
+    "dual_franka": 165,
+}
+#: Aggregate exploration ceiling, with the same role as
+#: :data:`PROMPT_SLICE_RENDERED_TOTAL_BUDGET`: it binds once a reduced slice
+#: leaves slack in its own ceiling.
+PROMPT_EXPLORE_SLICE_RENDERED_TOTAL_BUDGET = 1638
 #: Follow-up rendered total once shared tool guidance lands. It is not an
 #: ``a_2`` design metric; the design target is the source-line count above. The
 #: strict xfail below tracks it.
@@ -90,7 +111,7 @@ PROMPT_SLICE_RENDERED_TOTAL_TARGET = 1200
 #: Aggregate rendered ceiling, with the same role as
 #: :data:`PROMPT_SOURCE_LINE_BUDGET`: it binds once a reduced slice leaves
 #: slack in its own ceiling.
-PROMPT_SLICE_RENDERED_TOTAL_BUDGET = 1324
+PROMPT_SLICE_RENDERED_TOTAL_BUDGET = 1320
 
 #: Tools whose call signatures must come from the tool schema, not the prompt.
 TOOL_NAMES = (
@@ -289,6 +310,11 @@ REMOVED_RULE_COVERAGE = (
         ("eval", "explore"),
     ),
     (
+        "franka",
+        "Finish only when the success evidence is visible and consistent with state.",
+        ("eval", "explore"),
+    ),
+    (
         "dual_franka",
         "configured inline camera view(s) as the primary visual source of truth",
         ("eval", "explore"),
@@ -302,6 +328,11 @@ REMOVED_RULE_COVERAGE = (
         "dual_franka",
         "call request_scene_reset with the reason and expected scene state",
         ("explore",),
+    ),
+    (
+        "dual_franka",
+        "Finish only when the success evidence is visible and consistent with state.",
+        ("eval", "explore"),
     ),
     (
         "libero",
@@ -397,7 +428,7 @@ def _prompt_source_lines(robot: str) -> int:
 
 
 def rendered_line_count(text: str) -> int:
-    """Count the non-blank lines of rendered prompt text."""
+    """Count the lines of rendered prompt text, including blank separators."""
     stripped = text.rstrip("\n")
     return stripped.count("\n") + 1 if stripped.strip() else 0
 
@@ -414,18 +445,45 @@ def _section_nodes(contribution: object) -> tuple[object, ...]:
     return tuple(section.node for section in contribution)
 
 
-def _rendered_slice_text(robot: str, memory: Path) -> dict[str, int]:
+def _slice_variables(
+    robot: str,
+    memory: Path,
+    *,
+    explore: bool,
+) -> dict[str, object]:
+    """Return the variables that fully render one slice's prompt."""
+    variables: dict[str, object] = {
+        **PROMPT_VARIABLES[robot],
+        "mode": "explore" if explore else "eval",
+        "memory_dir": str(memory),
+        "memory_inbox": str(memory / "_internal/inbox/cell"),
+        "session_number": 1,
+        "session_max": 1,
+        "explore_attempts_per_session": 2,
+        "output_dir": "/output",
+    }
+    variables.setdefault("recipe_tag", f"{robot}_cell")
+    return variables
+
+
+def _rendered_slice_text(
+    robot: str,
+    memory: Path,
+    *,
+    explore: bool = False,
+) -> dict[str, int]:
     """Render one slice's model-facing text and count it by layer.
 
     Args:
         robot: Registry name.
         memory: Existing memory corpus, so memory-aware factories render fully.
+        explore: Render the exploration workflow instead of the evaluation one.
 
     Returns:
         Rendered line counts for ``domain``, ``tools``, and ``user``.
     """
     bundle = get_robot_spec(robot).prompts
-    variables = {**PROMPT_VARIABLES[robot], "memory_dir": str(memory)}
+    variables = _slice_variables(robot, memory, explore=explore)
     tools = (
         _section_nodes(bundle.tool_sections(variables))
         if bundle.tool_sections is not None
@@ -481,6 +539,21 @@ def test_rendered_slice_prompt_meets_domain_targets_and_stays_within_budget(
     assert sum(totals.values()) <= PROMPT_SLICE_RENDERED_TOTAL_BUDGET, totals
 
 
+def test_rendered_explore_slice_prompt_stays_within_budget(tmp_path: Path) -> None:
+    """The evaluation ceilings do not cover a slice's exploration workflow.
+
+    Every slice that supports exploration renders a longer domain and tool
+    layer in exploration mode, so each one needs its own no-growth ceiling.
+    """
+    memory = _memory(tmp_path)
+    totals = {}
+    for robot, target in PROMPT_EXPLORE_SLICE_RENDERED_BUDGET.items():
+        layers = _rendered_slice_text(robot, memory, explore=True)
+        totals[robot] = sum(layers.values())
+        assert totals[robot] <= target, (robot, layers)
+    assert sum(totals.values()) <= PROMPT_EXPLORE_SLICE_RENDERED_TOTAL_BUDGET, totals
+
+
 @pytest.mark.xfail(
     strict=True,
     reason=(
@@ -496,6 +569,103 @@ def test_rendered_slice_prompt_reaches_the_follow_up_total(tmp_path: Path) -> No
 
     totals = _rendered_slice_totals(memory)
     assert sum(totals.values()) <= PROMPT_SLICE_RENDERED_TOTAL_TARGET, totals
+
+
+#: A copied paragraph is only meaningful above this many characters; shorter
+#: lines repeat legitimately as tool names, section labels, and task keys.
+COPIED_PARAGRAPH_THRESHOLD = 60
+
+
+def _named_contributions(
+    contribution: object,
+) -> tuple[tuple[str, object], ...]:
+    """Return the named nodes of one bundle contribution."""
+    if contribution is None:
+        return ()
+    if isinstance(contribution, Mapping):
+        return tuple((str(name), body) for name, body in contribution.items())
+    if isinstance(contribution, PromptSection):
+        return ((contribution.name, contribution.node),)
+    return tuple((section.name, section.node) for section in contribution)
+
+
+def _slice_owned_nodes(
+    robot: str,
+    memory: Path,
+    *,
+    explore: bool,
+) -> list[tuple[str, str]]:
+    """Return the rendered prompt sections this slice's own files contribute."""
+    bundle = get_robot_spec(robot).prompts
+    variables = _slice_variables(robot, memory, explore=explore)
+    tools = bundle.tool_sections(variables) if bundle.tool_sections else None
+    return [
+        (name, format_prompt(node, variables=variables))
+        for contribution in (bundle.system(variables), tools, bundle.user(variables))
+        for name, node in _named_contributions(contribution)
+    ]
+
+
+#: Characters :class:`~rpent.prompt.utils.format_prompt` uses for section
+#: rules and list markers. They do not carry prompt content.
+_RULE_CHARACTERS = frozenset("═─=#*|+ \t")
+
+
+def _paragraphs(text: str) -> set[str]:
+    """Return the normalized paragraphs that carry distinctive prompt content.
+
+    A rendered section title repeats a short label (``BEGIN``) inside a rule of
+    ``═`` characters. That line is formatting, not a copied rule, so the
+    threshold applies to the paragraph without its rule characters.
+    """
+    paragraphs = set()
+    for part in re.split(r"\n\s*\n", text):
+        normalized = " ".join(part.split())
+        content = "".join(
+            character for character in normalized if character not in _RULE_CHARACTERS
+        )
+        if len(content) >= COPIED_PARAGRAPH_THRESHOLD:
+            paragraphs.add(normalized)
+    return paragraphs
+
+
+def _fragment_paragraphs() -> set[str]:
+    """Return every paragraph the shared fragments already state once."""
+    return {
+        paragraph
+        for path in (ROOT / "rpent/prompt/fragments").glob("*.md")
+        for paragraph in _paragraphs(path.read_text(encoding="utf-8"))
+    }
+
+
+def test_slice_owned_prompt_paragraphs_are_not_copied(tmp_path: Path) -> None:
+    """A slice must not restate a paragraph another slice or a fragment owns.
+
+    The shared fragments are the one place a common rule lives. A slice that
+    copies one of their paragraphs creates the second source the layer order
+    exists to remove, and the same paragraph in two slices means one of them
+    wrote what a fragment should own.
+    """
+    memory = _memory(tmp_path)
+    shared = _fragment_paragraphs()
+    owners: dict[str, set[str]] = {}
+    copied: list[tuple[str, str]] = []
+    for robot in PROMPT_VARIABLES:
+        for explore in (False, True):
+            mode = "explore" if explore else "eval"
+            for name, text in _slice_owned_nodes(robot, memory, explore=explore):
+                for paragraph in _paragraphs(text):
+                    owners.setdefault(paragraph, set()).add(robot)
+                    if paragraph in shared:
+                        copied.append((f"{robot}:{mode}/{name}", paragraph[:80]))
+
+    duplicated = {
+        tuple(sorted(robots)): paragraph[:80]
+        for paragraph, robots in owners.items()
+        if len(robots) >= 2
+    }
+    assert not copied, copied
+    assert not duplicated, duplicated
 
 
 def test_prompt_source_lines_do_not_grow() -> None:

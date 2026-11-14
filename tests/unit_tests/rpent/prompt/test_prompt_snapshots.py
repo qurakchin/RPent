@@ -38,8 +38,10 @@ SNAPSHOT = Path(__file__).with_name("prompt_snapshot.json")
 #: combined, in rendered lines. Dashboard prompts are recorded in the fixture
 #: but not counted here because they are assembled per claimed task. The
 #: earlier 14-combo baseline included the unreachable ``franka:explore``
-#: variant; the spec-derived set excludes it.
-PROMPT_FULL_RENDERED_BUDGET = 5050
+#: variant; the spec-derived set excludes it. Moving the finish rule into the
+#: real-robot fragment left franka and dual_franka level and gave yam, the third
+#: real-robot slice, the rule it was missing; that is the one-line increase.
+PROMPT_FULL_RENDERED_BUDGET = 5051
 
 
 def _memory_dir(tmp_path: Path) -> Path:

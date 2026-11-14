@@ -49,5 +49,4 @@ WORKFLOW = (
     "Build a conservative localization table for the current category from the "
     "latest inline image and keep it updated after each primitive.",
     "Use the task's VLA segment tools for contact-rich motion.",
-    "Finish only when the success evidence is visible and consistent with state.",
 )

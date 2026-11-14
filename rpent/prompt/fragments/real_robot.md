@@ -13,4 +13,5 @@ injure someone.
   recovery through the anomaly.
 - Never disable or bypass safety gates, including TTY confirmations, motion
   bounds, and operator approvals.
+- Finish only when the success evidence is visible and consistent with state.
 - When in doubt, ask the operator instead of guessing.
