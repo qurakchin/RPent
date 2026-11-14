@@ -24,8 +24,10 @@ import numpy as np
 
 from robots.robotwin.config import (
     build_capabilities,
-    connected_policy_backend as _connected_policy_backend,
     declared_capabilities,
+)
+from robots.robotwin.config import (
+    connected_policy_backend as _connected_policy_backend,
 )
 from robots.robotwin.grounding import MolmoGrounder, Sam3Segmenter
 from robots.robotwin.motion import RoboTwinMotionBackend
@@ -169,9 +171,7 @@ class RoboTwinToolkit(Toolkit):
         )
         self._capabilities = build_capabilities(
             server_meta=server_meta,
-            execution=getattr(
-                self._primitives.env, "execution_capabilities", {}
-            ),
+            execution=getattr(self._primitives.env, "execution_capabilities", {}),
             segmentation=segmenter is not None,
             grounding=grounder is not None,
             policy_backends=(policy_backend,),

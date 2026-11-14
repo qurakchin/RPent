@@ -88,7 +88,9 @@ class ObservationProvider(Protocol):
     def default_view(self) -> str | None:
         """Return the view used when a caller omits one."""
 
-    def observe(self, *, view: str | None = None, step: int | None = None) -> Observation:
+    def observe(
+        self, *, view: str | None = None, step: int | None = None
+    ) -> Observation:
         """Load one observation or raise :class:`ObservationError`."""
 
 

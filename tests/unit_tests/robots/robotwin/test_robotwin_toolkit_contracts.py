@@ -31,9 +31,9 @@ import pytest
 
 from robots.robotwin import toolkit
 from robots.robotwin.env_client import RoboTwinEnvClient
-from robots.robotwin.skills.policy import RoboTwinSkillBinding
 from robots.robotwin.primitives import RoboTwinPrimitives
 from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES, env_runtime_contract
+from robots.robotwin.skills.policy import RoboTwinSkillBinding
 from robots.robotwin.toolkit import _capture_robotwin_call
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.flywheel.flywheel import select_vla_segments
@@ -593,9 +593,7 @@ def test_policy_capture_exports_only_executed_actions_with_their_inputs(
         toolkit.get_env_state = lambda **kw: ToolResult(data={})
         binding = RoboTwinSkillBinding(primitives)
         name = binding.tool_name
-        toolkit.add_tools(
-            SkillTools(binding)
-        )
+        toolkit.add_tools(SkillTools(binding))
         toolkit.add_tool(
             direct_action_tool(env.action_specs, primitives.execute_action)
         )
@@ -715,7 +713,11 @@ def test_renamed_skill_and_policy_aliases_resolve_to_one_class() -> None:
     from rpent.tools.policy_tools import PolicyBinding, PolicyConfig, PolicyTools
     from rpent.tools.skill_tools import (
         SkillBinding as LegacySkillBinding,
+    )
+    from rpent.tools.skill_tools import (
         SkillConfig as LegacySkillConfig,
+    )
+    from rpent.tools.skill_tools import (
         SkillTools as LegacySkillTools,
     )
 
