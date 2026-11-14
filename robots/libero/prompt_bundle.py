@@ -21,6 +21,7 @@ from collections.abc import Mapping
 from robots.libero.prompts import evaluate as evaluate_parts
 from robots.libero.prompts import explore as explore_parts
 from robots.libero.prompts import user as user_parts
+from rpent.prompt.common import RESULT_FIELDS
 from rpent.prompt.utils import PromptNode
 
 
@@ -33,8 +34,10 @@ def system_prompt(
         variables.get("mode", "eval") == "explore"
         and variables.get("policy_kind") != "wam"
     ):
-        return explore_parts.system_prompt(variables)
-    return evaluate_parts.system_prompt(variables)
+        prompt = explore_parts.system_prompt(variables)
+    else:
+        prompt = evaluate_parts.system_prompt(variables)
+    return {**prompt, "TOOL RESULTS": RESULT_FIELDS}
 
 
 def user_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:

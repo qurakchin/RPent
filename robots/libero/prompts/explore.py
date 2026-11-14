@@ -395,8 +395,8 @@ d. DEDUPE — before writing any new global file, search: `list_dir` the memory
    BODY, not the index line.
      - ALREADY COVERED and consistent -> do NOT write a new file. Append one
        line to `{{memory_inbox}}/corroborations.jsonl`:
-         {"id":"<existing-id>","cell":"{{recipe_tag}}","effect":"confirmed",
-          "note":"<what you observed, 1 sentence>"}
+         {"memory_id":"<existing-id>","outcome":"confirmed",
+          "cell":"{{recipe_tag}}","evidence":"<what you observed, 1 sentence>"}
        Corroboration is how a memory earns higher confidence — prefer it over a
        near-duplicate file.
      - COVERED BUT CONTRADICTED -> do NOT edit or overwrite it. Write

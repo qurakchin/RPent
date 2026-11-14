@@ -43,7 +43,7 @@ def test_payload_error_and_images_reach_planner_without_mutation(
         assert response[error_key] is (error is not None)
     else:
         assert error_key not in response
-    assert json.loads(response["content"][0]["text"]) == payload
+    assert json.loads(response["content"][0]["text"]) == {**payload, "call_ok": True}
     blocks = response["content"]
     assert [block["type"] for block in blocks] == ["text"] + ["image"] * 4
     assert [base64.b64decode(block["data"]) for block in blocks[1:]] == images
@@ -58,7 +58,7 @@ def test_payload_error_and_images_reach_planner_without_mutation(
 @pytest.mark.parametrize("value", ["plain text", 17, ["one", "two"]])
 def test_tool_result_encodes_payload_values(value: Any) -> None:
     result = ToolResult(data={"value": value})
-    assert json.loads(result.to_text()) == {"value": value}
+    assert json.loads(result.to_text()) == {"value": value, "call_ok": True}
 
 
 @pytest.mark.parametrize("finished", [True, False])
@@ -81,4 +81,9 @@ def test_tool_result_text_limit_preserves_internal_payload(monkeypatch) -> None:
 @pytest.mark.parametrize("render", [mcp_result, _tool_result_to_mcp])
 def test_plain_result_contains_only_text(render):
     response = render(ToolResult(data={"value": "plain"}))
-    assert response["content"] == [{"type": "text", "text": '{\n  "value": "plain"\n}'}]
+    assert response["content"] == [
+        {
+            "type": "text",
+            "text": '{\n  "value": "plain",\n  "call_ok": true\n}',
+        }
+    ]

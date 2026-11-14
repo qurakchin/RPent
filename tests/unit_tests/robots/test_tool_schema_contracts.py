@@ -29,16 +29,14 @@ from robots.robocasa.primitives import RoboCasaPrimitives
 from robots.robodojo import tools as robodojo_tools
 from robots.robodojo.primitives import RoboDojoPrimitives
 from robots.robodojo.toolkit import RoboDojoToolkit
-from robots.robotwin import tools as robotwin_tools
-from robots.robotwin.primitives import RoboTwinPrimitives
 from robots.robotwin.toolkit import RoboTwinToolkit
 from robots.yam import tools as yam_tools
 from robots.yam.toolkit import YamToolkit
-from rpent.tools import iter_tools
+from rpent.tools import Toolkit, iter_tools
 from rpent.tools.common import CommonTools
 
 TOOL_DECLARATIONS = {
-    "common": list(iter_tools(CommonTools)),
+    "common": list(iter_tools(CommonTools, Toolkit)),
     "franka": list(
         iter_tools(franka_tools.FrankaPrimitives, franka_tools, franka_perception)
     ),
@@ -49,8 +47,58 @@ TOOL_DECLARATIONS = {
     ),
     "robocasa": list(iter_tools(robocasa_tools, RoboCasaPrimitives)),
     "robodojo": list(iter_tools(robodojo_tools, RoboDojoPrimitives, RoboDojoToolkit)),
-    "robotwin": list(iter_tools(robotwin_tools, RoboTwinPrimitives, RoboTwinToolkit)),
+    "robotwin": RoboTwinToolkit.declared_tools(),
 }
+
+_SCENE_TOOL_NAMES = {
+    "view_env_state",
+    "geometry",
+    "query_world_map",
+    "view_camera_meta",
+    "back_project",
+    "back_project_batch",
+    "back_project_correspondence",
+    "segment",
+    "sample_world_xyz",
+}
+
+# a_3 §4.4 converges every slice on these three entry points. The remaining
+# native scene tools below stay explicit until a slice has an observation
+# provider and parity evidence; migrating one must update this table and the
+# declaration fixture together.
+_SCENE_CONVERGENCE_TARGET = {"view_env_state", "geometry", "query_world_map"}
+_SCENE_SURFACE = {
+    "common": set(),
+    "dual_franka": {"back_project", "segment", "view_camera_meta", "view_env_state"},
+    "franka": {
+        "back_project",
+        "back_project_correspondence",
+        "view_camera_meta",
+        "view_env_state",
+    },
+    "libero": {"back_project", "segment", "view_camera_meta", "view_env_state"},
+    "robocasa": {"back_project_batch", "query_world_map", "view_env_state"},
+    "robodojo": {
+        "back_project",
+        "query_world_map",
+        "sample_world_xyz",
+        "segment",
+        "view_env_state",
+    },
+    "robotwin": _SCENE_CONVERGENCE_TARGET,
+    "yam": {"query_world_map", "sample_world_xyz", "view_env_state"},
+}
+
+
+def test_scene_surface_tracks_the_convergence_baseline() -> None:
+    """Record remaining native scene entry points per slice."""
+    actual = {
+        group: {spec.name for spec in declarations} & _SCENE_TOOL_NAMES
+        for group, declarations in TOOL_DECLARATIONS.items()
+    }
+
+    assert actual == _SCENE_SURFACE
+    assert actual["robotwin"] == _SCENE_CONVERGENCE_TARGET
 
 
 @pytest.mark.parametrize("group", sorted(TOOL_DECLARATIONS))
@@ -61,6 +109,14 @@ def test_tool_declarations_match_pre_refactor_contracts(group: str) -> None:
     )
     path = "rpent/tools/common.py" if group == "common" else f"robots/{group}/tools.py"
     expected = {item["name"]: item for item in baseline["tools"][path]}
+    if group == "robotwin":
+        # RoboTwin moved to shared scene/motion/policy/memory families; keep a
+        # fixed snapshot of the new declarations rather than the old module.
+        expected = json.loads(
+            (
+                Path(__file__).parent / "fixtures" / "robotwin_tool_schemas.json"
+            ).read_text()
+        )
     if group == "robodojo":
         # Full-pose motion and saved-frame queries intentionally replace the
         # older tool API; keep a separate fixed snapshot of the new contract.
@@ -82,16 +138,37 @@ def test_tool_declarations_match_pre_refactor_contracts(group: str) -> None:
             "description": "Positive finite yaw tolerance, rad (default 0.02)",
         }
     declarations = TOOL_DECLARATIONS[group]
-    actual = {
-        item.name: {
+
+    def snapshot(item) -> dict:
+        schema = item.input_schema
+        # The root object is explicitly closed; the pre-refactor baseline did
+        # not record it, so compare the remaining schema and assert the closure
+        # separately.
+        schema.pop("additionalProperties", None)
+        return {
             "name": item.name,
             "description": item.description,
-            "input_schema": item.input_schema,
+            "input_schema": schema,
         }
-        for item in declarations
+
+    actual = {item.name: snapshot(item) for item in declarations}
+    expected = {
+        name: {
+            **item,
+            "input_schema": {
+                key: value
+                for key, value in item["input_schema"].items()
+                if key != "additionalProperties"
+            },
+        }
+        for name, item in expected.items()
     }
     assert len(actual) == len(declarations)
-    added = {"wam_act"} if group in {"libero", "robotwin"} else set()
+    # ``finish`` moved from the common file tools to the toolkit base, so
+    # declaration lists built from a toolkit class now include it.
+    added = {"finish"} if group in {"dual_franka", "libero"} else set()
+    if group == "libero":
+        added.add("wam_act")
     assert actual.keys() == expected.keys() | added
     for name in expected:
         assert actual[name] == expected[name], f"{group}/{name}"
@@ -104,6 +181,7 @@ def test_robot_tool_schemas_have_valid_object_inputs(robot_name: str) -> None:
 
         input_schema = spec.input_schema
         assert input_schema["type"] == "object"
+        assert input_schema.get("additionalProperties") is False
         properties = input_schema.get("properties", {})
         required = input_schema.get("required", [])
         assert isinstance(properties, dict)
@@ -119,13 +197,33 @@ def test_robot_action_schemas_keep_bounded_vector_shapes() -> None:
         assert xyz["minItems"] == xyz["maxItems"] == 3
 
 
-def test_robotwin_perception_schemas_use_the_same_view_coordinate_space() -> None:
+def test_robotwin_declared_geometry_tracks_grounding_and_depth() -> None:
+    grounded = {
+        spec.name: spec for spec in RoboTwinToolkit.declared_tools(grounding=True)
+    }
+    ungrounded = {spec.name: spec for spec in RoboTwinToolkit.declared_tools()}
+
+    assert "target" in grounded["geometry"].input_schema["properties"]
+    assert grounded["geometry"].input_schema.get("required", []) == []
+    assert "target" not in ungrounded["geometry"].input_schema["properties"]
+    assert ungrounded["geometry"].input_schema["required"] == ["pixel"]
+
+    quantities = ungrounded["geometry"].input_schema["properties"]["quantities"]
+    assert "points" in quantities["items"]["enum"]
+    assert quantities["maxItems"] == 5
+
+    no_depth = {spec.name for spec in RoboTwinToolkit.declared_tools(depth=False)}
+    assert "geometry" not in no_depth
+    assert {"view_env_state", "move_to", "lingbot_act", "recall"} <= no_depth
+
+
+def test_robotwin_spatial_tools_share_row_col_image_coordinates() -> None:
     by_name = {spec.name: spec for spec in TOOL_DECLARATIONS["robotwin"]}
 
-    for tool_name, coordinate_name in (
-        ("sample_world_xyz", "pixels"),
-        ("query_world_map", "bbox"),
-    ):
-        schema = by_name[tool_name].input_schema
-        assert schema["required"] == ["view", coordinate_name]
-        assert schema["properties"]["view"]["type"] == "string"
+    world_map = by_name["query_world_map"].input_schema
+    assert world_map["required"] == ["view", "bbox"]
+    assert world_map["properties"]["view"]["type"] == "string"
+    geometry = by_name["geometry"].input_schema
+    pixel = geometry["properties"]["pixel"]
+    assert pixel["minItems"] == pixel["maxItems"] == 2
+    assert pixel["items"]["type"] == "integer"

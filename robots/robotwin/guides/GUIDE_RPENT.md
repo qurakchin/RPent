@@ -6,8 +6,9 @@ geometry, and compact execution rules needed to apply it.
 
 ## Registered tools
 
-- Resources: `list_dir`, `read_text_file`
-- Observation: `view_env_state`, `render`, `sample_world_xyz`, `query_world_map`
+- Resources: `list_dir`, `read_text_file`, `write_text_file`
+- Memory: `recall`, `remember`, `corroborate`
+- Observation: `view_env_state`, `render`, `geometry`, `query_world_map`
 - Control: `lingbot_act`, `move_to`, `rotate_wrist`, `set_gripper`, `release`
 - Terminal: `finish`
 
@@ -22,10 +23,18 @@ authoritative. Head views identify objects, distractors, destinations, global
 relations, and completed subgoals. Wrist views refine grasp, contact, insertion,
 and release geometry for the same head-selected candidate.
 
+`geometry` localizes one target in a named view. RoboTwin runs without a
+grounding service, so pass a `[row,col]` pixel measured on that view and ask for
+the quantities you need; a described `target` is rejected. It returns
+`pixel_rc`, per-field values with units and evidence status, `fit_accepted`, and
+`warnings`. Treat `status="partial"` or `fit_accepted=false` as a rejected
+measurement, not as a weak coordinate.
+
 World maps use `[row,col]`, contain world-frame `[x,y,z]` metres, and may contain
-NaN. Query the exact step/view/resolution whose RGB supplied the pixels. Sample
-several interior pixels and use robust geometry; an exposed surface point is not
-necessarily an object center. Re-observe after occlusion or physical change.
+NaN. Query the exact step/view whose RGB supplied the pixels. An exposed surface
+point is not necessarily an object center. Re-observe after occlusion or physical
+change. `call_ok` only reports that a call was valid; motion success comes from
+`completed`, `stop_reason`, `pose_error`, and the fresh observation.
 
 The aloha-agilex state is qpos14: six joints plus one normalized gripper value
 per arm. Gripper 0 is closed and 1 is open. `move_to` targets EEF pose; EEF and

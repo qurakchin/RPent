@@ -17,9 +17,13 @@
 from __future__ import annotations
 
 import fcntl
+import hashlib
+import json
 import os
 import re
 import shutil
+import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -149,6 +153,73 @@ class MemoryManager:
         """Resolved corpus root."""
         return self._root
 
+    @property
+    def inbox_cell_tag(self) -> str | None:
+        """Current exploration cell, or None for a read-only run."""
+        return self._inbox_cell_tag
+
+    def _inbox_dir(self) -> Path:
+        if self._memory_access != "inbox_write" or not self._inbox_cell_tag:
+            raise PermissionError("writing memory drafts is denied in this mode")
+        return self._root / "_internal" / "inbox" / self._inbox_cell_tag
+
+    def write_draft(self, metadata: Mapping[str, Any], body: str) -> Path:
+        """Write one validated draft into the current cell's inbox.
+
+        Drafts stay invisible to readers until ``merge_memory`` publishes them.
+        A draft with the same canonical id replaces the pending file.
+        """
+        inbox = self._inbox_dir()
+        draft_metadata = dict(metadata)
+        draft_metadata.setdefault("confidence", "single-shot")
+        evidence = draft_metadata.get("evidence") or {}
+        if not isinstance(evidence, dict) or not evidence.get("cells"):
+            draft_metadata["evidence"] = {
+                **evidence,
+                "cells": [self._inbox_cell_tag],
+                "attempts": int(evidence.get("attempts") or 1),
+            }
+        _validate(draft_metadata)
+        if not draft_metadata.get("id") and draft_metadata["scope"] == "global":
+            slug = re.sub(
+                r"[^a-z0-9]+", "-", str(draft_metadata.get("title", "")).lower()
+            ).strip("-")
+            draft_metadata["id"] = slug or self._inbox_cell_tag
+        memory_id = _canonical_id(
+            inbox / "draft.md",
+            draft_metadata,
+        )
+        draft_metadata["id"] = memory_id
+        inbox.mkdir(parents=True, exist_ok=True)
+        destination = inbox / f"{memory_id}_draft.md"
+        destination.write_text(_render(draft_metadata, body))
+        return destination
+
+    def append_corroboration(
+        self,
+        *,
+        memory_id: str,
+        outcome: str,
+        evidence: Mapping[str, Any] | None = None,
+    ) -> Path:
+        """Record that the current cell confirmed or contradicted a memory."""
+        if outcome not in {"confirmed", "contradicted"}:
+            raise ValueError("outcome must be 'confirmed' or 'contradicted'")
+        if not str(memory_id).strip():
+            raise ValueError("memory_id must be non-empty")
+        inbox = self._inbox_dir()
+        inbox.mkdir(parents=True, exist_ok=True)
+        destination = inbox / "corroborations.jsonl"
+        record = {
+            "memory_id": str(memory_id).strip(),
+            "outcome": outcome,
+            "cell": self._inbox_cell_tag,
+            "evidence": dict(evidence or {}),
+        }
+        with destination.open("a") as file:
+            file.write(json.dumps(record, sort_keys=True) + "\n")
+        return destination
+
     def check_layout(self) -> None:
         """Reject an unmigrated corpus instead of silently omitting its layers.
 
@@ -174,7 +245,40 @@ class MemoryManager:
         return resolved, sorted(os.listdir(resolved)) if resolved.exists() else None
 
     def record_read(self, path: Path, content: str) -> None:
-        """Record the content delivered by a file tool, when audit is required."""
+        """Append one memory read to ``_internal/audit/reads.jsonl``.
+
+        The audit lives outside the published layers and is written for
+        read-only runs too. A read-only filesystem or audit failure must not
+        make the content unavailable, so failures are logged and ignored.
+        """
+        resolved = Path(path).resolve()
+        if not resolved.is_relative_to(self._root) or not resolved.is_file():
+            return
+        audit = self._root / "_internal" / "audit" / "reads.jsonl"
+        record = {
+            "path": str(resolved.relative_to(self._root)),
+            "cell": self._inbox_cell_tag,
+            "bytes": len(content.encode("utf-8")),
+            "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+            "at_ns": time.time_ns(),
+        }
+        try:
+            audit.parent.mkdir(parents=True, exist_ok=True)
+            with audit.open("a") as file:
+                file.write(json.dumps(record, sort_keys=True) + "\n")
+        except OSError as exc:
+            logger.warning("could not record memory read audit for %s: %s", path, exc)
+
+    def load_leaf(self, path: str | Path) -> tuple[Path, dict[str, Any], str]:
+        """Authorize and parse one memory leaf.
+
+        Returns the resolved path, frontmatter, and body. Raises
+        ``PermissionError`` for an unauthorized path and ``ValueError`` for a
+        leaf without valid frontmatter.
+        """
+        resolved = self.authorize_read(path)
+        metadata, body = _split_frontmatter(resolved)
+        return resolved, metadata, body
 
     def authorize_write(self, path: str | Path) -> Path:
         """Resolve a path and enforce the current run's memory write permissions."""
@@ -243,6 +347,7 @@ class MemoryManager:
             "task-family": 0,
             "task": 0,
             "evidence": 0,
+            "corroborations": 0,
             "conflicts": 0,
             "skipped": [],
         }
@@ -251,7 +356,25 @@ class MemoryManager:
         with lock_path.open("r+") as lock_file:
             fcntl.flock(lock_file, fcntl.LOCK_EX)
             published_draft = False
+            # Exploration prompts ask the model to raise a contradiction as
+            # ``conflict_<id>.md``. Archive those drafts next to the conflicts
+            # detected during merge instead of parsing them as new memories.
+            for source in sorted(inbox.glob("conflict_*.md")):
+                target_id = re.sub(r"[^A-Za-z0-9_.-]+", "-", source.stem[9:]).strip(
+                    "-"
+                )
+                if not target_id:
+                    result["skipped"].append(
+                        f"{source.name}: conflict file names no memory id"
+                    )
+                    continue
+                conflict = conflicts / f"{target_id}__from_{cell_tag}.md"
+                conflict.write_text(source.read_text())
+                result["conflicts"] += 1
+                published_draft = True
             for source in sorted(inbox.glob("*.md")):
+                if source.name.startswith("conflict_"):
+                    continue
                 try:
                     metadata, body = _split_frontmatter(source)
                     _validate(metadata)
@@ -291,7 +414,76 @@ class MemoryManager:
                     conflict.write_text(_render(metadata, body))
                     result["conflicts"] += 1
 
-            if published_draft:
+            consumed = published_draft
+            corroborations = inbox / "corroborations.jsonl"
+            if corroborations.exists():
+                for line in corroborations.read_text().splitlines():
+                    if not line.strip():
+                        continue
+                    try:
+                        record = json.loads(line)
+                        memory_id = str(record["memory_id"]).strip()
+                        outcome = str(record["outcome"])
+                        source_cell = str(record.get("cell") or cell_tag)
+                        if outcome not in {"confirmed", "contradicted"}:
+                            raise ValueError(f"unknown outcome: {outcome!r}")
+                    except (
+                        KeyError,
+                        TypeError,
+                        ValueError,
+                        json.JSONDecodeError,
+                    ) as exc:
+                        result["skipped"].append(f"corroboration: {exc}")
+                        continue
+                    target = next(
+                        (
+                            tier / f"{memory_id}.md"
+                            for tier in (tiers["global"], tiers["task-family"])
+                            if (tier / f"{memory_id}.md").exists()
+                        ),
+                        None,
+                    )
+                    if target is None:
+                        result["skipped"].append(
+                            f"corroboration: memory {memory_id!r} not found"
+                        )
+                        continue
+                    try:
+                        target_metadata, target_body = _split_frontmatter(target)
+                    except ValueError as exc:
+                        result["skipped"].append(f"corroboration: {target.name}: {exc}")
+                        continue
+                    if outcome == "confirmed":
+                        target_metadata = _merge_evidence(
+                            target_metadata,
+                            {
+                                "evidence": {
+                                    "cells": [source_cell],
+                                    "attempts": 1,
+                                }
+                            },
+                        )
+                    else:
+                        evidence = dict(target_metadata.get("evidence") or {})
+                        contradicted = sorted(
+                            {
+                                *evidence.get("contradicted_by", []),
+                                source_cell,
+                            }
+                        )
+                        order = ("single-shot", "probable", "verified")
+                        current = target_metadata.get("confidence", "single-shot")
+                        index = max(0, order.index(current) - 1)
+                        target_metadata = {
+                            **target_metadata,
+                            "confidence": order[index],
+                            "evidence": {**evidence, "contradicted_by": contradicted},
+                        }
+                    target.write_text(_render(target_metadata, target_body))
+                    result["corroborations"] += 1
+                consumed = True
+
+            if consumed:
                 archive = merged / cell_tag
                 if archive.exists():
                     shutil.rmtree(archive)

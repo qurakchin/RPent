@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 
 from rpent.robots.components.env_client_base import BaseEnvClient
+from rpent.tools.execution import mark_write_issued
 from rpent.utils.rpc import RpcClient
 
 
@@ -47,6 +48,7 @@ class FrankaEnvClient(BaseEnvClient):
             self.reset()
 
     def reset(self) -> dict[str, Any]:
+        mark_write_issued("reset")
         result = self._client.call("env.reset", timeout_s=self._TIMEOUT_S["env.reset"])
         self.last_obs = result
         self._remember_states(result.get("states"))
@@ -81,6 +83,7 @@ class FrankaEnvClient(BaseEnvClient):
         )
 
     def move_delta(self, delta_xyz: np.ndarray | list[float]) -> dict[str, Any]:
+        mark_write_issued("move_delta")
         result = self._client.call(
             "env.move_delta",
             kwargs={"delta_xyz": np.asarray(delta_xyz, dtype=np.float32)},
@@ -90,6 +93,7 @@ class FrankaEnvClient(BaseEnvClient):
         return result
 
     def rotate_delta(self, delta_rpy: np.ndarray | list[float]) -> dict[str, Any]:
+        mark_write_issued("rotate_delta")
         result = self._client.call(
             "env.rotate_delta",
             kwargs={"delta_rpy": np.asarray(delta_rpy, dtype=np.float32)},
@@ -99,6 +103,7 @@ class FrankaEnvClient(BaseEnvClient):
         return result
 
     def set_gripper(self, *, open: bool) -> dict[str, Any]:
+        mark_write_issued("set_gripper")
         result = self._client.call(
             "env.set_gripper",
             kwargs={"open": bool(open)},
@@ -113,6 +118,7 @@ class FrankaEnvClient(BaseEnvClient):
         *,
         return_all_frames: bool = False,
     ) -> dict[str, Any]:
+        mark_write_issued("chunk_step")
         result = self._client.call(
             "env.chunk_step",
             kwargs={

@@ -38,6 +38,10 @@ class ToolCallCapture:
         self._result_captured = False
         self.action_source: Literal["tool_computed", "direct"] = "tool_computed"
         self.prediction_id: str | None = None
+        # Set by ``rpent.tools.execution.track_execution`` for the current call.
+        # The write ledger rides on the capture so it follows ``bind()`` into
+        # async tasks and worker threads without a second propagation path.
+        self.execution_trace: Any = None
 
     @contextmanager
     def bind(self) -> Iterator[None]:

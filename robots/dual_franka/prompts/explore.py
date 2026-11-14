@@ -102,8 +102,8 @@ ONLY AFTER OPERATOR-CONFIRMED SUCCESS, re-read all working notes and distill:
    evidence: {cells: [{{recipe_tag}}]}; related: []. These are separate YAML
    fields, not a literal semicolon-separated line. Quote values containing ': '.
    Give measured evidence, applicability and exceptions. Do not invent tested
-   parameter ranges from one sample. Conflicting observations go into a
-   conflict_<id>.md draft, with the old claim and new evidence.
+   parameter ranges from one sample. Conflicting observations go into
+   {{memory_inbox}}/conflict_<id>.md, with the old claim and new evidence.
 
 WRITE memory only under {{memory_inbox}}/. Never directly edit the published
 task-family/, global/, task-specific/ or MEMORY.md. The existing memory merge/validation/

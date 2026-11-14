@@ -21,6 +21,7 @@ from collections.abc import Mapping
 from robots.robotwin.prompts import evaluate as evaluate_parts
 from robots.robotwin.prompts import explore as explore_parts
 from robots.robotwin.prompts import user as user_parts
+from rpent.prompt.common import MOTION_RESULT_FIELDS, RESULT_FIELDS
 from rpent.prompt.utils import PromptNode
 
 
@@ -33,8 +34,15 @@ def system_prompt(
         variables.get("mode", "eval") == "explore"
         and variables.get("policy_kind") != "wam"
     ):
-        return explore_parts.system_prompt()
-    return evaluate_parts.system_prompt(variables)
+        prompt = explore_parts.system_prompt()
+    else:
+        prompt = evaluate_parts.system_prompt(variables)
+    # RoboTwin is the only host that registers MotionTools, so only its prompt
+    # promises the motion stop fields.
+    return {
+        **prompt,
+        "TOOL RESULTS": f"{RESULT_FIELDS}\n{MOTION_RESULT_FIELDS}",
+    }
 
 
 def user_prompt(

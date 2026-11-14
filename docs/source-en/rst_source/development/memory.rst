@@ -53,7 +53,14 @@ During evaluation the planner may read only the current robot's memory.
 Robot-specific requirements still apply: RoboCasa always provides task-specific
 and global memory and requires its global file. Task JSON/recipe files must be
 present together or both absent. The planner consults relevant guidance on demand;
-robot actions do not require complete reads.
+robot actions do not require complete reads. Where a toolkit registers the
+shared memory family (RoboTwin), ``recall`` searches published global and
+task-family notes, and exploration adds ``remember`` for drafts and
+``corroborate`` for confirming or contradicting a note. That toolkit's file
+tools also stop reading or writing the corpus, so every model-facing access
+goes through the memory tools. Other toolkits read and draft memory through the
+common file tools. All paths go through ``MemoryManager``, so the same
+permission and merge rules apply.
 
 Each toolkit constructs a ``MemoryManager`` from the run configuration: evaluation uses read-only access, while exploration allows writes to the current cell’s inbox. Environment tool permissions and task rules further constrain reads. LIBERO local evaluation checks that a corpus exists.
 

@@ -31,8 +31,9 @@ import pytest
 
 from robots.robotwin import toolkit
 from robots.robotwin.env_client import RoboTwinEnvClient
+from robots.robotwin.skills.policy import RoboTwinSkillBinding
 from robots.robotwin.primitives import RoboTwinPrimitives
-from robots.robotwin.robot_spec import env_runtime_contract
+from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES, env_runtime_contract
 from robots.robotwin.toolkit import _capture_robotwin_call
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.flywheel.flywheel import select_vla_segments
@@ -40,37 +41,43 @@ from rpent.flywheel.reader import iter_trajectories, read_array
 from rpent.memory import MemoryManager
 from rpent.session import EnvState, Payload
 from rpent.session.env_capture import CapturingEnvClient, ToolCallCapture
-from rpent.tools import Tool, Toolkit, ToolResult
+from rpent.tools import Toolkit, ToolResult, tool
 from rpent.tools.direct_action import direct_action_tool
+from rpent.tools.execution import track_execution
+from rpent.tools.motion.vla_act import SkillTools
 from rpent.utils import templates
 from rpent.utils.rpc import RpcError
 
 COMMON_TOOLS = {"read_text_file", "write_text_file", "list_dir", "finish"}
+READONLY_COMMON_TOOLS = {"read_text_file", "list_dir", "finish"}
 
-EXPECTED_TOOLS = COMMON_TOOLS | {
+FAMILY_TOOLS = {
     "view_env_state",
-    "render",
-    "sample_world_xyz",
+    "geometry",
     "query_world_map",
     "lingbot_act",
     "move_to",
     "rotate_wrist",
     "set_gripper",
     "release",
+    "recall",
+    "remember",
+    "corroborate",
 }
+
+EXPECTED_TOOLS = COMMON_TOOLS | FAMILY_TOOLS | {"render"}
 
 PRIMITIVE_METHODS = {
     "start_recording",
     "recorded_frame_count",
     "frame_slice",
     "stop_recording",
+    "recording_frames",
     "status",
     "finish",
-    "lingbot_act",
-    "move_to",
-    "rotate_wrist",
-    "set_gripper",
-    "release",
+    "check_cancelled",
+    "reset",
+    "apply_qpos_updates",
 }
 
 
@@ -80,10 +87,35 @@ class FakeRoboTwinPrimitives:
     def __init__(self, **kwargs: Any) -> None:
         self.kwargs = kwargs
         self.model = kwargs["model"]
+        self.policy_kind = kwargs.get("policy_kind", "vla")
         self.status_calls = 0
         self.recording_started = False
-        self.env = SimpleNamespace(last_reset_info={"actual_seed": 7})
+        self.policy_actions = 0
+        self.native_actions = 0
+        self.env = SimpleNamespace(
+            last_reset_info={"actual_seed": 7},
+            # Mirror the contract the real server advertises: families derive
+            # depth, calibration, and execution support from this metadata.
+            server_meta={
+                "task_name": "offline",
+                "extensions": {
+                    "render_camera": {
+                        "camera_names": list(ROBOTWIN_CAMERA_NAMES),
+                        "metric_depth": True,
+                    },
+                    "get_camera_meta": True,
+                },
+            },
+            execution_capabilities={"reset": True, "step": True, "chunk_step": True},
+            last_info={"robot_state": {}, "episode_status": {}},
+        )
         type(self).instances.append(self)
+
+    def check_cancelled(self) -> None:
+        return None
+
+    def recording_frames(self) -> bool:
+        return False
 
     def start_recording(self) -> None:
         self.recording_started = True
@@ -98,6 +130,12 @@ class FakeRoboTwinPrimitives:
     def stop_recording(self) -> list[Any]:
         return []
 
+    def reset(self) -> dict[str, Any]:
+        return {"actual_seed": 7, "success": True}
+
+    def apply_qpos_updates(self, updates: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"executed_actions": len(updates), "episode_status": self.status()}
+
     def status(self) -> dict[str, Any]:
         self.status_calls += 1
         return {
@@ -107,39 +145,10 @@ class FakeRoboTwinPrimitives:
             "actual_seed": 7,
         }
 
-    def finish(self, *, status: str, summary: str) -> dict[str, Any]:
+    @tool(readonly=True)
+    def finish(self, *, status: str, summary: str) -> ToolResult:
+        """Stop the fake run."""
         return ToolResult(data={"_finish": True, "status": status, "summary": summary})
-
-    @staticmethod
-    def _operation(name: str, **kwargs: Any) -> dict[str, Any]:
-        return ToolResult(data={"operation": name, "arguments": kwargs})
-
-    def lingbot_act(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("lingbot_act", **kwargs)
-
-    def wam_act(self, **kwargs: Any) -> ToolResult:
-        return self._operation("wam_act", **kwargs)
-
-    def move_to(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("move_to", **kwargs)
-
-    def rotate_wrist(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("rotate_wrist", **kwargs)
-
-    def set_gripper(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("set_gripper", **kwargs)
-
-    def release(self, **kwargs: Any) -> dict[str, Any]:
-        return self._operation("release", **kwargs)
-
-
-for _attribute, _definition in vars(RoboTwinPrimitives).items():
-    if isinstance(_definition, Tool):
-        setattr(
-            FakeRoboTwinPrimitives,
-            _attribute,
-            _definition.with_handler(getattr(FakeRoboTwinPrimitives, _attribute)),
-        )
 
 
 def _record(step_idx: int = 0) -> SimpleNamespace:
@@ -156,6 +165,22 @@ def _readonly_names(robot_toolkit: Toolkit) -> set[str]:
         for definition in robot_toolkit.list_tools()
         if definition.readonly
     }
+
+
+def test_policy_capability_comes_from_the_connected_client() -> None:
+    from robots.robotwin.toolkit import _connected_policy_backend
+    from robots.robotwin.vla_client import LingBotVLAClient
+    from robots.robotwin.wam_client import RoboTwinWAMClient
+
+    assert (
+        _connected_policy_backend(RoboTwinWAMClient.__new__(RoboTwinWAMClient), "vla")
+        == "wam"
+    )
+    assert (
+        _connected_policy_backend(LingBotVLAClient.__new__(LingBotVLAClient), "wam")
+        == "lingbot"
+    )
+    assert _connected_policy_backend(object(), "vla") == "vla"
 
 
 def test_fake_and_real_implement_toolkit_primitive_protocol() -> None:
@@ -189,7 +214,7 @@ def test_toolkit_constructs_and_captures_an_initial_observation(
         lambda self: {"views": {}, "robot_state": {}, "task_language": "offline"},
     )
     monkeypatch.setattr(
-        toolkit.tools,
+        toolkit,
         "dump_observation",
         lambda observation, env_state, status, log: (
             dumped.append({"observation": observation, "status": status, "log": log})
@@ -197,9 +222,9 @@ def test_toolkit_constructs_and_captures_an_initial_observation(
         ),
     )
     monkeypatch.setattr(
-        toolkit.tools,
+        toolkit,
         "view_env_state",
-        toolkit.tools.view_env_state.with_handler(
+        toolkit.view_env_state.with_handler(
             lambda step=-1, *, state: ToolResult(data={"step": step})
         ),
     )
@@ -220,15 +245,15 @@ def test_toolkit_constructs_and_captures_an_initial_observation(
     if policy_kind == "wam":
         model.reset.assert_called_once()
         expected = (EXPECTED_TOOLS - {"lingbot_act"}) | {"wam_act"}
-        common = COMMON_TOOLS
     else:
         model.reset.assert_not_called()
-        expected, common = EXPECTED_TOOLS, COMMON_TOOLS
+        expected = EXPECTED_TOOLS
     assert _tool_names(robot_toolkit) == expected
-    assert _readonly_names(robot_toolkit) == common | {
+    assert _readonly_names(robot_toolkit) == READONLY_COMMON_TOOLS | {
         "view_env_state",
-        "sample_world_xyz",
+        "geometry",
         "query_world_map",
+        "recall",
     }
     assert len(dumped) == 1
     assert dumped[0]["log"] == {
@@ -435,6 +460,21 @@ def test_chunk_returns_only_executed_steps_with_distinct_observations(
             np.testing.assert_array_equal(camera["intrinsic_cv"], np.eye(3))
 
 
+def test_environment_writes_are_marked_before_the_rpc(facade, make_server_and_client):
+    with make_server_and_client(facade, "socket") as rpc:
+        client = RoboTwinEnvClient(rpc, expected_meta=facade.get_env_meta())
+        with track_execution() as trace:
+            client.reset()
+            client.step(np.zeros(14))
+            client.chunk_step(np.zeros((2, 14)))
+        assert trace.writes == ["reset", "step", "chunk_step"]
+
+        with pytest.raises(ValueError, match="single action"):
+            with track_execution() as invalid:
+                client.step(np.zeros((2, 14)))
+        assert invalid.writes == []
+
+
 def test_old_frame_format_is_rejected_before_reset(facade, make_server_and_client):
     expected_meta = env_runtime_contract(
         task_name="beat_block_hammer", task_config="demo_clean", seed=7
@@ -551,8 +591,11 @@ def test_policy_capture_exports_only_executed_actions_with_their_inputs(
             memory=MemoryManager(tmp_path / "memory"),
         )
         toolkit.get_env_state = lambda **kw: ToolResult(data={})
-        name = "lingbot_act" if policy == "vla" else "wam_act"
-        toolkit.add_tool(getattr(primitives, name))
+        binding = RoboTwinSkillBinding(primitives)
+        name = binding.tool_name
+        toolkit.add_tools(
+            SkillTools(binding)
+        )
         toolkit.add_tool(
             direct_action_tool(env.action_specs, primitives.execute_action)
         )
@@ -653,8 +696,9 @@ def test_wam_executes_selected_control_and_refreshes_observation(action_type, di
     )
     primitive.reset()
     model.reset.assert_called_once()
-    assert primitive.wam_act("subtask").data["executed_steps"] == 3
-    assert primitive.wam_act().data["executed_steps"] == 3
+    declaration = SkillTools(RoboTwinSkillBinding(primitive)).tools()[0]
+    assert declaration("subtask").data["executed_steps"] == 3
+    assert declaration().data["executed_steps"] == 3
     calls = model.predict.call_args_list
     assert [call.args[0]["task_language"] for call in calls] == [
         "subtask",
@@ -663,3 +707,22 @@ def test_wam_executes_selected_control_and_refreshes_observation(action_type, di
     np.testing.assert_array_equal(
         calls[1].args[0]["robot_state"]["qpos_target14"], np.full(14, 3)
     )
+
+
+def test_renamed_skill_and_policy_aliases_resolve_to_one_class() -> None:
+    from robots.robotwin.policy import RoboTwinPolicyBinding
+    from rpent.tools.motion.vla_act import SkillBinding, SkillConfig, SkillTools
+    from rpent.tools.policy_tools import PolicyBinding, PolicyConfig, PolicyTools
+    from rpent.tools.skill_tools import (
+        SkillBinding as LegacySkillBinding,
+        SkillConfig as LegacySkillConfig,
+        SkillTools as LegacySkillTools,
+    )
+
+    assert RoboTwinPolicyBinding is RoboTwinSkillBinding
+    assert PolicyBinding is SkillBinding
+    assert PolicyConfig is SkillConfig
+    assert PolicyTools is SkillTools
+    assert LegacySkillBinding is SkillBinding
+    assert LegacySkillConfig is SkillConfig
+    assert LegacySkillTools is SkillTools

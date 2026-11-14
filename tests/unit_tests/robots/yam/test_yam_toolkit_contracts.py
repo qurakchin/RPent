@@ -11,6 +11,15 @@ import pytest
 
 from robots.yam.primitives import YamPrimitives
 from rpent.tools import tool
+from rpent.tools.execution import track_execution
+
+
+def test_env_writes_are_marked_before_the_rpc(ready_client):
+    with track_execution() as trace:
+        ready_client.step(np.zeros(14), action_type="qpos")
+        ready_client.chunk_step(np.zeros((1, 14)), action_type="qpos")
+
+    assert trace.writes == ["step", "chunk_step"]
 
 
 def test_operator_ready_and_verdict_are_required(toolkit_factory, receipt):

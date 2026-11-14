@@ -43,9 +43,9 @@
      - 启动或连接全部 runtime components，或只处理指定名称的子集，并构造对应的
        ``runtime_kwargs``。普通 CLI 传 ``None``；Dashboard 从 spec 得到显式声明的 shared 和 unique 子集后分别传入。``DashboardEventSink`` 用于上报运行时状态。
 
-``get_toolkit`` 一般只需把 ``runtime_kwargs`` 传给机器人子类； ``dashboard_events`` 和 ``config`` 由当前 runner 传入。启用记忆时，需要构造一个
+``get_toolkit`` 一般只需把 ``runtime_kwargs`` 传给机器人子类； ``dashboard_events`` 和 ``config`` 由当前 runner 传入。必须构造一个
 :class:`~rpent.memory.MemoryManager`（root 取自
-``config.prompt_vars["memory_dir"]``，未设置时回退到 ``get_memory_dir(robot_name)``）并传给 toolkit。Memory 访问权限在 ``MemoryManager`` 上配置。如果某个机器人还需要额外参数，可以继续声明 keyword-only 参数；例如 LIBERO 还使用 ``mode``、``attempts_per_session`` 和 ``state_output_dir``。
+``config.prompt_vars["memory_dir"]``，未设置时回退到 ``get_memory_dir(robot_name)``）并传给 toolkit。Memory 访问权限在 ``MemoryManager`` 上配置。工具集会始终注册公共文件工具和 ``finish``；采用共享 memory 族的工具集还会额外注册 ``recall`` / ``remember`` / ``corroborate``（目前是 RoboTwin）。如果某个机器人还需要额外参数，可以继续声明 keyword-only 参数；例如 LIBERO 还使用 ``mode``、``attempts_per_session`` 和 ``state_output_dir``。
 
 参考实现：``robots/libero/robot_spec.py``。
 
@@ -79,9 +79,13 @@ Planner
 
    def add_tool(self, tool: Tool, *, replace: bool = False) -> None: ...
 
-用 ``@tool`` 声明函数或方法，参数类型注解和 Google 风格 docstring 提供 schema 与说明；``@tool(readonly=True)`` 允许只读工具并行执行，并跳过动作后的状态采集。处理函数返回 ``ToolResult(data=..., images=...)``：``data`` 保存 JSON 数据，按需包含 ``error`` 或 ``_finish``；``images`` 保存 PNG 字节。
+用 ``@tool`` 声明函数或方法，参数类型注解和 Google 风格 docstring 提供 schema 与说明；``@tool(readonly=True)`` 允许只读工具并行执行，并跳过动作后的状态采集。处理函数返回 ``ToolResult(data=..., images=...)``：``data`` 保存领域数据，按需包含 ``error`` 或 ``_finish``；``images`` 保存 PNG 字节。
 
-必须传入 ``MemoryManager``，基类始终注册公共文件工具和 ``finish``。子类 ``super().__init__()`` 后追加本机器人工具即可。逐步状态与 ``view_env_state`` 见 :doc:`add_primitive`。
+``ToolResult`` 还区分调用本身与实际执行。``call_ok`` 表示调用本身有效且框架完成了分发：工具存在、参数通过校验、结果可以编码；它从不表示动作成功。``error.code`` 区分 ``validation``、``unknown_tool``、``refused``、``execution_failed``、``execution_uncertain`` 和 ``cancelled``。``no_execution`` 表示请求肯定没有触及环境，``execution_uncertain`` 表示可能已经发出的状态变更请求未获得确定结果。``execution_status`` 记录 ``completed``、``partial``、``rejected``、``not_started`` 或 ``unknown``；``rejected`` 表示环境在执行前拒绝了请求。调用成功不代表目标任务成功。领域工具通常只设置 ``data``；请求在任何环境写入之前被拒绝时，使用 ``tool_error`` 构造结果。``ToolResult.to_text()`` 会包含上述各层信息。
+
+基类负责注册公共文件工具和 ``finish``。子类调用 ``super().__init__()`` 后，用 ``add_tool`` 追加本机器人工具。``rpent/tools`` 中的共享工具族（``SceneTools``、``MotionTools``、``MemoryTools``、``SkillTools``）提供 ``tools(capabilities, config)``；通过 ``add_tools(family, ..., capabilities=services, config=...)`` 注册后，各族只发布当前主机已连接的能力。在 a_1 的切片迁移完成之前，RoboTwin 仍由 ``robots/robotwin/toolkit.py`` 装配工具族；它调用的能力构建器和工具族声明与声明式 ``config.py`` 所使用的完全一致。逐步状态与 ``view_env_state`` 见 :doc:`add_primitive`。
+
+被多个机器人复用的工具放在 ``toolkits/<name>/`` 下，且不导入 ``robots/``。``toolkits/geometry`` 提供 ``geometry`` 工具及仅依赖 CPU 的评估：``geometry-eval --output-dir <dir>`` 重放冻结的合成语料，并写出清单、原始结果和报告。合成参考用于检查流水线一致性，不代表真实传感器的精度基线。
 
 未设置 ``readonly=True`` 的工具按进入调度队列的顺序独占执行。等待中的独占调用优先于新的只读调用，独占范围包括观测采集和 Dashboard 发布。只读工具如果会更新共享缓存，应自行同步这些更新。``EnvState.save`` 会串行保存附件。
 

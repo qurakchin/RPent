@@ -550,8 +550,7 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
     from rpent.planner.base import PlannerResult
     from rpent.robots import PromptBundle, RobotSpec, RunConfig
     from rpent.session import EnvState
-    from rpent.tools import common
-    from rpent.tools.toolkit import ToolResult
+    from rpent.tools.toolkit import Toolkit, ToolResult
 
     calls: dict[str, Any] = {}
     stores = []
@@ -590,11 +589,7 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
             self.closed = True
 
         def list_tools(self):
-            return (
-                common.CommonTools.finish.with_handler(
-                    lambda **args: ToolResult(data=args)
-                ),
-            )
+            return (Toolkit.finish.with_handler(lambda **args: ToolResult(data=args)),)
 
         def resume_calls(self):
             pass

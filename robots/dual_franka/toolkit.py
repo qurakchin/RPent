@@ -565,6 +565,11 @@ class DualFrankaToolkit(FrankaToolkit):
         )
         for definition in self.declared_tools():
             name = definition.name
+            if name in self._tools:
+                # Declarations inherited from the toolkit base (such as
+                # ``finish``) are registered by the common-tool pass and are
+                # not bound to robot primitives.
+                continue
             handler = state_handlers.get(name) or getattr(self._primitives, name)
             if name in _MOTION_TOOLS:
                 handler = partial(self._guard_motion, handler)

@@ -194,7 +194,9 @@ def test_http_mcp_readonly_calls_execute_concurrently(tmp_path, capture_enabled)
             assert call.source_ids == {"codex_bridge_mcp_call_id": label}
             assert call.raw_result.data["data"] == {"label": label}
             assert json.loads(call.feedback.data["content"][0]["text"]) == {
-                "label": label
+                "label": label,
+                "call_ok": True,
+                "execution_status": "completed",
             }
     else:
         assert calls == []
@@ -265,12 +267,25 @@ def test_mcp_capture_preserves_arguments_feedback_and_environment(captured_toolk
         "mcp.tool_args", {"instruction": "Move."}, completeness="complete"
     )
     assert call.status == "completed" and call.ended_at >= call.started_at
-    assert call.raw_result.data == {"data": {"moved": True}, "images": [b"png"]}
+    assert call.raw_result.data == {
+        "data": {"moved": True},
+        "images": [b"png"],
+        "image_labels": [],
+        "call_ok": True,
+        "error": None,
+        "no_execution": False,
+        "execution_uncertain": False,
+        "execution_status": "completed",
+    }
     assert call.feedback.data == result.model_dump(
         mode="json", by_alias=True, exclude_none=True
     )
     assert call.feedback.base64_paths == {"/content/1/data": ""}
-    assert json.loads(result.content[0].text) == {"observed": True}
+    assert json.loads(result.content[0].text) == {
+        "observed": True,
+        "call_ok": True,
+        "execution_status": "completed",
+    }
     assert base64.b64decode(result.content[1].data) == b"png"
     assert set(call.missing) == {"planner_id"}
 
@@ -402,4 +417,8 @@ def test_mcp_calls_work_without_environment_state(tmp_path):
     finally:
         toolkit.close()
     assert not result.isError
-    assert json.loads(result.content[0].text) == {"observed": True}
+    assert json.loads(result.content[0].text) == {
+        "observed": True,
+        "call_ok": True,
+        "execution_status": "completed",
+    }
