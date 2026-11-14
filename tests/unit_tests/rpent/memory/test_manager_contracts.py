@@ -236,6 +236,30 @@ def test_memory_manager_publishes_draft_and_solved_task_pair(tmp_path: Path) -> 
     assert "task-family_libero10_task_t2.md" in (memory_dir / "MEMORY.md").read_text()
 
 
+def test_merge_normalizes_global_draft_ids_to_the_bare_slug(tmp_path: Path) -> None:
+    memory_dir = tmp_path / "memory"
+    output_dir = tmp_path / "run"
+    output_dir.mkdir()
+    cell = "10_task_t2_s0"
+    _write_memory_leaf(
+        memory_dir / "_internal" / "inbox" / cell / "proposal.md",
+        memory_id="global_primitive_align_before_grasp",
+        scope="global",
+        cells=[cell],
+    )
+
+    result = MemoryManager(memory_dir).merge_memory(
+        cell_tag=cell,
+        run_state_dir=output_dir,
+        solved=False,
+    )
+
+    assert result["global"] == 1
+    published = memory_dir / "global" / "align_before_grasp.md"
+    assert published.is_file()
+    assert "align_before_grasp" in (memory_dir / "MEMORY.md").read_text()
+
+
 def test_memory_manager_does_not_publish_unsolved_task_artifacts(
     tmp_path: Path,
 ) -> None:
