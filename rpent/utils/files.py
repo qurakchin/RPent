@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import json
 import os
+import stat
+import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -26,13 +28,30 @@ from typing import Any
 def write_text_atomic(destination: Path | str, text: str) -> Path:
     """Write ``text`` so readers never observe a partial file.
 
-    The text goes to a sibling temporary file that :func:`os.replace` moves into
-    place, so a crash mid-write leaves the previous file intact.
+    The text goes to a unique sibling temporary file that is flushed to disk and
+    moved into place with :func:`os.replace`. Concurrent writers therefore use
+    distinct temporary files, and a crash mid-write leaves the previous file
+    intact. The replacement preserves an existing file's mode; a new file uses
+    ``0o644``. Replacing a symlink replaces the link itself, as
+    :func:`os.replace` does.
     """
     path = Path(destination)
-    temporary = path.with_name(f".{path.name}.tmp")
     try:
-        temporary.write_text(text, encoding="utf-8")
+        mode = stat.S_IMODE(path.stat().st_mode)
+    except FileNotFoundError:
+        mode = 0o644
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent,
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+            os.fchmod(handle.fileno(), mode)
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
