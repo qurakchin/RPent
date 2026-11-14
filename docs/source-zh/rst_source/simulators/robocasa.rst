@@ -519,3 +519,25 @@ VLA 推理检查
    - **会话隔离：** ``RpcClient`` 在 ``wait_for_ready`` 时注册私有的 ``rpc_`` + UUID 十六进制 ID。服务器将其传给 ``predict`` / ``reset_session``，隔离各客户端的 RLDX 记忆和 RTC 状态。ID 不放入观测，``rldx_skill`` / ``vla_client`` 无需处理。
    - **会话清理：** 服务器定期清理空闲会话，默认超时 3600 秒；客户端退出时通过 ``atexit`` 发送 ``session.close``。
    - **探索提示词：** ``robots/robocasa/prompts/explore.py`` 规定移动底盘、``task_progress``、RLDX 连续执行及失败记录规则。``reset`` 使用环境原有复位流程，只导出最后一次复位后成功尝试的动作序列。
+
+验证状态
+--------
+
+.. list-table::
+   :header-rows: 1
+
+   * - 层级
+     - 状态
+     - 证据
+   * - 离线检查
+     - 仅 CPU
+     - ``pytest tests/unit_tests/robots/robocasa`` 在 ``unittest`` workflow 中运行。
+   * - 仿真集成
+     - 未验证
+     - Target50 协议覆盖 50 个任务和 340 次运行，仿真器检查覆盖仿真器与 VLA 组件路径；仓库没有记录运行结果。
+   * - Benchmark 成功率
+     - 外部结果
+     - 论文 Table 4 发布了 50 个任务、340 次运行的 Target50 成绩；本仓库没有记录复现结果。
+   * - 真机
+     - 不适用
+     - 仅仿真集成。

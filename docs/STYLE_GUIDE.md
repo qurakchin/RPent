@@ -174,6 +174,7 @@ sections when the stated feature is supported or results are published.
 | Task Memory | 任务记忆 | H2 | Conditional: memory is supported |
 | Exploration Mode | 探索模式 | H2 | Conditional: exploration is supported |
 | Experiment Reproduction | 实验复现 | H2 | Conditional: benchmark results are published |
+| Validation Status | 验证状态 | H2 | Required: last section on simulator and robot pages |
 
 An introductory figure is optional. Configuration and diagnostic sections
 depend on the environment's setup; include instructions needed to run it.
@@ -327,12 +328,127 @@ Retain useful page URLs and section anchors when renaming or moving content.
 Check their destinations in generated HTML, including cross-language links.
 Preserve coming-soon integrations and clearly state their documented status.
 
+## Validation status
+
+Every simulator and real-world robot page ends with **Validation Status /
+验证状态**. The section records what the repository has actually exercised, so a
+reader can tell an installation guide that has run from one that has not. Keep
+the same conclusion in the English and Chinese pages; the evidence commands and
+artifact paths may differ only when the platforms differ.
+
+The table keeps three independent axes apart. The **Status** column records
+the evidence level:
+
+| Status | Meaning | Allowed wording |
+| --- | --- | --- |
+| Verified (multiple) | Several seeds, episodes, or devices recorded in this repository | "Supported" |
+| Verified (single) | One end-to-end run recorded in this repository | "Completed once on X" |
+| External result | A published or third-party result that this repository does not reproduce | "Reported in the paper" |
+| Historical result | A run this repository recorded on a frozen snapshot that the current code or data does not reproduce | "Historical result on the frozen snapshot" |
+| CPU only | Contracts, configuration, or build checks passed | "Offline checks passed" |
+| Unverified | Implementation exists but no run is recorded | "Not verified yet" |
+
+**Not applicable** is an applicability value, not evidence: use it in the
+Status column only when the tier does not exist for this integration.
+
+Any "supported", "available", or "compatible" claim must map to one of the
+evidence rows or to **Not applicable**. If it does not, downgrade the claim to
+**Unverified**. A link to a CI workflow describes how a check can run; it is
+not evidence that the check passed. Record a date, commit, hardware, seed, or
+artifact path only when it is known. Do not label a published paper result
+**Verified** unless the repository records the run that produced it; use
+**External result** instead. Use **Historical result** when the repository did
+record the run, but the current code, data, or configuration cannot reproduce
+it; name the frozen snapshot and say what has not been reevaluated.
+
+**Experimental** describes interface stability, not evidence. Mark it at page
+level (for example, "Experimental" in the introduction) or append it in
+parentheses to a status, such as "CPU only (Experimental)"; it may combine with
+any row.
+
+Use the matching Chinese status words in Chinese pages: 已验证（多次）、
+已验证（单次）、外部结果、历史结果、仅 CPU、未验证、不适用. Write 实验性 only as
+the stability tag, for example 仅 CPU（实验性）. Do not write 支持或可用 unless
+the page records evidence for the corresponding status.
+
+Use a small table so the tiers stay distinct:
+
+```rst
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/<robot>``
+   * - Simulation
+     - Unverified
+     - GPU suite entry point; no result recorded in the repository
+   * - Benchmark success
+     - Unverified
+     - No multi-seed result recorded
+   * - Real robot
+     - Not applicable
+     - Simulator integration
+```
+
+The section reports evidence, not a roadmap. Put planned work in the relevant
+guide or release note, and put experiment methodology in **Experiment
+Reproduction**.
+
+Both language pages need the **Evidence / 证据** column, and every row needs a
+nonempty cell. The cell's minimum content depends on the status:
+
+| Status | Evidence must name |
+| --- | --- |
+| Verified (multiple), Verified (single), CPU only | A command, repository path, commit, or date that locates the run or check |
+| Historical result | The same locator plus the frozen snapshot or commit it was measured at |
+| External result | The published source and a statement that this repository has not reproduced it |
+| Unverified, Not applicable | A short reason; no locator is required |
+
+Repository paths cited in Evidence must exist, including backticked directory
+paths. Paths outside the repository, such as absolute paths, `~` paths, and
+downloaded or generated directories, are not checked. Report a result number,
+denominator, and percentage identically in both languages: the checker compares
+ratios and percentages in paired rows and reports a difference. Keep the counts
+in prose, because the comparison skips backticked spans, dates, and URLs. Only a
+deliberately different number needs a dated `docs-check` exception: add an
+ignore marker with an `until` date and the reason to the evidence cell. Every
+marker must name its expiry date; an expired marker is an error.
+
 ## Verify before handing off
 
 Read every changed paragraph in both languages. Check commands, paths,
 defaults, support claims, and result definitions against their code consumers.
 Check that required content and existing placeholders remain reachable, that
 reproduction data is unchanged, and that demo links reach the right robot.
+
+Run the repository check for links and validation status:
+
+```bash
+python scripts/check_docs.py
+```
+
+It verifies repository-relative Markdown links and images (including
+reference-style links and definitions), same-file heading anchors, the
+presence and vocabulary of the **Validation Status** table and its evidence on
+simulator and robot pages, the repository paths, modules, `cd` targets, and
+optional dependencies named by documented commands, and the status sequence and
+result numbers of the paired English and Chinese pages. The `docs-check`
+pre-commit hook checks only the changed pages and fails on a broken reference;
+a second hook rechecks the whole tree when `scripts/check_docs.py` changes.
+Design documents skip command checks because they name modules and paths that
+do not exist yet. RST directives, `:doc:`, `:ref:`, and other RST references are
+left to Sphinx: the `Docs` workflow builds both trees with `-W --keep-going`,
+and Read the Docs uses `fail_on_warning: true`. Cross-file Markdown anchors are
+warnings because the checker approximates GitHub's slug algorithm. External
+URLs, evidence quality, and whether the Chinese conclusion matches the English
+one still need a manual review.
 
 Build both languages with warnings treated as errors:
 

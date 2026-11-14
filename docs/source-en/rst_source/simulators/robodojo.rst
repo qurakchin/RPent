@@ -583,3 +583,25 @@ still fail to load, such as ``Assets/Isaac/5.1`` paths, prepare assets for that
 version and configure local loading separately. See the
 `NVIDIA local asset instructions
 <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/install_faq.html#isaac-sim-setup-assets-content-pack>`_.
+
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/robodojo`` runs in the ``unittest`` workflow.
+   * - Simulator integration
+     - Unverified
+     - Opt-in checks exist, but no run result is recorded in the repository. Run ``RPENT_RUN_ROBODOJO_INTEGRATION=1 pytest tests/e2e_tests/robodojo/test_environment_smoke.py`` to exercise the simulator path.
+   * - Benchmark success
+     - Unverified
+     - No multi-seed RoboDojo result is published.
+   * - Real robot
+     - Not applicable
+     - Simulator-only integration.

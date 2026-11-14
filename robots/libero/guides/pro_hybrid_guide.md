@@ -88,18 +88,10 @@ multi-pixel-median tip from the perception protocol.
 
 ## 2. Setup (do these once on a fresh checkout)
 
-Run the idempotent installer from the repo root:
-
-```bash
-bash scripts/install_libero_pro_plus.sh
-```
-
-It does all four steps below: the liberopro editable install, applies the
-benchmark-registration patch, syncs the authoritative HF dataset snapshot, and
-verifies with the `get_benchmark(...).get_task(0).language` check. The perception
-observables (depth + both cameras + hi-res) are unconditional once the runner
-launches with `--libero-type pro`; there is nothing perception-specific to
-install beyond the PRO setup itself.
+The steps below install LIBERO-PRO, sync its dataset, and verify the benchmark
+registration. The perception observables (depth, both cameras, and hi-res) are
+unconditional once the runner launches with `--libero-type pro`; there is
+nothing perception-specific to install beyond the PRO setup itself.
 
 ### 2.1. LIBERO-PRO repo
 
@@ -112,21 +104,12 @@ python -m pip show liberopro
 # Name: liberopro  Version: 0.1.0  Location: ${LIBERO_PRO_PATH:-/path/to/LIBERO-PRO}
 ```
 
-### 2.2. Apply the benchmark-registration patch
+### 2.2. Benchmark registration
 
-The upstream `__init__.py` does **not** expose the 16 perturbation suites through
-`get_benchmark()`. Our patch
-[`scripts/liberopro_register_perturbations.patch`](../../../../scripts/liberopro_register_perturbations.patch)
-adds them and overrides `Task.language` to read each BDDL's actual `:language`
-tag (so the perturbed instruction reaches Pi0 / hybrid).
-
-```bash
-cd ${LIBERO_PRO_PATH:-/path/to/LIBERO-PRO}
-git apply <repo-root>/scripts/liberopro_register_perturbations.patch
-```
-
-If already applied (likely), `git status -s` shows clean. If you reinstall
-liberopro, re-apply.
+The installed `rpent-liberopro` package must expose the 16 perturbation suites
+through `get_benchmark()`. The `libero-pro` extra installs its `rpent` branch;
+if you use another revision, apply the equivalent registration change there.
+The verification step below fails when the suites are missing.
 
 ### 2.3. Huggingface dataset (authoritative)
 
@@ -434,8 +417,6 @@ robots/libero/guides/
 ├── pro_hybrid_guide.md                 <- this file
 ├── strict_hybrid_guide.md              <- perception protocol + Rules (source of truth)
 └── env_calibration.md                  <- OSC frame bounds + safe altitudes
-scripts/
-└── liberopro_register_perturbations.patch
 memory/libero/
 ├── MEMORY.md                  <- corpus index
 ├── global/                    <- feedback_* / project_* notes
@@ -501,6 +482,4 @@ Then, inside the run:
 
 When in doubt about *how to localize* or a primitive, the source of truth is
 [`strict_hybrid_guide.md`](./strict_hybrid_guide.md); about *PRO setup /
-perturbation semantics*, see
-[`scripts/install_libero_pro_plus.sh`](../../../../scripts/install_libero_pro_plus.sh)
-and §2.
+perturbation semantics*, see §2.

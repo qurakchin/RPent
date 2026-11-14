@@ -267,3 +267,25 @@ CLI 与 Dashboard 默认继续使用 HF ``main`` 的未分版本 ``robotwin/`` �
 离线评测前先下载对应子目录，再使用
 ``--memory-profile local --memory-dir <下载的语料目录>``，不传
 ``--memory-version``。所选目录需保留 RoboTwin 的记忆布局。
+
+验证状态
+--------
+
+.. list-table::
+   :header-rows: 1
+
+   * - 层级
+     - 状态
+     - 证据
+   * - 离线检查
+     - 仅 CPU
+     - ``pytest tests/unit_tests/robots/robotwin`` 在 ``unittest`` workflow 中运行。
+   * - 仿真集成
+     - 已验证（多次）
+     - 「实验复现」中的运行使用 CLI、LingBot-VLA 与 RoboTwin，按 ``robots/robotwin/eval/demo_randomized.json`` 中的已验证专家 seed 覆盖 50 个任务和 250 次随机场景 episode。
+   * - Benchmark 成功率
+     - 已验证（多次）
+     - ``demo_randomized`` 为 62.4%（156/250），使用 ``robots/robotwin/eval/demo_randomized.json`` 中的已验证专家 seed。运行条件、失败与超时口径见「实验复现」。
+   * - 真机
+     - 不适用
+     - 仅仿真集成。

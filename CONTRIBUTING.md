@@ -123,7 +123,49 @@ Update documentation alongside user-visible changes:
   feature;
 - update docstrings and examples for public APIs;
 - update the README when installation, quick-start, or advertised features
-  change.
+  change;
+- update the status line and implemented phases in
+  [`docs/design/`](docs/design/README.md) when a design phase lands.
+
+### Validation evidence
+
+Describe what actually ran, in the tier where it ran. The pull request template
+has one section per tier:
+
+| Tier | What belongs there |
+| --- | --- |
+| CPU | Offline unit, contract, schema, prompt-snapshot, and lint checks. |
+| Simulation | Real-simulator smoke, component, or policy-chain runs. Name the target, task/seed, and output directory. |
+| Real robot | Hardware or operator-controlled diagnostics. Name the robot, configuration, and what the run established. |
+
+Rules for every tier:
+
+- give the command or artifact path and the observed result, not just "tests
+  pass";
+- write "Not run" and the reason when a tier does not apply or was not
+  exercised;
+- do not generalize a single run into a success rate or a supported
+  configuration;
+- label published paper or third-party results **External result**; they are
+  not verification recorded in this repository;
+- distinguish an integration chain that executes actions and records `finish`
+  from native task success;
+- for a behavior-preserving refactor, compare the affected schema, prompt,
+  feedback, and defaults rather than claiming that passing tests prove
+  equivalence;
+- for a shared tool or perception change, include a before/after comparison on
+  the same frozen corpus and name the corpus version;
+- for a dependency or installation change, report the platform, Python
+  version, dependency group, and install result;
+- state the limitations explicitly: what the validation does not prove.
+
+The [PR template](.github/PULL_REQUEST_TEMPLATE.md) is the canonical shape of
+the description. A missing `Limitations` section means the evidence is
+incomplete, even when every check passed.
+
+Use the status vocabulary in the
+[documentation style guide](docs/STYLE_GUIDE.md#validation-status) when a
+change adds or updates a validation claim in the documentation.
 
 ### Step 5. Commit and open a pull request
 
@@ -160,17 +202,16 @@ Pull request titles should use the same format. Keep the scope lowercase and the
 description short and specific.
 
 Push the branch to your fork and open a pull request against
-`RLinf/RPent:main`. A helpful pull request description includes:
-
-- the problem and why the change is needed;
-- a concise summary of the implementation;
-- a linked issue when one exists (`Fixes #123` or `Refs #123`);
-- compatibility changes, migrations, new dependencies, and runtime impact;
-- the exact automated checks that were run;
-- any manual GPU, simulator, service, or robot verification.
+`RLinf/RPent:main`. Fill in every section of the
+[pull request template](.github/PULL_REQUEST_TEMPLATE.md): problem, change,
+contract and migration, validation by tier, and limitations. Link an issue when
+one exists (`Fixes #123` or `Refs #123`).
 
 Review the complete diff yourself before marking the pull request ready for
 review.
+
+Maintainers preparing a tagged release follow the
+[release checklist](docs/releasing.md).
 
 ## 2. Project red lines
 

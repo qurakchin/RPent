@@ -46,10 +46,31 @@ HTML; a warning-free build does not establish correct rendering.
 
 ## Use existing validation
 
-Use [docs/Makefile](../../../docs/Makefile) for local targets. See the
-[English](../../../docs/source-en/.readthedocs.yaml) and
+Use [docs/Makefile](../../../docs/Makefile) for local targets. Run the
+repository check for links and validation tables from the repository root:
+
+```bash
+python scripts/check_docs.py
+```
+
+It covers repository-relative Markdown links and images (including
+reference-style links and definitions), same-file heading anchors, the presence
+and vocabulary of the **Validation Status** table on simulator and robot pages,
+the repository paths cited by its evidence, the repository paths, modules, `cd`
+targets, and optional dependencies named by documented commands, and the status
+sequence and result numbers of the paired English and Chinese pages. The
+`docs-check` pre-commit hook checks only the changed pages; `docs-check-self`
+rechecks the whole tree when the checker itself changes. Design documents skip
+command checks because they name modules and paths that do not exist yet. RST
+directives and `:doc:` / `:ref:` targets are left to Sphinx: the `Docs` workflow
+builds both trees with `-W --keep-going`, and Read the Docs uses
+`fail_on_warning: true`. Cross-file Markdown anchors are warnings because the
+checker approximates GitHub's slug algorithm. External URLs and whether the
+evidence actually supports the claim still need a manual check.
+
+See the [English](../../../docs/source-en/.readthedocs.yaml) and
 [Chinese](../../../docs/source-zh/.readthedocs.yaml) Read the Docs configurations
-for CI build settings. From the repository root, with
+for CI build settings (`fail_on_warning: true`). From the repository root, with
 [documentation dependencies](../../../docs/requirements.txt) installed:
 
 ```bash
@@ -59,9 +80,20 @@ sphinx-build -W --keep-going docs/source-zh docs/build/html-zh
 
 Run these when the change affects Sphinx pages or their build inputs. Standalone
 Markdown instructions and source comments need path/link and semantic checks;
-the Sphinx build does not validate them. Reuse relevant prompt/rendering tests
-when model-visible behavior changes, following
-[verify-change](../verify-change/SKILL.md).
+the Sphinx build does not validate them. The checker requires simulator and
+robot pages to end with a **Validation Status** table, rejects status words
+outside [docs/STYLE_GUIDE.md](../../../docs/STYLE_GUIDE.md#validation-status),
+rejects a missing Evidence column, an empty evidence cell, an evidence path
+that does not resolve, and evidence that lacks the locator, snapshot, or
+citation its status requires. It requires the English and Chinese pages to have
+matching counterparts, status sequences, and result numbers. Judging whether
+the evidence supports the claim is a review task. The checker also requires
+each design document under [docs/design/](../../../docs/design/README.md) to
+start with a status line and
+rejects a baseline commit that is not in the repository (with a warning when
+the checkout has no full history); keep the status and date current when a
+phase lands. Reuse relevant prompt/rendering tests when model-visible
+behavior changes, following [verify-change](../verify-change/SKILL.md).
 
 ## Report
 

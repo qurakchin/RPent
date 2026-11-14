@@ -42,6 +42,11 @@ with documentation instead of assuming either is correct.
 - Test observable behavior and concrete regressions, reusing existing cases
   and fixtures where possible. Avoid tests that merely restate implementation
   details. Never weaken failing tests to make a change pass.
+- State what a change proves and what it does not. Validation evidence follows
+  [CONTRIBUTING.md](CONTRIBUTING.md); documentation status wording follows
+  [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md). Design rationale and migration
+  plans live in [docs/design/](docs/design/README.md) and stay out of
+  user-facing documentation.
 
 ## Task skills
 
@@ -60,6 +65,6 @@ test guide. Report what ran, its result, and what remains unverified; keep
 integration evidence distinct from benchmark task success.
 
 Skill sources live in `.agents/skills/`. `.claude/skills` links to that whole
-directory, and `CLAUDE.md` links to this file. Edit the canonical files so both
-clients share the same instructions. Keep each skill self-contained in its
-`SKILL.md` and link to existing repository resources.
+directory, and `CLAUDE.md` imports this file with `@AGENTS.md`. Edit the
+canonical files so both clients share the same instructions. Keep each skill
+self-contained in its `SKILL.md` and link to existing repository resources.
