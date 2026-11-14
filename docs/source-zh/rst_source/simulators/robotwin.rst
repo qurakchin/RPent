@@ -282,10 +282,10 @@ CLI 与 Dashboard 默认继续使用 HF ``main`` 的未分版本 ``robotwin/`` �
      - ``pytest tests/unit_tests/robots/robotwin`` 在 ``unittest`` workflow 中运行。
    * - 仿真集成
      - 已验证（多次）
-     - 「实验复现」中的运行使用 CLI、LingBot-VLA 与 RoboTwin，覆盖 50 个任务和 250 次随机场景 episode。
+     - 「实验复现」中的运行使用 CLI、LingBot-VLA 与 RoboTwin，按 ``robots/robotwin/eval/demo_randomized.json`` 中的已验证专家 seed 覆盖 50 个任务和 250 次随机场景 episode。
    * - Benchmark 成功率
      - 已验证（多次）
-     - ``demo_randomized`` 为 62.4%（156/250）。运行条件、失败与超时口径见「实验复现」。
+     - ``demo_randomized`` 为 62.4%（156/250），使用 ``robots/robotwin/eval/demo_randomized.json`` 中的已验证专家 seed。运行条件、失败与超时口径见「实验复现」。
    * - 真机
      - 不适用
      - 仅仿真集成。

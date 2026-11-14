@@ -376,11 +376,11 @@ Validation Status
      - CPU only
      - ``pytest tests/unit_tests/robots/libero`` runs in the ``unittest`` workflow.
    * - Simulator integration
-     - Verified (multiple)
-     - The Experiment Reproduction run covers all eight suites and 800 episodes.
+     - Historical result
+     - The Experiment Reproduction run covers all eight suites and 800 episodes on the frozen memory snapshots generated at runtime commit ``014a0fa``; the merged release has not been reevaluated.
    * - Benchmark success
      - Historical result
-     - 741/800 (92.63% Overall) with Codex / GPT-6 Astra / low / reasoning, measured on the two original frozen memory snapshots evaluated separately by suite. The merged release has not been reevaluated. See Experiment Reproduction for the provenance and suite breakdown.
+     - 741/800 (92.63% Overall) with Codex / GPT-6 Astra / low / reasoning, measured on the two original frozen memory snapshots generated at runtime commit ``014a0fa`` and evaluated separately by suite. The merged release has not been reevaluated. See Experiment Reproduction for the provenance and suite breakdown.
    * - Real robot
      - Not applicable
      - Simulator-only integration.

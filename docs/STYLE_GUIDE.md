@@ -401,6 +401,26 @@ The section reports evidence, not a roadmap. Put planned work in the relevant
 guide or release note, and put experiment methodology in **Experiment
 Reproduction**.
 
+Both language pages need the **Evidence / 证据** column, and every row needs a
+nonempty cell. The cell's minimum content depends on the status:
+
+| Status | Evidence must name |
+| --- | --- |
+| Verified (multiple), Verified (single), CPU only | A command, repository path, commit, or date that locates the run or check |
+| Historical result | The same locator plus the frozen snapshot or commit it was measured at |
+| External result | The published source and a statement that this repository has not reproduced it |
+| Unverified, Not applicable | A short reason; no locator is required |
+
+Repository paths cited in Evidence must exist, including backticked directory
+paths. Paths outside the repository, such as absolute paths, `~` paths, and
+downloaded or generated directories, are not checked. Report a result number,
+denominator, and percentage identically in both languages: the checker compares
+ratios and percentages in paired rows and reports a difference. Keep the counts
+in prose, because the comparison skips backticked spans, dates, and URLs. Only a
+deliberately different number needs a dated `docs-check` exception: add an
+ignore marker with an `until` date and the reason to the evidence cell. Every
+marker must name its expiry date; an expired marker is an error.
+
 ## Verify before handing off
 
 Read every changed paragraph in both languages. Check commands, paths,
@@ -416,15 +436,19 @@ python scripts/check_docs.py
 
 It verifies repository-relative Markdown links and images (including
 reference-style links and definitions), same-file heading anchors, the
-presence and vocabulary of the **Validation Status** table on simulator and
-robot pages, the repository paths cited by its evidence, and the status
-sequence of the paired English and Chinese pages. The `docs-check` pre-commit
-hook checks only the changed pages and fails on a broken reference. RST
-directives, `:doc:`, `:ref:`, and other RST references are left to Sphinx: both
-trees build in Read the Docs with `fail_on_warning: true`. Cross-file Markdown
-anchors are warnings because the checker approximates GitHub's slug algorithm.
-External URLs, evidence quality, and whether the Chinese conclusion matches the
-English one still need a manual review.
+presence and vocabulary of the **Validation Status** table and its evidence on
+simulator and robot pages, the repository paths, modules, `cd` targets, and
+optional dependencies named by documented commands, and the status sequence and
+result numbers of the paired English and Chinese pages. The `docs-check`
+pre-commit hook checks only the changed pages and fails on a broken reference;
+a second hook rechecks the whole tree when `scripts/check_docs.py` changes.
+Design documents skip command checks because they name modules and paths that
+do not exist yet. RST directives, `:doc:`, `:ref:`, and other RST references are
+left to Sphinx: the `Docs` workflow builds both trees with `-W --keep-going`,
+and Read the Docs uses `fail_on_warning: true`. Cross-file Markdown anchors are
+warnings because the checker approximates GitHub's slug algorithm. External
+URLs, evidence quality, and whether the Chinese conclusion matches the English
+one still need a manual review.
 
 Build both languages with warnings treated as errors:
 

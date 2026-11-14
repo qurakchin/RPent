@@ -7,25 +7,32 @@ The check covers only rules that the repository owns:
 - repository-relative Markdown links, images, reference-style links, link
   definitions, and same-file heading anchors. Cross-file anchors are reported
   as warnings because the GitHub slug algorithm is approximated here;
+- commands written in documentation: ``cd`` targets, ``python -m`` modules,
+  script paths, optional-dependency names, and ``-r``/``--requirement`` files.
+  Design documents under ``docs/design/`` are skipped, because they name
+  modules and paths that do not exist yet;
 - the **Validation Status** / **验证状态** table on simulator and real-world
-  robot pages: section presence and position, evidence-level vocabulary,
-  evidence cells, repository paths cited by evidence, paired English or
-  Chinese pages, and agreement of their status sequences;
+  robot pages: section presence and position, evidence-level vocabulary, an
+  Evidence column with the minimum content for each status, repository paths
+  cited by evidence, paired English or Chinese pages, their status sequences,
+  and the result numbers they report;
 - the status line of each design document and the presence of its baseline
   commit (skipped with a warning when the checkout has no full history).
 
-RST structure is not parsed here. Both documentation trees build in Read the
-Docs with ``fail_on_warning: true``, so Sphinx decides directives, ``:doc:``,
-``:ref:``, and other RST references. External URLs are not fetched.
+RST structure is not parsed here. The ``Docs`` workflow builds both trees with
+``sphinx-build -W`` (``.github/workflows/docs.yml``), so Sphinx decides
+directives, ``:doc:``, ``:ref:``, and other RST references. External URLs are
+not fetched.
 
 Markers use ``docs-check: ignore until YYYY-MM-DD: reason``. The marker hides
 its own line and, when it is a standalone comment, the next non-blank line.
 The expiry date is required; an expired marker is an error, so a documented
 exception cannot outlive the reason it was written for.
 
-Exit status is 1 when a reference is broken, a required status table is
-missing or uses an unknown status word, an exception expired, or a design
-document has no reachable status line.
+Exit status is 1 when a reference, documented command, or evidence path does
+not resolve, a required status table is missing or uses an unknown status word,
+a row lacks the evidence its status promises, paired pages disagree, an
+exception expired, or a design document has no reachable status line.
 """
 
 from __future__ import annotations
@@ -61,6 +68,20 @@ MARKDOWN_REFERENCE = re.compile(r"!?\[([^\]]*)\]\[([^\]]*)\]")
 IGNORE = "docs-check: ignore"
 IGNORE_EXPIRY = re.compile(r"docs-check:\s*ignore\b.*?\buntil\s+(\d{4}-\d{2}-\d{2})")
 TRAILING = ".,;:)]}'\"`"
+INLINE_CODE = re.compile(r"(`+)(.+?)\1")
+COMMAND = re.compile(
+    r"(?:^|[\s`'\"(])(bash|sh|pytest|python3?|sphinx-build)\s+([^\n`'\"]+)"
+)
+PIP_EXTRA = re.compile(
+    r"(?:(?:uv|python3?\s+-m)\s+)?pip3?\s+install[^\n]*?"
+    r"(?:-e\s+[\"']?\.\[([^\]]+)\]|\.\[([^\]]+)\])"
+)
+SYNC_EXTRA = re.compile(r"uv\s+sync[^\n]*?--extra(?:=|\s+)([A-Za-z0-9_-]+)")
+PATH_OPTION = re.compile(
+    r"--(?:override|requirement|requirements)(?:=|\s+)([^\s`'\"]+)|-r\s+([^\s`'\"]+)"
+)
+MODULE_OPTION = re.compile(r"-m\s+([A-Za-z_][A-Za-z0-9_.]*)")
+PLACEHOLDERS = set("<>{}*?$|")
 VALIDATION_HEADINGS = {"Validation Status": "en", "验证状态": "zh"}
 EVIDENCE_STATUSES = {
     "en": {
@@ -101,6 +122,34 @@ STATUS_KEYS = {
     "不适用": "not-applicable",
 }
 EVIDENCE_PATH = re.compile(r"(?<![\w:/.-])((?:[\w.@+-]+/)+[\w.@+-]+\.[A-Za-z0-9]+)")
+EVIDENCE_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
+EVIDENCE_SHA = re.compile(r"\b[0-9a-f]{7,40}\b")
+BACKTICK = re.compile(r"``([^`]+)``|`([^`]+)`")
+RESULT_NUMBER = re.compile(r"\b\d+/\d+\b|\b\d+(?:\.\d+)?%")
+COMMAND_HINTS = (
+    "rpent",
+    "python",
+    "pytest",
+    "bash",
+    "sh ",
+    "sphinx-build",
+    "uv ",
+    "git ",
+    "pip ",
+    "scripts/",
+)
+EXTERNAL_CITATION = re.compile(
+    r"https?://|\bdoi\b|doi\.org|\bpaper\b|\btable\b|\breport\b|\bpublish|论文|文献|报告",
+    re.IGNORECASE,
+)
+EXTERNAL_NOT_REPRODUCED = re.compile(
+    r"not reproduc|does not record|no reproduction|未复现|没有记录|未记录",
+    re.IGNORECASE,
+)
+SNAPSHOT = re.compile(r"snapshot|frozen|快照|冻结|commit|revision|版本", re.IGNORECASE)
+LOCATOR_STATUSES = {"verified-multiple", "verified-single", "historical", "cpu"}
+EXTERNAL_STATUSES = {"external"}
+SNAPSHOT_STATUSES = {"historical"}
 VALIDATION_PAGE_DIRS = {"simulators", "real_world_robots"}
 STATUS_COLUMNS = {"Status", "状态"}
 EVIDENCE_COLUMNS = {"Evidence", "证据"}
@@ -245,7 +294,47 @@ class Checker:
         self._has_zh = (self.root / "docs/source-zh").is_dir()
         self._warned_history = False
         self._top_level = {entry.name for entry in self.root.iterdir()}
+        self._module_roots = self._load_module_roots()
+        self._extras = self._load_extras()
+        self._project_name = self._load_project_name()
         self._shallow = self._is_shallow()
+
+    def _load_module_roots(self) -> set[str]:
+        """Return top-level packages whose ``python -m`` names can be checked."""
+        return {
+            entry.name
+            for entry in self.root.iterdir()
+            if entry.is_dir() and (entry / "__init__.py").is_file()
+        }
+
+    def _load_extras(self) -> set[str] | None:
+        """Return optional-dependency names, or None when unavailable.
+
+        Transitional: a_1 replaces the generated extras with ``rpent-env``
+        profiles; this check is replaced by the install-command rule then.
+        """
+        path = self.root / "pyproject.toml"
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        marker = "[project.optional-dependencies]"
+        if marker not in text:
+            return None
+        section = text.split(marker, 1)[1]
+        section = re.split(r"(?m)^\[", section, maxsplit=1)[0]
+        names = set(re.findall(r"(?m)^([A-Za-z0-9_-]+)\s*=\s*\[", section))
+        return names or None
+
+    def _load_project_name(self) -> str | None:
+        """Return the project name used for the clone directory in examples."""
+        path = self.root / "pyproject.toml"
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            return None
+        match = re.search(r"(?m)^\s*name\s*=\s*[\"']([^\"']+)[\"']", text)
+        return match.group(1) if match else None
 
     def _is_shallow(self) -> bool:
         """Return whether the checkout lacks the history a baseline needs."""
@@ -284,8 +373,24 @@ class Checker:
                 self._check_design_status(path, text)
             else:
                 self._check_validation_status(path, text)
+            if self._checks_commands(path):
+                self._check_commands(path, text)
+                self._check_inline_commands(path, text)
         self._check_validation_pairs()
         return self.report
+
+    def _checks_commands(self, path: Path) -> bool:
+        """Return whether this document's commands must resolve.
+
+        Design documents describe the target state, so they name modules and
+        paths that do not exist yet. Their Markdown links and status lines are
+        still checked.
+        """
+        try:
+            parts = path.relative_to(self.root).parts
+        except ValueError:
+            return True
+        return not (len(parts) >= 2 and parts[0] == "docs" and parts[1] == "design")
 
     def _ignored_lines(self, path: Path, text: str) -> set[int]:
         """Return line numbers hidden by ``docs-check: ignore`` markers.
@@ -551,46 +656,102 @@ class Checker:
                 self.root,
             )
             return
+        if evidence_column is None:
+            self.report.error(
+                path,
+                heading + 1,
+                "Validation Status table has no Evidence / 证据 column",
+                self.root,
+            )
+            return
         allowed = EVIDENCE_STATUSES[language]
-        statuses: list[str] = []
-        for line_number, cells in rows[1:]:
+        collected: list[tuple[int, str, str]] = []
+        for number, cells in rows[1:]:
             status = cells[status_column] if status_column < len(cells) else ""
             if not status:
                 self.report.error(
-                    path, line_number, "validation row has no status", self.root
+                    path, number, "validation row has no status", self.root
                 )
                 continue
             base = self._evidence_status(status)
             if base is None:
                 self.report.error(
+                    path, number, f"unknown validation status {status!r}", self.root
+                )
+            elif base not in allowed:
+                self.report.error(
+                    path, number, f"unknown validation status {base!r}", self.root
+                )
+            evidence = cells[evidence_column] if evidence_column < len(cells) else ""
+            if not evidence:
+                self.report.error(
                     path,
-                    line_number,
-                    f"unknown validation status {status!r}",
+                    number,
+                    f"validation row {status!r} has no evidence",
                     self.root,
                 )
             else:
-                statuses.append(base)
-                if base not in allowed:
-                    self.report.error(
-                        path,
-                        line_number,
-                        f"unknown validation status {base!r}",
-                        self.root,
-                    )
-            if evidence_column is not None:
-                evidence = (
-                    cells[evidence_column] if evidence_column < len(cells) else ""
+                self._check_evidence_paths(path, number, evidence)
+                if base is not None:
+                    self._check_evidence_content(path, number, base, evidence)
+            collected.append((number, base or status, evidence))
+        self._validation_rows[path] = (heading + 1, collected)
+
+    def _check_evidence_content(
+        self, path: Path, line: int, status: str, evidence: str
+    ) -> None:
+        """Require the evidence shape that each status promises."""
+        if line in self._ignored:
+            return
+        key = STATUS_KEYS.get(status)
+        if key is None:
+            return
+        if key in LOCATOR_STATUSES and not self._has_locator(evidence):
+            self.report.error(
+                path,
+                line,
+                f"validation row {status!r} needs a locator: a command, "
+                "repository path, commit, or date",
+                self.root,
+            )
+            return
+        if key in SNAPSHOT_STATUSES and not SNAPSHOT.search(evidence):
+            self.report.error(
+                path,
+                line,
+                f"validation row {status!r} must name the frozen snapshot or "
+                "the commit it was measured at",
+                self.root,
+            )
+        if key in EXTERNAL_STATUSES:
+            if not EXTERNAL_CITATION.search(evidence):
+                self.report.error(
+                    path,
+                    line,
+                    f"validation row {status!r} must cite the published source",
+                    self.root,
                 )
-                if not evidence:
-                    self.report.error(
-                        path,
-                        line_number,
-                        f"validation row {status!r} has no evidence",
-                        self.root,
-                    )
-                else:
-                    self._check_evidence_paths(path, line_number, evidence)
-        self._validation_rows[path] = (heading + 1, statuses)
+            if not EXTERNAL_NOT_REPRODUCED.search(evidence):
+                self.report.error(
+                    path,
+                    line,
+                    f"validation row {status!r} must say that this repository "
+                    "has not reproduced the result",
+                    self.root,
+                )
+
+    @staticmethod
+    def _has_locator(evidence: str) -> bool:
+        """Return whether evidence names a command, path, commit, or date."""
+        if EVIDENCE_DATE.search(evidence) or EVIDENCE_SHA.search(evidence):
+            return True
+        if EVIDENCE_PATH.search(evidence):
+            return True
+        for match in BACKTICK.finditer(evidence):
+            span = (match.group(1) or match.group(2)).strip()
+            if "/" in span or any(hint in span.lower() for hint in COMMAND_HINTS):
+                return True
+        return False
 
     @staticmethod
     def _evidence_status(status: str) -> str | None:
@@ -608,7 +769,9 @@ class Checker:
         A repository path that cannot resolve makes the row unverifiable.
         Paths outside the repository (absolute paths, ``~``, variables, or
         directories that are not top-level entries here) are left to the
-        reviewer: artifacts live outside the source tree (a_3 4.5).
+        reviewer: artifacts live outside the source tree (a_3 4.5). Backticked
+        directory paths are checked too, because evidence may name a directory
+        instead of a file.
         """
         if line in self._ignored:
             return
@@ -616,22 +779,38 @@ class Checker:
             if match.start() > 0 and evidence[match.start() - 1] == "/":
                 continue
             target = match.group(1).rstrip(TRAILING)
-            if has_scheme(target) or target.startswith(("www.", "~", "$")):
+            if self._evidence_path_exists(path, target):
                 continue
-            if target.split("/", 1)[0] not in self._top_level:
+            self.report.error(
+                path, line, f"evidence path {target!r} does not exist", self.root
+            )
+        for match in BACKTICK.finditer(evidence):
+            target = (match.group(1) or match.group(2)).strip().rstrip(TRAILING)
+            if not target or " " in target or "/" not in target:
                 continue
-            candidates = (self.root / target, path.parent / target)
-            if any(
-                exact_exists(self.root, candidate.resolve()) for candidate in candidates
-            ):
+            if "." in target.rsplit("/", 1)[-1]:
+                continue  # file paths are handled above
+            if self._evidence_path_exists(path, target):
                 continue
             self.report.error(
                 path, line, f"evidence path {target!r} does not exist", self.root
             )
 
+    def _evidence_path_exists(self, path: Path, target: str) -> bool:
+        """Return whether a repository path is out of scope or exists."""
+        if not target or has_scheme(target) or target.startswith(("www.", "~", "$")):
+            return True
+        if target.split("/", 1)[0] not in self._top_level:
+            return True
+        candidates = (self.root / target, path.parent / target)
+        return any(
+            exact_exists(self.root, candidate.resolve()) or candidate.resolve().is_dir()
+            for candidate in candidates
+        )
+
     def _check_validation_pairs(self) -> None:
         """Require paired pages and equivalent status sequences per language."""
-        for path, (line, statuses) in sorted(self._validation_rows.items()):
+        for path, (line, rows) in sorted(self._validation_rows.items()):
             if "source-en" in path.parts:
                 if not self._has_zh:
                     continue
@@ -659,16 +838,42 @@ class Checker:
             other = self._validation_rows.get(counterpart)
             if other is None:
                 continue
-            if [STATUS_KEYS.get(item, item) for item in statuses] != [
-                STATUS_KEYS.get(item, item) for item in other[1]
-            ]:
+            mine_keys = [STATUS_KEYS.get(status, status) for _, status, _ in rows]
+            other_keys = [STATUS_KEYS.get(status, status) for _, status, _ in other[1]]
+            if mine_keys != other_keys:
                 self.report.error(
                     path,
                     line,
-                    "validation statuses differ from the Chinese counterpart "
-                    f"({statuses!r} != {other[1]!r})",
+                    f"validation statuses differ from the {language} counterpart "
+                    f"({[status for _, status, _ in rows]!r} != "
+                    f"{[status for _, status, _ in other[1]]!r})",
                     self.root,
                 )
+                continue
+            for (number, _, evidence), (_, _, counterpart_evidence) in zip(
+                rows, other[1]
+            ):
+                mine = self._result_numbers(evidence)
+                theirs = self._result_numbers(counterpart_evidence)
+                if mine == theirs:
+                    continue
+                if IGNORE in evidence or IGNORE in counterpart_evidence:
+                    continue
+                self.report.error(
+                    path,
+                    number,
+                    f"result numbers differ from the {language} counterpart "
+                    f"({sorted(mine)} != {sorted(theirs)})",
+                    self.root,
+                )
+
+    @staticmethod
+    def _result_numbers(evidence: str) -> set[str]:
+        """Return the ratios and percentages that both languages must share."""
+        cleaned = BACKTICK.sub(" ", evidence)
+        cleaned = re.sub(r"https?://\S+", " ", cleaned)
+        cleaned = EVIDENCE_DATE.sub(" ", cleaned)
+        return {match.group(0) for match in RESULT_NUMBER.finditer(cleaned)}
 
     def _language_counterpart(self, path: Path) -> Path | None:
         parts = list(path.relative_to(self.root).parts)
@@ -706,6 +911,220 @@ class Checker:
         if cells is not None:
             rows.append((row_line, cells))
         return rows
+
+    # Commands ---------------------------------------------------------------
+
+    def _check_commands(self, path: Path, text: str) -> None:
+        """Check repository paths and names named by documented commands."""
+        cwd = self.root
+        external = False
+        block = -1
+        for block_id, number, line in self._code_lines(path, text):
+            if block_id != block:
+                block = block_id
+                cwd = self.root
+                external = False
+            if number in self._ignored:
+                continue
+            cd = re.match(r"^\s*(?:\$ )?cd\s+([^\s;&|]+)", line)
+            if cd:
+                cwd, external = self._apply_cd(path, number, cd.group(1), cwd)
+            if external:
+                continue
+            self._check_command_text(path, number, line, cwd)
+
+    def _apply_cd(
+        self, path: Path, line: int, raw: str, cwd: Path
+    ) -> tuple[Path, bool]:
+        """Update the working directory for a documented ``cd`` command."""
+        target = raw.strip(TRAILING)
+        if (
+            not target
+            or has_scheme(target)
+            or target.startswith(("~", "$", "@"))
+            or PLACEHOLDERS.intersection(target)
+            or "..." in target
+        ):
+            return cwd, True
+        if target.startswith("/"):
+            absolute = Path(target).resolve()
+            if absolute.is_relative_to(self.root):
+                return absolute, False
+            return cwd, True
+        if (
+            self._project_name is not None
+            and target.lower() == self._project_name.lower()
+        ):
+            # Documentation clones the repository and runs ``cd RPent``; the
+            # directory is the checkout root, not a subdirectory of this tree.
+            return self.root, False
+        candidate = (cwd / target).resolve()
+        if not candidate.is_relative_to(self.root):
+            return cwd, True
+        if candidate.is_dir():
+            return candidate, False
+        self.report.error(
+            path, line, f"documented cd target {target!r} does not exist", self.root
+        )
+        return cwd, True
+
+    def _check_command_text(self, path: Path, line: int, text: str, cwd: Path) -> None:
+        """Check command paths and optional extras named on one line."""
+        for match in PIP_EXTRA.finditer(text):
+            extras = match.group(1) or match.group(2) or ""
+            self._check_extras(path, line, extras)
+        for match in SYNC_EXTRA.finditer(text):
+            self._check_extras(path, line, match.group(1))
+        for match in PATH_OPTION.finditer(text):
+            self._check_command_path(path, line, match.group(1) or match.group(2), cwd)
+        for match in MODULE_OPTION.finditer(text):
+            self._check_module(path, line, match.group(1))
+        for match in COMMAND.finditer(text):
+            command, arguments = match.group(1), match.group(2)
+            if command.startswith("python"):
+                self._check_python_arguments(path, line, arguments, cwd)
+                continue
+            self._check_command_arguments(path, line, command, arguments, cwd)
+
+    def _check_inline_commands(self, path: Path, text: str) -> None:
+        """Check commands written in inline code spans outside code blocks."""
+        code_lines = {number for _, number, _ in self._code_lines(path, text)}
+        for number, line in enumerate(text.splitlines(), 1):
+            if number in code_lines or number in self._ignored:
+                continue
+            for match in INLINE_CODE.finditer(line):
+                span = match.group(2).strip()
+                if span:
+                    self._check_command_text(path, number, span, self.root)
+
+    def _code_lines(self, path: Path, text: str) -> list[tuple[int, int, str]]:
+        """Return ``(block, line number, line)`` for code and literal blocks."""
+        lines = text.splitlines()
+        if path.suffix.lower() == ".md":
+            return self._markdown_code_lines(lines)
+        return self._rst_code_lines(lines)
+
+    @staticmethod
+    def _markdown_code_lines(lines: list[str]) -> list[tuple[int, int, str]]:
+        result = []
+        block = 0
+        fence: str | None = None
+        indented = False
+        for number, line in enumerate(lines, 1):
+            stripped = line.strip()
+            if fence is not None:
+                if stripped.startswith(fence):
+                    fence = None
+                    continue
+                result.append((block, number, line))
+                continue
+            if stripped.startswith(("```", "~~~")):
+                fence = stripped[:3]
+                block += 1
+                indented = False
+                continue
+            if not stripped and indented:
+                result.append((block, number, line))
+                continue
+            is_code = line[:1].isspace() and len(line) - len(line.lstrip()) >= 4
+            if is_code and not indented:
+                block += 1
+            indented = is_code
+            if is_code:
+                result.append((block, number, line))
+        return result
+
+    @staticmethod
+    def _rst_code_lines(lines: list[str]) -> list[tuple[int, int, str]]:
+        result = []
+        block = 0
+        in_code = False
+        for number, line in enumerate(lines, 1):
+            if not line.strip() and in_code:
+                result.append((block, number, line))
+                continue
+            is_code = line[:1].isspace() and len(line) - len(line.lstrip()) >= 3
+            if is_code and not in_code:
+                block += 1
+            in_code = is_code
+            if is_code:
+                result.append((block, number, line))
+        return result
+
+    def _check_python_arguments(
+        self, path: Path, line: int, arguments: str, cwd: Path
+    ) -> None:
+        tokens = [token.strip(TRAILING) for token in arguments.split()]
+        for token in tokens:
+            if token == "-m":
+                return
+            if token.startswith("-") or not token:
+                continue
+            if token.endswith(".py"):
+                self._check_command_path(path, line, token, cwd)
+            return
+
+    def _check_command_arguments(
+        self, path: Path, line: int, command: str, arguments: str, cwd: Path
+    ) -> None:
+        tokens = [token.strip(TRAILING) for token in arguments.split()]
+        # sphinx-build takes a source tree followed by a generated output
+        # directory; only the source tree must exist in the checkout.
+        limit = 1 if command == "sphinx-build" else len(tokens)
+        checked = 0
+        for token in tokens:
+            if token.startswith("-") or not token:
+                continue
+            if PLACEHOLDERS.intersection(token) or "..." in token:
+                continue
+            if command in {"bash", "sh", "sphinx-build"}:
+                if "/" not in token and not Path(token).suffix:
+                    break
+            elif not (token.endswith(".py") or "/" in token):
+                continue
+            self._check_command_path(path, line, token, cwd)
+            checked += 1
+            if checked >= limit:
+                break
+
+    def _check_command_path(self, path: Path, line: int, token: str, cwd: Path) -> None:
+        token = token.strip(TRAILING)
+        if not token or has_scheme(token) or token.startswith(("/", "~", "$", "@")):
+            return
+        if PLACEHOLDERS.intersection(token) or "..." in token:
+            return
+        for base in (cwd, self.root, path.parent):
+            candidate = (base / token).resolve()
+            if exact_exists(self.root, candidate):
+                return
+        self.report.error(
+            path, line, f"documented path {token!r} does not exist", self.root
+        )
+
+    def _check_module(self, path: Path, line: int, module: str) -> None:
+        parts = module.split(".")
+        if len(parts) < 2 or not all(part.isidentifier() for part in parts):
+            return
+        if parts[0] not in self._module_roots:
+            return
+        base = self.root.joinpath(*parts)
+        candidates = [base.with_suffix(".py"), base / "__init__.py"]
+        if not any(exact_exists(self.root, candidate) for candidate in candidates):
+            self.report.error(
+                path, line, f"documented module {module!r} does not exist", self.root
+            )
+
+    def _check_extras(self, path: Path, line: int, extras: str) -> None:
+        if self._extras is None:
+            return
+        for extra in extras.split(","):
+            name = extra.strip()
+            if not name or PLACEHOLDERS.intersection(name) or "..." in name:
+                continue
+            if name not in self._extras:
+                self.report.error(
+                    path, line, f"unknown optional dependency {name!r}", self.root
+                )
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:

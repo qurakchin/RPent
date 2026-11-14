@@ -374,10 +374,10 @@ Validation Status
      - ``pytest tests/unit_tests/robots/robotwin`` runs in the ``unittest`` workflow.
    * - Simulator integration
      - Verified (multiple)
-     - The Experiment Reproduction run drives the CLI, LingBot-VLA, and RoboTwin across 50 tasks and 250 randomized episodes.
+     - The Experiment Reproduction run drives the CLI, LingBot-VLA, and RoboTwin across 50 tasks and 250 randomized episodes using the verified expert seeds in ``robots/robotwin/eval/demo_randomized.json``.
    * - Benchmark success
      - Verified (multiple)
-     - 62.4% (156/250) on ``demo_randomized``. See Experiment Reproduction for run conditions, failures, and timeout accounting.
+     - 62.4% (156/250) on ``demo_randomized`` using the verified expert seeds in ``robots/robotwin/eval/demo_randomized.json``. See Experiment Reproduction for run conditions, failures, and timeout accounting.
    * - Real robot
      - Not applicable
      - Simulator-only integration.

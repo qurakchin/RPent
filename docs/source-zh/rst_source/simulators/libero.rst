@@ -310,11 +310,11 @@ Dashboard
      - 仅 CPU
      - ``pytest tests/unit_tests/robots/libero`` 在 ``unittest`` workflow 中运行。
    * - 仿真集成
-     - 已验证（多次）
-     - 「实验复现」中的运行覆盖全部八个 suite 和 800 次 episode。
+     - 历史结果
+     - 「实验复现」中的运行覆盖全部八个 suite 和 800 次 episode，使用的是运行时 commit ``014a0fa`` 生成的冻结 memory 快照；合并后的发布版尚未重新评测。
    * - Benchmark 成功率
      - 历史结果
-     - Codex / GPT-6 Astra / low / reasoning 下为 741/800（Overall 92.63%），使用原先两份冻结 memory 快照按 suite 分别评测；合并后的发布版尚未重新评测。来源与各 suite 明细见「实验复现」。
+     - Codex / GPT-6 Astra / low / reasoning 下为 741/800（Overall 92.63%），使用原先两份在运行时 commit ``014a0fa`` 生成、按 suite 分别评测的冻结 memory 快照；合并后的发布版尚未重新评测。来源与各 suite 明细见「实验复现」。
    * - 真机
      - 不适用
      - 仅仿真集成。
