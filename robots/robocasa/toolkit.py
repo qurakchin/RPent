@@ -31,7 +31,7 @@ from robots.robocasa.env_server import DEFAULT_CAMS
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
 from rpent.session.env_capture import CapturingEnvClient
-from rpent.tools import ToolResult, iter_tools
+from rpent.tools import ToolResult, iter_tools, unexecuted
 from rpent.tools.direct_action import direct_action_tool
 from rpent.tools.toolkit import Toolkit
 from rpent.utils.logging import get_logger, get_output_dir
@@ -116,7 +116,7 @@ class RoboCasaToolkit(Toolkit):
                     "attempts left. Archive the attempt, reset, and change the plan."
                 ),
             }
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
         return inner(**kwargs)
 
     def _reset_episode(self) -> ToolResult:
@@ -125,7 +125,7 @@ class RoboCasaToolkit(Toolkit):
                 "error": "reset refused",
                 "reason": "The task is already solved; save artifacts and finish.",
             }
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
         budget = self._attempts_per_session
         if budget and self._attempt >= budget:
             payload = {
@@ -135,14 +135,23 @@ class RoboCasaToolkit(Toolkit):
                     "Update the handoff notes and finish this session."
                 ),
             }
-            return ToolResult(data=payload)
-        result = self._primitives.reset().to_dict()
-        if result.get("error"):
-            payload = result
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
+        reset = self._primitives.reset()
+        if reset.is_error:
+            # The native reset refused or failed; its execution layers describe
+            # whether the episode actually restarted.
+            return ToolResult(
+                data=reset.data,
+                images=reset.images,
+                call_ok=reset.call_ok,
+                error=reset.error,
+                no_execution=reset.no_execution,
+                execution_uncertain=reset.execution_uncertain,
+                execution_status=reset.execution_status,
+            )
         self._attempt += 1
         payload = {
-            **result,
+            **reset.data,
             "attempt": self._attempt,
             "notice": "Fresh episode started. Re-run perception before acting.",
         }

@@ -25,7 +25,7 @@ from robots.robodojo.primitives import RoboDojoPrimitives
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
 from rpent.session.env_capture import CapturingEnvClient
-from rpent.tools import Toolkit, ToolResult, iter_tools, tool
+from rpent.tools import Toolkit, ToolResult, iter_tools, tool, unexecuted
 from rpent.utils.logging import get_logger, get_output_dir
 
 logger = get_logger(__name__)
@@ -212,10 +212,14 @@ class RoboDojoToolkit(Toolkit):
     def _reset_episode(self) -> ToolResult:
         """Retry the same task/seed/layout in exploration. Re-perceive after reset."""
         if self.solved():
-            return ToolResult(data={"error": "reset refused: task already solved"})
+            return unexecuted(
+                {"error": "reset refused: task already solved"}, status="rejected"
+            )
         budget = self._attempts_per_session
         if budget and self._attempt >= budget:
-            return ToolResult(data={"error": "reset refused: attempt budget exhausted"})
+            return unexecuted(
+                {"error": "reset refused: attempt budget exhausted"}, status="rejected"
+            )
         result = self._primitives.reset()
         self._pending_perception = []
         self._attempt += 1
@@ -233,11 +237,12 @@ class RoboDojoToolkit(Toolkit):
             and self._attempt < self._attempts_per_session
             and not self.solved()
         ):
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": "finish refused",
                     "reason": "Attempts remain: archive this attempt, reset and change the plan.",
-                }
+                },
+                status="rejected",
             )
         return self._call_robodojo_tool(
             self._primitives.finish, status=status, summary=summary

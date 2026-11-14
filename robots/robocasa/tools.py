@@ -31,7 +31,7 @@ from pydantic import Field
 
 from robots.robocasa.primitives import RoboCasaPrimitives
 from rpent.session import EnvState, StepRecord
-from rpent.tools import ToolResult
+from rpent.tools import ToolResult, unexecuted
 from rpent.tools.base import tool
 
 # ---- state persistence (dump_state writes through the run's EnvState) ----
@@ -167,7 +167,7 @@ def view_env_state(step: int | None = None, *, state: EnvState) -> ToolResult:
     try:
         record = state.get(step if step is not None else -1)
     except Exception as exc:
-        return ToolResult(data={"error": f"state step not available: {exc}"})
+        return unexecuted({"error": f"state step not available: {exc}"})
 
     nn = record.step_idx
     extras = record.extras
@@ -241,24 +241,24 @@ def back_project_batch(
     camera = camera or "agentview"
     resolution = resolution or "low"
     if camera not in _CAMERA_WORLD_ARTIFACTS:
-        return ToolResult(
-            data={"error": f"bad camera '{camera}' (use agentview, navview, or wrist)"}
+        return unexecuted(
+            {"error": f"bad camera '{camera}' (use agentview, navview, or wrist)"}
         )
     low_name, hi_name = _CAMERA_WORLD_ARTIFACTS[camera]
     source_artifact = hi_name if resolution == "high" else low_name
     if source_artifact is None:
-        return ToolResult(
-            data={"error": f"{camera} has no {resolution}-resolution world map"}
+        return unexecuted(
+            {"error": f"{camera} has no {resolution}-resolution world map"}
         )
 
     try:
         record = state.get(step if step is not None else -1)
     except Exception as exc:
-        return ToolResult(data={"error": f"state step not available: {exc}"})
+        return unexecuted({"error": f"state step not available: {exc}"})
     nn = record.step_idx
     if source_artifact not in record.artifacts:
-        return ToolResult(
-            data={
+        return unexecuted(
+            {
                 "error": (
                     f"{camera} {resolution}-resolution world map not recorded for step {nn}"
                 )
@@ -268,8 +268,8 @@ def back_project_batch(
     try:
         world_map = state.load(source_artifact, step=nn)
     except Exception as exc:
-        return ToolResult(
-            data={"error": f"{source_artifact} not found for step {nn}: {exc}"}
+        return unexecuted(
+            {"error": f"{source_artifact} not found for step {nn}: {exc}"}
         )
 
     results = []
@@ -374,24 +374,24 @@ def query_world_map(
         min_cluster_size: Minimum pixels per cluster to report (default 10).
     """
     if camera not in _CAMERA_WORLD_ARTIFACTS:
-        return ToolResult(
-            data={"error": f"bad camera '{camera}' (use agentview, navview, or wrist)"}
+        return unexecuted(
+            {"error": f"bad camera '{camera}' (use agentview, navview, or wrist)"}
         )
     low_name, hi_name = _CAMERA_WORLD_ARTIFACTS[camera]
     source_artifact = hi_name if resolution == "high" else low_name
     if source_artifact is None:
-        return ToolResult(
-            data={"error": f"{camera} has no {resolution}-resolution world map"}
+        return unexecuted(
+            {"error": f"{camera} has no {resolution}-resolution world map"}
         )
 
     try:
         record = state.get(-1)
     except Exception:
-        return ToolResult(data={"error": "no state trace available"})
+        return unexecuted({"error": "no state trace available"})
     nn = record.step_idx
     if source_artifact not in record.artifacts:
-        return ToolResult(
-            data={
+        return unexecuted(
+            {
                 "error": (
                     f"{camera} {resolution}-resolution world map not found for step {nn}"
                 )
@@ -400,8 +400,8 @@ def query_world_map(
     try:
         world_map = state.load(source_artifact, step=nn)
     except Exception:
-        return ToolResult(
-            data={
+        return unexecuted(
+            {
                 "error": (
                     f"{camera} {resolution}-resolution world map not found for step {nn}"
                 )
