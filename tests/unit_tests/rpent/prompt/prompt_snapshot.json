@@ -16,7 +16,8 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "9b306a52d992d83e5a4c7b1b54bc2429d4ba82434b3411678129226de01ad9a4"
+    "prompt_sha256": "9b306a52d992d83e5a4c7b1b54bc2429d4ba82434b3411678129226de01ad9a4",
+    "rendered_lines": 250
   },
   "yam:explore": {
     "sections": [
@@ -37,7 +38,8 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "6c20ca597dd1ac962347e8752a2299d691ff9702f3d86eae64ac68097d83b6fb"
+    "prompt_sha256": "6c20ca597dd1ac962347e8752a2299d691ff9702f3d86eae64ac68097d83b6fb",
+    "rendered_lines": 385
   },
   "yam:dashboard": {
     "sections": [
@@ -57,7 +59,8 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "356025b9df71c65f4aedafb204bc59ae149d05c7e64e1fceea43f04bf660be79"
+    "prompt_sha256": "356025b9df71c65f4aedafb204bc59ae149d05c7e64e1fceea43f04bf660be79",
+    "rendered_lines": 267
   },
   "libero:eval": {
     "sections": [
@@ -78,7 +81,8 @@
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "94faf0b5be5e6866e47654aa8c09d2370afbad8dece1609171c1c742561789b9"
+    "prompt_sha256": "94faf0b5be5e6866e47654aa8c09d2370afbad8dece1609171c1c742561789b9",
+    "rendered_lines": 601
   },
   "libero:explore": {
     "sections": [
@@ -100,7 +104,8 @@
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "a1ccbd94085f0a8a92d8ea5a66d475dbd0085f81241b7fa869e3e649d0af83a7"
+    "prompt_sha256": "a1ccbd94085f0a8a92d8ea5a66d475dbd0085f81241b7fa869e3e649d0af83a7",
+    "rendered_lines": 811
   },
   "libero:dashboard": {
     "sections": [
@@ -122,7 +127,8 @@
       "MODE",
       "BEGIN"
     ],
-    "prompt_sha256": "8548811b1ef5a011932deef2bd1f93ae327f1eccd980697f57e1f95a1f2b5323"
+    "prompt_sha256": "8548811b1ef5a011932deef2bd1f93ae327f1eccd980697f57e1f95a1f2b5323",
+    "rendered_lines": 618
   },
   "robocasa:eval": {
     "sections": [
@@ -145,7 +151,8 @@
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "a41a2f11929b9bf90e5e09a5adf44b5918415e265524794cd10c89202ee6ef33"
+    "prompt_sha256": "a41a2f11929b9bf90e5e09a5adf44b5918415e265524794cd10c89202ee6ef33",
+    "rendered_lines": 304
   },
   "robocasa:explore": {
     "sections": [
@@ -169,7 +176,8 @@
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "4d9a952be326c5e73b4f04934b1479ce6f90f56366c188e5c1613fc770ce9c5d"
+    "prompt_sha256": "4d9a952be326c5e73b4f04934b1479ce6f90f56366c188e5c1613fc770ce9c5d",
+    "rendered_lines": 375
   },
   "robocasa:dashboard": {
     "sections": [
@@ -193,7 +201,8 @@
       "Task",
       "Mode"
     ],
-    "prompt_sha256": "ad73c85ee0aa3ca02232a52d6ac8739ea52bc7a22bb53d90db5f495e823f3b68"
+    "prompt_sha256": "ad73c85ee0aa3ca02232a52d6ac8739ea52bc7a22bb53d90db5f495e823f3b68",
+    "rendered_lines": 321
   },
   "robodojo:eval": {
     "sections": [
@@ -215,7 +224,8 @@
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "5121701a129b389fa63060a09c8d057d012f411a09cb94d08dacb20c9cc24057"
+    "prompt_sha256": "5121701a129b389fa63060a09c8d057d012f411a09cb94d08dacb20c9cc24057",
+    "rendered_lines": 380
   },
   "robodojo:explore": {
     "sections": [
@@ -240,7 +250,8 @@
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "648f30de7caa6b84b06454f6aa675c39ee83d79077dca72732885d843608f77d"
+    "prompt_sha256": "648f30de7caa6b84b06454f6aa675c39ee83d79077dca72732885d843608f77d",
+    "rendered_lines": 504
   },
   "robodojo:dashboard": {
     "sections": [
@@ -263,7 +274,8 @@
       "TASK",
       "BEGIN"
     ],
-    "prompt_sha256": "2958ca38fca12cf3455bac45936735360f15142fbb9e9ef41c8e6271f2e34e58"
+    "prompt_sha256": "2958ca38fca12cf3455bac45936735360f15142fbb9e9ef41c8e6271f2e34e58",
+    "rendered_lines": 397
   },
   "robotwin:eval": {
     "sections": [
@@ -284,7 +296,8 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "5a35bfceebbfef463ce53a64e3096821f997ee6f475096e897e776c775193046"
+    "prompt_sha256": "5a35bfceebbfef463ce53a64e3096821f997ee6f475096e897e776c775193046",
+    "rendered_lines": 276
   },
   "robotwin:explore": {
     "sections": [
@@ -309,7 +322,8 @@
       "BEGIN",
       "EXPLORE MODE"
     ],
-    "prompt_sha256": "fd67917e9a223e61c4abbbaae7e4d6a4f1c0769e1145ec07d1c4c08ecb07caef"
+    "prompt_sha256": "fd67917e9a223e61c4abbbaae7e4d6a4f1c0769e1145ec07d1c4c08ecb07caef",
+    "rendered_lines": 377
   },
   "robotwin:dashboard": {
     "sections": [
@@ -331,7 +345,8 @@
       "CELL",
       "BEGIN"
     ],
-    "prompt_sha256": "989079000528a126c3c88017eb013bdd741219208ac763a2c98fa8eccbc0a887"
+    "prompt_sha256": "989079000528a126c3c88017eb013bdd741219208ac763a2c98fa8eccbc0a887",
+    "rendered_lines": 293
   },
   "franka:eval": {
     "sections": [
@@ -347,24 +362,8 @@
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "0b4121de6daa691fc13341c43fb6d6a4ec297926d808eef74b7364f44cd9a973"
-  },
-  "franka:explore": {
-    "sections": [
-      "OPERATING RULES",
-      "RUN MODE \u2014 EXPLORATION",
-      "RUN MODE \u2014 REAL ROBOT",
-      "PRIMITIVE CONVENTIONS",
-      "ROLE",
-      "WORKFLOW",
-      "MEMORY \u2014 HOW TO READ",
-      "MEMORY \u2014 USING STORED EVIDENCE",
-      "MEMORY \u2014 PROPOSALS AND MERGING",
-      "TASK",
-      "TASK CONSTRAINTS",
-      "BEGIN"
-    ],
-    "prompt_sha256": "52342e39c6a6145d4b0d81412482beb0ad9d0b14893efa12155cecc15535d365"
+    "prompt_sha256": "0b4121de6daa691fc13341c43fb6d6a4ec297926d808eef74b7364f44cd9a973",
+    "rendered_lines": 177
   },
   "franka:dashboard": {
     "sections": [
@@ -381,7 +380,8 @@
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "3cf80e2f549e168c8f5a36b0969157302cb1165b6a704bea179574a88df91b9a"
+    "prompt_sha256": "3cf80e2f549e168c8f5a36b0969157302cb1165b6a704bea179574a88df91b9a",
+    "rendered_lines": 194
   },
   "dual_franka:eval": {
     "sections": [
@@ -399,7 +399,8 @@
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "10a0a6bb71062aace251a032fefea056152098a37fd5f041b13169144cf53633"
+    "prompt_sha256": "10a0a6bb71062aace251a032fefea056152098a37fd5f041b13169144cf53633",
+    "rendered_lines": 236
   },
   "dual_franka:explore": {
     "sections": [
@@ -421,7 +422,8 @@
       "BEGIN",
       "EXPLORATION OUTPUT"
     ],
-    "prompt_sha256": "be3fbd5e0c196dca7373658498063fb6aea072bef186320147a67adb847dbd7e"
+    "prompt_sha256": "be3fbd5e0c196dca7373658498063fb6aea072bef186320147a67adb847dbd7e",
+    "rendered_lines": 374
   },
   "dual_franka:dashboard": {
     "sections": [
@@ -440,6 +442,7 @@
       "TASK CONSTRAINTS",
       "BEGIN"
     ],
-    "prompt_sha256": "a53aca11939f0460e2df057cb9887f8f1232effeab004523893b2d20044c3593"
+    "prompt_sha256": "a53aca11939f0460e2df057cb9887f8f1232effeab004523893b2d20044c3593",
+    "rendered_lines": 253
   }
 }

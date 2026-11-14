@@ -38,14 +38,15 @@ class PromptBundle:
     """Python-defined prompt factories for one robot.
 
     ``system`` and ``user`` are the robot's domain contribution. The shared
-    assembly layer inserts base rules, run-axis contracts, shared tool-family
-    guidance, and memory pointers around them. ``tool_sections`` contributes
-    guidance for tools that exist only in this slice, such as native tools; it
-    must not repeat a tool family's guidance and may be omitted when the slice
-    adds no native tool. It takes the same variables and must stay a pure
-    function so ``--dump-prompt`` can render without starting a runtime.
-    ``source`` is the fallback provenance; contributions built with
-    :func:`rpent.prompt.assembly.sections` record their own module instead.
+    assembly layer inserts base rules, run-axis contracts, tool guidance, and
+    memory pointers around them. ``tool_sections`` supplies the guidance for
+    the tools this slice exposes, such as native tools; it may be omitted when
+    the slice adds no tool guidance. Tool schemas stay with the toolkit, so
+    this text must not restate call signatures. It takes the same variables
+    and must stay a pure function so ``--dump-prompt`` can render without
+    starting a runtime. ``source`` is the fallback provenance; contributions
+    built with :func:`rpent.prompt.assembly.sections` record their own module
+    instead.
     """
 
     system: PromptFactory

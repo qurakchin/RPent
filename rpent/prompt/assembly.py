@@ -14,14 +14,13 @@
 
 """Assemble one model prompt from fixed, traceable layers.
 
-Every robot contributes only its domain knowledge. Shared rules live in
-``rpent/prompt/fragments``, the run axes add their own contract, and the tool
-families contribute the guidance for the tools they expose. A slice may still
-contribute guidance for tools that exist only in that robot through
-``PromptBundle.tool_sections``; it must not restate a family's tool. The layer
-order is fixed so a reader can predict where a rule lives:
+Every robot contributes its domain knowledge and the guidance for the tools it
+exposes. Shared rules live in ``rpent/prompt/fragments`` and the run axes add
+their own contract; in this branch a slice's ``PromptBundle.tool_sections``
+supplies its tool guidance. The layer order is fixed so a reader can predict
+where a rule lives:
 
-    base -> run axes -> tool families -> robot domain -> memory
+    base -> run axes -> tool guidance -> robot domain -> memory
 
 Prompt rendering stays independent of the robot runtime: tool contributions are
 pure functions of the prompt variables. ``--dump-prompt`` therefore renders a
@@ -229,9 +228,9 @@ def run_axes(*, explore: bool, dashboard: bool, real_robot: bool) -> tuple[str, 
     """Compose the run axes that apply to one session.
 
     ``dashboard`` selects the interactive axis; the Dashboard is its current
-    implementation, not a separate axis. ``policy_mode`` is the fourth axis in
-    ``a_global`` 2.2 and is added by a_4 together with its ``mode_code``
-    fragment; until that lands, this helper must not invent code-mode rules.
+    implementation, not a separate axis. This helper does not derive
+    ``policy_mode``: code-mode rules belong with that axis, and inventing them
+    from a CLI mode would make the prompt claim behavior the run lacks.
     """
     axes = ["explore" if explore else "evaluate"]
     if dashboard:
@@ -272,10 +271,9 @@ def build_robot_prompt(
     """Assemble one robot's system and user prompts.
 
     Args:
-        bundle: The robot's domain prompt factories and optional guidance for
-            tools that exist only in this slice. Shared tool usage comes from
-            the tool families (a_3); a bundle with no ``tool_sections`` is
-            valid.
+        bundle: The robot's domain prompt factories and optional tool
+            guidance. ``tool_sections`` describes the tools this slice
+            exposes; a bundle with no ``tool_sections`` is valid.
         robot_name: Registry name, used as the default source label.
         variables: Prompt variables passed to every contribution.
         axes: Run axes that apply, such as ``("evaluate", "real_robot")``.
@@ -387,8 +385,8 @@ def prompt_sha256(system: str, user: str) -> str:
     """Return the digest of the assembled system and user prompts.
 
     This is the digest of the two roles as assembled, not necessarily of the
-    single message a planner receives. ``prompt_sources.json`` records the
-    planner layout separately, and ``effective_prompt.md`` contains the exact
-    text a prefixing planner sends.
+    single message a planner receives. ``prompt_sources.json`` also records
+    ``user_message_sha256`` for the opening message and, for prefixing
+    planners, ``delivered_sha256`` for the concatenated text.
     """
     return hashlib.sha256(f"system\0{system}\0user\0{user}".encode("utf-8")).hexdigest()

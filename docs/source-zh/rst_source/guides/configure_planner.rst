@@ -39,22 +39,25 @@ RPent 通过一个 CLI 参数选择 Agentic Planner 的后端：
 每次会话都会把模型实际收到的输入写入该会话的 state 目录：评测运行使用输出
 目录，探索运行使用 ``sessions/session_NNN/``。``effective_prompt.md`` 包含
 渲染后的系统提示词和用户消息，``prompt_sources.json`` 记录机器人、规划器、
-运行轴、各段名称、来源，以及拼装后提示词的哈希。对话记录中
-保存本次运行第一个会话的 ``prompt_sha256``；
-后续探索会话的产物位于各自的 ``sessions/session_NNN/`` 下。该哈希覆盖拼装出的
-系统提示词和用户消息。``prompt_sources.json`` 记录规划器接收两种角色的方式；
-对会把 system prompt 拼到第一条 user 消息前面的 ``codex``，
-``effective_prompt.md`` 还会写出这条拼接后的消息。``api`` 和 ``claude_code``
-保持两种角色分离，``flash`` 不接收提示词。由 SDK 管理上下文的规划器还可能在
-RPent 之外补充内容，因此这些产物覆盖的是 RPent 的贡献，而不是模型最终的完整
-上下文。
+运行轴、各段名称、来源，以及拼装后提示词和开场用户消息的 SHA-256 摘要。
+对话记录中保存本次运行第一个会话的 ``prompt_sha256``；后续探索会话的产物位于
+各自的 ``sessions/session_NNN/`` 下。``prompt_sha256`` 覆盖拼装出的系统提示词
+和用户消息，``user_message_sha256`` 覆盖该会话实际投递的第一条消息，它可能在
+交接或操作员编辑后与拼装出的用户消息不同。``prompt_sources.json`` 记录规划器
+接收两种角色的方式；对会把 system prompt 拼到第一条 user 消息前面的
+``codex``，``effective_prompt.md`` 还会写出这条拼接后的消息，
+``prompt_sources.json`` 则记录其 ``delivered_sha256``。``api`` 和
+``claude_code`` 保持两种角色分离，``flash`` 不接收提示词。由 SDK 管理上下文的
+规划器还可能在 RPent 之外补充内容，因此这些产物覆盖的是 RPent 的贡献，而不是
+模型最终的完整上下文。
 
 在任意机器人命令后加上 ``--dump-prompt``，即可渲染提示词、打印结果并退出，
 不启动仿真器或模型。dump 在本次运行的记忆准备之前执行，因此既不创建也不同步
 memory，跳过真机命令的操作员 TTY 门禁，也不写运行产物；记忆段缺失时 RPent 会
 在 stderr 给出提示，模型实际收到的提示词以运行时写出的
 ``effective_prompt.md`` 为准。dump 不能与 ``--dashboard`` 同时使用，后者在
-自身的会话循环中按认领的任务拼装提示词：
+自身的会话循环中按认领的任务拼装提示词；也不能与 ``--tui`` 同时使用，后者的
+操作员可以在拼装后编辑第一条消息：
 
 .. code-block:: bash
 

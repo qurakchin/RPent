@@ -29,6 +29,8 @@ from rpent.prompt.prompt_artifacts import (
     EFFECTIVE_PROMPT,
     PROMPT_SOURCES,
     delivered_prompt_text,
+    effective_prompt_markdown,
+    prompt_sources,
     write_prompt_artifacts,
 )
 from rpent.prompt.utils import format_prompt
@@ -265,12 +267,44 @@ def test_write_prompt_artifacts_records_layout_and_sources(tmp_path: Path) -> No
     assert sources["planner_prompt_layout"] == "separate_system"
     assert sources["axes"] == ["evaluate"]
     assert sources["prompt_sha256"] == assembled.prompt_sha256
-    assert "delivered_prompt_sha256" not in sources
-    assert "user_message_sha256" not in sources
+    assert sources["user_message_sha256"] == hashlib.sha256(b"do the task").hexdigest()
+    assert "delivered_sha256" not in sources
+    assert f"user_message_sha256: `{sources['user_message_sha256']}`" in text
     assert [section["name"] for section in sources["sections"]] == [
         section["name"] for section in assembled.sections
     ]
     assert not list(tmp_path.glob(".*.tmp"))
+
+
+def test_prompt_sources_hash_the_delivered_message_for_prefixing_planners() -> None:
+    assembled = assemble_prompt(_layers(), variables={})
+    user_message = "do the task"
+
+    sources = prompt_sources(
+        assembled,
+        robot_name="demo",
+        planner="codex",
+        axes=("evaluate",),
+        user_message=user_message,
+    )
+
+    delivered = prefix_system_prompt(assembled.system, user_message)
+    assert (
+        sources["user_message_sha256"]
+        == hashlib.sha256(user_message.encode("utf-8")).hexdigest()
+    )
+    assert (
+        sources["delivered_sha256"]
+        == hashlib.sha256(delivered.encode("utf-8")).hexdigest()
+    )
+    text = effective_prompt_markdown(
+        assembled,
+        robot_name="demo",
+        planner="codex",
+        axes=("evaluate",),
+        user_message=user_message,
+    )
+    assert f"delivered_sha256: `{sources['delivered_sha256']}`" in text
 
 
 def test_delivered_text_uses_the_same_prefix_helper_as_the_planners() -> None:
