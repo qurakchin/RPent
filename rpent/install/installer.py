@@ -160,25 +160,71 @@ def _supported_python(component: Component) -> str:
     return host
 
 
+def _profiles_placing(catalog: Catalog, component_name: str) -> list[str]:
+    """Return the profiles that list ``component_name``."""
+    return sorted(
+        name
+        for name, profile in catalog.profiles.items()
+        if component_name in profile.components
+    )
+
+
 def component_profile(
     component_name: str,
     catalog: Catalog,
     *,
     root: Path,
     python: str | None = None,
+    variant: str | None = None,
 ) -> Profile:
     """Build a development-only profile for one component.
 
+    The component is placed in the synthetic profile's own environment, so a
+    component that only allows an external or remote placement cannot be
+    installed this way; the error names the profiles that can install it.
     ``python`` pins the interpreter used for an installed diagnostic
     environment; ``doctor`` passes the version recorded in the fingerprint so
     the profile hashes the same no matter which interpreter runs the check.
     """
+    component = catalog.components[component_name]
+    if "in-env" not in component.placements:
+        places = _profiles_placing(catalog, component_name)
+        hint = (
+            f"install one of the profiles that place it: {', '.join(places)}"
+            if places
+            else (
+                f"no profile places it yet; add [components.{component_name}] to "
+                "a profile that runs it"
+            )
+        )
+        raise InstallError(
+            f"component {component_name!r} allows {', '.join(component.placements)} "
+            f"placement but no in-env placement; {hint}"
+        )
+    if component.variant_required and variant is None:
+        choices = "|".join(sorted(component.optional))
+        places = _profiles_placing(catalog, component_name)
+        hint = (
+            f" or install a profile that selects one: {', '.join(places)}"
+            if places
+            else ""
+        )
+        raise InstallError(
+            f"component {component_name!r} requires a variant; pass "
+            f"`--variant <{choices}>`{hint}"
+        )
+    if variant is not None and variant not in component.optional:
+        choices = ", ".join(sorted(component.optional)) or "<none>"
+        raise InstallError(
+            f"component {component_name!r} has no optional group {variant!r}; "
+            f"--variant must be one of {choices}"
+        )
     return Profile(
         name=component_name,
-        path=root / "envs" / f"{component_name}.toml",
-        python=python or _supported_python(catalog.components[component_name]),
+        path=root / f"<component {component_name}>",
+        python=python or _supported_python(component),
         platform=runtime_platform(),
-        components={component_name: Selection()},
+        components={component_name: Selection(placement="in-env", variant=variant)},
         dependencies=(),
         index_url=None,
         extra_index_urls=(),
@@ -187,6 +233,7 @@ def component_profile(
         generate_extra=False,
         extra=None,
         description=f"development diagnostic environment for {component_name}",
+        synthetic=True,
     )
 
 
@@ -196,16 +243,26 @@ def resolve_install_target(
     *,
     root: Path,
     include_dev: bool = False,
+    variant: str | None = None,
 ) -> Resolution:
-    """Resolve a profile name or, when needed, a single component name."""
+    """Resolve a profile name or, when needed, a single component name.
+
+    ``variant`` names the optional group of a single component; a profile
+    selects its variants itself, so passing both is a mistake.
+    """
     if target in catalog.profiles:
+        if variant is not None:
+            raise InstallError(
+                f"profile {target!r} selects its own variants; --variant applies "
+                "only to a single component target"
+            )
         profile = catalog.profiles[target]
         if include_dev:
             profile = _with_dev(profile, catalog)
     elif target in catalog.components:
         if include_dev:
             raise InstallError("--dev applies to profiles, not single components")
-        profile = component_profile(target, catalog, root=root)
+        profile = component_profile(target, catalog, root=root, variant=variant)
     else:
         known = ", ".join(sorted(catalog.profiles))
         raise InstallError(
@@ -221,6 +278,7 @@ def install(
     root: Path | None = None,
     venv: Path | None = None,
     include_dev: bool = False,
+    variant: str | None = None,
     dry_run: bool = False,
     verbose: bool = True,
 ) -> dict[str, Any]:
@@ -228,7 +286,7 @@ def install(
     repo_root = (root or get_repo_root()).resolve()
     catalog = discover(repo_root)
     resolution = resolve_install_target(
-        target, catalog, root=repo_root, include_dev=include_dev
+        target, catalog, root=repo_root, include_dev=include_dev, variant=variant
     )
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
@@ -311,7 +369,7 @@ def install(
     install_from = lock if using_lock else requirements_path
     install_command = [uv, "pip", "install", "--python", str(python)]
     install_command.extend(index_options(profile))
-    for resolved in resolution.main_components().values():
+    for resolved in resolution.main_installed().values():
         for override in resolved.component.overrides:
             install_command.extend(["--override", str(override)])
     install_command.extend(["-r", str(install_from)])
@@ -442,6 +500,16 @@ def probe_source(probe: str) -> str:
     )
 
 
+def repair_command(resolution: Resolution) -> str:
+    """Return the command that rebuilds the same installation."""
+    profile = resolution.profile
+    command = f"rpent-env install {profile.name}"
+    selection = profile.components.get(profile.name)
+    if profile.synthetic and selection is not None and selection.variant is not None:
+        command += f" --variant {selection.variant}"
+    return command
+
+
 def _probe_components(
     resolution: Resolution,
     python: Path,
@@ -449,8 +517,10 @@ def _probe_components(
     *,
     verbose: bool,
 ) -> None:
+    # This includes deps components: they have no code of their own, but their
+    # probe proves the package group a consumer relies on really imported.
     environment = {**os.environ, "PYTHONPATH": str(root)}
-    for name, resolved in sorted(resolution.main_components().items()):
+    for name, resolved in sorted(resolution.main_installed().items()):
         probe = resolved.component.probe
         if verbose:
             print(f"probe {name}: import {probe}")
@@ -464,6 +534,7 @@ def _probe_components(
             raise InstallError(
                 f"component {name!r} is not importable in {python.parent.parent}\n"
                 f"  probe: import {probe}\n"
-                f"  install: rpent-env install {name} --venv {python.parent.parent}\n"
+                f"  install: {repair_command(resolution)} "
+                f"--venv {python.parent.parent}\n"
                 f"{exc}"
             ) from exc

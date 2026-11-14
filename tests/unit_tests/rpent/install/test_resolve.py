@@ -39,6 +39,22 @@ def test_requires_closure_adds_components_with_default_placement(
     assert resolution.environments() == {"alpha": ("alpha", "sam3")}
 
 
+def test_mutual_requires_is_a_symmetric_closure(
+    make_component, make_profile, make_catalog
+):
+    # `requires` describes co-installation, which is symmetric; a mutual pair
+    # must resolve once per component instead of being rejected as a cycle.
+    alpha = make_component("alpha", requires=["beta"])
+    beta = make_component("beta", requires=["alpha"])
+    profile = make_profile("alpha", {"alpha": Selection()})
+    catalog = _catalog(make_catalog, alpha, beta)
+
+    resolution = resolve(profile, catalog)
+
+    assert resolution.ok
+    assert resolution.environments() == {"alpha": ("alpha", "beta")}
+
+
 def test_default_variant_is_used_when_the_profile_omits_one(
     make_component, make_profile, make_catalog
 ):
@@ -319,6 +335,17 @@ def test_overlapping_specifiers_are_compatible(
 ):
     alpha = make_component("alpha", dependencies=["huggingface-hub>=0.24,<1"])
     beta = make_component("beta", dependencies=["huggingface-hub>=0.34,<2"])
+    profile = make_profile("shared", {"alpha": Selection(), "beta": Selection()})
+    catalog = _catalog(make_catalog, alpha, beta)
+
+    assert resolve(profile, catalog).ok
+
+
+def test_range_pins_are_left_to_uv(make_component, make_profile, make_catalog):
+    # `>1.0` and `<1.0.1` overlap at 1.0.post1; sampling boundaries used to
+    # report a false conflict, so ranges are not compared statically.
+    alpha = make_component("alpha", dependencies=["pkg>1.0"])
+    beta = make_component("beta", dependencies=["pkg<1.0.1"])
     profile = make_profile("shared", {"alpha": Selection(), "beta": Selection()})
     catalog = _catalog(make_catalog, alpha, beta)
 

@@ -241,7 +241,60 @@ class Finding:
     level: str = ERROR
 
 
-def _imports(path: Path) -> list[tuple[int, str]]:
+def _module_parts(path: Path, root: Path) -> tuple[str, ...]:
+    """Return the dotted package parts that contain ``path``.
+
+    A package entry point is its own package; any other module belongs to its
+    directory. Relative imports are resolved against this package, so leaving
+    the module name in would shift every level by one.
+    """
+    parts = list(path.relative_to(root).with_suffix("").parts)
+    if parts:
+        parts.pop()
+    return tuple(parts)
+
+
+def _relative_target(
+    path: Path, root: Path, node: ast.ImportFrom
+) -> tuple[str, ...] | None:
+    """Resolve ``from .. import x`` to the absolute module it names.
+
+    Relative imports cross the same component boundaries as absolute ones, so
+    K4 resolves them instead of skipping every ``node.level > 0``. ``from ..
+    import franka`` names the ``franka`` package through a bare alias, which
+    the module path alone does not show; such an alias is expanded when it
+    names a package or module under the resolved base.
+    """
+    package = _module_parts(path, root)
+    # Each extra dot climbs one package; the last one names the top level.
+    if node.level - 1 > len(package):
+        return None
+    base = package[: len(package) - (node.level - 1)]
+    if node.module:
+        base = (*base, *node.module.split("."))
+    return base or None
+
+
+def _named_imports(
+    root: Path, base: tuple[str, ...], node: ast.ImportFrom
+) -> list[tuple[int, str]]:
+    """Return ``from base import name`` imports whose name is a module here.
+
+    A bare alias names a package or module without spelling out its dotted
+    path, so K4 expands it: ``from robots import beta`` crosses into the
+    ``beta`` slice exactly like ``from robots.beta import spec`` does.
+    """
+    imports: list[tuple[int, str]] = []
+    for alias in node.names:
+        if alias.name == "*":
+            continue
+        candidate = root.joinpath(*base, alias.name)
+        if candidate.is_dir() or candidate.with_suffix(".py").is_file():
+            imports.append((node.lineno, ".".join((*base, alias.name))))
+    return imports
+
+
+def _imports(path: Path, root: Path) -> list[tuple[int, str]]:
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except (OSError, SyntaxError, UnicodeDecodeError):
@@ -251,8 +304,20 @@ def _imports(path: Path) -> list[tuple[int, str]]:
         if isinstance(node, ast.Import):
             for alias in node.names:
                 imports.append((node.lineno, alias.name))
-        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
-            imports.append((node.lineno, node.module))
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0:
+                if not node.module:
+                    continue
+                imports.append((node.lineno, node.module))
+                imports.extend(
+                    _named_imports(root, tuple(node.module.split(".")), node)
+                )
+                continue
+            base = _relative_target(path, root, node)
+            if base is None:
+                continue
+            imports.append((node.lineno, ".".join(base)))
+            imports.extend(_named_imports(root, base, node))
         elif isinstance(node, ast.Call):
             target = _literal_import_target(node)
             if target is not None:
@@ -362,7 +427,7 @@ def check_imports(root: Path) -> list[Finding]:
             continue
         kind, name = owner
         relative = path.relative_to(root).as_posix()
-        for line, module in _imports(path):
+        for line, module in _imports(path, root):
             robot = _concrete_robot(module)
             if kind in {"toolkit", "capability"}:
                 if module == "robots" or robot is not None:
@@ -431,12 +496,19 @@ def check_imports(root: Path) -> list[Finding]:
 
 
 def check_core_robot_names(root: Path) -> list[Finding]:
-    """Return K5 findings for robot or benchmark names in core sources."""
+    """Return K5 findings for robot or benchmark names in core sources.
+
+    Only ``rpent/`` is scanned. A capability or toolkit may name a robot in a
+    wire-protocol embodiment identifier or a model-side platform contract,
+    which a_1 4.1 exempts; a slice is about one robot by definition.
+    """
     names = _component_names(root / "robots")
     if not names:
         return []
+    # Underscores are not word boundaries here: UPPER_SNAKE constants such as
+    # ``ROBOTWIN_QPOS`` embed a robot name and must be reported too.
     pattern = re.compile(
-        r"(?<![0-9A-Za-z_])(?:%s)(?![0-9A-Za-z_])"
+        r"(?<![0-9A-Za-z])(?:%s)(?![0-9A-Za-z])"
         % "|".join(re.escape(name) for name in sorted(names, key=len, reverse=True)),
         re.IGNORECASE,
     )

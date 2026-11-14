@@ -17,7 +17,7 @@
 import pytest
 
 from rpent.install.errors import InstallConfigError
-from rpent.install.manifest import load_component, load_profile
+from rpent.install.manifest import load_component, load_deps_component, load_profile
 
 
 def test_component_manifest_reads_declarations(write_toml):
@@ -177,6 +177,22 @@ def test_component_rejects_invalid_placements(write_toml, placement, message):
 
     with pytest.raises(InstallConfigError, match=message):
         load_component(path)
+
+
+def test_deps_component_rejects_requires(write_toml):
+    path = write_toml(
+        "envs/deps/rlinf.toml",
+        """
+        schema = 1
+        name = "rlinf"
+        kind = "deps"
+        probe = "rlinf"
+        requires = ["openpi"]
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="cannot require other components"):
+        load_deps_component(path)
 
 
 def test_component_rejects_missing_override(write_toml):

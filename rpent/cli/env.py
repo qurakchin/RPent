@@ -113,6 +113,7 @@ def command_install(args: argparse.Namespace) -> int:
         root=args.root,
         venv=args.venv,
         include_dev=args.dev,
+        variant=args.variant,
         dry_run=args.dry_run,
         verbose=True,
     )
@@ -216,6 +217,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     installer.add_argument("target")
     installer.add_argument("--venv", type=Path, help="virtualenv path")
+    installer.add_argument(
+        "--variant",
+        help="optional group of a single component target; profiles select "
+        "their own variants",
+    )
     installer.add_argument(
         "--dev", action="store_true", help="also install the dev profile"
     )

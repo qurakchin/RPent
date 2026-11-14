@@ -85,7 +85,7 @@ def test_lock_covering_the_requirements_is_accepted(
         [
             "numpy>=2",
             "rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent",
-            "pyrealsense2; sys_platform == 'linux'",
+            "pyrealsense2; sys_platform == 'darwin'",
         ],
     )
     _write_lock(
@@ -94,6 +94,133 @@ def test_lock_covering_the_requirements_is_accepted(
     )
 
     assert lock_problems(profile, resolution, tmp_path) == []
+
+
+def test_marker_requirement_for_the_target_must_be_in_the_lock(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    profile, resolution = _resolution(
+        make_component,
+        make_profile,
+        make_catalog,
+        ["pyrealsense2; sys_platform == 'linux'"],
+    )
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+
+    problems = lock_problems(profile, resolution, tmp_path)
+
+    assert "does not cover 'pyrealsense2'" in problems[0]
+
+
+def test_lock_checks_only_the_marker_group_of_the_profile_python(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    # Franka ships one wheel per supported minor; a 3.11 lock must carry the
+    # cp311 line and must not be asked for the 3.10 or 3.12 ones.
+    wheel = (
+        "franky-control @ https://example.test/franky_control-1.1.3-"
+        "cp{python}-cp{python}-manylinux_2_28_x86_64.whl ; "
+        "python_version == '{minor}' and sys_platform == 'linux'"
+    )
+    dependencies = [
+        wheel.format(python=minor.replace(".", ""), minor=minor)
+        for minor in ("3.10", "3.11", "3.12")
+    ]
+    profile, resolution = _resolution(
+        make_component, make_profile, make_catalog, dependencies
+    )
+    _write_lock(
+        tmp_path,
+        "franky-control @ https://example.test/franky_control-1.1.3-"
+        "cp311-cp311-manylinux_2_28_x86_64.whl\n",
+    )
+
+    assert lock_problems(profile, resolution, tmp_path) == []
+
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+    problems = lock_problems(profile, resolution, tmp_path)
+
+    assert "does not cover 'franky-control'" in problems[0]
+
+
+def test_marker_that_the_profile_cannot_evaluate_is_reported(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    profile, resolution = _resolution(
+        make_component,
+        make_profile,
+        make_catalog,
+        ["tensorrt; platform_release >= '5.0'"],
+    )
+    _write_lock(tmp_path, "tensorrt==10.0.0\n")
+
+    problems = lock_problems(profile, resolution, tmp_path)
+
+    assert "does not declare it" in problems[0]
+    assert "platform_release" in problems[0]
+
+
+@pytest.mark.parametrize(
+    ("platform", "sys_platform", "machine"),
+    [
+        ("linux-x86_64", "linux", "x86_64"),
+        ("linux-aarch64", "linux", "aarch64"),
+        ("darwin-arm64", "darwin", "arm64"),
+        ("darwin-x86_64", "darwin", "x86_64"),
+    ],
+)
+def test_every_supported_platform_maps_to_its_marker_values(
+    make_component,
+    make_profile,
+    make_catalog,
+    tmp_path,
+    platform,
+    sys_platform,
+    machine,
+):
+    component = make_component(
+        "alpha",
+        dependencies=[
+            f"pyrealsense2; sys_platform == '{sys_platform}' "
+            f"and platform_machine == '{machine}'",
+            "librealsense; sys_platform == 'windows'",
+        ],
+    )
+    profile = make_profile(
+        "alpha",
+        {"alpha": Selection()},
+        lock="envs/locks/alpha.lock",
+        platform=platform,
+    )
+    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+
+    problems = lock_problems(profile, resolve(profile, catalog), tmp_path)
+
+    # The first requirement is for this target and missing from the lock; the
+    # second belongs to another platform and must not be demanded.
+    assert len(problems) == 1
+    assert "pyrealsense2" in problems[0]
+    assert "librealsense" not in problems[0]
+
+
+def test_unknown_profile_platform_is_reported(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    component = make_component("alpha", dependencies=["numpy>=2"])
+    profile = make_profile(
+        "alpha",
+        {"alpha": Selection()},
+        lock="envs/locks/alpha.lock",
+        platform="windows-x86_64",
+    )
+    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    resolution = resolve(profile, catalog)
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+
+    problems = lock_problems(profile, resolution, tmp_path)
+
+    assert "has no lock marker mapping" in problems[0]
 
 
 def test_lock_pin_that_violates_the_manifest_is_reported(

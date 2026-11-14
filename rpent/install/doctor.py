@@ -108,11 +108,13 @@ def _resolve_component(
     if name not in catalog.components:
         known = ", ".join(sorted(catalog.components))
         raise InstallError(f"unknown component {name!r}; known: {known}")
+    recorded = fingerprint.get("components", {}).get(name, {})
     profile = component_profile(
         name,
         catalog,
         root=root,
         python=_installed_minor(fingerprint),
+        variant=recorded.get("variant"),
     )
     core = read_core_dependencies(root) if profile.core else ()
     return resolve(profile, catalog, core_dependencies=core)
@@ -233,7 +235,7 @@ def check_installation(
             checks.append(Check(OK, "uv pip check"))
 
     environment = {**os.environ, "PYTHONPATH": str(repo_root)}
-    for component in resolution.main_components().values():
+    for component in resolution.main_installed().values():
         probe = component.component.probe
         result = _run(
             [str(python), "-c", probe_source(probe)],

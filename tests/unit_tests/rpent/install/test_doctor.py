@@ -192,6 +192,66 @@ def test_component_installation_uses_the_recorded_interpreter(
     assert not any("out of date" in check.message for check in checks)
 
 
+def test_component_diagnostic_uses_the_recorded_variant(
+    tmp_path, write_toml, monkeypatch
+):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
+        """,
+    )
+    write_toml(
+        "robots/gamma/component.toml",
+        """
+        schema = 1
+        name = "gamma"
+        kind = "robot"
+        probe = "json"
+        variant_required = true
+
+        [optional]
+        pro = ["numpy"]
+        """,
+    )
+    _profile(write_toml)
+    catalog = discover(tmp_path)
+    resolution = resolve(
+        component_profile(
+            "gamma", catalog, root=tmp_path, python="3.11", variant="pro"
+        ),
+        catalog,
+    )
+    venv = _venv(tmp_path)
+    write_fingerprint(
+        venv,
+        {
+            "install_kind": "component",
+            "profile": None,
+            "component": "gamma",
+            "python": "3.11.9",
+            "include_dev": False,
+            "components": {"gamma": {"placement": "in-env", "variant": "pro"}},
+            "requirements_sha256": requirements_sha256(resolution),
+        },
+    )
+
+    def _missing_uv():
+        raise InstallError("uv missing")
+
+    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
+
+    checks = check_installation(venv, root=tmp_path)
+
+    assert not any("cannot resolve" in check.message for check in checks)
+    assert any(
+        check.status == OK and "manifests unchanged" in check.message
+        for check in checks
+    )
+
+
 def test_inspect_installation_reports_fingerprint_hash(tmp_path):
     venv = tmp_path / "venv"
     venv.mkdir()
