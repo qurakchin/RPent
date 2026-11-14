@@ -30,6 +30,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Install manifest parser
+        # Enough to run the read-only manifest checks before installing RPent.
+        run: uv pip install --system packaging tomli
+      - name: Check generated extras
+        run: python scripts/gen_extras.py --check
+      - name: Check component layout
+        run: python scripts/check_layout.py
+      - name: Check every environment profile
+        run: python -m rpent.cli.env check --all
+      - name: Check nightly install matrix
+        run: python scripts/env_matrix.py --check
       - name: Install test dependencies
         run: uv pip install --system -e ".[test]"
       - name: Install calibration test dependencies
@@ -41,21 +52,75 @@ jobs:
       - name: Generate coverage report
         run: coverage report -m
 
+  minimal-environment:
+    name: Minimal environment
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Install the minimal profile
+        run: |
+          uv pip install --system packaging
+          python -m rpent.cli.env install minimal --venv .venv-minimal
+      - name: Check CLI and robot discovery without extras
+        run: |
+          .venv-minimal/bin/python -c "
+          import rpent
+          from rpent.robots import enumerate_robots
+          robots = enumerate_robots()
+          assert robots, 'robot discovery returned no entries'
+          print(rpent.__version__, sorted(robots))
+          "
+          .venv-minimal/bin/rpent --help >/dev/null
+      - name: Doctor the minimal environment
+        run: uv run --no-project --with packaging -- python -m rpent.cli.env doctor --venv .venv-minimal
+
+  # The nightly matrix runs every profile, but only after merge. Installing one
+  # light component profile per pull request exercises the lock precheck, the
+  # closure, and the probe path on the code being reviewed.
+  component-environment:
+    name: Component environment
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Install manifest parser
+        run: uv pip install --system packaging
+      - name: Install the geometry-eval profile
+        run: python -m rpent.cli.env install geometry-eval --venv .venv-geometry-eval
+      - name: Doctor the geometry-eval environment
+        run: uv run --no-project --with packaging -- python -m rpent.cli.env doctor --venv .venv-geometry-eval
+
   # Single stable status check for branch rulesets: the matrix job above reports
   # one check per Python version (test (3.10), ...), which a ruleset cannot match
   # against a single required check.
   unittest:
     name: unittest
     if: always()
-    needs: [test]
+    needs: [test, minimal-environment, component-environment]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Require all matrix legs to pass
+      - name: Require every leg to pass
         run: |
-          result='${{ needs.test.result }}'
-          echo "matrix result: $result"
-          case "$result" in
-            success|skipped) exit 0 ;;
-            *) echo "::error::unit test matrix did not succeed ($result)"; exit 1 ;;
-          esac
+          failed=0
+          for result in '${{ needs.test.result }}' \
+                        '${{ needs.minimal-environment.result }}' \
+                        '${{ needs.component-environment.result }}'; do
+            echo "leg result: $result"
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::a job in this workflow did not succeed ($result)"; failed=1 ;;
+            esac
+          done
+          exit "$failed"

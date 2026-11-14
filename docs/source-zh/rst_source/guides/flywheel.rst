@@ -12,11 +12,7 @@ RPent 数据飞轮用于记录从任务规划到动作执行的轨迹，并从�
 安装
 ----
 
-以下示例使用 LIBERO-PRO。环境准备和仿真资源下载见 :doc:`../get_started/quickstart`，API 认证配置见 :doc:`configure_planner`。在 RPent 仓库根目录安装 LIBERO-PRO 及可选的导出依赖：
-
-.. code-block:: bash
-
-   uv pip install -e ".[libero-pro,flywheel]"
+以下示例使用 LIBERO-PRO。环境准备见 :doc:`../get_started/installation`，仿真资源下载见 :doc:`../get_started/quickstart`，API 认证配置见 :doc:`configure_planner`。按安装页给出的命令安装带导出依赖的 ``libero-pro-flywheel`` 配方即可。
 
 采集轨迹
 --------

@@ -98,25 +98,27 @@ Installation and Resources
 
 For a first LIBERO-PRO run, complete the installation, asset downloads, and model setup in :doc:`../get_started/quickstart`. Continue here to select tasks and reproduce experiments.
 
-For another variant, install the matching extra in an isolated environment and download its assets. Install only one LIBERO variant per Python environment:
+For another variant, install the matching profile from
+:doc:`../get_started/installation` in an isolated environment, then download
+its assets. Install only one LIBERO variant per Python environment:
 
 .. list-table::
    :header-rows: 1
 
    * - Variant
-     - Install
+     - Profile
      - Assets
    * - ``standard``
-     - ``uv pip install -e ".[libero]"``
+     - ``libero``
      - ``libero-download-assets --skip-existing``
    * - ``pro``
-     - ``uv pip install -e ".[libero-pro]"``
+     - ``libero-pro``
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
-     - ``uv pip install -e ".[libero-plus]"``
+     - ``libero-plus``
      - ``liberoplus-download-assets --skip-existing``
 
-Each extra includes Pi0.5 (``rpent-openpi``), SAM3, and the RLinf runtime
+Each profile includes Pi0.5 (``rpent-openpi``), SAM3, and the RLinf runtime
 (``rpent-rlinf``). Download model weights separately as described below.
 
 At runtime, set ``--libero-type`` to match the installed variant.
@@ -290,10 +292,10 @@ uses their clients to execute the planner's requests.
   MuJoCo env and EGL rendering. Exposes ``reset``, ``step``,
   ``chunk_step``, ``render_camera``, ``get_camera_meta``, … over an RPC
   transport (HTTP by default; socket via ``--transport socket``).
-- **vla_server** (``rpent/robots/components/pi05_vla_server.py``) — owns the Pi0.5
+- **vla_server** (``capabilities/openpi/server.py``) — owns the Pi0.5
   weights. Exposes ``predict`` over the same RPC transport (HTTP or
   socket).
-- **sam3_server** (``rpent/robots/components/sam3_server.py``) — loads SAM 3.0 and
+- **sam3_server** (``capabilities/sam3/server.py``) — loads SAM 3.0 and
   segments a target region from a text description or one pixel on the target
   object. If the model produces multiple candidates, it selects the one with
   the highest model score and returns its mask as a compressed PNG through the

@@ -1,0 +1,16 @@
+schema = 1
+name = "robocasa"
+kind = "robot"
+probe = "robots.robocasa"
+python = ">=3.10,<3.11"
+platforms = ["linux-x86_64"]
+requires = ["rlinf"]
+env_conflicts = ["franka", "dual_franka", "robotwin"]
+placement = ["in-env"]
+docs = "docs/source-en/rst_source/simulators/robocasa.rst"
+
+dependencies = [
+  "rpent-robocasa365 @ git+https://github.com/RLinf/robocasa.git@rpent",
+  "rlinf-rldx @ git+https://github.com/RLinf/RLDX-1.git@rpent",
+  "robosuite @ git+https://github.com/RLinf/robosuite.git@rpent",
+]

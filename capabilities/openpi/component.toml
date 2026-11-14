@@ -1,0 +1,15 @@
+schema = 1
+name = "openpi"
+kind = "capability"
+probe = "openpi"
+python = ">=3.10,<3.13"
+platforms = ["linux-x86_64"]
+# Pi0.5 can run in the robot environment or as a separate service: the same
+# `pi05_vla_server` module serves calls from `rpent --am-endpoint`. External
+# placement keeps OpenPI's Torch/Transformers pins out of the robot env.
+placement = ["in-env", "external-env"]
+docs = "docs/source-en/rst_source/development/add_action_model.rst"
+
+dependencies = [
+  "rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent",
+]

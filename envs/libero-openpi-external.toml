@@ -1,0 +1,15 @@
+schema = 1
+name = "libero-openpi-external"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/libero-openpi-external.lock"
+description = "LIBERO-PRO that attaches to Pi0.5 running in the openpi environment."
+
+[components.libero]
+variant = "pro"
+
+# The policy runs as a separate `pi05_vla_server` process; pass its URL with
+# `--am-endpoint` instead of installing OpenPI's Torch pins into this env.
+[components.openpi]
+placement = "external-env"
+profile = "openpi-server"

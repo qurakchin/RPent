@@ -23,7 +23,7 @@ import pytest
 
 from rpent.cli.main import _build_argparser
 from rpent.dashboard.events import NullDashboardEventSink
-from rpent.robots.components.action_spec import box_action_spec
+from rpent.env.action_spec import box_action_spec
 from rpent.tools import ToolResult
 from rpent.tools.direct_action import direct_action_tool
 from rpent.utils import templates

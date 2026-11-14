@@ -26,18 +26,18 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from capabilities._base.runtime import (
+    WAM_BACKENDS,
+    add_am_args,
+    select_am,
+    start_wam_service,
+)
 from robots.robotwin.memory import prepare_memory, validate_options
 from robots.robotwin.observation import ROBOTWIN_CAMERAS
 from robots.robotwin.prompt_bundle import system_prompt, user_prompt
 from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
-    WAM_BACKENDS,
-    add_am_args,
-    select_am,
-    start_wam_service,
-)
 from rpent.robots.prompt_bundle import PromptBundle
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 from rpent.robots.runtime import (

@@ -1,0 +1,17 @@
+schema = 1
+name = "dev"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/dev.lock"
+extra = "test"
+description = "Test and lint dependencies for local development and CI."
+
+dependencies = [
+  "coverage",
+  "pytest",
+  "pytest-timeout",
+  "omegaconf",
+  "gymnasium",
+]
+
+[components]

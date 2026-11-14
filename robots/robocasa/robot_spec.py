@@ -23,6 +23,10 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from capabilities._base.runtime import (
+    add_am_args,
+    select_am,
+)
 from robots.robocasa.eval.result import finalize_cell_result
 from robots.robocasa.memory import (
     MEMORY_VERSIONS,
@@ -39,10 +43,6 @@ from robots.robocasa.prompt_bundle import (
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
-    add_am_args,
-    select_am,
-)
 from rpent.robots.prompt_bundle import PromptBundle
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 from rpent.robots.runtime import try_spawn_server, try_wait_server

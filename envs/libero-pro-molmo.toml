@@ -1,0 +1,15 @@
+schema = 1
+name = "libero-pro-molmo"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/libero-pro-molmo.lock"
+description = "LIBERO-PRO with Molmo grounding in its own external environment."
+
+[components.libero]
+variant = "pro"
+
+# Molmo's model stack pins its own Torch and Transformers versions. Keep the
+# resolver split and point the grounder at the ``molmo`` profile over RPC.
+[components.molmo]
+placement = "external-env"
+profile = "molmo-server"

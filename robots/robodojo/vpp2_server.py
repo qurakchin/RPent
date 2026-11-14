@@ -25,7 +25,7 @@ import numpy as np
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from rpent.robots.components.am_facade_base import BaseVLAFacade
+from capabilities._base.facade import BaseVLAFacade
 
 
 def model_paths(model_path: str | Path | None) -> dict[str, Path]:

@@ -40,26 +40,25 @@ Use a branch name that reflects the change, such as
 ### Step 2. Set up the development environment
 
 ```bash
-# Create and activate an isolated environment.
-uv venv --python 3.11
-source .venv/bin/activate
+# Create and activate the development environment.
+uv run --no-project --python 3.11 --with packaging -- \
+  python -m rpent.cli.env install dev --venv .venv-dev
+source .venv-dev/bin/activate
 
-# Install the source checkout and the lightweight test dependencies.
-uv pip install -e ".[test]"
-
-# For robot work, choose the matching test environment instead.
-uv pip install -e ".[test,libero-pro]"  # LIBERO
-uv pip install -e ".[test,robocasa]"    # RoboCasa
-uv pip install -e ".[test,robotwin]"    # RoboTwin
+# For robot work, install that profile into its own virtualenv with the test
+# packages. Profiles cannot share a virtualenv because their pins differ.
+rpent-env install libero-pro --venv .venv-libero-pro --dev      # LIBERO
+rpent-env install robocasa-sim --venv .venv-robocasa-sim --dev  # RoboCasa
+rpent-env install robotwin-sim --venv .venv-robotwin-sim --dev  # RoboTwin
 
 # Install and enable the repository hooks.
 uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-The commands above are alternatives: install only the robot extra relevant to
-the change. See the
-[installation guide](docs/source-en/rst_source/get_started/quickstart.rst) for
+The robot commands are alternatives: install only the profile relevant to the
+change, and add `--dev` when you did not start from the `dev` profile. See the
+[installation guide](docs/source-en/rst_source/get_started/installation.rst) for
 environment-specific setup.
 
 ### Step 3. Develop

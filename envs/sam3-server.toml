@@ -1,0 +1,11 @@
+schema = 1
+name = "sam3-server"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/sam3-server.lock"
+# Compatibility alias: the extra name predates the profile rename.
+extra = "sam3"
+description = "SAM 3.0 segmentation runtime used as a diagnostic environment."
+
+[components.sam3]
+placement = "in-env"

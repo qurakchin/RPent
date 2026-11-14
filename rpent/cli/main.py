@@ -24,7 +24,7 @@
 # in `pyproject.toml`):
 #
 # ```bash
-# rpent --robot libero --suite libero_object_task --task 0 --seed 0 [...]
+# rpent --robot <name> --suite <suite> --task 0 --seed 0 [...]
 # ```
 #
 # ## Note
@@ -54,6 +54,7 @@ from rpent.dashboard.events import (
     RunStartedEvent,
 )
 from rpent.evaluation import RunFinalizationContext
+from rpent.install.snapshot import record_run_environment
 from rpent.memory import MemoryManager
 from rpent.planner.base import (
     REASONING_EFFORTS,
@@ -484,6 +485,7 @@ def main() -> int:
 
     # mkdir + logging wiring (robot-side already picked the path).
     output_dir = init_output_dir(output_dir, verbose=args.verbose)
+    record_run_environment(output_dir)
     logger.info("physical agent cmd: %s", shlex.join([sys.executable, *sys.argv]))
 
     prepare_run_memory(args, robot_spec, run_config)

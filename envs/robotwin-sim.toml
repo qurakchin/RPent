@@ -1,0 +1,11 @@
+schema = 1
+name = "robotwin-sim"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "envs/locks/robotwin-sim.lock"
+# Compatibility alias: the extra name predates the profile rename.
+extra = "robotwin"
+description = "RoboTwin simulation with LingBot-VLA and cuRobo."
+
+[components.robotwin]
+placement = "in-env"

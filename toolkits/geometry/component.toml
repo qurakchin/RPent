@@ -1,0 +1,16 @@
+schema = 1
+name = "geometry"
+kind = "toolkit"
+probe = "toolkits.geometry"
+python = ">=3.10,<3.13"
+placement = ["in-env"]
+docs = "docs/source-en/rst_source/get_started/installation.rst"
+
+# The toolkit imports numpy and pydantic, which the core distribution already
+# installs; it has no simulator, model, or accelerator dependency of its own.
+dependencies = []
+
+[optional]
+# The evaluation replays a frozen CPU corpus with numpy, so this variant adds
+# no packages; it gives the evaluation its own installable profile.
+eval = []
