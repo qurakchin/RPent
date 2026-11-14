@@ -10,25 +10,45 @@ permissions:
   contents: read
 
 jobs:
+  # The matrices come from scripts/env_matrix.py so a profile is classified
+  # once and the same list drives both runners; --check in the unit-test
+  # workflow fails when a profile is missing from the table.
+  matrix:
+    name: Select profiles
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      hosted: ${{ steps.select.outputs.hosted }}
+      gpu: ${{ steps.select.outputs.gpu }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - id: select
+        run: |
+          echo "hosted=$(python3 scripts/env_matrix.py --runner hosted)" >> "$GITHUB_OUTPUT"
+          echo "gpu=$(python3 scripts/env_matrix.py --runner gpu)" >> "$GITHUB_OUTPUT"
+      # One pass over every profile, including the ones no runner installs:
+      # `install` repeats the lock coverage precheck for its own profile, but a
+      # stale lock in an unselected profile still has to fail the workflow.
+      - name: Check every profile and its lock coverage
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.env check --all
+      - name: Check nightly matrix partition
+        run: python3 scripts/env_matrix.py --check
+
   hosted:
     name: Install ${{ matrix.profile }}
+    needs: matrix
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        profile: [minimal, dev, geometry-eval]
+        profile: ${{ fromJSON(needs.matrix.outputs.hosted) }}
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Check every profile
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.env check --all
-      - name: Lock is up to date
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.env lock "${{ matrix.profile }}" --check
       - name: Fresh install
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
@@ -41,12 +61,13 @@ jobs:
 
   gpu:
     name: Fresh install ${{ matrix.profile }}
+    needs: matrix
     runs-on: embodied
     timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
-        profile: [libero-pro, franka-real, robocasa-sim, robotwin-sim, robodojo-sim]
+        profile: ${{ fromJSON(needs.matrix.outputs.gpu) }}
     env:
       # Shared install policy used by RLinf's NVIDIA embodied runner.
       UV_CACHE_DIR: /workspace/dataset/.uv_cache

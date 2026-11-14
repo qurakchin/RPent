@@ -80,3 +80,42 @@ def test_component_outside_profile_points_to_a_development_install(monkeypatch):
         components.require("sam3", "definitely_missing_rpent_module")
 
     assert "is not part of profile 'alpha'" in str(error.value)
+
+
+def test_component_diagnostic_repairs_the_component(monkeypatch):
+    # A component install records ``profile: null``; the hint must not tell the
+    # user to rerun `rpent-env install None`.
+    fingerprint = {
+        "install_kind": "component",
+        "profile": None,
+        "component": "sam3",
+        "components": {"sam3": {"placement": "in-env"}},
+    }
+    monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
+    monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
+
+    with pytest.raises(components.MissingComponentError) as error:
+        components.require("sam3", "definitely_missing_rpent_module")
+
+    assert "rerun `rpent-env install sam3`" in str(error.value)
+    assert "None" not in str(error.value)
+
+
+def test_missing_module_in_a_component_diagnostic_names_the_component(
+    monkeypatch,
+):
+    fingerprint = {
+        "install_kind": "component",
+        "profile": None,
+        "component": "sam3",
+        "components": {"sam3": {"placement": "in-env"}},
+    }
+    monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
+    monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
+
+    with pytest.raises(components.MissingComponentError) as error:
+        components.require("molmo", "definitely_missing_rpent_module")
+
+    message = str(error.value)
+    assert "installed for component 'sam3'" in message
+    assert "rpent-env install molmo" in message

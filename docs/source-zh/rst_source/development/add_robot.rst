@@ -16,8 +16,8 @@
 
 RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 <architecture>`。接入机器人或仿真环境时，按以下顺序实现扩展点：
 
-1. 在 :ref:`入口 <add-robot-entry>` 中注册 ``RobotSpec`` 和 toolkit 工厂。
-2. 实现 :ref:`env_client 和 env_server <add-robot-env-rpc>`。如需接入 VLA 服务和 model client，参见
+1. 在 :ref:`入口 <add-robot-entry>` 中注册 ``RobotSpec`` 和 toolkit 工厂，并声明 ``component.toml``。
+2. 实现 :ref:`环境适配 <add-robot-env-rpc>`。如需接入 VLA 服务和 model client，参见
    :ref:`添加一个 VLA（或其他基于模型的原语）<add-primitive-model-based>`。
 3. :ref:`定义 prompt <add-robot-prompts>`。
 4. :ref:`实现 toolkit 和 primitives <add-robot-toolkit>`。
@@ -27,36 +27,83 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-entry:
 
-入口
-----
+入口与组件清单
+--------------
 
-新增名为 ``myrobot`` 的机器人时，目录结构如下：
+机器人是一个组件：``robots/`` 下的一个目录，加上一份描述安装方式的 ``component.toml``。目标骨架如下：
 
 .. code-block:: text
 
    robots/myrobot/
-       __init__.py            # 包入口，仅重导出两个工厂
-       robot_spec.py          # RobotSpec、工厂、Dashboard 描述和 runtime 钩子
-       env_client.py          # MyEnvClient —— agent 侧 RPC client (§1)
-       prompt_bundle.py       # system()/user() prompt 工厂              (§2)
-       toolkit.py             # MyRobotToolkit + primitives + 工具定义     (§3)
-       env_server.py          # 环境侧 facade + RPC 服务                 (§1)
-       vla_server.py          # （可选）VLA 模型服务
+       component.toml          # kind、probe、依赖、placement、docs
+       __init__.py             # 惰性包入口
+       spec.py                 # RobotSpec、工厂、Dashboard 描述和 runtime 钩子
+       config.py               # 命令行参数、RunConfig、任务选择
+       adapter.py              # env client/facade 与原生环境适配
+       prompts/__init__.py
+       prompts/domain.py       # system_prompt()/user_prompt() prompt 工厂
+       prompts/tools.py        # 仅本切片工具说明（过渡文件）
+       native_tools.py         # toolkit、primitives、工具定义
+       evaluation/             # 可选：评测清单与评分
 
-``__init__.py`` 是机器人包入口，应保持精简，仅重导出 ``robot_spec.py`` 中实现的工厂。``rpent/robots/base.py`` 中的注册表会按需导入 ``robots.<name>``，并调用这两个函数：
+当前仓库中的切片仍使用迁移前的文件名（``robot_spec.py``、``prompt_bundle.py``、``toolkit.py``、``env_client.py``、``env_server.py``、``tools.py``），a_5 会把它们改名为上表中的角色名。新增切片请直接使用目标名；下文在每个角色处同时注明当前文件名。
+
+``component.toml`` 声明 ``rpent-env`` 读取的清单字段：
+
+.. code-block:: toml
+
+   schema = 1
+   name = "myrobot"
+   kind = "robot"
+   probe = "robots.myrobot"
+   python = ">=3.10,<3.13"
+   platforms = ["linux-x86_64"]
+   placement = ["in-env"]
+   docs = "docs/source-zh/rst_source/real_world_robots/myrobot.rst"
+
+   dependencies = ["my-simulator==1.2"]
+
+``probe`` 指向可导入的包。``rpent-env install`` 和 ``rpent-env doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进 ``envs/deps/`` 下的 deps 组件。
+
+``pyproject.toml`` 里的兼容 extra 由清单和配方生成。因此新增或重命名组件、配方后还要重新生成该区块，这是新接入里唯一不放在 ``robots/`` 下的步骤：
+
+.. code-block:: bash
+
+   python scripts/gen_extras.py --write
+
+脚本默认执行检查，CI 也跑 ``--check``，区块过期会让构建失败；只有 ``--write`` 会修改 ``pyproject.toml``。
+
+``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的 extra。通过 ``__getattr__`` 暴露工厂：
 
 .. code-block:: python
 
    # robots/myrobot/__init__.py
-   from robots.myrobot.robot_spec import get_robot_spec, get_toolkit
+   from typing import TYPE_CHECKING, Any
 
-   # robots/myrobot/robot_spec.py
+   if TYPE_CHECKING:
+       from robots.myrobot.spec import get_robot_spec, get_toolkit
+
+   __all__ = ["get_robot_spec", "get_toolkit"]
+
+
+   def __getattr__(name: str) -> Any:
+       if name in __all__:
+           from robots.myrobot import spec
+
+           return getattr(spec, name)
+       raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+``rpent/robots/base.py`` 中的注册表会按需导入 ``robots.<name>``，并调用这两个函数：
+
+.. code-block:: python
+
+   # robots/myrobot/spec.py（a_5 之前为 robot_spec.py）
    from rpent.dashboard.events import DashboardEventSink
    from rpent.memory import MemoryManager
    from rpent.robots.robot_spec import RobotSpec, RunConfig
    from rpent.robots.prompt_bundle import PromptBundle
    from rpent.utils.config import get_memory_dir
-   from robots.myrobot.prompt_bundle import system_prompt, user_prompt
+   from robots.myrobot.prompts.domain import system_prompt, user_prompt
 
    MYROBOT_DASHBOARD_SPEC = {...}
 
@@ -76,7 +123,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
        dashboard_events: DashboardEventSink,
        config: RunConfig,
    ):
-       from robots.myrobot.toolkit import MyRobotToolkit
+       from robots.myrobot.native_tools import MyRobotToolkit
        return MyRobotToolkit(
            runtime_kwargs=runtime_kwargs,
            dashboard_events=dashboard_events,
@@ -105,7 +152,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
        """
        ...
 
-``resolve_dashboard`` 是可选回调；环境不支持 Dashboard 控制时保持为 ``None``。支持时，由回调返回机器人包中定义的配置：其中 ``task`` 描述命令、校验字段、展示模板和输出目录名称；机器人专用的会话设置仍通过普通命令行参数传入；``runtime_components`` 定义界面中的服务列表；``primitives`` 按顺序列出 Dashboard 展示并允许直接执行的 Toolkit 动作。相机标签页根据每步记录的 PNG 图像文件自动生成。任务候选项应直接保存在该配置中，避免导入机器人包时依赖仿真器包。完整结构参考 ``robots/libero/robot_spec.py``。
+``resolve_dashboard`` 是可选回调；环境不支持 Dashboard 控制时保持为 ``None``。支持时，由回调返回机器人包中定义的配置：其中 ``task`` 描述命令、校验字段、展示模板和输出目录名称；机器人专用的会话设置仍通过普通命令行参数传入；``runtime_components`` 定义界面中的服务列表；``primitives`` 按顺序列出 Dashboard 展示并允许直接执行的 Toolkit 动作。相机标签页根据每步记录的 PNG 图像文件自动生成。任务候选项应直接保存在该配置中，避免导入机器人包时依赖仿真器包。完整结构参考 ``robots/libero/robot_spec.py``（a_5 之后为 ``spec.py``）。
 
 ``_resolve_robot(name)`` 通过 ``importlib.import_module(f"robots.{name}")`` 动态加载机器人包。因此，只需将机器人包放在 ``robots/`` 下，无需维护中央注册列表。
 
@@ -115,10 +162,10 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-env-rpc:
 
-1. ``env_client.py`` + ``env_server.py``
------------------------------------------
+1. 环境适配（adapter）
+----------------------
 
-这两个文件连接 agent 进程与 ``env_server``。client 在 agent 进程内将方法调用转换成 RPC 请求，``env_server`` 负责处理这些请求。
+适配层通过 RPC 把环境暴露给 agent。目标文件名是 ``adapter.py``；当前仓库仍拆成 ``env_client.py`` 和 ``env_server.py``，a_5 会合并。client 在 agent 进程内将方法调用转换成 RPC 请求，服务端 facade 负责处理这些请求。
 
 1.1 Env client（agent 侧）
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -184,14 +231,14 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-prompts:
 
-2. ``prompt_bundle.py``
------------------------
+2. Prompt
+---------
 
-定义 ``system_prompt()`` 和 ``user_prompt()`` 两个 prompt 工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle(system=system_prompt, user=user_prompt)`` （见上面的“入口”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节； ``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
+prompt 工厂归入 ``prompts/domain.py``（a_5 之前为 ``prompt_bundle.py``）。定义 ``system_prompt()`` 和 ``user_prompt()`` 两个工厂，并在机器人的 ``spec.py``（当前为 ``robot_spec.py``）中构造 ``PromptBundle(system=system_prompt, user=user_prompt)`` （见上面的“入口”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节； ``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
 
 .. code-block:: python
 
-   # robots/myrobot/prompt_bundle.py
+   # robots/myrobot/prompts/domain.py
    from robots.myrobot.prompts import system as system_parts
    from robots.myrobot.prompts import user as user_parts
    from rpent.prompt.utils import PromptNode
@@ -216,10 +263,10 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-toolkit:
 
-3. ``toolkit.py``
-------------------
+3. 原生工具与 toolkit
+---------------------
 
-该模块负责工具定义、动作原语、每步状态记录，以及允许通过 MCP 调用的工具列表。LIBERO 将这些内容分布在 ``tools.py`` 和 ``toolkit.py`` 中；新增机器人时，也可以将它们放在同一个 ``toolkit.py`` 中。
+这一角色在 a_5 之后是 ``native_tools.py``；现有切片拆成 ``toolkit.py`` 和 ``tools.py``。它负责工具定义、动作原语、每步状态记录，以及允许通过 MCP 调用的工具列表。LIBERO 将这些内容分开存放；新增机器人可以从单个模块开始。
 
 toolkit 模块通常包含四部分：
 

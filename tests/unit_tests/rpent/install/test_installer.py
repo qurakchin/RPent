@@ -145,6 +145,108 @@ def test_unknown_target_lists_known_profiles(repo):
         resolve_install_target("missing", discover(repo), root=repo)
 
 
+def test_component_target_selects_its_variant_explicitly(tmp_path, write_toml):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
+        """,
+    )
+    write_toml(
+        "robots/gamma/component.toml",
+        """
+        schema = 1
+        name = "gamma"
+        kind = "robot"
+        probe = "json"
+        variant_required = true
+
+        [optional]
+        pro = ["numpy"]
+        lite = ["packaging"]
+        """,
+    )
+    major, minor = sys.version_info[:2]
+    write_toml(
+        "envs/gamma-pro.toml",
+        f"""
+        schema = 1
+        name = "gamma-pro"
+        python = "{major}.{minor}"
+        platform = "{runtime_platform()}"
+
+        [components.gamma]
+        variant = "pro"
+        """,
+    )
+    catalog = discover(tmp_path)
+
+    with pytest.raises(InstallError) as error:
+        resolve_install_target("gamma", catalog, root=tmp_path)
+    message = str(error.value)
+    assert "requires a variant" in message
+    assert "--variant <lite|pro>" in message
+    assert "gamma-pro" in message
+
+    with pytest.raises(InstallError, match="has no optional group 'nope'"):
+        resolve_install_target("gamma", catalog, root=tmp_path, variant="nope")
+
+    resolution = resolve_install_target("gamma", catalog, root=tmp_path, variant="pro")
+
+    assert resolution.ok
+    assert resolution.profile.synthetic
+    assert resolution.profile.components["gamma"].variant == "pro"
+
+
+def test_component_target_rejects_a_variant_for_a_profile(repo):
+    with pytest.raises(InstallError, match="--variant applies only to a single"):
+        resolve_install_target("alpha", discover(repo), root=repo, variant="pro")
+
+
+def test_component_target_reports_profiles_that_place_it(tmp_path, write_toml):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
+        """,
+    )
+    write_toml(
+        "capabilities/delta/component.toml",
+        """
+        schema = 1
+        name = "delta"
+        kind = "capability"
+        probe = "json"
+        placement = ["remote"]
+        """,
+    )
+    major, minor = sys.version_info[:2]
+    write_toml(
+        "envs/delta-remote.toml",
+        f"""
+        schema = 1
+        name = "delta-remote"
+        python = "{major}.{minor}"
+        platform = "{runtime_platform()}"
+
+        [components.delta]
+        placement = "remote"
+        """,
+    )
+    catalog = discover(tmp_path)
+
+    with pytest.raises(InstallError) as error:
+        resolve_install_target("delta", catalog, root=tmp_path)
+
+    message = str(error.value)
+    assert "no in-env placement" in message
+    assert "delta-remote" in message
+
+
 def test_find_uv_prefers_override(monkeypatch):
     monkeypatch.setenv("RPENT_UV", "/custom/uv")
 
@@ -195,6 +297,59 @@ exit 0
         return [block.splitlines() for block in text.split("--\n") if block.strip()]
 
     return uv, install_arguments
+
+
+def test_install_probes_the_deps_components_of_the_environment(
+    tmp_path, write_toml, monkeypatch, capsys
+):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
+        """,
+    )
+    for name in ("alpha", "beta"):
+        write_toml(
+            f"robots/{name}/component.toml",
+            f"""
+            schema = 1
+            name = "{name}"
+            kind = "robot"
+            probe = "json"
+            requires = ["shared"]
+            """,
+        )
+    write_toml(
+        "envs/deps/shared.toml",
+        """
+        schema = 1
+        name = "shared"
+        kind = "deps"
+        probe = "json"
+        dependencies = ["packaging"]
+        """,
+    )
+    major, minor = sys.version_info[:2]
+    write_toml(
+        "envs/alpha.toml",
+        f"""
+        schema = 1
+        name = "alpha"
+        python = "{major}.{minor}"
+        platform = "{runtime_platform()}"
+
+        [components.alpha]
+        placement = "in-env"
+        """,
+    )
+    _fake_uv(tmp_path, monkeypatch)
+
+    fingerprint = install("alpha", root=tmp_path, venv=tmp_path / "venv", verbose=True)
+
+    assert "probe shared: import json" in capsys.readouterr().out
+    assert fingerprint["components"]["shared"]["placement"] == "in-env"
 
 
 def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatch):

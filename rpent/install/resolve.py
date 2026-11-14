@@ -17,14 +17,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-
-from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import InvalidSpecifier, SpecifierSet
-from packaging.utils import canonicalize_name
-from packaging.version import InvalidVersion, Version
+from typing import TYPE_CHECKING
 
 from rpent.install.discovery import Catalog
 from rpent.install.manifest import Component, Profile, Selection
+
+if TYPE_CHECKING:
+    from packaging.specifiers import SpecifierSet
+
+# ``packaging`` parses requirement strings and is imported where that happens,
+# not at module import. Manifest discovery (``scripts/env_matrix.py``) imports
+# this module through ``rpent.install`` and must run in a checkout that has no
+# third-party packages installed; every install path still needs packaging.
 
 
 @dataclass(frozen=True)
@@ -93,6 +97,14 @@ class Resolution:
         names = self.environment_deps.get(self.profile.name, [])
         return {name: self.components[name] for name in names}
 
+    def main_installed(self) -> dict[str, ResolvedComponent]:
+        """Return every component installed into the profile's main environment.
+
+        This is what the environment must be able to import: components with
+        code and the deps groups their consumers require.
+        """
+        return {**self.main_components(), **self.main_deps()}
+
     def external_components(self) -> dict[str, ResolvedComponent]:
         """Return components installed into named external environments.
 
@@ -114,6 +126,9 @@ class Resolution:
 
 
 def _canonical(value: str) -> tuple[str, SpecifierSet, str] | None:
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.utils import canonicalize_name
+
     try:
         requirement = Requirement(value)
     except InvalidRequirement:
@@ -131,72 +146,48 @@ def _canonical(value: str) -> tuple[str, SpecifierSet, str] | None:
     )
 
 
-def _candidates(*specifiers: SpecifierSet) -> set[Version]:
-    """Return boundary versions to test whether two specifier sets overlap."""
-    values: set[Version] = set()
-    for specifier in specifiers:
-        for item in specifier:
-            raw = item.version.rstrip("*").rstrip(".")
-            try:
-                version = Version(raw)
-            except InvalidVersion:
-                continue
-            values.add(version)
-            values.add(Version(f"{version.major}.{version.minor}.{version.micro + 1}"))
-            values.add(Version(f"{version.major}.{version.minor + 1}"))
-    return values
+def _owner_pin(value: str) -> tuple[str, str] | None:
+    """Return ``(package, pin)`` for an exact pin or a URL requirement.
 
-
-def _compatible(
-    left: tuple[SpecifierSet, str], right: tuple[SpecifierSet, str]
-) -> bool:
-    """Return whether two pins can select the same package version."""
-    left_specifier, left_url = left
-    right_specifier, right_url = right
-    if left_url or right_url:
-        return left_url == right_url
-    if not len(left_specifier) or not len(right_specifier):
-        return True
-    candidates = _candidates(left_specifier, right_specifier)
-    if not candidates:
-        return True
-    return any(
-        left_specifier.contains(version, prereleases=True)
-        and right_specifier.contains(version, prereleases=True)
-        for version in candidates
-    )
+    Ranges and unpinned requirements compose, so they are not owners: whether
+    they resolve together is uv's decision (``rpent-env check --resolve``).
+    """
+    identity = _canonical(value)
+    if identity is None:
+        return None
+    package, specifier, url = identity
+    if url:
+        return package, url
+    if len(specifier) != 1:
+        return None
+    item = next(iter(specifier))
+    if item.operator not in {"==", "==="} or item.version.endswith(".*"):
+        return None
+    return package, f"{item.operator}{item.version}"
 
 
 def _pin_conflicts(
     requirements: list[tuple[str, str]],
 ) -> dict[str, list[tuple[str, str]]]:
-    """Return package -> [(component, pin)] for contradictory pins."""
-    pins: dict[str, list[tuple[str, SpecifierSet, str]]] = {}
+    """Return package -> [(component, pin)] when exact pins disagree.
+
+    Sampling version boundaries to test range overlap reported false conflicts
+    at post-release and pre-release edges (``>1.0`` vs ``<1.0.1`` is satisfied
+    by ``1.0.post1``), so this check stays syntactic: two different exact pins
+    or URLs for one package in one environment, and no more.
+    """
+    pins: dict[str, list[tuple[str, str]]] = {}
     for component_name, value in requirements:
-        identity = _canonical(value)
-        if identity is None:
+        owner = _owner_pin(value)
+        if owner is None:
             continue
-        package, specifier, url = identity
-        if not specifier and not url:
-            continue
-        pins.setdefault(package, []).append((component_name, specifier, url))
+        package, pin = owner
+        pins.setdefault(package, []).append((component_name, pin))
     conflicts: dict[str, list[tuple[str, str]]] = {}
     for package, entries in sorted(pins.items()):
-        contradictory = False
-        for index, (_, left_spec, left_url) in enumerate(entries):
-            for _, right_spec, right_url in entries[index + 1 :]:
-                if not _compatible((left_spec, left_url), (right_spec, right_url)):
-                    contradictory = True
-                    break
-            if contradictory:
-                break
-        if not contradictory:
+        if len({pin for _, pin in entries}) < 2:
             continue
-        seen: set[tuple[str, str]] = set()
-        for component_name, specifier, url in entries:
-            pin = str(specifier) or url
-            seen.add((component_name, pin))
-        conflicts[package] = sorted(seen)
+        conflicts[package] = sorted(set(entries))
     return conflicts
 
 
@@ -252,31 +243,9 @@ def _format_conflict(
     )
 
 
-def _check_requires_cycles(resolution: Resolution) -> None:
-    """Report ``requires`` cycles instead of silently placing them once."""
-    state: dict[str, int] = {}
-
-    def visit(name: str, stack: list[str]) -> None:
-        if state.get(name) == 2:
-            return
-        if state.get(name) == 1:
-            start = stack.index(name)
-            cycle = " -> ".join([*stack[start:], name])
-            resolution.errors.append(f"component requires cycle: {cycle}")
-            return
-        state[name] = 1
-        for required in resolution.components[name].component.requires:
-            if required in resolution.components and not (
-                resolution.components[required].component.is_deps
-            ):
-                visit(required, [*stack, name])
-        state[name] = 2
-
-    for name in sorted(resolution.components):
-        visit(name, [])
-
-
 def _check_component_range(resolved: ResolvedComponent, profile: Profile) -> list[str]:
+    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+
     errors: list[str] = []
     component = resolved.component
     if component.python is not None:
@@ -431,8 +400,6 @@ def resolve(
             if required not in selections:
                 selections[required] = Selection()
             pending.append(required)
-
-    _check_requires_cycles(resolution)
 
     for resolved in resolution.components.values():
         resolution.errors.extend(_check_component_range(resolved, profile))

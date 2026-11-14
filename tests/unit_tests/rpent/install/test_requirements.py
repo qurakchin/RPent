@@ -137,6 +137,7 @@ def test_requirements_inputs_record_deps_environment_membership(
     inputs = requirements_inputs(resolution)
     assert inputs["environment_deps"] == {"sim": ["rlinf"]}
     assert inputs["profile"]["components"]["rlinf"]["placement"] == "in-env"
+    assert "env" not in inputs["profile"]["components"]["rlinf"]
 
 
 def test_read_core_dependencies(write_toml, tmp_path):

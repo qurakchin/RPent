@@ -39,12 +39,20 @@ YAM_STATUS_KEYS = (
 
 @dataclass(frozen=True)
 class YamModelSpec:
-    policy_name: str = "pi05_yam_joint"
-    camera_order: tuple[str, ...] = YAM_CAMERA_NAMES
-    state_layout: str = "qpos14"
-    action_layout: str = "qpos14"
-    action_horizon: int = 30
-    use_length: int = 5
+    """Values the control station and the policy share.
+
+    Everything here that a model server also receives comes from
+    ``YAM_VLA_CONTRACT``, so the wire contract and the local defaults cannot
+    drift. ``control_hz`` is local: the policy contract does not carry a
+    frequency.
+    """
+
+    policy_name: str = YAM_VLA_CONTRACT["policy_name"]
+    camera_order: tuple[str, ...] = tuple(YAM_VLA_CONTRACT["camera_order"])
+    state_layout: str = YAM_VLA_CONTRACT["state_layout"]
+    action_layout: str = YAM_VLA_CONTRACT["action_layout"]
+    action_horizon: int = YAM_VLA_CONTRACT["action_horizon"]
+    use_length: int = YAM_VLA_CONTRACT["use_length"]
     control_hz: int = 30
 
 
@@ -71,7 +79,7 @@ def env_runtime_contract(
             "action_layouts": ["qpos14"],
             "chunk_step_all_frames": True,
             "step_limit": int(max_episode_steps),
-            "control_hz": 30,
+            "control_hz": MODEL_SPEC.control_hz,
         },
         "extensions": {
             "render_camera": {

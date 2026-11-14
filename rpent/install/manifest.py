@@ -14,8 +14,10 @@
 
 """Typed component manifests (``component.toml``) and profiles (``envs/*.toml``).
 
-Manifests own dependency declarations. Profiles only choose components, their
-placement, and an optional variant; they never repeat a component's packages.
+Manifests own a component's packages. Profiles choose components, their
+placement, and an optional variant; they may add packages that belong to no
+component (the test and lint tools in ``dev``) but never repeat a component's
+declarations.
 """
 
 from __future__ import annotations
@@ -195,6 +197,9 @@ class Profile:
     extra: str | None
     description: str | None
     manylinux: str = "2_31"
+    #: A development diagnostic built for one component rather than a profile
+    #: declared in ``envs/``; nothing may present it as one.
+    synthetic: bool = False
 
     def relative_lock(self) -> Path | None:
         """Return the declared lock path relative to the repository root."""
@@ -241,6 +246,14 @@ def load_deps_component(path: Path) -> Component:
     if data.get("imports"):
         raise InstallConfigError(
             f"{path}: deps components have no code; remove 'imports'"
+        )
+    if data.get("requires"):
+        # Deps components have no code to call anything, and the resolver only
+        # walks `requires` from the components that consumers place. Accepting
+        # the field would silently ignore it.
+        raise InstallConfigError(
+            f"{path}: deps components have no code and cannot require other "
+            "components; list their packages under 'dependencies'"
         )
     return _component(data, path, name=name, kind=kind)
 

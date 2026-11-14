@@ -27,7 +27,10 @@ List and check profiles
 ``check`` reads manifests and profiles, computes the ``requires`` closure, and
 reports conflicting placements, duplicate pins, unsupported Python versions,
 platform mismatches, and declared locks that no longer cover the requirements.
-It downloads nothing.
+It downloads nothing. ``--resolve`` additionally compiles every profile that
+passes those checks with ``uv pip compile`` to prove the declared dependencies
+have a solution; it uses the same code path as ``lock`` and reads package
+metadata from the configured indexes.
 
 Install a profile
 ------------------
@@ -48,9 +51,21 @@ Bootstrap it without installing RPent first:
      python -m rpent.cli.env install libero-pro --venv .venv-libero-pro
    source .venv-libero-pro/bin/activate
 
+``rpent-env`` runs from a checkout. The wheel contains the core packages and
+the component packages together with their ``component.toml`` manifests, but
+``envs/`` ships only with the repository: a non-editable ``pip install rpent``
+provides ``rpent`` and the component code, and ``rpent-env`` reports that it
+cannot find profiles.
+
 Each profile gets its own virtual environment. Profiles pin different
 simulator, robot, and model runtimes, so an environment already installed for
-another profile is refused; install it under a different ``--venv``.
+another profile is refused; install it under a different ``--venv``. Without
+``--venv``, a profile installs into ``.rpent/venvs/<profile>`` under the
+checkout; ``.rpent/`` is local state and is ignored by git, so later
+``install`` and ``doctor`` runs find the same environment. A profile with
+``core = false`` (for example ``molmo-server``) skips the editable RPent
+install and contains only that service's dependencies; start it with the
+checkout on ``PYTHONPATH`` as shown in :doc:`../guides/flash`.
 
 Re-running the command reuses the environment and repairs a stale install. The
 installer uses the profile's lock when one exists and first checks that the
@@ -156,9 +171,21 @@ Diagnose and reproduce
 
 ``doctor`` compares the stored fingerprint with the profile manifests, checks
 Python and platform, runs ``uv pip check`` and the component probes, and can
-probe external endpoints with ``--endpoint molmo=host:port``. ``inspect``
-prints the fingerprint and its hash. ``lock`` compiles ``envs/locks/<profile>.lock``
-with ``uv pip compile``; ``--check`` fails when a lock is stale. Linux locks
+probe external endpoints with ``--endpoint molmo=host:port``. A single
+component can be installed for development with
+``rpent-env install <component>``; its fingerprint records
+``install_kind = "component"``, ``reproducible = false``, and the interpreter
+it used, and ``doctor`` rebuilds that diagnostic profile with the recorded
+interpreter rather than the one running the check. ``inspect`` prints the
+fingerprint and its hash. ``lock`` compiles ``envs/locks/<profile>.lock``
+with ``uv pip compile``; ``--check`` recompiles and fails when the result
+differs from the committed lock, which also happens whenever an upstream
+package publishes a new version, so it is a release-time check rather than a
+nightly one. The ``Release install check`` workflow runs
+``rpent-env lock --all --check`` on manual dispatch; it gates a release, not a
+pull request. ``install`` and ``check`` verify the cheaper invariant before
+installing: every direct requirement is still covered by the lock and its pin
+still satisfies the manifest. Linux locks
 target the ``manylinux_2_31`` baseline by default (glibc 2.31, Ubuntu 20.04 or
 newer), because current GPU wheels are not published for older baselines. A
 profile whose components need a newer baseline sets ``manylinux``; for example

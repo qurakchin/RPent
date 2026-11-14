@@ -92,7 +92,7 @@ def compile_profile(
             str(output),
             *index_options(profile),
         ]
-        for resolved in resolution.main_components().values():
+        for resolved in resolution.main_installed().values():
             for override in resolved.component.overrides:
                 command.extend(["--overrides", str(override)])
         # Capture output so a resolution failure reports uv's reason (a missing

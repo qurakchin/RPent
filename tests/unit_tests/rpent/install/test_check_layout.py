@@ -101,6 +101,73 @@ def test_cross_robot_import_requires_a_declared_extension(tmp_path, write_toml):
     assert "must not import robot 'beta'" in result.stdout
 
 
+def test_relative_cross_robot_import_is_reported(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _component(write_toml, "robots", "beta", "robot")
+    # ``from .. import beta`` names the sibling package without any absolute
+    # module path, so K4 has to resolve the alias to see the boundary crossing.
+    _write(tmp_path / "robots" / "alpha" / "module.py", "from .. import beta\n")
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "must not import robot 'beta'" in result.stdout
+
+
+def test_absolute_alias_cross_robot_import_is_reported(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _component(write_toml, "robots", "beta", "robot")
+    # ``from robots import beta`` names the sibling package through a bare
+    # alias; the absolute branch has to expand it like the relative one.
+    _write(tmp_path / "robots" / "alpha" / "module.py", "from robots import beta\n")
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "must not import robot 'beta'" in result.stdout
+
+
+def test_relative_sibling_capability_import_is_reported(tmp_path, write_toml):
+    _component(write_toml, "capabilities", "alpha", "capability")
+    _component(write_toml, "capabilities", "beta", "capability")
+    _write(
+        tmp_path / "capabilities" / "alpha" / "server.py",
+        "from ..beta import client\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "capability 'alpha' must not import sibling 'beta'" in result.stdout
+
+
+def test_relative_toolkit_import_of_a_robot_is_reported(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _component(write_toml, "toolkits", "geometry", "toolkit")
+    _write(
+        tmp_path / "toolkits" / "geometry" / "core.py",
+        "from ...robots.alpha import spec\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "toolkits must not import robots" in result.stdout
+
+
+def test_declared_extension_allows_a_relative_import(tmp_path, write_toml):
+    _component(
+        write_toml, "robots", "alpha", "robot", requires=["beta"], imports=["beta"]
+    )
+    _component(write_toml, "robots", "beta", "robot")
+    _write(tmp_path / "robots" / "alpha" / "module.py", "from .. import beta\n")
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0
+    assert "layout ok" in result.stdout
+
+
 def test_apple_double_python_files_are_ignored(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
     _component(write_toml, "robots", "beta", "robot")
@@ -155,6 +222,16 @@ def test_core_must_not_name_a_concrete_robot(tmp_path, write_toml):
 
     assert result.returncode == 1
     assert "core names 'alpha'" in result.stdout
+
+
+def test_core_uppercase_constant_naming_a_robot_is_reported(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _write(tmp_path / "rpent" / "env" / "wire.py", "ALPHA_OSC = 1\n")
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "core names 'ALPHA'" in result.stdout
 
 
 def test_slice_entry_must_load_lazily(tmp_path, write_toml):

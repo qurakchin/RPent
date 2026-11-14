@@ -1,0 +1,24 @@
+name: Release install check
+
+# `lock --check` recompiles every profile and compares the result with the
+# committed lock, so it fails whenever an upstream package publishes a new
+# version. That makes it a release gate rather than a nightly one; run it
+# before tagging and record the result in the release notes.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  locks:
+    name: Recompile every lock
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Lock is up to date
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.env lock --all --check

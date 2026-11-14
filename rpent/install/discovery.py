@@ -129,7 +129,7 @@ def _check_imports(components: dict[str, Component]) -> None:
                 raise InstallConfigError(
                     f"{component.manifest_path}: imports {other!r}, but neither "
                     "component requires the other; add it to requires so the "
-                    "pair installs together"
+                    "install closure includes both"
                 )
 
 
