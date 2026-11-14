@@ -12,16 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Write the prompt a run actually used, next to its other artifacts.
+"""Write the prompt artifact for one planner session.
 
-``effective_prompt.md`` answers "what did the model see"; ``prompt_sources.json``
-records which file and layer each section came from, plus how the planner
-delivered the system prompt. Both are written per session so exploration
-handoffs do not overwrite each other's evidence.
+``effective_prompt.md`` contains the assembled system and user prompts and, for
+a prefixing planner, the single message it sends. ``prompt_sources.json``
+records which file and layer each section came from, how the planner delivered
+the system prompt, and digests of the assembled prompt and the exact opening
+user message. Both are written per session so exploration handoffs do not
+overwrite each other's evidence.
 """
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -34,6 +37,11 @@ from rpent.utils.files import write_json_atomic, write_text_atomic
 
 EFFECTIVE_PROMPT = "effective_prompt.md"
 PROMPT_SOURCES = "prompt_sources.json"
+
+
+def _sha256(text: str) -> str:
+    """Return the UTF-8 SHA-256 digest recorded in prompt artifacts."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def delivered_prompt_text(planner: str, *, system: str, user: str) -> str | None:
@@ -90,6 +98,7 @@ def write_prompt_artifacts(
             robot_name=robot_name,
             planner=planner,
             axes=axes,
+            user_message=user_message,
         ),
         ensure_ascii=False,
     )
@@ -106,6 +115,9 @@ def effective_prompt_markdown(
 ) -> str:
     """Render the prompt artifact for humans."""
     layout = PLANNER_PROMPT_LAYOUT.get(planner, "unknown")
+    delivered = delivered_prompt_text(
+        planner, system=assembled.system, user=user_message
+    )
     header = [
         "# Effective prompt",
         "",
@@ -113,18 +125,22 @@ def effective_prompt_markdown(
         f"- planner: `{planner}` ({layout})",
         f"- axes: {', '.join(f'`{axis}`' for axis in axes)}",
         f"- prompt_sha256: `{assembled.prompt_sha256}`",
-        "",
-        "## System prompt",
-        "",
-        assembled.system.rstrip("\n"),
-        "",
-        "## User message",
-        "",
-        user_message.rstrip("\n"),
-        "",
+        f"- user_message_sha256: `{_sha256(user_message)}`",
     ]
-    delivered = delivered_prompt_text(
-        planner, system=assembled.system, user=user_message
+    if delivered is not None:
+        header.append(f"- delivered_sha256: `{_sha256(delivered)}`")
+    header.extend(
+        [
+            "",
+            "## System prompt",
+            "",
+            assembled.system.rstrip("\n"),
+            "",
+            "## User message",
+            "",
+            user_message.rstrip("\n"),
+            "",
+        ]
     )
     if delivered is not None:
         header.extend(
@@ -146,19 +162,28 @@ def prompt_sources(
     robot_name: str,
     planner: str,
     axes: Sequence[str],
+    user_message: str,
 ) -> Mapping[str, object]:
     """Build the machine-readable prompt provenance record.
 
     ``prompt_sha256`` covers the assembled system and robot user prompt.
-    ``planner_prompt_layout`` records how the planner frames the two roles, and
-    ``effective_prompt.md`` contains the delivered text for prefixing planners,
-    so a second digest of the same text is not recorded.
+    ``user_message_sha256`` covers the exact opening message handed to the
+    planner, which can differ from the assembled user prompt after a handoff or
+    an operator edit. ``delivered_sha256`` is present only when the planner
+    sends one concatenated message, and covers that text.
     """
-    return {
+    delivered = delivered_prompt_text(
+        planner, system=assembled.system, user=user_message
+    )
+    sources: dict[str, object] = {
         "robot": robot_name,
         "planner": planner,
         "planner_prompt_layout": PLANNER_PROMPT_LAYOUT.get(planner, "unknown"),
         "axes": list(axes),
         "prompt_sha256": assembled.prompt_sha256,
-        "sections": list(assembled.sections),
+        "user_message_sha256": _sha256(user_message),
     }
+    if delivered is not None:
+        sources["delivered_sha256"] = _sha256(delivered)
+    sources["sections"] = list(assembled.sections)
+    return sources

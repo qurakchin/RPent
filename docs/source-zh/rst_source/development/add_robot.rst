@@ -205,7 +205,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 其中 ``base`` 和运行轴片段来自 ``rpent/prompt/fragments``，分别提供角色、总原则、输出习惯、evaluate / explore / interactive / real_robot 的运行契约，以及真机运行器拥有进程的约束；运行带有记忆目录时，``memory`` 层由共享的记忆片段提供：如何读取语料、如何使用已有配方而不照搬轨迹，以及探索运行时如何提交提案。机器人负责提供：
 
 - ``system`` / ``user`` —— 领域知识，包括布局、坐标约定、任务族、物体名、失败模式，以及用户任务消息。
-- ``tool_sections`` —— 只适用于本切片的工具（如原生工具）的使用说明。共享工具由所属工具族描述，这里不要重复；切片没有原生工具时可以省略。返回 ``Sequence[PromptSection]`` 或 ``Mapping[str, PromptNode]``，入参与 prompt 工厂相同。它必须是变量的纯函数，这样 ``--dump-prompt`` 无需启动 runtime 也能渲染。
+- ``tool_sections`` —— 本切片负责的工具说明：如何使用该机器人暴露的工具，包括原生工具。工具 schema 由 toolkit 提供，这里不要重复调用签名；切片没有工具说明时可以省略。返回 ``Sequence[PromptSection]`` 或 ``Mapping[str, PromptNode]``，入参与 prompt 工厂相同。它必须是变量的纯函数，这样 ``--dump-prompt`` 无需启动 runtime 也能渲染。
 - ``source`` —— prompt 内容在仓库中的相对位置，例如 ``robots/myrobot/prompts``。它是 ``prompt_sources.json`` 中每段名称、哈希旁的默认来源。用 ``sections(__file__, ...)`` 构造贡献时，记录的是实际定义该文本的模块文件，例如 ``robots/myrobot/prompts/tools.py``。
 
 一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。``prompt_sources.json`` 会记录所选 planner 接收两种角色的方式：``api`` 和 ``claude_code`` 使用独立的 system prompt，``codex`` 则把 system prompt 拼到第一条 user 消息前面；对 ``codex``，``effective_prompt.md`` 会以单条消息的形式写出实际投递的文本。Claude Code 和 Codex 由各自 SDK 管理模型上下文，其自带指令和后续轮次不在该记录内；它回答的是 RPent 投递了什么，而不是模型最终的完整上下文。
@@ -256,7 +256,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 将 prompt 内容保存在机器人包内，例如 ``robots/myrobot/prompts/system.py``、``user.py`` 和 ``tools.py``。分节内容可以是普通字符串，也可以使用 ``BulletList`` 或 ``Numbered``。占位符 ``{{suite}}`` / ``{{task}}`` / ``{{seed}}`` / ``{{output_dir}}`` / ``{{recipe_tag}}`` 在渲染时填充。
 
-如需在不启动仿真器或模型的情况下查看最终 prompt，可运行 ``rpent --robot myrobot ... --dump-prompt``。dump 打印渲染结果后退出，发生在记忆准备之前，因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁；它不写运行产物，运行自身记录的 prompt 文件才是证据。它不能与 ``--dashboard`` 同时使用，后者在自身的会话循环中按认领的任务拼装提示词。每次会话会在 state 目录（输出目录，探索运行时为 ``sessions/session_NNN/``）写入 ``effective_prompt.md`` 和 ``prompt_sources.json``，并在 transcript 中记录 ``prompt_sha256``。
+如需在不启动仿真器或模型的情况下查看最终 prompt，可运行 ``rpent --robot myrobot ... --dump-prompt``。dump 打印渲染结果后退出，发生在记忆准备之前，因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁；它不写运行产物，运行自身记录的 prompt 文件才是证据。它不能与 ``--dashboard`` 同时使用，后者在自身的会话循环中按认领的任务拼装提示词；也不能与 ``--tui`` 同时使用，后者的操作员可以在拼装后编辑第一条消息。每次会话会在 state 目录（输出目录，探索运行时为 ``sessions/session_NNN/``）写入 ``effective_prompt.md`` 和 ``prompt_sources.json``，并在 transcript 中记录 ``prompt_sha256``。``prompt_sources.json`` 还记录本次会话实际投递的第一条消息的 ``user_message_sha256``；对会把 system prompt 拼到该消息前面的 planner，还记录拼接后文本的 ``delivered_sha256``。
 
 .. _add-robot-toolkit:
 

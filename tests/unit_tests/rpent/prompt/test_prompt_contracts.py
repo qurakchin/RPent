@@ -14,13 +14,12 @@
 
 """Contracts for the migrated prompt sources.
 
-The a_2 migration moved shared rules into ``rpent/prompt/fragments``. These
-checks keep the model-facing instructions consistent with the shared sources
-and the memory manager:
+The shared-fragment migration moved common rules into
+``rpent/prompt/fragments``. These checks keep the model-facing instructions
+consistent with the shared sources and the memory manager:
 
-- shared tool usage belongs to the tool families; a robot's
-  ``tool_sections`` covers only tools that exist in that slice and may be
-  omitted;
+- a robot's ``tool_sections`` supplies the tool guidance for that slice and
+  may be omitted when the slice adds none;
 - prompts name tools without restating their call signatures;
 - no prompt asks for ``corroborations.jsonl`` or ``conflict_<id>.md``, which
   the merge step does not consume;
@@ -37,6 +36,8 @@ import re
 from collections.abc import Mapping
 from pathlib import Path
 
+import pytest
+
 from rpent.prompt.assembly import build_robot_prompt, fragment, run_axes
 from rpent.prompt.utils import format_prompt
 from rpent.robots import get_robot_spec
@@ -44,39 +45,52 @@ from rpent.robots.prompt_bundle import PromptBundle
 from tests.unit_tests.rpent.robots.test_registry_contracts import PROMPT_VARIABLES
 
 ROOT = Path(__file__).resolve().parents[4]
-#: Ceiling on slice-owned prompt source, including the section mappings and
-#: formatting that never reach the model. The model-facing bound is
-#: :data:`PROMPT_SLICE_RENDERED_BUDGET`; this one also blocks code growth.
-PROMPT_LINE_BUDGET = 2450
+#: Aggregate source ceiling, including the section mappings and formatting that
+#: never reach the model. While every slice sits at its measured count the
+#: per-slice ceilings below already bound the total; this one binds after a
+#: slice is reduced, so the freed ceiling cannot be reused by another slice.
+#: The model-facing bound is :data:`PROMPT_SLICE_RENDERED_BUDGET`.
+PROMPT_SOURCE_LINE_BUDGET = 2395
+#: Design target for slice-owned prompt source (``a_2`` §7): the hand-written
+#: slice prompts together, including the code-mode prompts ``a_4`` adds. This
+#: branch counts ``robots/<robot>/prompts/*.py`` plus ``prompt_bundle.py``
+#: without those prompts, so comparing the smaller set to the target is
+#: conservative. The strict xfail below records the gap.
+PROMPT_SOURCE_LINE_TARGET = 1200
 #: Per-slice source ceiling so one robot cannot absorb another's reduction.
 PROMPT_SLICE_LINE_BUDGET = {
-    "libero": 870,
-    "robodojo": 445,
-    "robocasa": 315,
-    "dual_franka": 275,
-    "robotwin": 275,
-    "yam": 210,
-    "franka": 80,
+    "libero": 845,
+    "robodojo": 434,
+    "robocasa": 308,
+    "dual_franka": 268,
+    "robotwin": 265,
+    "yam": 203,
+    "franka": 72,
 }
 
 #: Acceptances that describe what the model reads, in rendered lines: the
 #: LIBERO domain is a broad benchmark family, the other slices are narrower.
 PROMPT_DOMAIN_RENDERED_TARGET = {"libero": 300, "other": 150}
 #: Rendered slice text (domain, tool usage, user message) each robot may ship.
-#: The a_2 total target is :data:`PROMPT_RENDERED_TOTAL_TARGET`; the gap is the
-#: per-robot tool usage that a_3 moves into the shared tool families. Lower
-#: these after a reduction; raise them only for a deliberate addition.
+#: These are no-growth ratchets at the current measurements; the shared tool
+#: guidance ``a_3`` adds is what removes the remaining slice tool text.
 PROMPT_SLICE_RENDERED_BUDGET = {
-    "libero": 485,
-    "robodojo": 261,
-    "robocasa": 183,
-    "dual_franka": 105,
-    "robotwin": 159,
-    "yam": 117,
-    "franka": 50,
+    "libero": 479,
+    "robodojo": 256,
+    "robocasa": 178,
+    "dual_franka": 100,
+    "robotwin": 154,
+    "yam": 112,
+    "franka": 45,
 }
-PROMPT_RENDERED_TOTAL_TARGET = 1200
-PROMPT_RENDERED_TOTAL_BUDGET = 1340
+#: Follow-up rendered total once shared tool guidance lands. It is not an
+#: ``a_2`` design metric; the design target is the source-line count above. The
+#: strict xfail below tracks it.
+PROMPT_SLICE_RENDERED_TOTAL_TARGET = 1200
+#: Aggregate rendered ceiling, with the same role as
+#: :data:`PROMPT_SOURCE_LINE_BUDGET`: it binds once a reduced slice leaves
+#: slack in its own ceiling.
+PROMPT_SLICE_RENDERED_TOTAL_BUDGET = 1324
 
 #: Tools whose call signatures must come from the tool schema, not the prompt.
 TOOL_NAMES = (
@@ -184,11 +198,11 @@ def _prompt_texts(memory: Path, *, explore: bool) -> dict[str, str]:
 
 
 def test_a_slice_may_contribute_no_tool_sections() -> None:
-    """A slice with only family tools contributes domain, not tool guidance.
+    """A slice without tool guidance still contributes its domain prompt.
 
-    Shared tool usage belongs to the tool families (a_3). Requiring every
-    robot's ``tool_sections`` would keep that guidance in the slices after
-    the families take it over.
+    Requiring every robot to define ``tool_sections`` would force empty or
+    redundant guidance into a slice that only needs the base and run-axis
+    rules.
     """
     bundle = PromptBundle(
         system=lambda variables: {"DOMAIN": "domain knowledge"},
@@ -382,10 +396,15 @@ def _prompt_source_lines(robot: str) -> int:
     )
 
 
+def rendered_line_count(text: str) -> int:
+    """Count the non-blank lines of rendered prompt text."""
+    stripped = text.rstrip("\n")
+    return stripped.count("\n") + 1 if stripped.strip() else 0
+
+
 def _rendered_lines(node: object, variables: dict[str, object]) -> int:
     """Count the lines a prompt node contributes after rendering."""
-    text = format_prompt(node, variables=variables).rstrip("\n")
-    return text.count("\n") + 1 if text.strip() else 0
+    return rendered_line_count(format_prompt(node, variables=variables))
 
 
 def _section_nodes(contribution: object) -> tuple[object, ...]:
@@ -425,15 +444,23 @@ def _rendered_slice_text(robot: str, memory: Path) -> dict[str, int]:
     }
 
 
+def _rendered_slice_totals(memory: Path) -> dict[str, int]:
+    """Return each slice's rendered domain, tool, and user line total."""
+    return {
+        robot: sum(_rendered_slice_text(robot, memory).values())
+        for robot in PROMPT_VARIABLES
+    }
+
+
 def test_rendered_slice_prompt_meets_domain_targets_and_stays_within_budget(
     tmp_path: Path,
 ) -> None:
     """Bound what the model reads rather than the Python that renders it.
 
-    The domain layer must meet the a_2 acceptance for every slice. The slice and
-    total budgets are the current rendered size plus a small margin; a_3 moves
-    the tool usage they still allow into shared tool families, after which the
-    total is lowered to :data:`PROMPT_RENDERED_TOTAL_TARGET`.
+    The domain layer must meet its acceptance for every slice. The per-slice
+    and total budgets are no-growth ratchets at the current measurements; the
+    follow-up rendered total is lower because shared tool guidance has not yet
+    replaced the slice tool text.
     """
     memory = tmp_path / "memory"
     (memory / "global").mkdir(parents=True)
@@ -447,14 +474,34 @@ def test_rendered_slice_prompt_meets_domain_targets_and_stays_within_budget(
         )
         assert layers["domain"] <= target, (robot, layers)
         totals[robot] = sum(layers.values())
-        assert totals[robot] <= PROMPT_SLICE_RENDERED_BUDGET[robot], (robot, layers)
-    assert sum(totals.values()) <= PROMPT_RENDERED_TOTAL_BUDGET, totals
+        assert totals[robot] <= PROMPT_SLICE_RENDERED_BUDGET[robot], (
+            robot,
+            layers,
+        )
+    assert sum(totals.values()) <= PROMPT_SLICE_RENDERED_TOTAL_BUDGET, totals
 
 
-def test_prompt_source_lines_do_not_grow_before_a_3_moves_tool_guidance() -> None:
-    """Keep prompt sources from growing while a_3 owns the remaining move.
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "shared tool guidance must replace the slice tool text before the "
+        "follow-up rendered total is reachable"
+    ),
+)
+def test_rendered_slice_prompt_reaches_the_follow_up_total(tmp_path: Path) -> None:
+    """Track the rendered total that shared tool guidance will make reachable."""
+    memory = tmp_path / "memory"
+    (memory / "global").mkdir(parents=True)
+    (memory / "global" / "GLOBAL_MEMORY.md").write_text("# Global memory\n")
 
-    The measured target is the rendered text in
+    totals = _rendered_slice_totals(memory)
+    assert sum(totals.values()) <= PROMPT_SLICE_RENDERED_TOTAL_TARGET, totals
+
+
+def test_prompt_source_lines_do_not_grow() -> None:
+    """Keep prompt sources from growing between intended reductions.
+
+    The measured model-facing bound is
     :func:`test_rendered_slice_prompt_meets_domain_targets_and_stays_within_budget`.
     This ratchet covers the Python around it, so a new mapping or helper cannot
     quietly re-grow the slice files. Each slice has its own ceiling so one
@@ -467,4 +514,17 @@ def test_prompt_source_lines_do_not_grow_before_a_3_moves_tool_guidance() -> Non
     assert all(
         count <= PROMPT_SLICE_LINE_BUDGET[robot] for robot, count in counts.items()
     ), counts
-    assert total <= PROMPT_LINE_BUDGET, counts
+    assert total <= PROMPT_SOURCE_LINE_BUDGET, counts
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "slice-owned prompt source is still above the 1,200-line design "
+        "target; the shared tool guidance a_3 adds removes the rest"
+    ),
+)
+def test_prompt_source_lines_reach_the_design_target() -> None:
+    """Track the design target after the shared tool guidance lands."""
+    counts = {robot: _prompt_source_lines(robot) for robot in PROMPT_VARIABLES}
+    assert sum(counts.values()) <= PROMPT_SOURCE_LINE_TARGET, counts

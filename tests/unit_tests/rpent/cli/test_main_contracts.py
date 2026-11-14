@@ -1117,10 +1117,37 @@ def test_dump_prompt_renders_without_syncing_or_creating_memory(
     assert "separate_system" in printed
     assert not memory_root.exists()
 
-    # A dump is inspection only: the run's own prompt artifacts are what a
-    # later reader should treat as evidence.
-    assert not (tmp_path / "run" / "prompt_sources.json").exists()
-    assert not (tmp_path / "run" / "effective_prompt.md").exists()
+    # A dump is inspection only: it does not create the output directory,
+    # configure run logging, or write the run's prompt artifacts.
+    assert not (tmp_path / "run").exists()
+
+
+def test_dump_prompt_rejects_tui(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cli = _cli_module()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rpent",
+            "--robot",
+            "libero",
+            "--suite",
+            "libero_object",
+            "--task",
+            "0",
+            "--dump-prompt",
+            "--tui",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+
+    assert exc.value.code == 2
+    assert "--dump-prompt cannot be used with --tui" in capsys.readouterr().err
 
 
 def test_dump_prompt_skips_real_robot_tty_gates(

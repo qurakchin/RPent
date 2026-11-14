@@ -260,7 +260,7 @@ contribution in a fixed order:
 
 .. code-block:: text
 
-   base → mode → tool guidance → robot domain → memory
+   base → run axes → tool guidance → robot domain → memory
 
 ``base`` and the run-axis fragments come from ``rpent/prompt/fragments`` (role, general
 rules, output habits, the evaluate / explore / interactive / real-robot
@@ -271,10 +271,10 @@ in exploration, how to propose a merge. The robot contributes:
 
 - ``system`` / ``user`` — its domain knowledge: layout, coordinate conventions,
   task families, object names, failure modes, and the user task message.
-- ``tool_sections`` — usage guidance for tools that exist only in this slice,
-  such as native tools. Shared tools are described by their tool families, so
-  do not repeat a family's guidance here, and omit ``tool_sections`` when the
-  slice adds no native tool. Return a ``Sequence[PromptSection]`` or a
+- ``tool_sections`` — the tool guidance owned by this slice: how to use the
+  tools the robot exposes, including native tools. The toolkit owns their
+  schemas, so do not restate call signatures here. Omit ``tool_sections`` when
+  the slice adds no tool guidance. Return a ``Sequence[PromptSection]`` or a
   ``Mapping[str, PromptNode]``; the same prompt variables are passed in. Keep it
   a pure function of the variables so ``--dump-prompt`` can render without
   starting a runtime.
@@ -352,10 +352,13 @@ prompt and exits before memory preparation, so it neither creates nor syncs
 memory, skips the operator TTY gates of real-robot commands, and writes no run
 artifacts; a run's own prompt files remain the recorded evidence. It cannot be
 combined with ``--dashboard``, which assembles prompts per claimed task in its
-own session loop. Each session writes ``effective_prompt.md`` and
+own session loop, or with ``--tui``, whose operator can edit the first message
+after assembly. Each session writes ``effective_prompt.md`` and
 ``prompt_sources.json`` to its state directory (the output directory, or
 ``sessions/session_NNN/`` during exploration) and records ``prompt_sha256`` in
-the transcript.
+the transcript. ``prompt_sources.json`` also records
+``user_message_sha256`` for the exact opening message and, for prefixing
+planners, ``delivered_sha256`` for the concatenated text.
 
 .. _add-robot-toolkit:
 

@@ -450,6 +450,8 @@ def main() -> int:
         parser.error("--dashboard and --tui cannot be used together")
     if args.dump_prompt and args.dashboard:
         parser.error("--dump-prompt cannot be used with --dashboard")
+    if args.dump_prompt and args.tui:
+        parser.error("--dump-prompt cannot be used with --tui")
     try:
         external_env_dashboard = (
             robot_spec.is_real_robot
@@ -539,10 +541,6 @@ def main() -> int:
 
     robot_name = args.robot_name
 
-    # mkdir + logging wiring (robot-side already picked the path).
-    output_dir = init_output_dir(output_dir, verbose=args.verbose)
-    logger.info("physical agent cmd: %s", shlex.join([sys.executable, *sys.argv]))
-
     prompt_bundle = robot_spec.prompts
     if args.dump_prompt:
         # Dumping renders the prompt for inspection only: it must not sync or
@@ -577,6 +575,11 @@ def main() -> int:
             )
         )
         return 0
+
+    # mkdir + logging wiring (robot-side already picked the path). The dump
+    # above returns first so inspection leaves no directory or run.log behind.
+    output_dir = init_output_dir(output_dir, verbose=args.verbose)
+    logger.info("physical agent cmd: %s", shlex.join([sys.executable, *sys.argv]))
 
     prepare_run_memory(args, robot_spec, run_config)
 
