@@ -741,10 +741,34 @@ class _MemoryFamilyToolkit(_ContractToolkit):
     owns_memory_tools = True
 
 
-def test_memory_owning_toolkit_hides_memory_from_file_tool_descriptions(
+def test_memory_owning_toolkit_points_file_tools_at_the_memory_family(
     tmp_path,
 ) -> None:
-    toolkit = _MemoryFamilyToolkit(tmp_path)
+    memory = MemoryManager(tmp_path / "memory")
+    # A corpus-browsing description must not survive on tools that refuse it.
+    memory.file_tool_description = " CORPUS BROWSING"
+    toolkit = _MemoryFamilyToolkit(tmp_path, memory=memory)
 
     for name in ("read_text_file", "write_text_file", "list_dir"):
-        assert "memory" not in toolkit._tools[name].description.lower()
+        description = toolkit._tools[name].description
+        assert "cannot access the memory corpus" in description
+        assert "recall" in description
+        assert "remember" in description
+        assert "corroborate" in description
+        assert "draft findings with the memory tools" not in description
+        assert "CORPUS BROWSING" not in description
+
+
+def test_file_tool_descriptions_do_not_promise_unregistered_memory_tools(
+    tmp_path,
+) -> None:
+    toolkit = _ContractToolkit(tmp_path)
+
+    for name in ("read_text_file", "write_text_file", "list_dir"):
+        description = toolkit._tools[name].description
+        assert "Published memory is read-only" in description
+        assert "draft findings with the memory tools" not in description
+        assert not any(
+            tool_name in description
+            for tool_name in ("recall", "remember", "corroborate")
+        )

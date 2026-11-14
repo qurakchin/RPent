@@ -50,6 +50,56 @@ TOOL_DECLARATIONS = {
     "robotwin": RoboTwinToolkit.declared_tools(),
 }
 
+_SCENE_TOOL_NAMES = {
+    "view_env_state",
+    "geometry",
+    "query_world_map",
+    "view_camera_meta",
+    "back_project",
+    "back_project_batch",
+    "back_project_correspondence",
+    "segment",
+    "sample_world_xyz",
+}
+
+# a_3 §4.4 converges every slice on these three entry points. The remaining
+# native scene tools below stay explicit until a slice has an observation
+# provider and parity evidence; migrating one must update this table and the
+# declaration fixture together.
+_SCENE_CONVERGENCE_TARGET = {"view_env_state", "geometry", "query_world_map"}
+_SCENE_SURFACE = {
+    "common": set(),
+    "dual_franka": {"back_project", "segment", "view_camera_meta", "view_env_state"},
+    "franka": {
+        "back_project",
+        "back_project_correspondence",
+        "view_camera_meta",
+        "view_env_state",
+    },
+    "libero": {"back_project", "segment", "view_camera_meta", "view_env_state"},
+    "robocasa": {"back_project_batch", "query_world_map", "view_env_state"},
+    "robodojo": {
+        "back_project",
+        "query_world_map",
+        "sample_world_xyz",
+        "segment",
+        "view_env_state",
+    },
+    "robotwin": _SCENE_CONVERGENCE_TARGET,
+    "yam": {"query_world_map", "sample_world_xyz", "view_env_state"},
+}
+
+
+def test_scene_surface_tracks_the_convergence_baseline() -> None:
+    """Record remaining native scene entry points per slice."""
+    actual = {
+        group: {spec.name for spec in declarations} & _SCENE_TOOL_NAMES
+        for group, declarations in TOOL_DECLARATIONS.items()
+    }
+
+    assert actual == _SCENE_SURFACE
+    assert actual["robotwin"] == _SCENE_CONVERGENCE_TARGET
+
 
 @pytest.mark.parametrize("group", sorted(TOOL_DECLARATIONS))
 def test_tool_declarations_match_pre_refactor_contracts(group: str) -> None:
@@ -64,9 +114,7 @@ def test_tool_declarations_match_pre_refactor_contracts(group: str) -> None:
         # fixed snapshot of the new declarations rather than the old module.
         expected = json.loads(
             (
-                Path(__file__).parent
-                / "fixtures"
-                / "robotwin_tool_schemas.json"
+                Path(__file__).parent / "fixtures" / "robotwin_tool_schemas.json"
             ).read_text()
         )
     if group == "robodojo":

@@ -165,18 +165,9 @@ def _framework_error_layers(
     return True, False, "not_started"
 
 
-_MEMORY_FILE_INSTRUCTIONS = (
-    "Use for past recipe JSONLs, audit JSONs, and memory files.",
-    "Published memory is read-only; draft findings with the memory tools instead of editing memory files. Memory for other robots is unavailable.",
-    "Published memory is read-only; draft findings with the memory tools instead of editing memory files.",
+_MEMORY_TOOL_ACCESS_NOTE = (
+    " File tools cannot access the memory corpus; use recall, remember, or corroborate."
 )
-
-
-def _without_memory_instructions(description: str) -> str:
-    """Remove file-tool prose that no longer matches a memory-owning host."""
-    for phrase in _MEMORY_FILE_INSTRUCTIONS:
-        description = description.replace(phrase, "")
-    return " ".join(description.split())
 
 
 class Toolkit:
@@ -284,10 +275,10 @@ class Toolkit:
         for declaration in iter_tools(files):
             description = declaration.description
             if self.owns_memory_tools:
-                # The Memory family owns this surface; do not advertise file
-                # access that the handler now refuses.
-                description = _without_memory_instructions(description)
-            if declaration.name in {"read_text_file", "list_dir"}:
+                # The handlers refuse memory paths, so a description of
+                # browsing the corpus would contradict the note.
+                description += _MEMORY_TOOL_ACCESS_NOTE
+            elif declaration.name in {"read_text_file", "list_dir"}:
                 description += self._memory.file_tool_description
             declaration = replace(declaration, description=description)
             self.add_tool(declaration)
