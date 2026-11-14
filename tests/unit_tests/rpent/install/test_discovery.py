@@ -175,6 +175,24 @@ def test_imports_must_name_a_same_kind_component(tmp_path, write_toml):
         discover_components(tmp_path)
 
 
+def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
+    write_toml(
+        "toolkits/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "toolkit"
+        probe = "alpha"
+        requires = ["beta"]
+        imports = ["beta"]
+        """,
+    )
+    _manifest(write_toml, "toolkits", "beta", "toolkit", requires=["alpha"])
+
+    with pytest.raises(InstallConfigError, match="imports is only for robot slices"):
+        discover_components(tmp_path)
+
+
 def test_apple_double_metadata_is_ignored(tmp_path, write_toml):
     write_toml(
         "envs/alpha.toml",

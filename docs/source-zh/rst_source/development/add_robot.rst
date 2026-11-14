@@ -63,7 +63,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
    dependencies = ["my-simulator==1.2"]
 
-``probe`` 指向可导入的包。``rpent-env install`` 和 ``rpent-env doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进 ``envs/deps/`` 下的 deps 组件。
+``probe`` 指向可导入的包。``rpent-env install`` 和 ``rpent-env doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进 ``envs/deps/`` 下的 deps 组件。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。toolkit 和 capability 之间共享契约，不互相 import。
 
 ``pyproject.toml`` 里的兼容 extra 由清单和配方生成。因此新增或重命名组件、配方后还要重新生成该区块，这是新接入里唯一不放在 ``robots/`` 下的步骤：
 

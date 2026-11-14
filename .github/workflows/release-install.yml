@@ -4,6 +4,10 @@ name: Release install check
 # committed lock, so it fails whenever an upstream package publishes a new
 # version. That makes it a release gate rather than a nightly one; run it
 # before tagging and record the result in the release notes.
+#
+# Hosted profiles compile on a hosted runner. GPU profiles need the embodied
+# runner: `robotwin-sim` builds cuRobo metadata during resolution, which needs
+# CUDA, and the GPU locks target platforms the hosted runner does not install.
 on:
   workflow_dispatch:
 
@@ -11,14 +15,72 @@ permissions:
   contents: read
 
 jobs:
-  locks:
-    name: Recompile every lock
+  # The same authored partition drives the nightly install workflow, so a
+  # profile cannot be covered here without being classified there.
+  matrix:
+    name: Select profiles
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 5
+    outputs:
+      hosted: ${{ steps.select.outputs.hosted }}
+      gpu: ${{ steps.select.outputs.gpu }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: select
+        run: |
+          echo "hosted=$(python3 scripts/env_matrix.py --runner hosted)" >> "$GITHUB_OUTPUT"
+          echo "gpu=$(python3 scripts/env_matrix.py --runner gpu)" >> "$GITHUB_OUTPUT"
+      - name: Check the partition covers every profile
+        run: python3 scripts/env_matrix.py --check
+
+  hosted:
+    name: Recompile ${{ matrix.profile }} lock
+    needs: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJSON(needs.matrix.outputs.hosted) }}
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Lock is up to date
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.env lock --all --check
+            python -m rpent.cli.env lock "${{ matrix.profile }}" --check
+
+  gpu:
+    name: Recompile ${{ matrix.profile }} lock
+    needs: matrix
+    runs-on: embodied
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: ${{ fromJSON(needs.matrix.outputs.gpu) }}
+    env:
+      # Shared install policy used by RLinf's NVIDIA embodied runner.
+      UV_CACHE_DIR: /workspace/dataset/.uv_cache
+      UV_LINK_MODE: symlink
+      UV_PYTHON_INSTALL_DIR: /workspace/dataset/.uv_python
+      UV_TORCH_BACKEND: auto
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+      - name: Locate the CUDA toolkit
+        # cuRobo builds metadata during resolution; uv reads CUDA_HOME from the
+        # environment. Runners that export it already are left untouched.
+        run: |
+          if [ -z "${CUDA_HOME:-}" ]; then
+            nvcc="$(command -v nvcc || true)"
+            if [ -n "$nvcc" ]; then
+              echo "CUDA_HOME=$(dirname "$(dirname "$nvcc")")" >> "$GITHUB_ENV"
+            fi
+          fi
+      - name: Lock is up to date
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.env lock "${{ matrix.profile }}" --check

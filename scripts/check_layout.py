@@ -24,11 +24,13 @@ Rules:
 - K3: a slice root must not add a name a_1 4.2 retires, and a migrated slice
   must not keep one. Components that predate the skeleton only warn until
   a_5 moves them.
-- K4: ``toolkits/`` and ``capabilities/`` must not import ``robots``, and
-  slices, toolkits, or capabilities must not import a sibling of their own
-  kind unless the manifest declares it in ``imports``. Core ``rpent/**`` must
-  not import ``toolkits``, ``capabilities``, or a concrete ``robots.<name>``;
-  importing the ``robots`` package itself for discovery is allowed.
+- K4: ``toolkits/`` and ``capabilities/`` must not import ``robots``, and a
+  toolkit or capability must not import a sibling of its own kind. A robot
+  slice may import another slice only when its manifest declares it in
+  ``imports`` and one of the two ``requires`` the other. Core ``rpent/**``
+  must not import ``toolkits``, ``capabilities``, or a concrete
+  ``robots.<name>``; importing the ``robots`` package itself for discovery is
+  allowed.
 - K5: core ``rpent/**`` must not name a robot or benchmark (R8).
 - K6: a slice ``robots/<name>/__init__.py`` only re-exports lazily.
 - K7: ``spec.py`` > 80, ``adapter.py`` > 400, and ``native_tools.py`` > 100
@@ -771,6 +773,16 @@ def main() -> int:
         + check_core_robot_names(root)
         + check_lazy_slices(root)
         + check_file_sizes(root)
+    )
+    # A bare alias reaches a rule twice: once as the package path
+    # (``capabilities.sam3``) and once expanded to the imported module
+    # (``capabilities.sam3.server``). One violation is one line, so identical
+    # findings collapse while different ones on the same line remain.
+    findings = list(
+        {
+            (finding.path, finding.line, finding.level, finding.message): finding
+            for finding in findings
+        }.values()
     )
     for finding in findings:
         location = (

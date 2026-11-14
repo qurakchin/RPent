@@ -285,3 +285,59 @@ def test_core_requirements_are_checked_only_when_requested(
     )
 
     assert bool(problems) is include_core
+
+
+def test_lock_satisfying_an_override_is_accepted(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    override = tmp_path / "override.txt"
+    override.write_text("# keep numpy below 3\nnumpy<3\n", encoding="utf-8")
+    component = make_component(
+        "alpha", dependencies=["numpy>=2"], overrides=(override,)
+    )
+    profile = make_profile(
+        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+    )
+    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+
+    assert lock_problems(profile, resolve(profile, catalog), tmp_path) == []
+
+
+def test_lock_violating_an_override_is_reported(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    override = tmp_path / "override.txt"
+    override.write_text("numpy<2\n", encoding="utf-8")
+    component = make_component(
+        "alpha", dependencies=["numpy>=2"], overrides=(override,)
+    )
+    profile = make_profile(
+        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+    )
+    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+
+    problems = lock_problems(profile, resolve(profile, catalog), tmp_path)
+
+    assert "does not satisfy override" in problems[0]
+    assert "numpy==2.0.0" in problems[0]
+
+
+def test_override_for_a_package_outside_the_lock_is_ignored(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    # uv applies an override only to a package the resolution requests, so an
+    # optional dependency that is not locked is not a stale lock.
+    override = tmp_path / "override.txt"
+    override.write_text("torch==2.7.0\n", encoding="utf-8")
+    component = make_component(
+        "alpha", dependencies=["numpy>=2"], overrides=(override,)
+    )
+    profile = make_profile(
+        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+    )
+    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+
+    assert lock_problems(profile, resolve(profile, catalog), tmp_path) == []
