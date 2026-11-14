@@ -9,13 +9,15 @@ The check covers only rules that the repository owns:
   as warnings because the GitHub slug algorithm is approximated here;
 - commands written in documentation: ``cd`` targets, ``python -m`` modules,
   script paths, optional-dependency names, and ``-r``/``--requirement`` files.
-  Design documents under ``docs/design/`` are skipped, because they name
-  modules and paths that do not exist yet;
+  Each argument is read in the role its command gives it, so ``pytest -r a``
+  and ``grep -r TODO`` are not requirement files, and a trailing ``::node``
+  selector is not part of the path. Design documents under ``docs/design/``
+  are skipped, because they name modules and paths that do not exist yet;
 - the **Validation Status** / **验证状态** table on simulator and real-world
   robot pages: section presence and position, evidence-level vocabulary, an
   Evidence column with the minimum content for each status, repository paths
-  cited by evidence, paired English or Chinese pages, their status sequences,
-  and the result numbers they report;
+  cited by evidence, paired English or Chinese pages, their section counts,
+  status sequences, and the result numbers they report;
 - the status line of each design document and the presence of its baseline
   commit (skipped with a warning when the checkout has no full history).
 
@@ -77,50 +79,35 @@ PIP_EXTRA = re.compile(
     r"(?:-e\s+[\"']?\.\[([^\]]+)\]|\.\[([^\]]+)\])"
 )
 SYNC_EXTRA = re.compile(r"uv\s+sync[^\n]*?--extra(?:=|\s+)([A-Za-z0-9_-]+)")
-PATH_OPTION = re.compile(
+REQUIREMENT_OPTION = re.compile(
     r"--(?:override|requirement|requirements)(?:=|\s+)([^\s`'\"]+)|-r\s+([^\s`'\"]+)"
 )
+# ``-r`` means different things to different tools: a requirement file for pip
+# and uv, report characters for pytest, and a recursive search for grep. Only
+# check it where the line names the command that gives it a path meaning.
+REQUIREMENT_COMMAND = re.compile(r"(?:^|[\s`'\"(])(?:pip3?|uv)\b")
+PYTHON_COMMAND = re.compile(r"(?:^|[\s`'\"(])(?:python3?|uv\s+run)\b")
 MODULE_OPTION = re.compile(r"-m\s+([A-Za-z_][A-Za-z0-9_.]*)")
 PLACEHOLDERS = set("<>{}*?$|")
 VALIDATION_HEADINGS = {"Validation Status": "en", "验证状态": "zh"}
+# One row per evidence level keeps the two languages and the status keys from
+# drifting apart: the sets and the word-to-key map are derived from this table.
+EVIDENCE_LEVELS = {
+    "verified-multiple": ("Verified (multiple)", "已验证（多次）"),
+    "verified-single": ("Verified (single)", "已验证（单次）"),
+    "external": ("External result", "外部结果"),
+    "historical": ("Historical result", "历史结果"),
+    "cpu": ("CPU only", "仅 CPU"),
+    "unverified": ("Unverified", "未验证"),
+    "not-applicable": ("Not applicable", "不适用"),
+}
 EVIDENCE_STATUSES = {
-    "en": {
-        "Verified (multiple)",
-        "Verified (single)",
-        "External result",
-        "Historical result",
-        "CPU only",
-        "Unverified",
-        "Not applicable",
-    },
-    "zh": {
-        "已验证（多次）",
-        "已验证（单次）",
-        "外部结果",
-        "历史结果",
-        "仅 CPU",
-        "未验证",
-        "不适用",
-    },
+    "en": {english for english, _ in EVIDENCE_LEVELS.values()},
+    "zh": {chinese for _, chinese in EVIDENCE_LEVELS.values()},
 }
 STABILITY_TAGS = {"Experimental", "实验性"}
 STABILITY_SUFFIX = re.compile(r"^(.*?)\s*[（(]\s*(Experimental|实验性)\s*[)）]\s*$")
-STATUS_KEYS = {
-    "Verified (multiple)": "verified-multiple",
-    "已验证（多次）": "verified-multiple",
-    "Verified (single)": "verified-single",
-    "已验证（单次）": "verified-single",
-    "External result": "external",
-    "外部结果": "external",
-    "Historical result": "historical",
-    "历史结果": "historical",
-    "CPU only": "cpu",
-    "仅 CPU": "cpu",
-    "Unverified": "unverified",
-    "未验证": "unverified",
-    "Not applicable": "not-applicable",
-    "不适用": "not-applicable",
-}
+STATUS_KEYS = {word: key for key, words in EVIDENCE_LEVELS.items() for word in words}
 EVIDENCE_PATH = re.compile(r"(?<![\w:/.-])((?:[\w.@+-]+/)+[\w.@+-]+\.[A-Za-z0-9]+)")
 EVIDENCE_DATE = re.compile(r"\b\d{4}-\d{2}-\d{2}\b")
 EVIDENCE_SHA = re.compile(r"\b[0-9a-f]{7,40}\b")
@@ -163,11 +150,17 @@ DESIGN_NAME = re.compile(r"^a_(?:\d+_[^/]+|global|summary)\.md$")
 
 @dataclass
 class Report:
-    """Collected problems, warnings, and files inspected."""
+    """Collected problems, warnings, and files inspected.
+
+    Two rules can inspect the same token on one line. The same formatted
+    finding is kept once, so a duplicated check is a bug in the rule set
+    rather than extra output.
+    """
 
     errors: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     files: int = 0
+    _seen: set[str] = field(default_factory=set)
 
     def _format(self, path: Path, line: int, message: str, root: Path) -> str:
         try:
@@ -178,11 +171,19 @@ class Report:
 
     def error(self, path: Path, line: int, message: str, root: Path) -> None:
         """Record one problem relative to the repository root."""
-        self.errors.append(self._format(path, line, message, root))
+        finding = self._format(path, line, message, root)
+        if finding in self._seen:
+            return
+        self._seen.add(finding)
+        self.errors.append(finding)
 
     def warning(self, path: Path, line: int, message: str, root: Path) -> None:
         """Record one item that a person still has to decide."""
-        self.warnings.append(self._format(path, line, message, root))
+        finding = self._format(path, line, message, root)
+        if finding in self._seen:
+            return
+        self._seen.add(finding)
+        self.warnings.append(finding)
 
 
 def repository_files(root: Path) -> list[Path]:
@@ -290,6 +291,7 @@ class Checker:
         self._slugs: dict[Path, set[str]] = {}
         self._ignored: set[int] = set()
         self._validation_rows: dict[Path, tuple[int, list[str]]] = {}
+        self._section_counts: dict[Path, int] = {}
         self._has_en = (self.root / "docs/source-en").is_dir()
         self._has_zh = (self.root / "docs/source-zh").is_dir()
         self._warned_history = False
@@ -598,6 +600,7 @@ class Checker:
         if language is None:
             return
         lines = text.splitlines()
+        self._section_counts[path] = self._section_count(lines)
         heading: int | None = None
         for number, line in enumerate(lines):
             if line.strip() not in VALIDATION_HEADINGS:
@@ -838,6 +841,20 @@ class Checker:
             other = self._validation_rows.get(counterpart)
             if other is None:
                 continue
+            mine_sections = self._section_counts.get(path)
+            other_sections = self._section_counts.get(counterpart)
+            if (
+                mine_sections is not None
+                and other_sections is not None
+                and mine_sections != other_sections
+            ):
+                self.report.error(
+                    path,
+                    line,
+                    f"section count differs from the {language} counterpart "
+                    f"({mine_sections} != {other_sections})",
+                    self.root,
+                )
             mine_keys = [STATUS_KEYS.get(status, status) for _, status, _ in rows]
             other_keys = [STATUS_KEYS.get(status, status) for _, status, _ in other[1]]
             if mine_keys != other_keys:
@@ -912,6 +929,23 @@ class Checker:
             rows.append((row_line, cells))
         return rows
 
+    @staticmethod
+    def _section_count(lines: list[str]) -> int:
+        """Count RST section headings so paired pages can be compared.
+
+        A heading is a prose line followed by an adornment line. Table borders
+        either mix adornment characters or follow a blank line, so they are not
+        counted. Only the count is shared; heading text differs by language.
+        """
+        count = 0
+        for index, line in enumerate(lines[:-1]):
+            underline = lines[index + 1].strip()
+            if not line or line[0].isspace() or not underline:
+                continue
+            if len(underline) >= 3 and set(underline) <= set("-=~"):
+                count += 1
+        return count
+
     # Commands ---------------------------------------------------------------
 
     def _check_commands(self, path: Path, text: str) -> None:
@@ -919,11 +953,18 @@ class Checker:
         cwd = self.root
         external = False
         block = -1
+        carry = False
         for block_id, number, line in self._code_lines(path, text):
             if block_id != block:
                 block = block_id
                 cwd = self.root
                 external = False
+                carry = False
+            # A shell line continued with a backslash belongs to the command
+            # above it, so ``uv pip install \`` followed by ``-r FILE`` keeps
+            # the requirement-file reading.
+            requirements = carry or bool(REQUIREMENT_COMMAND.search(line))
+            carry = requirements and line.rstrip().endswith("\\")
             if number in self._ignored:
                 continue
             cd = re.match(r"^\s*(?:\$ )?cd\s+([^\s;&|]+)", line)
@@ -931,7 +972,7 @@ class Checker:
                 cwd, external = self._apply_cd(path, number, cd.group(1), cwd)
             if external:
                 continue
-            self._check_command_text(path, number, line, cwd)
+            self._check_command_text(path, number, line, cwd, requirements)
 
     def _apply_cd(
         self, path: Path, line: int, raw: str, cwd: Path
@@ -968,17 +1009,23 @@ class Checker:
         )
         return cwd, True
 
-    def _check_command_text(self, path: Path, line: int, text: str, cwd: Path) -> None:
+    def _check_command_text(
+        self, path: Path, line: int, text: str, cwd: Path, requirements: bool
+    ) -> None:
         """Check command paths and optional extras named on one line."""
         for match in PIP_EXTRA.finditer(text):
             extras = match.group(1) or match.group(2) or ""
             self._check_extras(path, line, extras)
         for match in SYNC_EXTRA.finditer(text):
             self._check_extras(path, line, match.group(1))
-        for match in PATH_OPTION.finditer(text):
-            self._check_command_path(path, line, match.group(1) or match.group(2), cwd)
-        for match in MODULE_OPTION.finditer(text):
-            self._check_module(path, line, match.group(1))
+        if requirements:
+            for match in REQUIREMENT_OPTION.finditer(text):
+                self._check_command_path(
+                    path, line, match.group(1) or match.group(2), cwd
+                )
+        if PYTHON_COMMAND.search(text):
+            for match in MODULE_OPTION.finditer(text):
+                self._check_module(path, line, match.group(1))
         for match in COMMAND.finditer(text):
             command, arguments = match.group(1), match.group(2)
             if command.startswith("python"):
@@ -995,7 +1042,13 @@ class Checker:
             for match in INLINE_CODE.finditer(line):
                 span = match.group(2).strip()
                 if span:
-                    self._check_command_text(path, number, span, self.root)
+                    self._check_command_text(
+                        path,
+                        number,
+                        span,
+                        self.root,
+                        bool(REQUIREMENT_COMMAND.search(span)),
+                    )
 
     def _code_lines(self, path: Path, text: str) -> list[tuple[int, int, str]]:
         """Return ``(block, line number, line)`` for code and literal blocks."""
@@ -1060,7 +1113,7 @@ class Checker:
                 return
             if token.startswith("-") or not token:
                 continue
-            if token.endswith(".py"):
+            if self._without_selector(token).endswith(".py"):
                 self._check_command_path(path, line, token, cwd)
             return
 
@@ -1077,18 +1130,24 @@ class Checker:
                 continue
             if PLACEHOLDERS.intersection(token) or "..." in token:
                 continue
+            target = self._without_selector(token)
             if command in {"bash", "sh", "sphinx-build"}:
-                if "/" not in token and not Path(token).suffix:
+                if "/" not in target and not Path(target).suffix:
                     break
-            elif not (token.endswith(".py") or "/" in token):
+            elif not (target.endswith(".py") or "/" in target):
                 continue
             self._check_command_path(path, line, token, cwd)
             checked += 1
             if checked >= limit:
                 break
 
+    @staticmethod
+    def _without_selector(token: str) -> str:
+        """Drop a pytest ``path::node`` selector; only the file must exist."""
+        return token.split("::", 1)[0]
+
     def _check_command_path(self, path: Path, line: int, token: str, cwd: Path) -> None:
-        token = token.strip(TRAILING)
+        token = self._without_selector(token.strip(TRAILING))
         if not token or has_scheme(token) or token.startswith(("/", "~", "$", "@")):
             return
         if PLACEHOLDERS.intersection(token) or "..." in token:

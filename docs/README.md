@@ -98,10 +98,11 @@ that lands them.
 
 [`scripts/check_docs.py`](../scripts/check_docs.py) verifies repository-relative
 Markdown links and images, same-file heading anchors, the Validation Status
-tables on simulator and robot pages, the status lines of design documents, and
-the repository paths, modules, and optional dependencies named by documented
-commands. It runs as the `docs-check` pre-commit hook on the changed pages and
-fails on a broken reference. Run the full check with:
+tables on simulator and robot pages, the matched section count and result
+numbers of paired English and Chinese pages, the status lines of design
+documents, and the repository paths, modules, and optional dependencies named
+by documented commands. It runs as the `docs-check` pre-commit hook on the
+changed pages and fails on a broken reference. Run the full check with:
 
 ```bash
 python scripts/check_docs.py

@@ -34,6 +34,16 @@ def run(root: Path, *files: str) -> subprocess.CompletedProcess[str]:
     )
 
 
+def load_checker():
+    """Import the checker module to assert contracts on its tables."""
+    spec = importlib.util.spec_from_file_location("check_docs_contract", SCRIPT)
+    assert spec is not None and spec.loader is not None
+    checker = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = checker
+    spec.loader.exec_module(checker)
+    return checker
+
+
 def write(root: Path, name: str, text: str = "") -> Path:
     """Write a file below the temporary root."""
     path = root / name
@@ -43,11 +53,14 @@ def write(root: Path, name: str, text: str = "") -> Path:
 
 
 def validation_page(
-    status: str = "CPU only", evidence: str = "Ran on 2026-11-14."
+    status: str = "CPU only",
+    evidence: str = "Ran on 2026-11-14.",
+    sections: str = "",
 ) -> str:
     """Return an RST page with a minimal validation table."""
     return (
         "Demo\n====\n\n"
+        f"{sections}"
         "Validation Status\n-----------------\n\n"
         ".. list-table::\n"
         "   :header-rows: 1\n\n"
@@ -444,6 +457,133 @@ def test_inline_commands_must_resolve(tmp_path: Path) -> None:
     assert "present.py" not in result.stdout
 
 
+def test_pytest_node_id_is_not_part_of_the_path(tmp_path: Path) -> None:
+    write(tmp_path, "tests/unit_tests/demo/test_one.py")
+    page = (
+        "Demo\n====\n\n"
+        ".. code-block:: bash\n\n"
+        "   pytest tests/unit_tests/demo/test_one.py::test_one\n"
+    )
+    write(tmp_path, "docs/page.rst", page)
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+
+    write(
+        tmp_path,
+        "docs/page.rst",
+        page.replace("test_one.py::test_one", "missing.py::test_one"),
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert (
+        "documented path 'tests/unit_tests/demo/missing.py' does not exist"
+        in result.stdout
+    )
+
+
+def test_flags_for_other_tools_are_not_requirement_files(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n"
+        ".. code-block:: bash\n\n"
+        "   pytest -r a\n"
+        "   grep -r TODO rpent/\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_requirement_files_are_checked_for_pip_and_uv(tmp_path: Path) -> None:
+    write(tmp_path, "config/requirements.txt")
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n"
+        ".. code-block:: bash\n\n"
+        "   pip install -r requirements.txt\n"
+        "   uv pip install -r config/requirements.txt\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'requirements.txt' does not exist" in result.stdout
+    assert "config/requirements.txt" not in result.stdout
+
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n"
+        ".. code-block:: bash\n\n"
+        "   uv pip install --torch-backend cpu \\\n"
+        "     -r config/requirements.txt\n"
+        "   uv pip install --torch-backend cpu \\\n"
+        "     -r missing/req.txt\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'missing/req.txt' does not exist" in result.stdout
+    assert "'config/requirements.txt'" not in result.stdout
+
+
+def test_a_path_repeated_on_one_line_is_reported_once(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n.. code-block:: bash\n\n   bash missing.sh missing.sh\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert result.stdout.count("documented path 'missing.sh' does not exist") == 1
+
+
+def test_paired_pages_must_agree_on_section_counts(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/demo.rst",
+        validation_page(),
+    )
+    write(
+        tmp_path,
+        "docs/source-zh/rst_source/simulators/demo.rst",
+        validation_page(
+            "仅 CPU",
+            "已于 2026-11-14 运行。",
+            sections="概览\n----\n\n说明。\n\n",
+        ),
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert (
+        "section count differs from the Chinese counterpart (2 != 3)" in result.stdout
+    )
+
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/demo.rst",
+        validation_page(
+            sections="Overview\n--------\n\nText.\n\n",
+        ),
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+
+
 def test_documented_cd_changes_the_checked_directory(tmp_path: Path) -> None:
     write(tmp_path, "docs/scripts/present.sh")
     write(
@@ -725,11 +865,7 @@ def test_ignore_marker_applies_to_the_next_line(tmp_path: Path) -> None:
 
 def test_status_vocabulary_matches_the_style_guide() -> None:
     """The checker and the guide must define the same status words."""
-    spec = importlib.util.spec_from_file_location("check_docs_contract", SCRIPT)
-    assert spec is not None and spec.loader is not None
-    checker = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = checker
-    spec.loader.exec_module(checker)
+    checker = load_checker()
 
     guide = (SCRIPT.parents[1] / "docs" / "STYLE_GUIDE.md").read_text(encoding="utf-8")
     english = {"Not applicable"}
@@ -748,6 +884,18 @@ def test_status_vocabulary_matches_the_style_guide() -> None:
 
     assert english == checker.EVIDENCE_STATUSES["en"]
     assert chinese == checker.EVIDENCE_STATUSES["zh"]
+
+
+def test_every_evidence_status_has_a_key() -> None:
+    """A status without a key skips its evidence check without saying so."""
+    checker = load_checker()
+
+    for language in ("en", "zh"):
+        for status in checker.EVIDENCE_STATUSES[language]:
+            assert status in checker.STATUS_KEYS, status
+    assert set(checker.STATUS_KEYS) == (
+        checker.EVIDENCE_STATUSES["en"] | checker.EVIDENCE_STATUSES["zh"]
+    )
 
 
 def test_valid_repository_is_clean(tmp_path: Path) -> None:

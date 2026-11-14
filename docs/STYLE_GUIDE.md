@@ -240,8 +240,11 @@ planner-specific differences and environment restrictions.
 ## English and Chinese
 
 Keep matching page paths, navigation, commands, prerequisites, limits, and
-results. Translate meaning into natural Chinese; do not copy English sentence
-structure. Preserve code identifiers, model names, flags, and filenames.
+results. Give both pages the same section structure: the `docs-check` hook
+compares the number of headings, so a section added on one side needs a
+counterpart. Translate meaning into natural Chinese; do not copy English
+sentence structure. Preserve code identifiers, model names, flags, and
+filenames.
 
 | English | Chinese usage |
 | --- | --- |
@@ -292,6 +295,14 @@ simulator version, while keeping the CLI identifier `robocasa` unchanged.
   page for sidebar organization.
 - Use tables for comparisons, numbered lists for procedures, and code blocks
   for commands. Introduce examples and explain what their output means.
+- Commands in a block run in this checkout unless the block first changes
+  directory. To show an installer or script owned by another checkout, such as
+  RLinf's `requirements/install.sh`, start the block with an absolute
+  `cd /path/to/<project>`; `docs-check` treats the rest of the block as
+  external and does not resolve its paths.
+- Teaching examples use placeholders: `<robot>`, `/path/to/...`, or `$VAR`.
+  `docs-check` skips tokens that contain placeholder characters or `...`, so an
+  example that names a concrete path must point at a real repository path.
 - Use `.. note::` for a relevant constraint and `.. warning::` for an actual
   operational risk, such as incompatible packages, device selection, or robot
   startup order. Put the warning beside the affected step and explain the
@@ -438,10 +449,13 @@ It verifies repository-relative Markdown links and images (including
 reference-style links and definitions), same-file heading anchors, the
 presence and vocabulary of the **Validation Status** table and its evidence on
 simulator and robot pages, the repository paths, modules, `cd` targets, and
-optional dependencies named by documented commands, and the status sequence and
-result numbers of the paired English and Chinese pages. The `docs-check`
-pre-commit hook checks only the changed pages and fails on a broken reference;
-a second hook rechecks the whole tree when `scripts/check_docs.py` changes.
+optional dependencies named by documented commands, and the section count,
+status sequence, and result numbers of the paired English and Chinese pages.
+Each argument is read in the role its command gives it: `-r` is a requirement
+file only for `pip` and `uv`, and a trailing `::node` pytest selector is not
+part of the file path. The `docs-check` pre-commit hook checks only the changed
+pages and fails on a broken reference; a second hook rechecks the whole tree
+when `scripts/check_docs.py` changes.
 Design documents skip command checks because they name modules and paths that
 do not exist yet. RST directives, `:doc:`, `:ref:`, and other RST references are
 left to Sphinx: the `Docs` workflow builds both trees with `-W --keep-going`,
