@@ -99,7 +99,13 @@ def _canonical_id(path: Path, metadata: dict[str, Any]) -> str:
     if metadata["scope"] == "task-family":
         return f"task-family_{metadata['suite']}_{metadata['regime']}_t{metadata['task_id']}"
     stem = _bare_id(path.stem)
-    return _bare_id(str(metadata.get("id") or stem))
+    memory_id = _bare_id(str(metadata.get("id") or stem))
+    if not memory_id:
+        raise ValueError(
+            "id is empty after removing the scope, kind, and draft prefixes; "
+            "use a bare slug such as 'align_before_grasp'"
+        )
+    return memory_id
 
 
 def _render(metadata: dict[str, Any], body: str) -> str:
@@ -270,10 +276,10 @@ class MemoryManager:
                 try:
                     metadata, body = _split_frontmatter(source)
                     _validate(metadata)
+                    memory_id = _canonical_id(source, metadata)
                 except ValueError as exc:
                     result["skipped"].append(f"{source.name}: {exc}")
                     continue
-                memory_id = _canonical_id(source, metadata)
                 metadata["id"] = memory_id
                 destination = tiers[metadata["scope"]] / f"{memory_id}.md"
                 published_draft = True

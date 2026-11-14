@@ -18,11 +18,33 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 import stat
-import tempfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+
+
+def _create_temporary(path: Path) -> tuple[int, Path]:
+    """Create a unique sibling file whose mode the process umask masks.
+
+    :func:`tempfile.mkstemp` always creates ``0600``, which would make run
+    artifacts ignore the umask that governs the rest of their directory.
+    ``os.open`` applies the umask to ``0o666`` instead, and ``O_EXCL`` keeps
+    concurrent writers on distinct names.
+    """
+    for _ in range(100):
+        candidate = path.parent / f".{path.name}.{secrets.token_hex(8)}.tmp"
+        try:
+            descriptor = os.open(
+                candidate,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o666,
+            )
+        except FileExistsError:
+            continue
+        return descriptor, candidate
+    raise FileExistsError(f"could not create a temporary file next to {path}")
 
 
 def write_text_atomic(destination: Path | str, text: str) -> Path:
@@ -31,27 +53,23 @@ def write_text_atomic(destination: Path | str, text: str) -> Path:
     The text goes to a unique sibling temporary file that is flushed to disk and
     moved into place with :func:`os.replace`. Concurrent writers therefore use
     distinct temporary files, and a crash mid-write leaves the previous file
-    intact. The replacement preserves an existing file's mode; a new file uses
-    ``0o644``. Replacing a symlink replaces the link itself, as
-    :func:`os.replace` does.
+    intact. The replacement preserves an existing file's mode; a new file takes
+    ``0o666`` masked by the process umask, like a regular open. Replacing a
+    symlink replaces the link itself, as :func:`os.replace` does.
     """
     path = Path(destination)
     try:
         mode = stat.S_IMODE(path.stat().st_mode)
     except FileNotFoundError:
-        mode = 0o644
-    descriptor, temporary_name = tempfile.mkstemp(
-        dir=path.parent,
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-    )
-    temporary = Path(temporary_name)
+        mode = None
+    descriptor, temporary = _create_temporary(path)
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
-            os.fchmod(handle.fileno(), mode)
+            if mode is not None:
+                os.fchmod(handle.fileno(), mode)
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
