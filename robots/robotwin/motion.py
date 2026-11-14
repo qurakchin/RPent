@@ -39,16 +39,12 @@ class RoboTwinMotionBackend:
     def episode_status(self) -> Mapping[str, Any]:
         return self._primitives.env.last_info["episode_status"]
 
-    def plan_arm_path(
-        self, arm: str, target: Sequence[float]
-    ) -> Mapping[str, Any]:
+    def plan_arm_path(self, arm: str, target: Sequence[float]) -> Mapping[str, Any]:
         return self._primitives.env.plan_arm_path(
             arm, np.asarray(target, dtype=np.float64)
         )
 
-    def apply_qpos_updates(
-        self, updates: list[dict[str, Any]]
-    ) -> Mapping[str, Any]:
+    def apply_qpos_updates(self, updates: list[dict[str, Any]]) -> Mapping[str, Any]:
         return self._primitives.apply_qpos_updates(updates)
 
     def account_native_actions(self, count: int) -> None:

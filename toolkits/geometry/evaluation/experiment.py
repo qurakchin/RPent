@@ -204,13 +204,9 @@ def run(
     if limit is not None:
         cases = cases[:limit]
     replayed = (
-        cases
-        if use_frozen_mask
-        else [case for case in cases if case["expect_visible"]]
+        cases if use_frozen_mask else [case for case in cases if case["expect_visible"]]
     )
-    results = replay.replay(
-        replayed, quality=quality, use_frozen_mask=use_frozen_mask
-    )
+    results = replay.replay(replayed, quality=quality, use_frozen_mask=use_frozen_mask)
     summary = metrics.summarize(results)
     manifest = build_manifest(
         cases,
@@ -230,9 +226,7 @@ def run(
     (output_dir / "summary.json").write_text(
         json.dumps(summary, indent=2, sort_keys=True)
     )
-    (output_dir / "report.md").write_text(
-        render_report(summary, manifest, results)
-    )
+    (output_dir / "report.md").write_text(render_report(summary, manifest, results))
     return {"summary": summary, "manifest": manifest, "results": results}
 
 

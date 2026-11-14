@@ -51,9 +51,7 @@ def _case_errors(result: dict[str, Any]) -> tuple[float | None, float | None]:
     center = np.asarray(payload["center"]["value"], dtype=np.float64)
     extent = np.asarray(payload["extent"]["value"], dtype=np.float64)
     center_error = float(np.linalg.norm(center - np.asarray(reference["center"])))
-    extent_error = float(
-        np.linalg.norm(extent - np.asarray(reference["extent"]))
-    )
+    extent_error = float(np.linalg.norm(extent - np.asarray(reference["extent"])))
     return center_error, extent_error
 
 

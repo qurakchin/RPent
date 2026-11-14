@@ -360,9 +360,7 @@ class MemoryManager:
             # ``conflict_<id>.md``. Archive those drafts next to the conflicts
             # detected during merge instead of parsing them as new memories.
             for source in sorted(inbox.glob("conflict_*.md")):
-                target_id = re.sub(r"[^A-Za-z0-9_.-]+", "-", source.stem[9:]).strip(
-                    "-"
-                )
+                target_id = re.sub(r"[^A-Za-z0-9_.-]+", "-", source.stem[9:]).strip("-")
                 if not target_id:
                     result["skipped"].append(
                         f"{source.name}: conflict file names no memory id"
