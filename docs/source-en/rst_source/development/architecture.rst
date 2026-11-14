@@ -18,7 +18,7 @@ the next decision. The sequence below follows one run from CLI setup to cleanup.
 
 1. The CLI reads shared arguments, loads the environment selected by ``--robot``, and registers and validates its arguments.
 2. ``parse_config`` creates a ``RunConfig`` with the task, output directory, and prompt variables.
-3. The runner synchronizes or uses local memory according to the profile, constructs the planner, and renders prompts.
+3. The runner synchronizes or uses local memory according to the profile, assembles the prompt from shared fragments, the run axes, tool guidance, the robot domain, and memory, then constructs the planner. It writes ``effective_prompt.md`` and ``prompt_sources.json`` to the session's state directory and records ``prompt_sha256`` in the transcript plus the planner layout and the opening user message digest in ``prompt_sources.json``. Because both files are written before the planner starts, a run states what the model receives. ``--dump-prompt`` stops after prompt assembly without preparing memory, constructing a planner, or writing run artifacts; its memory sections describe the local corpus rather than what a run would synchronize, so a run's own prompt files are authoritative.
 4. ``init_runtime`` starts or connects to services and returns runtime inputs and owned processes; ``get_toolkit`` creates tools and their memory manager.
 5. The planner obtains schemas through ``list_tools``, dispatches calls through ``execute_tool``, and consumes text and image results.
 6. Action tools call a VLA or scripted motion. The environment records updated state and observations for the next planning turn.
@@ -42,6 +42,8 @@ different robots.
      - Responsibility
    * - Planner
      - Select tools, manage model interaction, and return ``PlannerResult``. The ``api`` backend uses the native Pydantic AI loop and Harness sliding-window history trimming; ``claude_code`` and ``codex`` use their respective SDKs. LIBERO Flash executes stored plans.
+   * - Prompt assembly
+     - Order shared fragments, run-axis contracts, tool guidance, the robot domain, and memory; render both roles and record each section's source and the prompt hash.
    * - Toolkit
      - Define schemas, dispatch calls, record state, and expose results as ``ToolResult`` for the planner.
    * - Environment service
@@ -64,7 +66,7 @@ Shared execution and interfaces live under ``rpent/``. Each package under
    rpent/
      cli/          # CLI, Dashboard launcher, memory commands
      planner/      # Model backends and Planner base class
-     prompt/       # Shared prompt construction
+     prompt/       # Shared fragments, fixed-order assembly, run artifacts
      session/      # Session and task lifecycle
      dashboard/    # Web UI and event delivery
      robots/       # Discovery, descriptors, runtime components

@@ -20,6 +20,8 @@ from collections.abc import Mapping
 
 from robots.robocasa.prompts import evaluate as evaluate_parts
 from robots.robocasa.prompts import explore as explore_parts
+from robots.robocasa.prompts import tools as tool_parts
+from rpent.prompt.assembly import PromptSection, section_source, sections
 from rpent.prompt.utils import PromptNode
 
 
@@ -32,22 +34,28 @@ def system_prompt(
     return evaluate_parts.system_prompt(variables)
 
 
+def tool_sections(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
+    """Return the RoboCasa tool guidance for this run."""
+    return tool_parts.tool_sections(variables)
+
+
 def user_prompt(
     variables: Mapping[str, object] | None = None,
-) -> dict[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the first user message tree."""
-    mode = (
-        explore_parts.USER_MODE
-        if (variables or {}).get("mode", "eval") == "explore"
-        else evaluate_parts.USER_MODE
-    )
-    return {
-        "Task": """
+    explore = (variables or {}).get("mode", "eval") == "explore"
+    mode = explore_parts.USER_MODE if explore else evaluate_parts.USER_MODE
+    mode_source = explore_parts.__file__ if explore else evaluate_parts.__file__
+    task = """
         - task:    {{task_name}} / {{split}}
         - seed:    {{seed}}
         - output_dir: {{output_dir}}
         - output:  {{output_dir}}/
           - audit filename:  {{recipe_tag}}.json
-        """,
-        "Mode": mode,
-    }
+        """
+    return (
+        sections(__file__, {"Task": task}, role="user")[0],
+        PromptSection("Mode", {"Mode": mode}, section_source(mode_source), "user"),
+    )

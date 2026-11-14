@@ -25,6 +25,7 @@ from robots.dual_franka import robot_spec
 from robots.dual_franka.toolkit import DualFrankaToolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 
 
 class FakeEnv:
@@ -211,9 +212,12 @@ def test_explore_prompt_and_factory_use_local_layered_memory(
         ]
     )
     config = robot_spec.get_robot_spec().parse_config(args)
-    prompt = robot_spec.get_robot_spec().prompts.render(
-        "system", variables={**config.prompt_vars, "output_dir": tmp_path}
-    )
+    prompt = build_robot_prompt(
+        robot_spec.get_robot_spec().prompts,
+        robot_name="dual_franka",
+        variables={**config.prompt_vars, "output_dir": tmp_path},
+        axes=run_axes(explore=True, dashboard=False, real_robot=True),
+    ).system
     assert "request_scene_reset" in prompt and "request_operator_verdict" in prompt
     assert (
         "scope: global" in prompt
@@ -698,6 +702,8 @@ def test_explore_task_is_only_in_user_prompt():
     variables = {"mode": "explore"}
     system = prompt_bundle.system_prompt(variables)
     user = prompt_bundle.user_prompt(variables)
+    system_names = {section.name for section in system}
+    user_names = {section.name for section in user}
     for section in ("TASK", "TASK CONSTRAINTS"):
-        assert section not in system
-        assert section in user
+        assert section not in system_names
+        assert section in user_names

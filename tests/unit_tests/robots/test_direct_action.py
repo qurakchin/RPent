@@ -361,15 +361,20 @@ def test_libero_prompt_matches_direct_action_enablement(
     args.enable_direct_action = enabled
     args.explore = explore
     config = robot_spec._parse_config(args)
-    from robots.libero.prompt_bundle import system_prompt
-    from rpent.prompt.utils import format_prompt
+    from rpent.prompt.assembly import build_robot_prompt, run_axes
 
     variables = {**config.prompt_vars, "output_dir": tmp_path}
-    prompt = format_prompt(system_prompt(variables), variables=variables)
+    assembled = build_robot_prompt(
+        robot_spec.get_robot_spec().prompts,
+        robot_name="libero",
+        variables=variables,
+        axes=run_axes(explore=explore, dashboard=False, real_robot=False),
+    )
+    prompt = assembled.system
     allowed = prompt.split("ALLOWED PRIMITIVES", 1)[1].split(".", 1)[0]
     assert ("`execute_action`" in allowed) is enabled
     assert ("`execute_action`" in prompt) is enabled
-    assert ("SINGLE-ATTEMPT MODE" in prompt) is not explore
+    assert ("This is a single-attempt evaluation" in prompt) is not explore
     assert ("Also allowed: `reset`" in prompt) is explore
 
 

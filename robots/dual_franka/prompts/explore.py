@@ -19,6 +19,7 @@ inherit LIBERO's reset, simulator termination, or benchmark-solvability rules.
 """
 
 from robots.dual_franka.prompts import system as base
+from rpent.prompt.assembly import PromptSection, sections
 from rpent.prompt.utils import Numbered
 
 MODE = """MULTI-ATTEMPT REAL-ROBOT EXPLORATION. You are session {{session_number}}
@@ -29,8 +30,9 @@ retain them in handoff notes. Task solvability is not guaranteed. Operator abort
 state take precedence over using the remaining exploration budget."""
 
 RULES = (
-    "Before the first motion in every session, request_scene_reset(reason, "
-    "expected_scene_state). A human restores the objects and confirms done; "
+    "Before the first motion in every session, call request_scene_reset with "
+    "the reason and expected scene state. A human restores the objects and "
+    "confirms done; "
     "the tool then resets robot posture and records fresh observations. A new "
     "toolkit or planner session does not restore the tabletop.",
     "After reset, re-read the new state and re-localize. Never reuse a pixel, "
@@ -45,14 +47,11 @@ RULES = (
     "VLA terminated/truncated, and your own finish status are not task-success evidence.",
     "Any subsequent physical action invalidates the verdict. continue clears "
     "the previous verdict. Obtain another judgment before finish.",
-    "For a failed attempt, archive evidence and update wip before requesting "
-    "a new scene reset. Change a named lever: order, staging, target or VLA prompt/chunk budget. "
-    "Use in-place recovery only when safe. Never force a restart after operator abort.",
+    "Never force a restart after operator abort.",
 )
 
-MEMORY = """READ in order: the task's task-family entry under {{memory_dir}}/task-family/,
-then {{memory_dir}}/MEMORY.md and relevant {{memory_dir}}/global/ leaves.
-Read prior {{output_dir}}/attempts/ archives and {{memory_inbox}}/wip/ notes.
+MEMORY = """Follow the shared memory protocol, then read prior {{output_dir}}/attempts/
+archives and {{memory_inbox}}/wip/ notes.
 Record which memories applied and which did not; no matching entry is acceptable.
 
 Preserve the real-robot logs. Session traces are in
@@ -65,10 +64,9 @@ DURING exploration, archive each failed attempt as
 {{output_dir}}/attempts/attempt_s<session>_a<attempt>_failed.json. Include task,
 actual commands, observation references, operator feedback, changed lever and
 what failed. Never overwrite a previous archive. Write working observations to
-{{memory_inbox}}/wip/notes.md with session/attempt headings. Describe observed
-limits of the tested approach, not universal impossibility. Keep unknown causes
-explicit. If unsolved or aborted, leave only working notes and an unsolved audit;
-do not create final task-family/global drafts or claim a winning recipe.
+{{memory_inbox}}/wip/notes.md with session/attempt headings. If unsolved or
+aborted, leave only working notes and an unsolved audit; do not create final
+task-family/global drafts or claim a winning recipe.
 
 ONLY AFTER OPERATOR-CONFIRMED SUCCESS, re-read all working notes and distill:
 
@@ -78,52 +76,37 @@ ONLY AFTER OPERATOR-CONFIRMED SUCCESS, re-read all working notes and distill:
    scene reset and adds operator evidence to the audit. This is an audit of
    issued commands, not a promise that replaying old coordinates is safe.
 2. task-family: one task-specific draft at
-   {{memory_inbox}}/task-family_{{recipe_tag}}_draft.md. Use YAML frontmatter:
-   ---
-   id: task-family_dual_franka_real_t{{task_id}}
-   scope: task-family
-   suite: dual_franka
-   regime: real
-   task_id: {{task_id}}
-   task_language: <quote the full task instruction as valid YAML>
-   evidence:
-     cells: [{{recipe_tag}}]
-     attempts: <count>
-   confidence: single-shot
-   related: []
-   ---
+   {{memory_inbox}}/task-family_{{recipe_tag}}_draft.md in the shared
+   task-family shape with a bare `id`, `suite: dual_franka`, `regime: real`,
+   `task_id: {{task_id}}`, the full task instruction, and
+   `evidence.cells: [{{recipe_tag}}]`.
    Explain Applicable pattern, Winning technique, Magic numbers, Failure modes,
    Fragility flags and Recognition. Cite session/attempt/step evidence. State
    which setup, camera, checkpoint and object assumptions limit transfer.
 3. global: read existing candidates first. For a new cross-task lesson write
-   {{memory_inbox}}/new_global_<kind>_<slug>.md, with valid YAML fields:
-   id: <bare slug>; scope: global; kind: primitive|perception|strategy|failure|infra;
-   title: <title>; applies_when: <condition>; confidence: single-shot;
-   evidence: {cells: [{{recipe_tag}}]}; related: []. These are separate YAML
-   fields, not a literal semicolon-separated line. Quote values containing ': '.
-   Give measured evidence, applicability and exceptions. Do not invent tested
-   parameter ranges from one sample. Conflicting observations go into a
-   conflict_<id>.md draft, with the old claim and new evidence.
+   {{memory_inbox}}/<bare-id>.md in the shared global shape with a bare `id` and
+   `evidence.cells: [{{recipe_tag}}]`. Give measured evidence, applicability and
+   exceptions. Do not invent tested parameter ranges from one sample. Follow the
+   shared proposal contract for corroboration or contradiction.
 
-WRITE memory only under {{memory_inbox}}/. Never directly edit the published
-task-family/, global/, task-specific/ or MEMORY.md. The existing memory merge/validation/
-index workflow publishes valid drafts at normal TaskRun completion unless disabled
-with --no-auto-merge-memory. Successful audit/recipe pairs require confirmed success.
-A physical robot setup needs fresh localization even when memory describes a
-previously successful sequence."""
+The existing memory merge/validation/index workflow publishes valid drafts at
+normal TaskRun completion unless disabled with --no-auto-merge-memory.
+Successful audit/recipe pairs require confirmed success. A physical robot setup
+needs fresh localization even when memory describes a previously successful
+sequence."""
 
 
-def system_prompt():
-    return {
-        "ROLE": base.ROLE,
-        "EXPLORATION MODE": MODE,
-        "RUNTIME": base.RUNTIME,
-        "SAFETY RULES": Numbered(base.RULES),
-        "CAMERA AND PROJECTION RULES": Numbered(base.CAMERA_AND_PROJECTION),
-        "VLA SEGMENT GATES": Numbered(base.VLA_GATES),
-        "EXPLORATION WORKFLOW": Numbered(RULES),
-        "LAYERED MEMORY": MEMORY,
-    }
+def system_prompt() -> tuple[PromptSection, ...]:
+    return sections(
+        __file__,
+        {
+            "ROLE": base.ROLE,
+            "EXPLORATION MODE": MODE,
+            "SAFETY RULES": Numbered(base.RULES),
+            "EXPLORATION WORKFLOW": Numbered(RULES),
+            "LAYERED MEMORY": MEMORY,
+        },
+    )
 
 
 BEGIN = """Call describe_dual_franka_setup, then read relevant memory and prior attempt notes, inspect view_env_state,

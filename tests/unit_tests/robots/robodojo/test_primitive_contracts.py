@@ -13,6 +13,7 @@ from robots.robodojo.primitives import RoboDojoPrimitives
 from robots.robodojo.toolkit import RoboDojoToolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 from rpent.tools.toolkit import ToolCancelled
 
 
@@ -630,10 +631,13 @@ def test_explore_defaults_and_scene_identity_in_config(tmp_path):
     assert args.explore_attempts_per_session == 5 and args.explore_sessions == 3
     assert config.task_desc["seed"] == 2 and config.task_desc["layout"] == 3
     assert config.recipe_tag.endswith("s2_l3")
-    prompt = robot_spec.get_robot_spec().prompts.render(
-        "system", variables={**config.prompt_vars, "output_dir": str(tmp_path)}
+    assembled = build_robot_prompt(
+        robot_spec.get_robot_spec().prompts,
+        robot_name="robodojo",
+        variables={**config.prompt_vars, "output_dir": str(tmp_path)},
+        axes=run_axes(explore=True, dashboard=False, real_robot=False),
     )
-    assert "5 attempts" in " ".join(prompt.split())
+    assert "5 attempts" in " ".join(assembled.system.split())
     args.random = True
     with pytest.raises(ValueError, match="fixed seed/layout"):
         robot_spec._validate_args(args)
@@ -656,23 +660,30 @@ def test_policy_prompts_match_configured_backend(tmp_path, mode, backend, backen
     config = robot_spec._parse_config(args)
     variables = {**config.prompt_vars, "output_dir": str(tmp_path)}
     prompts = robot_spec.get_robot_spec().prompts
-    prompt = " ".join(prompts.render("system", variables=variables).split())
-    assert f"{backend}_act(" in prompt
+    assembled = build_robot_prompt(
+        prompts,
+        robot_name="robodojo",
+        variables=variables,
+        axes=run_axes(explore=args.explore, dashboard=False, real_robot=False),
+    )
+    system = assembled.system
+    prompt = " ".join(system.split())
+    assert f"{backend}_act" in prompt
     other = "vpp2" if backend == "awomo05" else "awomo05"
-    assert f"{other}_act(" not in prompt
+    assert f"{other}_act" not in prompt
     assert "{{" not in prompt
     if backend == "awomo05":
-        assert "no instruction parameter" in prompt
+        assert "no instruction input" in prompt
         assert "8, 16 and 24 actions" in prompt
         assert "VPP2" not in prompt
         assert "clarify the instruction" not in prompt
         if mode == "explore":
             assert "retry: instruction" not in prompt
     else:
-        assert "vpp2_act(instruction, chunks=1)" in prompt
+        assert "vpp2_act executes the supplied instruction" in prompt
         assert "24, 48 and 72 actions" in prompt
 
-    task = prompts.render("user", variables=variables)
+    task = assembled.user
     expected = (
         "Awomo05 native joint targets"
         if backend == "awomo05"
@@ -699,9 +710,13 @@ def test_evaluation_references_seed_zero_without_changing_output_identity(
     config = robot_spec._parse_config(args)
     assert config.recipe_tag == f"{task}_s1_l3"
     assert config.prompt_vars["reference_tag"] == f"{task}_s0_l0"
-    prompt = robot_spec.get_robot_spec().prompts.render(
-        "system", variables={**config.prompt_vars, "output_dir": str(tmp_path)}
+    assembled = build_robot_prompt(
+        robot_spec.get_robot_spec().prompts,
+        robot_name="robodojo",
+        variables={**config.prompt_vars, "output_dir": str(tmp_path)},
+        axes=run_axes(explore=False, dashboard=False, real_robot=False),
     )
+    prompt = assembled.system
     memory = config.prompt_vars["memory_dir"]
     assert f"{memory}/task-specific/{task}_s0_l0.json" in prompt
     assert f"{memory}/task-specific/{task}_s0_l0_recipe.jsonl" in prompt

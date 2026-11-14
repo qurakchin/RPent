@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Cross-session, read-only prompt scaffolding."""
+"""Prompt primitives, shared fragments, assembly, and run artifacts."""

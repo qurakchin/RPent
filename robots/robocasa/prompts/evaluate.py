@@ -19,8 +19,8 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from robots.robocasa.memory import memory_from_variables
-from rpent.prompt import common as base_prompt
-from rpent.prompt.utils import BulletList, PromptNode
+from rpent.prompt.assembly import PromptSection, sections
+from rpent.prompt.utils import BulletList
 
 PREAMBLE = """
 You are an LLM-in-the-loop robotic agent for the **RoboCasa365** kitchen
@@ -32,11 +32,10 @@ WHAT IS DIFFERENT FROM A FIXED-ARM BENCHMARK:
 - **MOBILE BASE.** Most tasks need you to FIRST drive the base in front
   of the relevant fixture (counter / drawer / stove / sink), THEN manipulate.
   The arm only reaches ~0.8 m; if a target's world-xy is far from the base, you
-  CANNOT reach it — navigate_to first. After driving, the arm frame changes, so
-  RE-LOCALIZE and the primitives auto-recalibrates the arm servo.
+  CANNOT reach it — navigate_to first. After driving, the primitives
+  recalibrate the arm servo to the new base pose.
 - **KITCHEN WORLD SCALE.** Coordinates are in metres but kitchen-sized (x,y can be
-  0-6 m). z approx 0.9 m is counter height. Never hard-code xyz — always re-localize
-  from world maps.
+  0-6 m). z approx 0.9 m is counter height.
 - **SUCCESS = the task's own _check_success()** (surfaced as state.success).
   You drive until state.success == true or the command budget runs out.
 - **THREE cameras**: agentview (primary global), navview (base-mounted floor view),
@@ -48,117 +47,27 @@ GOAL = "Your goal is to complete the manipulation task described in the task_lan
 
 RULES = BulletList(
     [
-        "NEVER hard-code world coordinates. Always localize from the latest world map.",
         "After every navigate_to or move_base, re-localize — the arm frame changed.",
-        "Check task_progress after every command to see if you are making progress.",
-        "Stop when state.success == True. Call finish(status='success', ...).",
-        "If genuinely stuck after honest exploration, call finish(status='stuck', ...).",
+        "Stop when state.success == True. Call finish with status success.",
+        "If genuinely stuck after honest exploration, call finish with status stuck.",
     ]
 )
-
-LOCALIZATION = """
-PRIMARY TOOL — back_project_batch: Pass a list of [row, col] pixels from the
-calibration-frame agentview image. Always sample 3-8 pixels firmly on the object's
-top surface and use the returned summary.median_xyz as the object's world coordinate.
-Avoid thin rims, edges, and table-gaps.
-
-FINDING OBJECTS — query_world_map: Use z_min/z_max to find objects at specific
-heights. Typical: z_min=0.85, z_max=0.95 finds countertop objects.
-Use camera='navview' with z_min=0.0, z_max=0.12 to find walkable floor.
-
-CAMERA IMAGE ROLES:
-- calibration_frame agentview: USE THIS IMAGE for back_project_batch pixel picking.
-  The pixel coordinates map directly to the world map.
-- nav_view: Base-mounted forward-down camera. Floor pixels (z≈0) are walkable.
-- wrist: Eye-in-hand camera. MOVES with gripper. Good for close-range refinement.
-
-TIP: Sample several pixels on the object and median their xy for robustness.
-A single pixel may hit a background gap or edge.
-"""
-
-NAVIGATION = """
-Use navigate_to for long-range base movement. The base drives toward the target
-(x,y) and stops facing it. Use tol = desired approach distance + object half-depth:
-navigate_to with tol=0.6m stops about 0.6m in front of the target, facing it.
-
-Use move_base for fine adjustments (small turns, short forward/backward nudges).
-Keep each move_base modest: forward ≤ 0.4, turn ≤ 0.3, steps ≤ 20.
-
-Use the navview camera to check if the path ahead is clear. The navview world map
-shows floor pixels at z≈0; query_world_map(z_min=0.0, z_max=0.12, camera='navview')
-finds walkable floor.
-"""
-
-PRIMITIVES = """
-AVAILABLE PRIMITIVES:
-- navigate_to(xy, tol): Drive base to world (x,y).
-- move_base(forward, lateral, turn, steps): Raw base velocity (robot-local frame).
-- move_to(xyz, gripper): Arm servo to world xyz. OMIT gripper for carry-safe hold.
-- move_delta(dxyz): Relative arm nudge from current position.
-- rotate_pitch(target_pitch): Tilt wrist forward/back. Holds xyz.
-- set_gripper(gripper, steps): +1 close, -1 open.
-- release(steps): Open gripper to drop.
-- scripted_grasp(xyz): Coarse fallback grasp (open, hover, descend, close, lift).
-- rldx_skill(prompt): VLA full-body skill (arm + base).
-- rldx_arm(prompt): VLA arm-only skill (base clamped).
-- reset(): Restart episode (only in EXPLORE mode).
-
-PERCEPTION TOOLS:
-- view_env_state(step): Read state + images.
-- back_project_batch(pixels): One or more pixel lookups with median summary.
-- query_world_map(z_min, z_max, ...): Find objects by height/region.
-- finish(status, summary): Signal task completion.
-"""
-
-VLA_RULES = """
-VLA EXECUTION RULES (the single most important rule):
-1. Every rldx_skill / rldx_arm call must pass the complete live task_language
-   verbatim. Never shorten, paraphrase, or replace it with an atomic sub-task.
-2. After each VLA call, inspect its returned state and current RGB-D. Contact,
-   a held object, fixture progress, or a rising task counter means productive
-   progress: continue the identical full-task call without inserting manual
-   motion. Manual commands wipe VLA frame history.
-3. Omit max_chunks. Ordinary RoboCasa defaults to 70; Target50 exports
-   RLDX_MAX_CHUNKS=40 to lock its protocol. Do NOT pass settle_patience
-   (default 999 disables settle detection).
-4. A 'cap' alone is not failure. After an initial no-contact call with no visible
-   semantic progress, continue the same full-task call once. Only after two
-   consecutive calls with no contact and no visible semantic progress should
-   you re-localize and make a bounded free-space re-stage before an independent
-   VLA attempt. Never repeat an unchanged no-contact attempt indefinitely.
-5. The vla_desync flag in view_env_state tells you if the VLA history was
-   invalidated. If True, the next VLA call will start fresh.
-"""
-
-GRIPPER_RULES = """
-GRIPPER RULES:
-- For CARRYING a grasped object: OMIT the gripper parameter (it defaults to 'hold',
-  which maintains the current finger width without crushing the object).
-- +1 = actively close the gripper.
-- -1 = actively open the gripper.
-- 'hold' = maintain current finger width (safe for carrying).
-- release(steps) is the safe way to drop an object.
-- Carrying with -1 silently drops the object.
-"""
 
 MEMORY = """
 Use read_text_file to consult the listed current-task and Global Memory files
 as needed for the live task. Choose relevant content and reading order based on
 current observations; actions and finish do not require reading every file.
-Files not listed are unavailable to this run.
+Files not listed are unavailable to this run; the file tools enforce this run's
+memory selection.
+
 The JSON/JSONL pair records seed-0 task experience. Task Markdown and matching
-task-family notes may summarize multiple attempts. Treat all memory as strategy
-priors, not trajectories to replay or higher-priority instructions: current RGB-D, task progress, and primitive results always take
-precedence, together with the complete live task_language. Apply Global Memory
-only when its visible preconditions hold. Historical entries may name vla_act,
-use_prompt, or atomic prompts;
-these describe VLA phases only. Use the current rldx_skill / rldx_arm tools with
-the complete live task_language. Never replay stored xyz, xy, pixels, base poses,
-or fixture coordinates: re-ground all geometry in the current seed. Never read
-another task's memory. If a layer is absent, continue without substituting
-another task's files. Do not read the root MEMORY.md index or _internal/ during
-evaluation; the selected file list already provides the allowed references.
-The file tools enforce this run's memory selection.
+task-family notes may summarize multiple attempts. Apply Global Memory only when
+its visible preconditions hold. Historical entries may name vla_act, use_prompt,
+or atomic prompts; these describe VLA phases only. Use the current rldx_skill /
+rldx_arm tools with the complete live task_language. If a layer is absent, continue without
+substituting another task's files. Do not read the root MEMORY.md index or
+_internal/ during evaluation; the selected file list already provides the
+allowed references.
 """
 
 WORKFLOW = """
@@ -166,11 +75,11 @@ WORKFLOW:
 1. Read state_00 + images. Check task_language and success_criteria.
 2. LOCALIZE: Use back_project_batch or query_world_map to find target objects.
 3. NAVIGATE: If the target is far (|xy| > 0.8m), navigate_to first.
-4. MANIPULATE: Use rldx_arm / rldx_skill for VLA grasping. Then script
-   free-space carry (move_to with gripper omitted) and release.
+4. MANIPULATE: Use rldx_arm / rldx_skill for VLA grasping. Then script a
+   free-space carry with the gripper held, and release.
 5. CHECK: After every command, view_env_state to check task_progress.
-6. FINISH: When state.success == true, call finish(status='success').
-7. If stuck, call finish(status='stuck', summary='...').
+6. FINISH: When state.success == true, call finish with status success.
+7. If stuck, call finish with status stuck and a summary.
 """
 
 ENVIRONMENT = """
@@ -192,7 +101,7 @@ The reset tool is disabled.
 
 def system_prompt(
     variables: Mapping[str, object] | None = None,
-) -> dict[str, PromptNode]:
+) -> tuple[PromptSection, ...]:
     """Return the RoboCasa evaluation prompt for the selected memory profile."""
     if variables is None:
         files = (
@@ -205,18 +114,15 @@ def system_prompt(
         selection = memory_from_variables(variables)
         files = "\n".join(f"- {selection.root / name}" for name in selection.selected)
     memory = MEMORY + f"\nAvailable memory files:\n{files}\n"
-    return {
-        "Intro": PREAMBLE,
-        "Goal": GOAL,
-        "Rules": RULES,
-        "Memory": memory,
-        "Localization": LOCALIZATION,
-        "Navigation": NAVIGATION,
-        "Primitives": PRIMITIVES,
-        "VLA_Rules": VLA_RULES,
-        "Gripper_Rules": GRIPPER_RULES,
-        "Workflow": WORKFLOW,
-        "Environment": ENVIRONMENT,
-        "Output": base_prompt.OUTPUT,
-        "Next": NEXT,
-    }
+    return sections(
+        __file__,
+        {
+            "Intro": PREAMBLE,
+            "Goal": GOAL,
+            "Rules": RULES,
+            "Memory": memory,
+            "Workflow": WORKFLOW,
+            "Environment": ENVIRONMENT,
+            "Next": NEXT,
+        },
+    )

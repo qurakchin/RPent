@@ -23,7 +23,11 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from robots.libero.prompt_bundle import system_prompt, user_prompt
+from robots.libero.prompt_bundle import (
+    system_prompt,
+    tool_sections,
+    user_prompt,
+)
 from robots.libero.suites import LIBERO_SUITE_NAMES, resolve_libero_type
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
@@ -150,6 +154,8 @@ def get_robot_spec() -> RobotSpec:
         prompts=PromptBundle(
             system=system_prompt,
             user=user_prompt,
+            tool_sections=tool_sections,
+            source="robots/libero/prompts",
         ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,

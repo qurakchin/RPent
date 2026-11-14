@@ -33,7 +33,13 @@ logger = get_logger("memory")
 SCOPES = {"global", "task-family"}
 KINDS = {"primitive", "perception", "strategy", "failure", "infra"}
 CONFIDENCE = {"single-shot", "probable", "verified"}
-_PREFIXES = ("new_global_", "new_task-family_", "new_", "task-family_")
+_PREFIXES = (
+    "new_global_",
+    "new_task-family_",
+    "new_",
+    "global_",
+    "task-family_",
+)
 _KINDS = tuple(f"{kind}_" for kind in sorted(KINDS))
 
 
@@ -76,15 +82,24 @@ def _validate(metadata: dict[str, Any]) -> None:
         raise ValueError("evidence.cells must be a non-empty list")
 
 
+def _bare_id(value: str) -> str:
+    """Strip the scope, kind, and draft prefixes the proposal contract excludes."""
+    value = re.sub(r"_draft$", "", value.strip())
+    prefixes = (*_PREFIXES, *_KINDS)
+    while True:
+        for prefix in prefixes:
+            if value.startswith(prefix):
+                value = value[len(prefix) :]
+                break
+        else:
+            return value
+
+
 def _canonical_id(path: Path, metadata: dict[str, Any]) -> str:
     if metadata["scope"] == "task-family":
         return f"task-family_{metadata['suite']}_{metadata['regime']}_t{metadata['task_id']}"
-    stem = re.sub(r"_draft$", "", path.stem)
-    for prefix in (*_PREFIXES, *_KINDS):
-        if stem.startswith(prefix):
-            stem = stem[len(prefix) :]
-            break
-    return str(metadata.get("id") or stem).strip()
+    stem = _bare_id(path.stem)
+    return _bare_id(str(metadata.get("id") or stem))
 
 
 def _render(metadata: dict[str, Any], body: str) -> str:

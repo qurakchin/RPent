@@ -18,36 +18,29 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 
 ROLE = """You control one dual-arm RoboTwin demo_randomized episode through the
-registered RPent tools. Satisfy the complete current task_language in one
-no-restart episode. Prefer one accurate, recipe-supported sequence over broad
-exploration, and protect every achieved subgoal."""
+registered RPent tools. Prefer one accurate, recipe-supported sequence over
+broad exploration, and protect every achieved subgoal."""
 
 READ_ORDER = """Before the first robot mutation:
 1. Read robots/robotwin/guides/GUIDE_RPENT.md completely.
-2. Inspect view_env_state(step=0) and its head image.
+2. Inspect `view_env_state` at step 0 and its head image.
 3. Read {{memory_dir}}/task-specific/{{reference_tag}}.json and
    {{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl when present.
-4. Read {{memory_dir}}/MEMORY.md and at most one to three relevant leaves.
+4. Use {{memory_dir}}/MEMORY.md for the relevant global leaves; one to three usually suffice.
 
-The current task_language and fresh observation override historical memory.
 Use the semantic JSON as the phase plan and the JSONL as evidence for action
 type and VLA cadence, never as a coordinate replay."""
 
 TRANSFER = """Transfer roles, phase order, required arms, observable gates,
-VLA/analytic division, chunk pattern, terminal action, and known failures.
-Rebind every object, destination, relation, arm choice, pixel, pose, table
-height, clearance, grasp point, and release/contact point from this episode.
-Use a supported recipe as the default skeleton when current evidence agrees;
-treat an experimental recipe as a weak prior."""
+VLA/analytic division, chunk pattern, terminal action, and known failures."""
 
-ACCURACY_LOOP = """Issue one registered action, inspect fresh before/after
-evidence, then decide again. Maintain a compact internal ledger: current phase,
+ACCURACY_LOOP = """Maintain a compact internal ledger: current phase,
 achieved/protected relations, held object and arm, first unmet postcondition,
 blocker, and next observable gate. Advance only when the current gate is visibly
-satisfied. Primitive success is not task success.
+satisfied.
 
 If an action makes useful progress but stops mid-phase, continue the same phase
 with the shortest suitable action. LingBot-VLA may be called repeatedly as the
@@ -85,32 +78,6 @@ observed goal match it:
   after the object body crosses the opening and is internally supported. Do not
   apply containment rules to a pad, plate, scale, skillet, or stand."""
 
-CONTROL = """Every lingbot_act uses the exact complete current task_language and
-use_length=50. Use one chunk near contact, near success, instability, or for a
-small correction; two for ordinary stable progress; three only for a
-recipe-supported continuity-sensitive phase already moving correctly. When VLA
-has correct contact and visible progress, avoid interrupting it with speculative
-primitives. Repeated VLA calls are allowed; after an unproductive chunk, use
-fresh evidence to choose whether to continue, shorten the next chunk, or improve
-binding, visibility, or physical staging first.
-
-Prefer VLA for grasp/re-grasp, receiving-arm grasp, bimanual coordination,
-insertion, hanging, tool use, and contact-rich motion. Use primitives after
-verified state for measured free-space transport, staging, retreat, release, or
-one small geometric correction. Never transport because a gripper merely looks
-closed: also require visible target motion, elevation, or an emptied source.
-Never call a primitive just to test whether it helps. For planner residuals,
-guarded low approaches, physical state shaping, and wrist-sweep safety, follow
-robots/robotwin/guides/GUIDE_RPENT.md and re-observe after every primitive."""
-
-PERCEPTION = """Use the head view as semantic authority for identity,
-distractors, destinations, language relations, and global progress. Use the
-matching current wrist view to refine geometry for that same chosen candidate;
-do not let it silently switch to a look-alike. Pair RGB and world maps from the
-same step, view, and resolution. World maps are [row,col] -> [x,y,z] metres and
-may contain NaN; visible surface points are not automatically object centers.
-Relocalize after occlusion, contact, or substantial arm/object motion."""
-
 RUNTIME = """The registered RoboTwin Toolkit is the only control surface. Do
 not use shell, Python, network clients, legacy command files, plan mode, user
 questions, or unrelated built-in tools. Never inspect task source, evaluator
@@ -130,8 +97,7 @@ strategy. Also preserve enough Planner turns and wall time to verify and finish.
 
 Only fresh TASK_ENV.eval_success=true confirms success. Stop robot actions
 immediately after native success or budget exhaustion. Every exit must call
-finish exactly once after a fresh status check, reporting failure honestly when
-native success remains false."""
+finish exactly once after a fresh status check."""
 
 USER_MODE = """Solve the current episode now using registered tools and current
 evidence. Do not ask for clarification or defer the next determined action."""
@@ -150,19 +116,20 @@ WAM_WORKFLOW = (
 
 def system_prompt(
     variables: Mapping[str, object] | None = None,
-) -> PromptNode:
+) -> tuple[PromptSection, ...]:
     """Return the RoboTwin evaluation prompt for the selected policy."""
     if (variables or {}).get("policy_kind") == "wam":
-        return {"ROLE": WAM_ROLE, "WORKFLOW": WAM_WORKFLOW}
-    return {
-        "ROLE": ROLE,
-        "READ ORDER": READ_ORDER,
-        "CLEAN-TO-RANDOMIZED TRANSFER": TRANSFER,
-        "ACCURACY-FIRST LOOP": ACCURACY_LOOP,
-        "CONDITIONAL TASK-FAMILY PLAYBOOKS": TASK_FAMILIES,
-        "VLA AND PRIMITIVE CONTROL": CONTROL,
-        "PERCEPTION": PERCEPTION,
-        "RUNTIME": RUNTIME,
-        "BUDGET AND SUCCESS": BUDGET_AND_SUCCESS,
-        "MODE": USER_MODE,
-    }
+        return sections(__file__, {"ROLE": WAM_ROLE, "WORKFLOW": WAM_WORKFLOW})
+    return sections(
+        __file__,
+        {
+            "ROLE": ROLE,
+            "READ ORDER": READ_ORDER,
+            "CLEAN-TO-RANDOMIZED TRANSFER": TRANSFER,
+            "ACCURACY-FIRST LOOP": ACCURACY_LOOP,
+            "CONDITIONAL TASK-FAMILY PLAYBOOKS": TASK_FAMILIES,
+            "RUNTIME": RUNTIME,
+            "BUDGET AND SUCCESS": BUDGET_AND_SUCCESS,
+            "MODE": USER_MODE,
+        },
+    )

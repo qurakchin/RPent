@@ -48,6 +48,9 @@ class Numbered:
 
 PromptNode = str | Mapping[str, Any] | Sequence[Any] | BulletList | Numbered
 
+#: Blank-line separator between titled sections of one rendered prompt.
+SECTION_SEPARATOR = "\n\n\n"
+
 
 def format_prompt(
     prompt: PromptNode,
@@ -108,7 +111,7 @@ def _render_mapping(
             parts.append("\n".join(section))
         else:
             parts.append(f"{'#' * min(depth + 2, 6)} {title}\n\n{rendered}")
-    return "\n\n\n".join(parts)
+    return SECTION_SEPARATOR.join(parts)
 
 
 def _render_list(

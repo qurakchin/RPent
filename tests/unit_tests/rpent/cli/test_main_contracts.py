@@ -553,6 +553,8 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
     from rpent.tools import common
     from rpent.tools.toolkit import ToolResult
 
+    (tmp_path / "memory").mkdir()
+
     calls: dict[str, Any] = {}
     stores = []
     model_requests = 0
@@ -815,13 +817,32 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
         assert len([m for m in transcript["messages"] if m["role"] == "user"]) == 2
         return
 
-    assert calls["solve"] == {
-        "system_prompt": "simulated system prompt\n",
-        "user_message": "simulated user task\n",
-        "max_turns": 4,
-        "input_queue": None,
-        "dashboard_interaction": None,
-    }
+    system_prompt = calls["solve"]["system_prompt"]
+    assert "simulated system prompt" in system_prompt
+    assert "OPERATING RULES" in system_prompt
+    assert "RUN MODE — EXPLORATION" in system_prompt
+    assert system_prompt.index("OPERATING RULES") < system_prompt.index(
+        "simulated system prompt"
+    )
+    assert system_prompt.index("simulated system prompt") < system_prompt.index(
+        "MEMORY — HOW TO READ"
+    )
+    assert calls["solve"]["user_message"] == "simulated user task\n"
+    assert calls["solve"]["max_turns"] == 4
+    assert calls["solve"]["input_queue"] is None
+    assert calls["solve"]["dashboard_interaction"] is None
+    assert len(transcript["prompt_sha256"]) == 64
+    sources = json.loads(
+        (tmp_path / "sessions" / "session_001" / "prompt_sources.json").read_text()
+    )
+    assert sources["axes"] == ["explore"]
+    assert sources["prompt_sha256"] == transcript["prompt_sha256"]
+    system_sections = [
+        section for section in sources["sections"] if section["role"] == "system"
+    ]
+    assert system_sections[-1]["source"] == (
+        "rpent/prompt/fragments/memory_proposals.md"
+    )
     assert toolkit.calls == [
         ("finish", {"status": "success", "summary": "simulated task complete"})
     ]
@@ -1061,3 +1082,134 @@ def test_invalid_memory_source_fails_before_startup(
         cli.main()
     assert exc.value.code == 2
     assert message in capsys.readouterr().err
+
+
+def test_dump_prompt_renders_without_syncing_or_creating_memory(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    cli = _cli_module()
+    memory_root = tmp_path / "memory-root"
+    monkeypatch.setattr(cli, "get_memory_dir", lambda name: memory_root / name)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rpent",
+            "--robot",
+            "robotwin",
+            "--task-name",
+            "block_hammer_beat",
+            "--seed",
+            "1",
+            "--dump-prompt",
+            "--output-dir",
+            str(tmp_path / "run"),
+        ],
+    )
+
+    assert cli.main() == 0
+
+    printed = capsys.readouterr().out
+    assert "OPERATING RULES" in printed
+    assert "prompt_sha256" in printed
+    assert "separate_system" in printed
+    assert not memory_root.exists()
+
+    # A dump is inspection only: it does not create the output directory,
+    # configure run logging, or write the run's prompt artifacts.
+    assert not (tmp_path / "run").exists()
+
+
+def test_dump_prompt_rejects_tui(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    cli = _cli_module()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rpent",
+            "--robot",
+            "libero",
+            "--suite",
+            "libero_object",
+            "--task",
+            "0",
+            "--dump-prompt",
+            "--tui",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+
+    assert exc.value.code == 2
+    assert "--dump-prompt cannot be used with --tui" in capsys.readouterr().err
+
+
+def test_dump_prompt_skips_real_robot_tty_gates(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+) -> None:
+    from dataclasses import replace
+
+    from robots.libero.robot_spec import get_robot_spec as get_libero_spec
+
+    cli = _cli_module()
+    real_spec = replace(
+        get_libero_spec(),
+        name="franka",
+        is_real_robot=True,
+        supports_human_interactive_exploration=False,
+    )
+    monkeypatch.setattr(cli, "get_robot_spec", lambda name: real_spec)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rpent",
+            "--robot",
+            "franka",
+            "--suite",
+            "libero_object",
+            "--task",
+            "0",
+            "--dump-prompt",
+            "--output-dir",
+            str(tmp_path / "run"),
+        ],
+    )
+
+    assert cli.main() == 0
+    assert "OPERATING RULES" in capsys.readouterr().out
+
+
+def test_dump_prompt_rejects_the_dashboard_combination(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli = _cli_module()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rpent",
+            "--robot",
+            "libero",
+            "--suite",
+            "libero_object",
+            "--task",
+            "0",
+            "--dashboard",
+            "--dump-prompt",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        cli.main()
+
+    assert exc.value.code == 2
+    assert "--dump-prompt cannot be used with --dashboard" in capsys.readouterr().err

@@ -28,6 +28,7 @@ import pytest
 from robots.robocasa.prompt_bundle import system_prompt
 from robots.robocasa.robot_spec import _parse_config
 from rpent.memory import MemoryManager
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 from rpent.prompt.utils import format_prompt
 from rpent.tools import ToolResult
 from rpent.tools.common import CommonTools
@@ -116,11 +117,17 @@ def test_parse_config_resolves_local_memory_dir(tmp_path):
     assert config.prompt_vars["memory_dir"] == str(memory_dir.resolve())
 
 
+def _render_sections(sections, variables):
+    return "\n\n".join(
+        format_prompt(section.node, variables=variables) for section in sections
+    )
+
+
 def test_prompt_names_only_current_task_memory(tmp_path):
     memory_dir = tmp_path / "memory"
-    rendered = format_prompt(
+    rendered = _render_sections(
         system_prompt(),
-        variables={
+        {
             "task_name": "OpenDrawer",
             "memory_dir": str(memory_dir),
         },
@@ -152,13 +159,19 @@ def test_all_50_tasks_share_prompt_and_tool_selection(tmp_path, make_corpus):
     )
     for task in tasks:
         selection = TaskMemory.load(root, task)
-        prompt = get_robot_spec().prompts.render(
-            "system",
+        prompt = build_robot_prompt(
+            get_robot_spec().prompts,
+            robot_name="robocasa",
             variables={
                 "task_name": task,
+                "split": "target",
+                "seed": 0,
+                "recipe_tag": f"{task}_target_s0",
                 "memory_dir": str(root),
+                "output_dir": tmp_path / "run",
             },
-        )
+            axes=run_axes(explore=False, dashboard=False, real_robot=False),
+        ).system
         for name in selection.selected:
             assert str(root / name) in prompt
         assert str(root / GLOBAL_FILE) in prompt
@@ -538,16 +551,21 @@ def test_native_merge_output_shares_prompt_tool_and_audit_selection(
     assert set(selection.selected) == expected
     assert selection.missing == ("task-specific/OpenDrawer.md",)
     assert selection_errors(selection.metadata(), "OpenDrawer", "target") == []
-    prompt = get_robot_spec().prompts.render(
-        "system",
+    prompt = build_robot_prompt(
+        get_robot_spec().prompts,
+        robot_name="robocasa",
         variables={
             "task_name": "OpenDrawer",
             "split": "target",
+            "seed": 0,
+            "recipe_tag": "OpenDrawer_target_s0",
             "memory_dir": str(root),
             "memory_profile": "local",
             "mode": "eval",
+            "output_dir": tmp_path / "run",
         },
-    )
+        axes=run_axes(explore=False, dashboard=False, real_robot=False),
+    ).system
     for name in expected:
         assert str(root / name) in prompt
     assert "StirVegetables" not in prompt
@@ -671,9 +689,12 @@ def test_exploration_can_start_empty_and_keeps_inbox_access(
     assert instance.state_output_dir == tmp_path / "attempt"
     file_tools = CommonTools(memory=instance.memory)
     inbox_file = root / "_internal/inbox/OpenDrawer_target_s1/wip/notes.md"
-    prompt = robot_spec.get_robot_spec().prompts.render(
-        "system", variables={**config.prompt_vars, "output_dir": str(config.output_dir)}
-    )
+    prompt = build_robot_prompt(
+        robot_spec.get_robot_spec().prompts,
+        robot_name="robocasa",
+        variables={**config.prompt_vars, "output_dir": str(config.output_dir)},
+        axes=run_axes(explore=True, dashboard=False, real_robot=False),
+    ).system
     for directory in (
         root / "task-specific",
         root / "task-family",

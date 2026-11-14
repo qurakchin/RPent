@@ -56,7 +56,7 @@ For a new robot named ``myrobot``, use the following directory layout:
        __init__.py            # package entry point; re-exports the factories
        robot_spec.py          # RobotSpec, factories, Dashboard spec, runtime hooks
        env_client.py          # MyEnvClient — agent-side RPC stub (§1)
-       prompt_bundle.py       # system()/user() prompt factories         (§2)
+       prompt_bundle.py       # domain prompt factories and tool guidance (§2)
        toolkit.py             # MyRobotToolkit + primitives + tool definitions (§3)
        env_server.py          # server-side facade + RPC server (§1)
        vla_server.py          # (optional) VLA model server
@@ -77,14 +77,23 @@ these two functions:
    from rpent.robots.robot_spec import RobotSpec, RunConfig
    from rpent.robots.prompt_bundle import PromptBundle
    from rpent.utils.config import get_memory_dir
-   from robots.myrobot.prompt_bundle import system_prompt, user_prompt
+   from robots.myrobot.prompt_bundle import (
+       tool_sections,
+       system_prompt,
+       user_prompt,
+   )
 
    MYROBOT_DASHBOARD_SPEC = {...}
 
    def get_robot_spec() -> RobotSpec:
        return RobotSpec(
            name="myrobot",
-           prompts=PromptBundle(system=system_prompt, user=user_prompt),
+           prompts=PromptBundle(
+               system=system_prompt,
+               user=user_prompt,
+               tool_sections=tool_sections,
+               source="robots/myrobot/prompts",
+           ),
            add_cli_args=_add_cli_args,
            parse_config=_parse_config,
            init_runtime=_init_runtime,
@@ -241,43 +250,115 @@ teardown.
 2. ``prompt_bundle.py``
 -----------------------
 
-Define two prompt factories, ``system_prompt()`` and ``user_prompt()``, and
-build a ``PromptBundle(system=system_prompt, user=user_prompt)`` in the
-robot's ``robot_spec.py`` (see the entry point above). Each factory returns an ordered
-``dict[str, PromptNode]`` of titled sections; ``PromptBundle.render`` assembles
-and fills them. One prompt serves every planner (API loop, Claude Code, Codex):
-refer to tools by their bare names (``move_to``, ...) and note once that the
-Claude Code and Codex SDKs show them as ``mcp__rpent__<name>``. Do not
-maintain separate prompt copies for CLI and API planners.
+Define two domain prompt factories, ``system_prompt()`` and ``user_prompt()``,
+and build a ``PromptBundle`` in the robot's ``robot_spec.py`` (see the entry
+point above). Each factory returns an ordered ``Mapping[str, PromptNode]`` or
+``tuple[PromptSection, ...]`` of titled sections. The robot does not own the
+whole prompt: RPent's assembly
+layer puts the shared fragments and the run-axis contracts around the robot's
+contribution in a fixed order:
+
+.. code-block:: text
+
+   base → run axes → tool guidance → robot domain → memory
+
+``base`` and the run-axis fragments come from ``rpent/prompt/fragments`` (role, general
+rules, output habits, the evaluate / explore / interactive / real-robot
+contracts, and the runner-ownership rule for physical hardware); ``memory``
+comes from the shared memory fragments whenever the run has a memory directory:
+how to read the corpus, how to use a stored recipe without replaying it, and,
+in exploration, how to propose a merge. The robot contributes:
+
+- ``system`` / ``user`` — its domain knowledge: layout, coordinate conventions,
+  task families, object names, failure modes, and the user task message.
+- ``tool_sections`` — the tool guidance owned by this slice: how to use the
+  tools the robot exposes, including native tools. The toolkit owns their
+  schemas, so do not restate call signatures here. Omit ``tool_sections`` when
+  the slice adds no tool guidance. Return a ``Sequence[PromptSection]`` or a
+  ``Mapping[str, PromptNode]``; the same prompt variables are passed in. Keep it
+  a pure function of the variables so ``--dump-prompt`` can render without
+  starting a runtime.
+- ``source`` — the repository-relative location of the prompt content, for
+  example ``robots/myrobot/prompts``. It is the fallback recorded next to each
+  section's name and hash in ``prompt_sources.json``. Build contributions with
+  ``sections(__file__, ...)`` so the record names the module that owns the text,
+  for example ``robots/myrobot/prompts/tools.py``.
+
+One prompt serves every planner (API loop, Claude Code, Codex): refer to tools
+by their bare names (``move_to``, ...) and note once that the Claude Code and
+Codex SDKs show them as ``mcp__rpent__<name>``. Do not maintain separate prompt
+copies for CLI and API planners. ``prompt_sources.json`` records how the chosen
+planner receives the two roles (a separate system prompt for ``api`` and
+``claude_code``, the system prompt prefixed to the first user message for
+``codex``) and, for prefixing planners, ``effective_prompt.md`` contains the
+delivered text as one
+message. Claude Code and Codex manage the model context in their SDK, so their
+own instructions and later turns are outside that record; it answers what RPent
+delivered, not the complete final context.
 
 .. code-block:: python
 
    # robots/myrobot/prompt_bundle.py
    from robots.myrobot.prompts import system as system_parts
+   from robots.myrobot.prompts import tools as tool_parts
    from robots.myrobot.prompts import user as user_parts
-   from rpent.prompt.utils import PromptNode
+   from rpent.prompt.assembly import PromptSection, sections
 
-   def system_prompt() -> PromptNode:
-       return {
-           "INTRO": system_parts.PREAMBLE,
-           "GOAL": system_parts.GOAL,
-           "RULES": system_parts.RULES,
-           "WORKFLOW": system_parts.WORKFLOW,
-           "ENVIRONMENT": system_parts.ENVIRONMENT,
-           "OUTPUT": system_parts.OUTPUT,
-       }
+   def system_prompt() -> tuple[PromptSection, ...]:
+       return sections(
+           system_parts.__file__,
+           {
+               "INTRO": system_parts.PREAMBLE,
+               "GOAL": system_parts.GOAL,
+               "ENVIRONMENT": system_parts.ENVIRONMENT,
+           },
+       )
 
-   def user_prompt() -> PromptNode:
-       return {
-           "TASK": user_parts.TASK,
-           "BEGIN": user_parts.BEGIN,
-       }
+   def user_prompt() -> tuple[PromptSection, ...]:
+       return sections(
+           user_parts.__file__,
+           {
+               "TASK": user_parts.TASK,
+               "BEGIN": user_parts.BEGIN,
+           },
+           role="user",
+       )
+
+   def tool_sections(variables) -> tuple[PromptSection, ...]:
+       return sections(
+           tool_parts.__file__,
+           {
+               "MYROBOT TOOLS": tool_parts.TOOL_GUIDANCE,
+           },
+       )
+
+   # robots/myrobot/robot_spec.py
+   prompts=PromptBundle(
+       system=system_prompt,
+       user=user_prompt,
+       tool_sections=tool_sections,
+       source="robots/myrobot/prompts",
+   )
 
 Keep the prompt content under the robot package, for example in
-``robots/myrobot/prompts/system.py`` and ``user.py``. Section bodies are plain
-strings (or ``BulletList`` / ``Numbered``) with ``{{suite}}`` / ``{{task}}`` /
-``{{seed}}`` / ``{{output_dir}}`` / ``{{recipe_tag}}`` placeholders filled at
-render time.
+``robots/myrobot/prompts/system.py``, ``user.py``, and ``tools.py``. Section
+bodies are plain strings (or ``BulletList`` / ``Numbered``) with ``{{suite}}`` /
+``{{task}}`` / ``{{seed}}`` / ``{{output_dir}}`` / ``{{recipe_tag}}``
+placeholders filled at render time.
+
+To inspect the exact prompt without starting a simulator or model, run
+``rpent --robot myrobot ... --dump-prompt``. The dump prints the rendered
+prompt and exits before memory preparation, so it neither creates nor syncs
+memory, skips the operator TTY gates of real-robot commands, and writes no run
+artifacts; a run's own prompt files remain the recorded evidence. It cannot be
+combined with ``--dashboard``, which assembles prompts per claimed task in its
+own session loop, or with ``--tui``, whose operator can edit the first message
+after assembly. Each session writes ``effective_prompt.md`` and
+``prompt_sources.json`` to its state directory (the output directory, or
+``sessions/session_NNN/`` during exploration) and records ``prompt_sha256`` in
+the transcript. ``prompt_sources.json`` also records
+``user_message_sha256`` for the exact opening message and, for prefixing
+planners, ``delivered_sha256`` for the concatenated text.
 
 .. _add-robot-toolkit:
 
@@ -371,8 +452,8 @@ validates those fields and returns a
   path (LIBERO: ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``).
 - ``output_dir`` — path to the working directory for this run (main.py then
   calls ``init_output_dir`` to create it and configure logging).
-- ``prompt_vars`` — dict passed to ``PromptBundle.render`` (typically the run
-  identifiers plus anything else the prompts reference).
+- ``prompt_vars`` — dict passed to the prompt factories and the assembly layer
+  (typically the run identifiers plus anything else the prompts reference).
 - ``task_desc`` — robot-specific dict of task-identifying fields, written into
   the transcript JSON record verbatim (LIBERO:
   ``{"suite": ..., "task": ..., "seed": ...}``).

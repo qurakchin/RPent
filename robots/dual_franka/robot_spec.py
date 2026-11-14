@@ -25,7 +25,11 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from robots.dual_franka.prompt_bundle import system_prompt, user_prompt
+from robots.dual_franka.prompt_bundle import (
+    system_prompt,
+    tool_sections,
+    user_prompt,
+)
 from robots.dual_franka.runtime_config import DEFAULT_CONFIG
 from robots.dual_franka.tasks import DUAL_FRANKA_TASKS, get_dual_franka_task
 from robots.franka.runtime_config import (
@@ -95,7 +99,12 @@ def get_robot_spec() -> RobotSpec:
     return RobotSpec(
         name="dual_franka",
         run_flash=_run_flash,
-        prompts=PromptBundle(system=system_prompt, user=user_prompt),
+        prompts=PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            tool_sections=tool_sections,
+            source="robots/dual_franka/prompts",
+        ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,
         init_runtime=_init_runtime,
@@ -214,7 +223,9 @@ def _add_cli_args(parser: argparse.ArgumentParser, use_dashboard: bool) -> None:
 def _parse_config(args: argparse.Namespace) -> RunConfig:
     select_am(args, "dual_franka")
     set_robot_config_path(args.robot_config or DEFAULT_CONFIG)
-    validate_calibration_sources()
+    # A prompt dump does not touch perception, so it needs no calibration.
+    if not getattr(args, "dump_prompt", False):
+        validate_calibration_sources()
     if args.task_id is None:
         raise ValueError("--task-id is required")
     from robots.franka.flash.replay import prepare

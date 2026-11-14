@@ -24,6 +24,7 @@ import numpy as np
 import pytest
 
 from robots.robodojo import robot_spec, tools
+from rpent.prompt.assembly import build_robot_prompt, run_axes
 from rpent.robots.components import am_runtime
 from rpent.tools import Tool, iter_tools
 
@@ -606,8 +607,13 @@ def test_task_guidance_is_scoped_and_tools_are_injected():
             "reference_tag": f"{task}_s0_l0",
             "seed": 0,
         }
-        system = bundle.render("system", variables=variables)
-        user = bundle.render("user", variables=variables)
+        assembled = build_robot_prompt(
+            bundle,
+            robot_name="robodojo",
+            variables=variables,
+            axes=run_axes(explore=False, dashboard=False, real_robot=False),
+        )
+        system, user = assembled.system, assembled.user
         assert "move_to" in system and "set_gripper" in system
         for name in ("pi0_pick", "stabilize", "place_in_bin"):
             assert name not in system + user

@@ -36,6 +36,8 @@ from rpent.dashboard.events import RunStartedEvent
 from rpent.evaluation import RunFinalizationContext
 from rpent.memory import MemoryManager
 from rpent.planner.base import build_planner, is_recoverable_agent_error
+from rpent.prompt.assembly import build_robot_prompt, run_axes
+from rpent.prompt.prompt_artifacts import write_prompt_artifacts
 from rpent.robots import get_toolkit
 from rpent.session.planner_capture import end_planner_task, start_planner_task
 from rpent.utils.config import get_memory_dir
@@ -225,6 +227,7 @@ def _run_dashboard_task(
     memory_manager = None
     environment_success = None
     environment_metrics: dict = {}
+    prompt_sha256 = ""
     try:
         task_daemons, task_runtime_kwargs = robot_spec.init_runtime(
             task_args,
@@ -238,7 +241,11 @@ def _run_dashboard_task(
                 **shared_runtime_kwargs,
             }
             prompt_vars = {**run_config.prompt_vars, "output_dir": output_dir}
-            session_message = robot_spec.prompts.render("user", variables=prompt_vars)
+            axes = run_axes(
+                explore=bool(getattr(task_args, "explore", False)),
+                dashboard=True,
+                real_robot=bool(robot_spec.is_real_robot),
+            )
             sessions = max(
                 1,
                 int(getattr(task_args, "explore_sessions", 1) or 1),
@@ -254,6 +261,22 @@ def _run_dashboard_task(
                 ):
                     break
                 environment_success, environment_metrics = None, {}
+                state_output_dir = output_dir
+                if getattr(task_args, "explore", False):
+                    state_output_dir = (
+                        output_dir / "sessions" / f"session_{session_number:03d}"
+                    )
+                assembled = build_robot_prompt(
+                    robot_spec.prompts,
+                    robot_name=args.robot_name,
+                    variables={
+                        **prompt_vars,
+                        "session_number": session_number,
+                        "session_max": sessions,
+                    },
+                    axes=axes,
+                )
+                system_prompt = assembled.system
                 if session_number > 1:
                     logger.info(
                         "=== handing off to agent %d/%d ===",
@@ -266,19 +289,19 @@ def _run_dashboard_task(
                         sessions,
                         robot_name=args.robot_name,
                     )
-                system_prompt = robot_spec.prompts.render(
-                    "system",
-                    variables={
-                        **prompt_vars,
-                        "session_number": session_number,
-                        "session_max": sessions,
-                    },
+                else:
+                    session_message = assembled.user
+                write_prompt_artifacts(
+                    state_output_dir,
+                    assembled=assembled,
+                    robot_name=args.robot_name,
+                    planner=task_args.planner,
+                    axes=axes,
+                    user_message=session_message,
                 )
-                state_output_dir = output_dir
+                if session_number == 1:
+                    prompt_sha256 = assembled.prompt_sha256
                 if getattr(task_args, "explore", False):
-                    state_output_dir = (
-                        output_dir / "sessions" / f"session_{session_number:03d}"
-                    )
                     state.begin_planner_session(
                         video_path=state_output_dir / "episode.mp4",
                     )
@@ -446,6 +469,7 @@ def _run_dashboard_task(
             "finish": finish_result,
             "environment_success": environment_success,
             "stats": stats,
+            "prompt_sha256": prompt_sha256,
             "messages": _serialize_messages(messages),
         }
         try:
