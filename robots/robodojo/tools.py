@@ -26,7 +26,7 @@ from pydantic.json_schema import SkipJsonSchema
 from robots.robodojo.access import CAMERAS, public_episode_budget
 from rpent.session import EnvState
 from rpent.session.env_capture import CapturingEnvClient
-from rpent.tools import ToolResult, tool
+from rpent.tools import ToolResult, tool, unexecuted
 from rpent.tools.world_coordinates import artifact_name, load_world_xyz
 from rpent.tools.world_coordinates import query_world_map as query_world_map
 from rpent.tools.world_coordinates import sample_world_xyz as sample_world_xyz
@@ -48,7 +48,7 @@ def view_env_state(step: int = -1, *, state: Any) -> ToolResult:
         record = state.get(step)
     except Exception as error:
         payload = {"error": f"state step not available: {error}"}
-        return ToolResult(data=payload)
+        return unexecuted(payload)
     result: dict[str, Any] = {
         "step": record.step_idx,
         "truncated": record.truncated,
@@ -125,21 +125,21 @@ def back_project(
         return error
     step_idx = record["step_idx"]
     if type(row) is not int or type(col) is not int:
-        return ToolResult(data={"error": "pixel must be integer [row,col]"})
+        return unexecuted({"error": "pixel must be integer [row,col]"})
     h, w = world.shape[:2]
     if not (0 <= row < h and 0 <= col < w):
         payload = {"error": f"pixel out of range: row 0..{h - 1}, col 0..{w - 1}"}
-        return ToolResult(data=payload)
+        return unexecuted(payload)
     try:
         d = float(state.load(artifact_name(view, "depth"), step=step_idx)[row, col])
     except Exception as exc:
-        return ToolResult(data={"error": f"saved depth unavailable: {exc}"})
+        return unexecuted({"error": f"saved depth unavailable: {exc}"})
     if not np.isfinite(d) or d <= 0:
         payload = {"error": f"invalid depth at pixel: {d}"}
-        return ToolResult(data=payload)
+        return unexecuted(payload)
     point = world[row, col]
     if not np.isfinite(point).all():
-        return ToolResult(data={"error": f"invalid world xyz at pixel ({row},{col})"})
+        return unexecuted({"error": f"invalid world xyz at pixel ({row},{col})"})
     payload = {
         "camera": camera,
         "step_idx": step_idx,
@@ -166,27 +166,27 @@ def segment(
         camera: Camera to segment (default cam_head)
         min_score: Min score (default 0.2)"""
     if not text_prompt.strip() or not np.isfinite(min_score) or not 0 <= min_score <= 1:
-        return ToolResult(
-            data={"error": "provide nonempty text and finite min_score in [0,1]"}
+        return unexecuted(
+            {"error": "provide nonempty text and finite min_score in [0,1]"}
         )
     cam, step_idx = _recorded_camera(primitives, state, camera, step)
     if cam is None:
         payload = {"error": f"camera {camera!r} not in observation"}
-        return ToolResult(data=payload)
+        return unexecuted(payload)
     color = cam.get("color")
     if color is None:
         payload = {"error": "camera color image missing"}
-        return ToolResult(data=payload)
+        return unexecuted(payload)
     sam3 = getattr(primitives, "sam3_client", None)
     if sam3 is None:
         payload = {"error": "sam3_client not configured"}
-        return ToolResult(data=payload)
+        return unexecuted(payload)
     fallback = "Use a visible pixel with back_project or sample_world_xyz on the same saved frame."
     try:
         result = sam3.segment(color, text_prompt=text_prompt, min_score=min_score)
     except Exception as exc:
-        return ToolResult(
-            data={
+        return unexecuted(
+            {
                 "error": f"segmentation service call failed: {exc}",
                 "camera": camera,
                 "step_idx": step_idx,
@@ -208,8 +208,8 @@ def segment(
 
     mask = np.asarray(result.mask, dtype=bool)
     if mask.shape != np.asarray(color).shape[:2] or not mask.any():
-        return ToolResult(
-            data={"error": "SAM3 mask must match the RGB image and contain foreground"}
+        return unexecuted(
+            {"error": "SAM3 mask must match the RGB image and contain foreground"}
         )
     geometry = mask_geometry(mask)
     rows, cols = np.nonzero(mask)
@@ -337,7 +337,7 @@ def pi0_pick(
     vla = getattr(primitives, "vla_client", None)
     if vla is None:
         payload = {"error": "vla_client not configured"}
-        return ToolResult(data=payload)
+        return unexecuted(payload)
     arms = ("left", "right")
     track = {
         a: {

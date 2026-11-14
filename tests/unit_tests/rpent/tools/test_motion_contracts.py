@@ -28,9 +28,11 @@ def _waypoint(x: float, y: float = 0.0, z: float = 0.0) -> list[float]:
     return [x, y, z, 1.0, 0.0, 0.0, 0.0]
 
 
-def _qpos(x: float) -> list[float]:
+def _qpos(x: float, *, joint: int = 0) -> list[float]:
     """A six-joint waypoint, the shape the planner executes as qpos."""
-    return [x, 0.0, 0.0, 0.0, 0.0, 0.0]
+    waypoint = [0.0] * 6
+    waypoint[joint] = x
+    return waypoint
 
 
 class _Backend:
@@ -177,8 +179,10 @@ def test_motion_that_increases_the_error_is_diverging() -> None:
 
 
 def test_a_commanded_waypoint_jump_is_refused_before_execution() -> None:
+    # The jump is in joint 3. A bound measured on the first three joints, as if
+    # they were Cartesian coordinates, would let this path through.
     backend = _Backend(
-        plan={"status": "Success", "position": [_qpos(0.0), _qpos(0.9)]},
+        plan={"status": "Success", "position": [_qpos(0.0), _qpos(0.9, joint=3)]},
         final_pose=_waypoint(0.9),
         executed=2,
     )

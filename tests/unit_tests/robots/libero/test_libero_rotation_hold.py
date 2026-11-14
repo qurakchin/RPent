@@ -210,9 +210,14 @@ def test_rotation_step_budget_reports_not_converged(method, delta_name):
 )
 def test_missing_rotation_target_does_not_step(method, message):
     env = _FakeEnv(_noop)
-    result = _call(env, method)
+    primitives = _primitives(env)
+    primitives.reset()
+    result = getattr(primitives, method)()
 
-    assert result == {"name": method, "error": message}
+    assert result.data == {"name": method, "error": message}
+    # A rejected argument is not a completed execution.
+    assert result.no_execution is True
+    assert result.execution_status == "not_started"
     assert env.actions == []
 
 

@@ -22,6 +22,7 @@ from rpent.tools.base import (
     iter_tools,
     tool,
     tool_error,
+    unexecuted,
 )
 from rpent.tools.capabilities import Capabilities, ToolFamily
 from rpent.tools.file_tools import FileTools
@@ -38,5 +39,6 @@ __all__ = [
     "ToolResult",
     "tool",
     "tool_error",
+    "unexecuted",
     "iter_tools",
 ]

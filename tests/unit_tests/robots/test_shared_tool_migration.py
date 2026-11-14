@@ -20,6 +20,13 @@ own transport implementation. This inventory fails when a new duplicate appears
 or when a migration removes one without updating the remaining-work table.
 Transport methods in ``env_client`` / ``env_server`` / manual-call helpers are a
 different layer and stay.
+
+RoboDojo keeps its native motion tools until the a_5 contract can carry their
+execution truth. Its transport reports confirmed partial progress, marks a
+timed-out mutation as ``execution_unknown``, and returns the reason each command
+stopped (``plan_failed``, ``rejected``, ``synchronization_lost``, ...).
+``MotionBackend`` has no field for any of that, so migrating now would replace
+verified execution states with the shared family's coarser ones.
 """
 
 from __future__ import annotations

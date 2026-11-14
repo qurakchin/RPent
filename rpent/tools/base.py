@@ -136,6 +136,21 @@ def tool_error(code: str, message: str, **details: Any) -> ToolResult:
     )
 
 
+def unexecuted(
+    data: dict[str, Any],
+    *,
+    status: ExecutionStatus = "not_started",
+) -> ToolResult:
+    """Return a domain result for a request that stopped before any action.
+
+    The payload keeps its original keys (usually ``error``) so the planner reads
+    the same text as before, while the execution layers record that the host
+    never acted. Use ``rejected`` for a refusal and ``not_started`` for a
+    request that failed validation or found its input unavailable.
+    """
+    return ToolResult(data=data, no_execution=True, execution_status=status)
+
+
 class _ToolJsonSchema(GenerateJsonSchema):
     """Publish tool schemas without Python metadata or implicit defaults.
 

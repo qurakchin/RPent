@@ -31,7 +31,7 @@ from rpent.robots.components.molmo_client import MolmoClient
 from rpent.robots.components.sam3_client import Sam3Client
 from rpent.session import EnvState, StepRecord
 from rpent.session.env_capture import CapturingEnvClient
-from rpent.tools import Tool, ToolResult, tool
+from rpent.tools import Tool, ToolResult, tool, unexecuted
 from rpent.utils.logging import get_logger
 
 if TYPE_CHECKING:
@@ -368,12 +368,17 @@ class LiberoPrimitives:
             # projection (about 1e-6 rad from vertical), its heading is
             # ill-conditioned; do not feed it to atan2 or claim convergence.
             if np.hypot(matrix[0, 0], matrix[1, 0]) < 1e-6:
+                # ``traj`` gains its first entry before the first env.step, so
+                # more than one entry means earlier actions already ran.
+                started = len(traj) > 1
                 return ToolResult(
                     data={
                         "error": "Cannot control yaw: EEF local X axis is nearly vertical "
                         "(horizontal projection < 1e-6). Reorient the EEF before retrying.",
                         "name": "move_to",
-                    }
+                    },
+                    no_execution=not started,
+                    execution_status="partial" if started else "not_started",
                 )
             # World yaw; Euler zyx reverses its sign for gripper-down poses.
             yaw = float(np.arctan2(matrix[1, 0], matrix[0, 0]))
@@ -472,8 +477,8 @@ class LiberoPrimitives:
         cur_quat = raw["robot0_eef_quat"]
         start_yaw = _yaw_of(cur_quat)
         if target_yaw is None and delta_yaw is None:
-            return ToolResult(
-                data={"error": "need target_yaw or delta_yaw", "name": "rotate_wrist"}
+            return unexecuted(
+                {"error": "need target_yaw or delta_yaw", "name": "rotate_wrist"}
             )
         if target_yaw is None:
             target_yaw = start_yaw + float(delta_yaw)
@@ -569,8 +574,8 @@ class LiberoPrimitives:
         start_quat = raw["robot0_eef_quat"]
         start_pitch = _pitch_of(start_quat)
         if target_pitch is None and delta_pitch is None:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": "need target_pitch or delta_pitch",
                     "name": "rotate_pitch",
                 }
@@ -811,7 +816,7 @@ class LiberoPrimitives:
         try:
             record = state.get(step)
         except Exception as exc:
-            return ToolResult(data={"error": f"state step not available: {exc}"})
+            return unexecuted({"error": f"state step not available: {exc}"})
         nn = record.step_idx
 
         camera = camera or "agentview"
@@ -819,18 +824,16 @@ class LiberoPrimitives:
         has_prompt = bool(prompt)
         has_point = point is not None
         if has_prompt == has_point:
-            return ToolResult(
-                data={"error": "segment needs exactly one of prompt or point"}
-            )
+            return unexecuted({"error": "segment needs exactly one of prompt or point"})
         try:
             image_name, world_name, artifact_pairs = _select_segment_artifacts(
                 state, record, camera
             )
         except ValueError as e:
-            return ToolResult(data={"error": str(e)})
+            return unexecuted({"error": str(e)})
         if image_name is None or world_name is None:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": "complete segment artifacts not found",
                     "step": nn,
                     "camera": camera,
@@ -851,8 +854,8 @@ class LiberoPrimitives:
                 min_score=min_score,
             )
         except ValueError as e:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": str(e),
                     "step": nn,
                     "camera": camera,
@@ -860,8 +863,8 @@ class LiberoPrimitives:
                 }
             )
         except Exception as e:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": f"segmentation service call failed: {e}",
                     "step": nn,
                     "camera": camera,
@@ -1316,7 +1319,7 @@ def view_env_state(
     try:
         record = state.get(step)
     except Exception as exc:
-        return ToolResult(data={"error": f"state step not available: {exc}"})
+        return unexecuted({"error": f"state step not available: {exc}"})
 
     nn = record.step_idx
     extras = record.extras
@@ -1455,8 +1458,8 @@ def view_camera_meta(
         step: Metadata step to use; -1 = latest.
     """
     if camera not in ("agentview", "wrist"):
-        return ToolResult(
-            data={"error": f"bad camera '{camera}' (use 'agentview' or 'wrist')"}
+        return unexecuted(
+            {"error": f"bad camera '{camera}' (use 'agentview' or 'wrist')"}
         )
 
     try:
@@ -1466,7 +1469,7 @@ def view_camera_meta(
             raise FileNotFoundError(metadata_name)
         meta = state.load(metadata_name, step=record.step_idx)
     except Exception as e:
-        return ToolResult(data={"error": f"{camera} camera metadata not found: {e}"})
+        return unexecuted({"error": f"{camera} camera metadata not found: {e}"})
 
     if camera == "agentview":
         return ToolResult(data={"camera": "agentview", "camera_meta": meta})
@@ -1507,18 +1510,18 @@ def back_project(
         z_max: Region mode: keep only pixels with world z <= z_max.
     """
     if camera not in ("agentview", "wrist"):
-        return ToolResult(
-            data={"error": f"bad camera '{camera}' (use 'agentview' or 'wrist')"}
+        return unexecuted(
+            {"error": f"bad camera '{camera}' (use 'agentview' or 'wrist')"}
         )
     if resolution not in ("high", "low"):
-        return ToolResult(
-            data={"error": f"bad resolution '{resolution}' (use 'high' or 'low')"}
+        return unexecuted(
+            {"error": f"bad resolution '{resolution}' (use 'high' or 'low')"}
         )
 
     region_mode = row_range is not None or col_range is not None
     if not region_mode and (row is None or col is None):
-        return ToolResult(
-            data={
+        return unexecuted(
+            {
                 "error": (
                     "provide either (row, col) for a single pixel, or "
                     "row_range=[r0,r1] and col_range=[c0,c1] for a region center"
@@ -1529,15 +1532,15 @@ def back_project(
     try:
         record = state.get(step)
     except Exception as e:
-        return ToolResult(data={"error": f"state step not available: {e}"})
+        return unexecuted({"error": f"state step not available: {e}"})
     nn = record.step_idx
 
     hi_artifact = f"{camera}_world_high.npz"
     low_artifact = f"{camera}_world.npz"
     source_artifact = hi_artifact if resolution == "high" else low_artifact
     if source_artifact not in record.artifacts:
-        return ToolResult(
-            data={
+        return unexecuted(
+            {
                 "error": (
                     f"{camera} {resolution}-resolution world map not recorded for step {nn}"
                 )
@@ -1547,8 +1550,8 @@ def back_project(
     try:
         world_map = state.load(str(source_artifact), step=nn)
     except Exception as e:
-        return ToolResult(
-            data={
+        return unexecuted(
+            {
                 "error": (
                     f"{camera} {resolution}-resolution artifact not found "
                     f"for step {nn}: {e}"
@@ -1560,8 +1563,8 @@ def back_project(
 
     if region_mode:
         if row_range is None or col_range is None:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": (
                         "region mode needs BOTH row_range=[r0,r1] and col_range=[c0,c1]"
                     )
@@ -1571,14 +1574,14 @@ def back_project(
             r0, r1 = int(row_range[0]), int(row_range[1])
             c0, c1 = int(col_range[0]), int(col_range[1])
         except Exception:
-            return ToolResult(
-                data={"error": "row_range/col_range must each be [min, max] integers"}
+            return unexecuted(
+                {"error": "row_range/col_range must each be [min, max] integers"}
             )
         r0, r1 = sorted((max(0, r0), min(height, r1)))
         c0, c1 = sorted((max(0, c0), min(width, c1)))
         if r1 <= r0 or c1 <= c0:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": (
                         f"empty region after clamping to image {height}x{width}: "
                         f"rows [{r0},{r1}] cols [{c0},{c1}]"
@@ -1598,8 +1601,8 @@ def back_project(
         if z_max is not None:
             pts = pts[pts[:, 2] <= float(z_max)]
         if pts.shape[0] < 8:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": (
                         f"too few valid pixels in region after z-filter "
                         f"({int(pts.shape[0])}); widen the window or the z band"
@@ -1635,8 +1638,8 @@ def back_project(
         )
 
     if row < 0 or row >= height or col < 0 or col >= width:
-        return ToolResult(
-            data={
+        return unexecuted(
+            {
                 "error": (
                     f"pixel ({row},{col}) out of bounds; {camera} image is {height}x{width}"
                 )
@@ -1653,13 +1656,11 @@ def back_project(
             if depth.ndim == 3:
                 depth = depth[..., 0]
         except Exception as e:
-            return ToolResult(
-                data={"error": f"{camera} depth not found for step {nn}: {e}"}
-            )
+            return unexecuted({"error": f"{camera} depth not found for step {nn}: {e}"})
         depth_m = float(depth[row, col])
         if not np.isfinite(depth_m) or depth_m <= 0 or depth_m > 10:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": (
                         f"invalid {camera} depth {depth_m:.3f}m at pixel "
                         f"({row},{col}); pick a different pixel"
@@ -1671,8 +1672,8 @@ def back_project(
         not np.isfinite(world_xyz_raw).all()
         or float(np.abs(world_xyz_raw[:3]).sum()) <= 1e-6
     ):
-        return ToolResult(
-            data={"error": f"invalid {camera} world xyz at pixel ({row},{col})"}
+        return unexecuted(
+            {"error": f"invalid {camera} world xyz at pixel ({row},{col})"}
         )
     world_xyz = [round(float(v), 4) for v in world_xyz_raw[:3]]
 

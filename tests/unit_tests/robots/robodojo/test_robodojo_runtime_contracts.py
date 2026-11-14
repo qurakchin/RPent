@@ -490,9 +490,12 @@ def test_back_project_rejects_invalid_depth(depth, saved_camera):
         "extrinsic_matrix": np.eye(4),
     }
     state = saved_camera(camera)
-    result = tools.back_project(state, 0, 0).data
-    assert "invalid depth" in result["error"]
-    assert "world_xyz" not in result
+    result = tools.back_project(state, 0, 0)
+    assert "invalid depth" in result.data["error"]
+    assert "world_xyz" not in result.data
+    # An unavailable depth sample rejects the request before any action.
+    assert result.no_execution is True
+    assert result.execution_status == "not_started"
 
 
 @pytest.mark.parametrize("task", ["put_bottles_into_dustbin", "stack_bowls_random"])

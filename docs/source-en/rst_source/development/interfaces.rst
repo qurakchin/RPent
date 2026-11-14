@@ -115,7 +115,10 @@ records ``completed``, ``partial``, ``rejected``, ``not_started``, or
 ``unknown``; ``rejected`` means the environment refused the request before
 executing it. A successful call does not imply that the requested task
 succeeded. Domain handlers normally set only ``data``; use ``tool_error`` when a
-request is rejected before any environment write. ``ToolResult.to_text()``
+request is rejected before any environment write, and ``unexecuted`` when the
+handler keeps its existing domain payload (usually a string ``error``) but the
+request still produced no physical action. Pass ``status="rejected"`` to
+``unexecuted`` for a refusal rather than a failed lookup. ``ToolResult.to_text()``
 includes these layers.
 
 The base class registers the common file tools and ``finish``; call

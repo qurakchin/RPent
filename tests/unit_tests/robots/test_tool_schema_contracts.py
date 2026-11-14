@@ -127,16 +127,17 @@ def test_tool_declarations_match_pre_refactor_contracts(group: str) -> None:
         )
     if group == "libero":
         # The yaw fix deliberately extends the native declaration while all
-        # other pre-refactor contracts remain unchanged.
-        move = expected["move_to"]
-        move["description"] = move["description"].replace(
-            "Holds orientation (use rotate_wrist / rotate_pitch / move_pose to reorient).",
-            "Holds orientation unless target_yaw is supplied; then both position and yaw must converge. Use rotate_pitch or move_pose for pitch changes.",
+        # other pre-refactor contracts remain unchanged. The extension is data
+        # in a committed fixture, so each divergence from the baseline is
+        # explicit and the rest of the contract still compares exactly.
+        overrides = json.loads(
+            (
+                Path(__file__).parent / "fixtures" / "libero_tool_schema_overrides.json"
+            ).read_text()
         )
-        move["input_schema"]["properties"]["yaw_tol"] = {
-            "type": "number",
-            "description": "Positive finite yaw tolerance, rad (default 0.02)",
-        }
+        for name, override in overrides.items():
+            expected[name]["description"] = override["description"]
+            expected[name]["input_schema"]["properties"].update(override["properties"])
     declarations = TOOL_DECLARATIONS[group]
 
     def snapshot(item) -> dict:

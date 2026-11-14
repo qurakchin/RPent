@@ -16,9 +16,16 @@
 
 from __future__ import annotations
 
+import ast
 import importlib
+from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 import pytest
+
+from rpent.prompt.utils import BulletList, Numbered
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _plain(**variables):
@@ -89,3 +96,89 @@ def test_system_prompt_explains_call_and_execution_layers(
         assert all(field in section for field in motion_fields)
     else:
         assert not any(field in section for field in motion_fields)
+
+
+# Hosts whose tools report ``stop_reason`` and the module that decides the value.
+# The planner can only act on a reason it was told about, so each producer's
+# vocabulary must appear in its host prompt.
+STOP_REASON_PRODUCERS = {
+    "robotwin-eval": "rpent/tools/motion_tools.py",
+    "robotwin-explore": "rpent/tools/motion_tools.py",
+    "robodojo-eval": "robots/robodojo/primitives.py",
+    "robodojo-explore": "robots/robodojo/primitives.py",
+}
+BUNDLES_BY_CASE = {case: (module, build) for module, case, build in BUNDLES}
+
+
+def _prompt_text(node) -> str:
+    if isinstance(node, str):
+        return node
+    if isinstance(node, Mapping):
+        return "\n".join(_prompt_text(value) for value in node.values())
+    if isinstance(node, (BulletList, Numbered)):
+        return "\n".join(_prompt_text(item) for item in node.items)
+    if isinstance(node, Sequence):
+        return "\n".join(_prompt_text(item) for item in node)
+    return ""
+
+
+def _stop_reason_values(path: Path) -> set[str]:
+    """Collect literal stop reasons a module can report, without running it."""
+    tree = ast.parse(path.read_text())
+
+    def literals(node: ast.AST) -> set[str]:
+        """Read literal branches of a reason expression, not its inputs."""
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return {node.value} if node.value.isidentifier() else set()
+        if isinstance(node, (ast.Tuple, ast.List, ast.BoolOp)):
+            values: set[str] = set()
+            for child in node.elts if hasattr(node, "elts") else node.values:
+                values |= literals(child)
+            return values
+        if isinstance(node, ast.IfExp):
+            return literals(node.body) | literals(node.orelse)
+        return set()
+
+    reasons: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            targets = {
+                name.id
+                for target in node.targets
+                for name in ast.walk(target)
+                if isinstance(name, ast.Name)
+            }
+            if targets & {"reason", "stop_reason"}:
+                reasons |= literals(node.value)
+        elif isinstance(node, ast.Dict):
+            for key, value in zip(node.keys, node.values):
+                if isinstance(key, ast.Constant) and key.value == "stop_reason":
+                    reasons |= literals(value)
+        elif isinstance(node, ast.Call):
+            for keyword in node.keywords:
+                if keyword.arg in {"stop_reason", "stop_reason_override"}:
+                    reasons |= literals(keyword.value)
+        elif isinstance(node, ast.FunctionDef) and node.name == "stop_reason":
+            for child in ast.walk(node):
+                if isinstance(child, ast.Return):
+                    reasons |= literals(child.value)
+    return reasons
+
+
+@pytest.mark.parametrize(
+    ("case", "producer"),
+    sorted(STOP_REASON_PRODUCERS.items()),
+    ids=sorted(STOP_REASON_PRODUCERS),
+)
+def test_prompt_documents_each_stop_reason_its_tools_emit(
+    case, producer, tmp_path
+) -> None:
+    module, build = BUNDLES_BY_CASE[case]
+    prompt = importlib.import_module(module).system_prompt(build(tmp_path))
+
+    text = _prompt_text(prompt)
+    assert text
+    reasons = _stop_reason_values(REPO_ROOT / producer)
+    assert reasons
+    undocumented = sorted(reason for reason in reasons if reason not in text)
+    assert not undocumented, f"{case} does not explain {undocumented}"
