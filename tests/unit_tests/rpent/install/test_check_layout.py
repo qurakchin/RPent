@@ -324,3 +324,18 @@ def test_capability_toolkit_and_core_imports_are_rejected(tmp_path, write_toml):
     assert "capability 'sam3' must not import robots" in result.stdout
     assert "toolkits must not import robots" in result.stdout
     assert "core must not import concrete robot 'alpha'" in result.stdout
+
+
+def test_bare_alias_is_reported_once(tmp_path, write_toml):
+    # ``from capabilities.sam3 import server`` reaches the same rule through
+    # the module path and the expanded alias; it is one violation, not two.
+    _component(write_toml, "capabilities", "sam3", "capability")
+    _write(
+        tmp_path / "rpent" / "planner" / "planner.py",
+        "from capabilities.sam3 import server\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert result.stdout.count("core must not import capabilities") == 1

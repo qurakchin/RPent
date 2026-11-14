@@ -92,7 +92,10 @@ current file for each role until that migration lands.
 slice's environment adapter, so a successful probe proves the real
 dependencies are present. Keep only this robot's packages in
 ``dependencies``; a package that two or more components need belongs in a
-``deps`` component under ``envs/deps/``.
+``deps`` component under ``envs/deps/``. ``imports`` is only for a robot slice
+that reuses another slice's code: name the other robot, and make one of the
+two ``requires`` the other so the install closure includes both. Toolkits and
+capabilities share a contract instead of importing each other.
 
 The compatibility extras in ``pyproject.toml`` are generated from the manifests
 and profiles. Adding or renaming a component or profile therefore also requires

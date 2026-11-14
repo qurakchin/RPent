@@ -18,7 +18,9 @@
 the lock does not record that input. Install therefore verifies the cheap
 invariant directly: every direct requirement is present in the lock and the
 locked pin still satisfies it. A manifest that changes an unpinned or loosely
-pinned dependency without changing the lock is caught here.
+pinned dependency without changing the lock is caught here. Component
+overrides are checked the same way: the lock must satisfy every constraint an
+override names, because editing an override changes no manifest requirement.
 
 Requirements guarded by an environment marker are evaluated against the
 profile's declared target, not the host: a lock holds only the line that
@@ -191,6 +193,94 @@ def parse_lock(text: str) -> dict[str, Requirement]:
     return entries
 
 
+def _override_requirements(
+    resolution: Resolution, root: Path
+) -> list[tuple[str, Requirement]]:
+    """Return ``(display path, requirement)`` for every component override.
+
+    Overrides are files handed to ``uv pip compile`` rather than manifest
+    requirements, so the direct-coverage loop cannot see a lock that predates
+    an override edit.
+    """
+    constraints: list[tuple[str, Requirement]] = []
+    seen: set[Path] = set()
+    for resolved in resolution.main_installed().values():
+        for override in resolved.component.overrides:
+            path = override if override.is_absolute() else root / override
+            if path in seen:
+                continue
+            seen.add(path)
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            display = (
+                str(path.relative_to(root)) if path.is_relative_to(root) else str(path)
+            )
+            for line in text.splitlines():
+                value = line.split("#", 1)[0].strip()
+                if not value:
+                    continue
+                requirement = _requirement(value)
+                if requirement is not None:
+                    constraints.append((display, requirement))
+    return constraints
+
+
+def _override_problems(
+    profile: Profile,
+    resolution: Resolution,
+    root: Path,
+    entries: dict[str, Requirement],
+    markers: dict[str, str] | None,
+) -> list[str]:
+    """Return every override constraint the lock does not satisfy.
+
+    An override that names a package absent from the lock is ignored: uv
+    applies an override only to a package the resolution requests, so an
+    unused optional dependency is not a stale lock.
+    """
+    problems: list[str] = []
+    for display, requirement in _override_requirements(resolution, root):
+        if requirement.marker is not None:
+            if markers is None:
+                continue
+            applies, problem = _marker_applies(requirement, markers)
+            if problem is not None:
+                problems.append(f"override {display}: {problem}")
+                continue
+            if not applies:
+                continue
+        package = canonicalize_name(requirement.name)
+        locked = entries.get(package)
+        if locked is None:
+            continue
+        if requirement.url:
+            if _url_base(str(requirement.url)) != _url_base(str(locked.url or "")):
+                problems.append(
+                    f"{profile.lock} pins {package!r} from "
+                    f"{locked.url or 'an index'}, but override {display} requires "
+                    f"{requirement.url}; run `rpent-env lock {profile.name}`"
+                )
+            continue
+        version = _locked_version(locked)
+        if version is None:
+            problems.append(
+                f"{profile.lock} does not pin a version for {package!r}, which "
+                f"override {display} constrains; run "
+                f"`rpent-env lock {profile.name}`"
+            )
+        elif requirement.specifier and not requirement.specifier.contains(
+            version, prereleases=True
+        ):
+            problems.append(
+                f"{profile.lock} pins {package}=={version}, which does not satisfy "
+                f"override {display} ({requirement}); run "
+                f"`rpent-env lock {profile.name}`"
+            )
+    return problems
+
+
 def lock_problems(
     profile: Profile,
     resolution: Resolution,
@@ -266,4 +356,5 @@ def lock_problems(
                 f"{profile.lock} pins {package}=={version}, which does not satisfy "
                 f"{value}; run `rpent-env lock {profile.name}`"
             )
+    problems.extend(_override_problems(profile, resolution, root, entries, markers))
     return problems

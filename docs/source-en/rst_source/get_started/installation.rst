@@ -181,11 +181,12 @@ fingerprint and its hash. ``lock`` compiles ``envs/locks/<profile>.lock``
 with ``uv pip compile``; ``--check`` recompiles and fails when the result
 differs from the committed lock, which also happens whenever an upstream
 package publishes a new version, so it is a release-time check rather than a
-nightly one. The ``Release install check`` workflow runs
-``rpent-env lock --all --check`` on manual dispatch; it gates a release, not a
-pull request. ``install`` and ``check`` verify the cheaper invariant before
-installing: every direct requirement is still covered by the lock and its pin
-still satisfies the manifest. Linux locks
+nightly one. The ``Release install check`` workflow recompiles every profile
+on manual dispatch, hosted profiles on ``ubuntu-latest`` and GPU profiles on
+the embodied runner; it gates a release, not a pull request. ``install`` and
+``check`` verify the cheaper invariant before installing: every direct
+requirement is still covered by the lock, its pin still satisfies the
+manifest, and the lock satisfies every component override. Linux locks
 target the ``manylinux_2_31`` baseline by default (glibc 2.31, Ubuntu 20.04 or
 newer), because current GPU wheels are not published for older baselines. A
 profile whose components need a newer baseline sets ``manylinux``; for example

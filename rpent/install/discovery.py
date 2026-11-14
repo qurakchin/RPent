@@ -106,7 +106,12 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
 
 
 def _check_imports(components: dict[str, Component]) -> None:
-    """Require ``imports`` to name a co-installed component of the same kind."""
+    """Allow ``imports`` on robot slices, naming a co-installed robot.
+
+    Toolkits and capabilities share a contract instead of importing each
+    other's modules, so an ``imports`` entry on either is a manifest error
+    rather than a boundary the layout check has to honour.
+    """
     reverse = {
         other.name: set(other.requires)
         for other in components.values()
@@ -114,6 +119,12 @@ def _check_imports(components: dict[str, Component]) -> None:
     }
     for component in components.values():
         for other in component.imports:
+            if component.kind != "robot":
+                raise InstallConfigError(
+                    f"{component.manifest_path}: imports is only for robot "
+                    f"slices; {component.kind} components share a contract "
+                    "instead of importing each other"
+                )
             target = components.get(other)
             if target is None:
                 raise InstallConfigError(
