@@ -67,16 +67,17 @@ class MotionBackend(Protocol):
 class MotionConfig:
     """Convergence tolerances and the commanded-path safety limit.
 
-    ``max_waypoint_jump_m`` rejects a plan whose adjacent Cartesian waypoints
-    are farther apart than one native step should ever move the arm. It guards
-    the command before execution; a slice that needs a looser bound sets it in
-    its own config.
+    ``max_waypoint_jump_rad`` rejects a plan whose adjacent waypoints differ by
+    more than one native step should ever move the arm. The planner returns the
+    waypoints that are executed as qpos, so the distance is the joint-space norm
+    over the whole waypoint. A slice whose planner returns another space sets
+    its own bound.
     """
 
     position_tolerance_m: float = 0.01
     orientation_tolerance_rad: float = 0.05
     gripper_tolerance: float = 0.02
-    max_waypoint_jump_m: float = 0.5
+    max_waypoint_jump_rad: float = 0.5
 
 
 def _qmult(left: np.ndarray, right: np.ndarray) -> np.ndarray:
@@ -114,7 +115,14 @@ def stop_reason(
     diverged: bool | None = None,
     unsafe: bool | None = None,
 ) -> str:
-    """Map native counters and convergence to the shared stop vocabulary."""
+    """Map native counters and convergence to the shared stop vocabulary.
+
+    Precedence: an unsafe command, a finished episode, and an exhausted step
+    budget are native facts and win over convergence. Divergence then wins over
+    an incomplete path because it explains why the arm stopped making progress.
+    ``max_steps`` therefore appears only when the environment reports the budget
+    as exhausted; all other non-converging outcomes are ``stalled``.
+    """
     if unsafe is True:
         return "unsafe_motion"
     if status.get("eval_success") is True:
@@ -122,13 +130,13 @@ def stop_reason(
     step_lim = status.get("step_lim")
     if step_lim is not None and int(status.get("take_action_cnt", 0)) >= int(step_lim):
         return "max_steps"
-    if executed == 0 or executed < requested:
-        return "stalled"
     if diverged is True:
         return "diverging"
+    if executed < requested:
+        return "stalled"
     if reached is True:
         return "arrived"
-    return "max_steps"
+    return "stalled"
 
 
 def _execution_layer(requested: int, executed: int) -> tuple[str, bool]:
@@ -147,7 +155,7 @@ def _stop_evidence(
     status: Mapping[str, Any],
     position_error: float | None = None,
     initial_position_error: float | None = None,
-    max_waypoint_jump_m: float | None = None,
+    max_waypoint_jump_rad: float | None = None,
 ) -> dict[str, Any]:
     evidence: dict[str, Any] = {
         "requested_steps": requested,
@@ -156,16 +164,14 @@ def _stop_evidence(
     for key in ("step_lim", "take_action_cnt", "eval_success"):
         if key in status:
             evidence[key] = status[key]
-    if max_waypoint_jump_m is not None:
-        evidence["max_waypoint_jump_m"] = max_waypoint_jump_m
+    if max_waypoint_jump_rad is not None:
+        evidence["max_waypoint_jump_rad"] = max_waypoint_jump_rad
     if initial_position_error is not None:
         evidence["initial_position_error_m"] = initial_position_error
     if position_error is not None:
         evidence["final_position_error_m"] = position_error
         if initial_position_error is not None:
-            evidence["window_improvement_m"] = (
-                initial_position_error - position_error
-            )
+            evidence["window_improvement_m"] = initial_position_error - position_error
     return evidence
 
 
@@ -212,7 +218,7 @@ class MotionTools(ToolFamily):
         diverged: bool | None = None,
         unsafe: bool | None = None,
         initial_position_error: float | None = None,
-        max_waypoint_jump_m: float | None = None,
+        max_waypoint_jump_rad: float | None = None,
         stop_reason_override: str | None = None,
         **extra: Any,
     ) -> dict[str, Any]:
@@ -235,7 +241,7 @@ class MotionTools(ToolFamily):
                 status=status,
                 position_error=position_error,
                 initial_position_error=initial_position_error,
-                max_waypoint_jump_m=max_waypoint_jump_m,
+                max_waypoint_jump_rad=max_waypoint_jump_rad,
             ),
             "pose_error": {
                 "pos_m": position_error,
@@ -306,13 +312,13 @@ class MotionTools(ToolFamily):
             indices = np.linspace(0, len(path) - 1, substeps).astype(int)
             path = path[indices]
         max_waypoint_jump = (
-            float(np.max(np.linalg.norm(np.diff(path[:, :3], axis=0), axis=1)))
+            float(np.max(np.linalg.norm(np.diff(path, axis=0), axis=1)))
             if len(path) > 1
             else 0.0
         )
         if (
-            self._config.max_waypoint_jump_m is not None
-            and max_waypoint_jump > self._config.max_waypoint_jump_m
+            self._config.max_waypoint_jump_rad is not None
+            and max_waypoint_jump > self._config.max_waypoint_jump_rad
         ):
             return ToolResult(
                 data=self._feedback(
@@ -324,10 +330,10 @@ class MotionTools(ToolFamily):
                     reached=False,
                     unsafe=True,
                     initial_position_error=initial_position_error,
-                    max_waypoint_jump_m=max_waypoint_jump,
+                    max_waypoint_jump_rad=max_waypoint_jump,
                     hint=(
                         "planned waypoints jump farther than "
-                        f"{self._config.max_waypoint_jump_m} m; adjust the target"
+                        f"{self._config.max_waypoint_jump_rad} rad; adjust the target"
                     ),
                 ),
                 no_execution=True,
@@ -360,7 +366,7 @@ class MotionTools(ToolFamily):
                 reached=reached,
                 diverged=diverged,
                 initial_position_error=initial_position_error,
-                max_waypoint_jump_m=max_waypoint_jump,
+                max_waypoint_jump_rad=max_waypoint_jump,
                 plan_status=planned.get("status"),
                 waypoints=len(path),
                 final_eef_xyz=final[:3].tolist(),

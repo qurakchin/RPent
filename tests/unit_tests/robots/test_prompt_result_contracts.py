@@ -67,12 +67,12 @@ BUNDLES = [
 
 
 @pytest.mark.parametrize(
-    ("module", "build"),
-    [(module, build) for module, _, build in BUNDLES],
+    ("module", "case", "build"),
+    BUNDLES,
     ids=[case for _, case, _ in BUNDLES],
 )
 def test_system_prompt_explains_call_and_execution_layers(
-    module, build, tmp_path
+    module, case, build, tmp_path
 ) -> None:
     prompt = importlib.import_module(module).system_prompt(build(tmp_path))
 
@@ -80,4 +80,12 @@ def test_system_prompt_explains_call_and_execution_layers(
     section = prompt["TOOL RESULTS"]
     assert "call_ok" in section
     assert "execution_status" in section
+    assert "no_execution" in section
+    assert "execution_uncertain" in section
     assert "never" in section and "succeeded" in section
+
+    motion_fields = ("stop_reason", "stop_evidence", "pose_error")
+    if case.startswith("robotwin"):
+        assert all(field in section for field in motion_fields)
+    else:
+        assert not any(field in section for field in motion_fields)

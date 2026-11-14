@@ -89,7 +89,7 @@ class FileTools:
 
     @tool(readonly=True)
     def read_text_file(self, path: str, max_chars: int = 40000) -> ToolResult:
-        """Read a UTF-8 text file. Use for past recipe JSONLs, audit JSONs, and memory files. Large files are truncated. Published memory is read-only; draft findings with the memory tools instead of editing memory files. Memory for other robots is unavailable.
+        """Read a UTF-8 text file. Use for past recipe JSONLs and audit JSONs. Large files are truncated. Published memory is read-only. Memory for other robots is unavailable.
 
         Args:
             path: Absolute or repo-relative path
@@ -115,7 +115,7 @@ class FileTools:
 
     @tool(captures_state=False)
     def write_text_file(self, path: str, content: str) -> ToolResult:
-        """Write a UTF-8 text file inside the run output directory (creates parent dirs). Use this to save the working recipe JSONL and the final audit JSON at the end of a successful run. Paths outside the output directory are refused. Published memory is read-only; draft findings with the memory tools instead of editing memory files."""
+        """Write a UTF-8 text file inside the run output directory (creates parent dirs). Use this to save the working recipe JSONL and the final audit JSON at the end of a successful run. Paths outside the output directory are refused. Published memory is read-only."""
         resolved = self._memory.authorize_write(path)
         self._require_non_memory(resolved)
         self._require_writable_location(resolved)
@@ -128,7 +128,7 @@ class FileTools:
 
     @tool(readonly=True)
     def list_dir(self, path: str = "") -> ToolResult:
-        """List files in a directory (non-recursive). Default = {{output_dir}}. Use to inspect the working directory or discover existing resource files. Published memory is read-only; draft findings with the memory tools instead of editing memory files. Memory for other robots is unavailable.
+        """List files in a directory (non-recursive). Default = {{output_dir}}. Use to inspect the working directory or discover existing resource files. Published memory is read-only. Memory for other robots is unavailable.
 
         Args:
             path: Default: {{output_dir}}
