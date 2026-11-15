@@ -492,7 +492,9 @@ def test_flags_for_other_tools_are_not_requirement_files(tmp_path: Path) -> None
         "Demo\n====\n\n"
         ".. code-block:: bash\n\n"
         "   pytest -r a\n"
-        "   grep -r TODO rpent/\n",
+        "   grep -r TODO rpent/\n"
+        "   uv run pytest -r a\n"
+        "   uv run grep -r TODO\n",
     )
 
     result = run(tmp_path)
@@ -548,7 +550,7 @@ def test_a_path_repeated_on_one_line_is_reported_once(tmp_path: Path) -> None:
     assert result.stdout.count("documented path 'missing.sh' does not exist") == 1
 
 
-def test_paired_pages_must_agree_on_section_counts(tmp_path: Path) -> None:
+def test_paired_pages_must_agree_on_section_structure(tmp_path: Path) -> None:
     write(
         tmp_path,
         "docs/source-en/rst_source/simulators/demo.rst",
@@ -568,7 +570,8 @@ def test_paired_pages_must_agree_on_section_counts(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert (
-        "section count differs from the Chinese counterpart (2 != 3)" in result.stdout
+        "section structure differs from the Chinese counterpart "
+        "(2 sections, depths [1, 2] != 3 sections, depths [1, 2, 2])" in result.stdout
     )
 
     write(
@@ -582,6 +585,37 @@ def test_paired_pages_must_agree_on_section_counts(tmp_path: Path) -> None:
     result = run(tmp_path)
 
     assert result.returncode == 0, result.stdout
+
+
+def test_paired_pages_must_agree_on_section_depths(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/demo.rst",
+        validation_page(
+            sections=(
+                "Overview\n--------\n\nText.\n\n"
+                "Details\n^^^^^^^\n\nDetail text.\n\n"
+                "Deeper\n~~~~~~~~~~~~\n\nMore.\n\n"
+            ),
+        ),
+    )
+    write(
+        tmp_path,
+        "docs/source-zh/rst_source/simulators/demo.rst",
+        validation_page(
+            "仅 CPU",
+            "已于 2026-11-14 运行。",
+            sections="概览\n----\n\n说明。\n\n细节\n----\n\n更深\n----\n\n更多。\n\n",
+        ),
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert (
+        "5 sections, depths [1, 2, 3, 4, 2] != 5 sections, depths [1, 2, 2, 2, 2]"
+        in result.stdout
+    )
 
 
 def test_documented_cd_changes_the_checked_directory(tmp_path: Path) -> None:
@@ -650,6 +684,29 @@ def test_unknown_optional_dependency_is_an_error(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "unknown optional dependency 'nosuch'" in result.stdout
     assert "unknown optional dependency 'robotwin'" not in result.stdout
+
+
+def test_uv_run_optional_dependency_is_an_error(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "pyproject.toml",
+        "[project]\n"
+        'name = "RPent"\n\n'
+        "[project.optional-dependencies]\n"
+        'franka = ["pyyaml"]\n',
+    )
+    write(
+        tmp_path,
+        "docs/page.md",
+        "Run `uv run --extra franka rpent --help`.\n"
+        "Run `uv run --extra nosuch rpent --help`.\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "unknown optional dependency 'nosuch'" in result.stdout
+    assert "unknown optional dependency 'franka'" not in result.stdout
 
 
 def test_design_documents_skip_command_checks(tmp_path: Path) -> None:

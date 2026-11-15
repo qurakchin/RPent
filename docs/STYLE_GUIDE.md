@@ -241,10 +241,10 @@ planner-specific differences and environment restrictions.
 
 Keep matching page paths, navigation, commands, prerequisites, limits, and
 results. Give both pages the same section structure: the `docs-check` hook
-compares the number of headings, so a section added on one side needs a
-counterpart. Translate meaning into natural Chinese; do not copy English
-sentence structure. Preserve code identifiers, model names, flags, and
-filenames.
+compares the heading depths in order, so a section added, removed, or nested
+differently on one side needs a counterpart. Translate meaning into natural
+Chinese; do not copy English sentence structure. Preserve code identifiers,
+model names, flags, and filenames.
 
 | English | Chinese usage |
 | --- | --- |
@@ -449,13 +449,13 @@ It verifies repository-relative Markdown links and images (including
 reference-style links and definitions), same-file heading anchors, the
 presence and vocabulary of the **Validation Status** table and its evidence on
 simulator and robot pages, the repository paths, modules, `cd` targets, and
-optional dependencies named by documented commands, and the section count,
+optional dependencies named by documented commands, and the section structure,
 status sequence, and result numbers of the paired English and Chinese pages.
 Each argument is read in the role its command gives it: `-r` is a requirement
-file only for `pip` and `uv`, and a trailing `::node` pytest selector is not
-part of the file path. The `docs-check` pre-commit hook checks only the changed
-pages and fails on a broken reference; a second hook rechecks the whole tree
-when `scripts/check_docs.py` changes.
+file only where the command is `pip`, and a trailing `::node` pytest selector
+is not part of the file path. The `docs-check` pre-commit hook checks only the
+changed pages and fails on a broken reference; a second hook rechecks the whole
+tree when `scripts/check_docs.py` changes.
 Design documents skip command checks because they name modules and paths that
 do not exist yet. RST directives, `:doc:`, `:ref:`, and other RST references are
 left to Sphinx: the `Docs` workflow builds both trees with `-W --keep-going`,

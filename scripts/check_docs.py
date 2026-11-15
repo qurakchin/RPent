@@ -11,20 +11,23 @@ The check covers only rules that the repository owns:
   script paths, optional-dependency names, and ``-r``/``--requirement`` files.
   Each argument is read in the role its command gives it, so ``pytest -r a``
   and ``grep -r TODO`` are not requirement files, and a trailing ``::node``
-  selector is not part of the path. Design documents under ``docs/design/``
-  are skipped, because they name modules and paths that do not exist yet;
+  selector is not part of the path. Only ``pip`` reads a path from ``-r``, so a
+  line that merely runs under ``uv run`` does not make it a requirement file.
+  Design documents under ``docs/design/`` are skipped, because they name modules
+  and paths that do not exist yet;
 - the **Validation Status** / **验证状态** table on simulator and real-world
   robot pages: section presence and position, evidence-level vocabulary, an
   Evidence column with the minimum content for each status, repository paths
-  cited by evidence, paired English or Chinese pages, their section counts,
+  cited by evidence, paired English or Chinese pages, their section structure,
   status sequences, and the result numbers they report;
 - the status line of each design document and the presence of its baseline
   commit (skipped with a warning when the checkout has no full history).
 
-RST structure is not parsed here. The ``Docs`` workflow builds both trees with
-``sphinx-build -W`` (``.github/workflows/docs.yml``), so Sphinx decides
-directives, ``:doc:``, ``:ref:``, and other RST references. External URLs are
-not fetched.
+Only the heading structure and the Validation Status list-table are read as
+RST here; directives and references are not resolved. The ``Docs`` workflow
+builds both trees with ``sphinx-build -W``
+(``.github/workflows/docs.yml``), so Sphinx decides directives, ``:doc:``,
+``:ref:``, and other RST references. External URLs are not fetched.
 
 Markers use ``docs-check: ignore until YYYY-MM-DD: reason``. The marker hides
 its own line and, when it is a standalone comment, the next non-blank line.
@@ -79,16 +82,22 @@ PIP_EXTRA = re.compile(
     r"(?:-e\s+[\"']?\.\[([^\]]+)\]|\.\[([^\]]+)\])"
 )
 SYNC_EXTRA = re.compile(r"uv\s+sync[^\n]*?--extra(?:=|\s+)([A-Za-z0-9_-]+)")
+RUN_EXTRA = re.compile(r"uv\s+run[^\n`'\"]*?--extra(?:=|\s+)([A-Za-z0-9_-]+)")
 REQUIREMENT_OPTION = re.compile(
     r"--(?:override|requirement|requirements)(?:=|\s+)([^\s`'\"]+)|-r\s+([^\s`'\"]+)"
 )
-# ``-r`` means different things to different tools: a requirement file for pip
-# and uv, report characters for pytest, and a recursive search for grep. Only
-# check it where the line names the command that gives it a path meaning.
-REQUIREMENT_COMMAND = re.compile(r"(?:^|[\s`'\"(])(?:pip3?|uv)\b")
+# ``-r`` means different things to different tools: a requirement file for pip,
+# report characters for pytest, and a recursive search for grep. Only pip reads
+# a path from it, so require the line to name pip. Naming ``uv`` alone is not
+# enough: ``uv run pytest -r a`` passes ``-r`` to pytest.
+REQUIREMENT_COMMAND = re.compile(r"(?:^|[\s`'\"(])(?:pip3?|uv\s+pip3?)\b")
 PYTHON_COMMAND = re.compile(r"(?:^|[\s`'\"(])(?:python3?|uv\s+run)\b")
 MODULE_OPTION = re.compile(r"-m\s+([A-Za-z_][A-Za-z0-9_.]*)")
 PLACEHOLDERS = set("<>{}*?$|")
+# RST accepts any printable punctuation as a section adornment. A heading is a
+# prose line followed by a line of one character, at least as long as the prose
+# line, so ellipses, list markers, and table borders do not count as headings.
+ADORNMENT = set("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~")
 VALIDATION_HEADINGS = {"Validation Status": "en", "验证状态": "zh"}
 # One row per evidence level keeps the two languages and the status keys from
 # drifting apart: the sets and the word-to-key map are derived from this table.
@@ -291,7 +300,7 @@ class Checker:
         self._slugs: dict[Path, set[str]] = {}
         self._ignored: set[int] = set()
         self._validation_rows: dict[Path, tuple[int, list[str]]] = {}
-        self._section_counts: dict[Path, int] = {}
+        self._section_levels_by_path: dict[Path, list[int]] = {}
         self._has_en = (self.root / "docs/source-en").is_dir()
         self._has_zh = (self.root / "docs/source-zh").is_dir()
         self._warned_history = False
@@ -600,7 +609,7 @@ class Checker:
         if language is None:
             return
         lines = text.splitlines()
-        self._section_counts[path] = self._section_count(lines)
+        self._section_levels_by_path[path] = self._section_levels(lines)
         heading: int | None = None
         for number, line in enumerate(lines):
             if line.strip() not in VALIDATION_HEADINGS:
@@ -841,8 +850,8 @@ class Checker:
             other = self._validation_rows.get(counterpart)
             if other is None:
                 continue
-            mine_sections = self._section_counts.get(path)
-            other_sections = self._section_counts.get(counterpart)
+            mine_sections = self._section_levels_by_path.get(path)
+            other_sections = self._section_levels_by_path.get(counterpart)
             if (
                 mine_sections is not None
                 and other_sections is not None
@@ -851,8 +860,9 @@ class Checker:
                 self.report.error(
                     path,
                     line,
-                    f"section count differs from the {language} counterpart "
-                    f"({mine_sections} != {other_sections})",
+                    f"section structure differs from the {language} counterpart "
+                    f"({self._describe_sections(mine_sections)} != "
+                    f"{self._describe_sections(other_sections)})",
                     self.root,
                 )
             mine_keys = [STATUS_KEYS.get(status, status) for _, status, _ in rows]
@@ -930,21 +940,37 @@ class Checker:
         return rows
 
     @staticmethod
-    def _section_count(lines: list[str]) -> int:
-        """Count RST section headings so paired pages can be compared.
+    def _section_levels(lines: list[str]) -> list[int]:
+        """Return the depth of each RST section, in document order.
 
-        A heading is a prose line followed by an adornment line. Table borders
-        either mix adornment characters or follow a blank line, so they are not
-        counted. Only the count is shared; heading text differs by language.
+        A heading is a prose line followed by an adornment line at least as
+        long as it; table borders either mix adornment characters or follow a
+        blank line, so they are not counted. Depth is the order in which an
+        adornment character first appears, the way RST assigns levels. The
+        characters differ between the two languages, so only the depth
+        sequence is shared; nesting and merged sections change it while a
+        translated page keeps it.
         """
-        count = 0
+        order: dict[str, int] = {}
+        levels: list[int] = []
         for index, line in enumerate(lines[:-1]):
             underline = lines[index + 1].strip()
             if not line or line[0].isspace() or not underline:
                 continue
-            if len(underline) >= 3 and set(underline) <= set("-=~"):
-                count += 1
-        return count
+            if len(set(underline)) != 1 or underline[0] not in ADORNMENT:
+                continue
+            if len(underline) < 3 or len(underline) < len(line.rstrip()):
+                continue
+            character = underline[0]
+            if character not in order:
+                order[character] = len(order) + 1
+            levels.append(order[character])
+        return levels
+
+    @staticmethod
+    def _describe_sections(levels: list[int]) -> str:
+        """Return a compact description of a page's section structure."""
+        return f"{len(levels)} sections, depths {levels}"
 
     # Commands ---------------------------------------------------------------
 
@@ -1017,6 +1043,8 @@ class Checker:
             extras = match.group(1) or match.group(2) or ""
             self._check_extras(path, line, extras)
         for match in SYNC_EXTRA.finditer(text):
+            self._check_extras(path, line, match.group(1))
+        for match in RUN_EXTRA.finditer(text):
             self._check_extras(path, line, match.group(1))
         if requirements:
             for match in REQUIREMENT_OPTION.finditer(text):

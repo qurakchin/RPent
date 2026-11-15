@@ -58,15 +58,15 @@ reference-style links and definitions), same-file heading anchors, the presence
 and vocabulary of the **Validation Status** table on simulator and robot pages,
 the repository paths cited by its evidence, the repository paths, modules, `cd`
 targets, and optional dependencies named by documented commands, and the
-section count, status sequence, and result numbers of the paired English and
-Chinese pages. Command arguments are read in the role their command gives
-them, so `pytest -r a` and `grep -r TODO` are not requirement files and a
-`::node` selector is not part of a path; commands for another checkout belong
-after an absolute `cd`. The `docs-check` pre-commit hook checks only the changed
-pages; `docs-check-self` rechecks the whole tree when the checker itself
-changes. Design documents skip command checks because they name modules and
-paths that do not exist yet. RST
-directives and `:doc:` / `:ref:` targets are left to Sphinx: the `Docs` workflow
+section structure, status sequence, and result numbers of the paired English
+and Chinese pages. Command arguments are read in the role their command gives
+them, so `pytest -r a`, `grep -r TODO`, and a `uv run` prefix on either are not
+requirement files, and a `::node` selector is not part of a path; commands for
+another checkout belong after an absolute `cd`. The `docs-check` pre-commit
+hook checks only the changed pages; `docs-check-self` rechecks the whole tree
+when the checker itself changes. Design documents skip command checks because
+they name modules and paths that do not exist yet. RST directives and
+`:doc:` / `:ref:` targets are left to Sphinx: the `Docs` workflow
 builds both trees with `-W --keep-going`, and Read the Docs uses
 `fail_on_warning: true`. Cross-file Markdown anchors are warnings because the
 checker approximates GitHub's slug algorithm. External URLs and whether the
@@ -90,7 +90,7 @@ outside [docs/STYLE_GUIDE.md](../../../docs/STYLE_GUIDE.md#validation-status),
 rejects a missing Evidence column, an empty evidence cell, an evidence path
 that does not resolve, and evidence that lacks the locator, snapshot, or
 citation its status requires. It requires the English and Chinese pages to have
-matching counterparts, section counts, status sequences, and result numbers.
+matching counterparts, section structure, status sequences, and result numbers.
 Judging whether the evidence supports the claim is a review task. The checker
 also requires each design document under
 [docs/design/](../../../docs/design/README.md) to start with a status line and
