@@ -629,7 +629,8 @@ def test_claude_bridge_readonly_calls_execute_concurrently(
         assert json.loads(reply.content[0].text) == {
             **args,
             "call_ok": True,
-            "execution_status": "completed",
+            "no_execution": True,
+            "execution_status": "not_started",
         }
         assert base64.b64decode(reply.content[1].data) == call_id.encode()
 
@@ -655,9 +656,9 @@ def test_claude_bridge_readonly_calls_execute_concurrently(
                 "image_labels": [],
                 "call_ok": True,
                 "error": None,
-                "no_execution": False,
+                "no_execution": True,
                 "execution_uncertain": False,
-                "execution_status": "completed",
+                "execution_status": "not_started",
             }
             assert call.feedback.data == {
                 "content": [

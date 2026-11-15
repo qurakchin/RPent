@@ -65,9 +65,11 @@ class ToolResult:
       call. It mirrors the episode's latch in a_6.
     - ``execution_status``: the original ``EnvReceipt.status``. Tools leave it
       as ``None``; :class:`~rpent.tools.toolkit.Toolkit` fills it after
-      dispatch. When result encoding fails, the toolkit keeps the would-be
-      receipt status under ``data["reported_execution_status"]`` so the
-      diagnostic survives the failure.
+      dispatch. A handler that leaves it unset reports ``completed`` unless it
+      produced no execution or is declared readonly, which report
+      ``not_started``. When result encoding fails, the toolkit keeps the
+      would-be receipt status under ``data["reported_execution_status"]`` so
+      the diagnostic survives the failure.
     """
 
     data: dict[str, Any] = field(default_factory=dict)

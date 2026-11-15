@@ -292,7 +292,13 @@ class Toolkit:
             status: Outcome, e.g. 'success', 'failure', or 'stuck'.
             summary: Short natural-language summary of the run.
         """
-        return ToolResult(data={"_finish": True, "status": status, "summary": summary})
+        # The declaration is readonly so a finishing call is never blocked
+        # behind motion, but the halt itself is the executed request: report
+        # it as completed instead of letting the read default hide it.
+        return ToolResult(
+            data={"_finish": True, "status": status, "summary": summary},
+            execution_status="completed",
+        )
 
     # ------------------------------------------------------------------
     # Planner-facing API
@@ -414,10 +420,16 @@ class Toolkit:
 
             if native.execution_status is None:
                 # A call that explicitly produced no physical action must not
-                # be reported as executed.
+                # be reported as executed. Read-only handlers never act, so
+                # they report the same layer as a refusal that stopped before
+                # any write unless the handler states otherwise.
                 native.execution_status = (
-                    "not_started" if native.no_execution else "completed"
+                    "not_started"
+                    if native.no_execution or tool.readonly
+                    else "completed"
                 )
+                if tool.readonly:
+                    native.no_execution = True
 
             if capture is not None and capture.started:
                 capture.result(

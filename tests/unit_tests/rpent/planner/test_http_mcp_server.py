@@ -196,7 +196,8 @@ def test_http_mcp_readonly_calls_execute_concurrently(tmp_path, capture_enabled)
             assert json.loads(call.feedback.data["content"][0]["text"]) == {
                 "label": label,
                 "call_ok": True,
-                "execution_status": "completed",
+                "no_execution": True,
+                "execution_status": "not_started",
             }
     else:
         assert calls == []
@@ -420,5 +421,6 @@ def test_mcp_calls_work_without_environment_state(tmp_path):
     assert json.loads(result.content[0].text) == {
         "observed": True,
         "call_ok": True,
-        "execution_status": "completed",
+        "no_execution": True,
+        "execution_status": "not_started",
     }
