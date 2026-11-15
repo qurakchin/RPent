@@ -225,7 +225,7 @@ def test_state_capture_failure_after_a_write_is_execution_uncertain(
     def write_then_capture_fails() -> ToolResult:
         """Write, then let the framework fail to capture the after-state."""
         mark_write_issued("step")
-        return ToolResult(data={"value": 3}, execution_status="completed")
+        return ToolResult(data={"value": 3})
 
     toolkit.add_tool(write_then_capture_fails)
     result = toolkit.execute_tool("write_then_capture_fails", {})
@@ -331,13 +331,16 @@ def test_successful_non_readonly_call_reports_completed(
     }
 
 
-def test_terminal_finish_reports_completed_despite_being_readonly(
+def test_terminal_finish_is_concurrent_and_reports_completed(
     tmp_path: Path,
 ) -> None:
     toolkit = _Toolkit(tmp_path)
 
     result = toolkit.execute_tool("finish", {"status": "success", "summary": "done"})
 
+    assert Toolkit.finish.concurrent is True
+    assert Toolkit.finish.readonly is False
+    assert Toolkit.finish.captures_state is False
     assert result.data["_finish"] is True
     assert result.call_ok is True
     assert result.no_execution is False

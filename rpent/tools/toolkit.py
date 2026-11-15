@@ -48,13 +48,13 @@ if TYPE_CHECKING:
 
 @dataclass(eq=False)
 class _ToolOperation:
-    readonly: bool
+    shared: bool
     cancel_event: threading.Event = field(default_factory=threading.Event)
     done: bool = False
 
 
 class _Scheduler:
-    """Share readonly calls; run queued exclusive calls in arrival order.
+    """Share concurrent calls; run queued exclusive calls in arrival order.
 
     A plain RWLock only provides mutual exclusion. Tool calls also need ordered
     writers, cancellation of queued and active calls, and pause/close with drain.
@@ -68,13 +68,13 @@ class _Scheduler:
         self.paused = False
         self.closed = False
 
-    def acquire(self, *, readonly: bool) -> _ToolOperation:
+    def acquire(self, *, shared: bool) -> _ToolOperation:
         with self.condition:
             if self.closed:
                 raise ToolCancelled("Toolkit is closed.")
             if self.paused:
                 raise ToolCancelled("Tool calls are paused.")
-            call = _ToolOperation(readonly=readonly)
+            call = _ToolOperation(shared=shared)
             self.pending.append(call)
             self.condition.notify_all()
             try:
@@ -82,13 +82,13 @@ class _Scheduler:
                     if call.cancel_event.is_set():
                         raise ToolCancelled("tool operation interrupted")
                     exclusive = next(
-                        (item for item in self.pending if not item.readonly), None
+                        (item for item in self.pending if not item.shared), None
                     )
                     if (
-                        readonly
+                        shared
                         and exclusive is None
-                        and all(item.readonly for item in self.active)
-                    ) or (not readonly and not self.active and call is exclusive):
+                        and all(item.shared for item in self.active)
+                    ) or (not shared and not self.active and call is exclusive):
                         self.pending.remove(call)
                         self.active.add(call)
                         return call
@@ -284,7 +284,7 @@ class Toolkit:
             self.add_tool(declaration)
         self.add_tool(self.finish)
 
-    @tool(readonly=True)
+    @tool(concurrent=True, captures_state=False)
     def finish(self, status: str, summary: str) -> ToolResult:
         """Call when the task is complete or unrecoverable. Halts the agent loop. Save any artifacts (recipe, audit) BEFORE calling finish.
 
@@ -292,13 +292,11 @@ class Toolkit:
             status: Outcome, e.g. 'success', 'failure', or 'stuck'.
             summary: Short natural-language summary of the run.
         """
-        # The declaration is readonly so a finishing call is never blocked
-        # behind motion, but the halt itself is the executed request: report
-        # it as completed instead of letting the read default hide it.
-        return ToolResult(
-            data={"_finish": True, "status": status, "summary": summary},
-            execution_status="completed",
-        )
+        # A finishing call never changes the environment, so it shares admission
+        # with readonly calls instead of taking the exclusive channel. It is not
+        # read-only: the halt is the executed request, so the unset execution
+        # layer reports completed.
+        return ToolResult(data={"_finish": True, "status": status, "summary": summary})
 
     # ------------------------------------------------------------------
     # Planner-facing API
@@ -354,7 +352,7 @@ class Toolkit:
         }
 
         try:
-            operation = self._scheduler.acquire(readonly=tool.readonly)
+            operation = self._scheduler.acquire(shared=tool.readonly or tool.concurrent)
         except ToolCancelled as exc:
             return _failure_result(
                 "cancelled",

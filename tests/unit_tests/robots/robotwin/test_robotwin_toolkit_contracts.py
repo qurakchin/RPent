@@ -49,7 +49,9 @@ from rpent.utils import templates
 from rpent.utils.rpc import RpcError
 
 COMMON_TOOLS = {"read_text_file", "write_text_file", "list_dir", "finish"}
-READONLY_COMMON_TOOLS = {"read_text_file", "list_dir", "finish"}
+# File writes and the terminal halt are not readonly; they opt out of the
+# observation capture instead.
+READONLY_COMMON_TOOLS = {"read_text_file", "list_dir"}
 
 FAMILY_TOOLS = {
     "view_env_state",
@@ -145,7 +147,7 @@ class FakeRoboTwinPrimitives:
             "actual_seed": 7,
         }
 
-    @tool(readonly=True)
+    @tool(concurrent=True, captures_state=False)
     def finish(self, *, status: str, summary: str) -> ToolResult:
         """Stop the fake run."""
         return ToolResult(data={"_finish": True, "status": status, "summary": summary})
@@ -255,6 +257,9 @@ def test_toolkit_constructs_and_captures_an_initial_observation(
         "query_world_map",
         "recall",
     }
+    finish = next(item for item in robot_toolkit.list_tools() if item.name == "finish")
+    assert finish.concurrent is True
+    assert finish.captures_state is False
     assert len(dumped) == 1
     assert dumped[0]["log"] == {
         "command": {"action": "reset"},

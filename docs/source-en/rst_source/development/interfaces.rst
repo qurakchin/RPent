@@ -99,9 +99,14 @@ Subclass ``Toolkit`` in ``robots/<robot>/toolkit.py`` and register robot tools w
 
 Declare functions or methods with ``@tool``. Type annotations and Google-style
 docstrings provide parameter schemas and descriptions; ``@tool(readonly=True)``
-allows concurrent readonly calls and skips post-action state capture. Handlers return ``ToolResult(data=..., images=...)``:
-``data`` holds the domain payload, including ``error`` or ``_finish`` when needed,
-and ``images`` holds PNG bytes.
+allows concurrent readonly calls and skips post-action state capture. A call that
+leaves the environment unchanged but is not a read, such as the terminal
+``finish``, uses ``@tool(concurrent=True)``: it shares admission with readonly
+calls and still reports its own execution layer. ``@tool(captures_state=False)``
+marks a non-readonly call that changes nothing, such as a file or memory write,
+so the toolkit records no state transition for it. Handlers return
+``ToolResult(data=..., images=...)``: ``data`` holds the domain payload,
+including ``error`` or ``_finish`` when needed, and ``images`` holds PNG bytes.
 
 ``ToolResult`` also separates the call from its physical effects. ``call_ok``
 reports whether the call was valid and the framework completed dispatch: the
@@ -120,9 +125,10 @@ handler keeps its existing domain payload (usually a string ``error``) but the
 request still produced no physical action. Pass ``status="rejected"`` to
 ``unexecuted`` for a refusal rather than a failed lookup. ``ToolResult.to_text()``
 includes these layers. Read-only declarations report ``no_execution`` with
-``execution_status="not_started"`` because they never issue a physical action;
-the terminal ``finish`` is declared readonly only so that it is not queued
-behind motion, and it still reports ``completed``.
+``execution_status="not_started"`` because they never issue a physical action.
+The terminal ``finish`` is instead declared ``concurrent``: the halt is the
+executed request, so a handler that leaves the layer unset reports
+``completed``.
 
 The base class registers the common file tools and ``finish``; call
 ``super().__init__()`` then ``add_tool`` for robot tools. Shared tool families in ``rpent/tools``
@@ -142,11 +148,11 @@ synthetic corpus and writes a manifest, raw results, and a report. The synthetic
 reference checks pipeline consistency; it is not a real-sensor accuracy
 baseline.
 
-Tools without ``readonly=True`` run exclusively, in admission order. Waiting
-exclusive calls take priority over new readonly calls. Exclusive execution
-includes observation capture and Dashboard publication. A readonly handler that
-updates shared caches must synchronize those updates itself. ``EnvState.save``
-serializes artifact writes.
+Tools that are neither readonly nor concurrent run exclusively, in admission
+order. Waiting exclusive calls take priority over new readonly or concurrent
+calls. Exclusive execution includes observation capture and Dashboard
+publication. A readonly handler that updates shared caches must synchronize those
+updates itself. ``EnvState.save`` serializes artifact writes.
 
 ``cancel_active_and_wait()`` pauses new calls, signals queued and active calls,
 and waits for their cleanup. Long-running handlers check ``raise_if_cancelled()``

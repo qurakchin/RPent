@@ -216,9 +216,9 @@ class RoboTwinPrimitives:
             "native_actions": self.native_actions,
         }
 
-    # Readonly keeps a finish call from queueing behind motion; the halt is
-    # the executed request, so it still reports completed.
-    @tool(readonly=True)
+    # Concurrent shares admission with readonly calls. The halt is not a read,
+    # so the unset execution layer reports it as completed.
+    @tool(concurrent=True, captures_state=False)
     def finish(self, *, status: str, summary: str) -> ToolResult:
         """Stop the run. A fresh native status query is authoritative; requesting success cannot override TASK_ENV.eval_success."""
         requested_success = status.lower() == "success"
@@ -234,7 +234,6 @@ class RoboTwinPrimitives:
                     "requested_success": requested_success,
                     "runtime_error": f"{type(error).__name__}: {error}",
                 },
-                execution_status="completed",
             )
         verified_success = native.get("eval_success") is True
         reported_status = (
@@ -251,5 +250,4 @@ class RoboTwinPrimitives:
                 "success": verified_success,
                 "episode_status": native,
             },
-            execution_status="completed",
         )
