@@ -97,7 +97,8 @@ PROMPT_SLICE_RENDERED_BUDGET = {
 #: up. The evaluation ceilings above do not cover the exploration workflow,
 #: which is the larger of the two for every slice, so each slice that reaches
 #: exploration needs its own ceiling. ``franka`` does not support exploration
-#: and has no entry.
+#: and has no entry; the key set is checked against the robot specs so a new
+#: exploration-capable slice cannot skip its ceiling.
 PROMPT_EXPLORE_SLICE_RENDERED_BUDGET = {
     "libero": 654,
     "robodojo": 325,
@@ -544,6 +545,24 @@ def test_rendered_slice_prompt_meets_domain_targets_and_stays_within_budget(
             layers,
         )
     assert sum(totals.values()) <= PROMPT_SLICE_RENDERED_TOTAL_BUDGET, totals
+
+
+def test_explore_budget_covers_every_slice_that_reaches_exploration() -> None:
+    """Every slice that can run exploration must record its own ceiling.
+
+    The budget test below iterates the mapping, so a robot missing from it
+    would skip the check silently. Deriving the expected keys from the robot
+    specs keeps ``franka``, which does not support exploration, out of the
+    mapping while making a new exploration-capable slice fail until it has a
+    measured ceiling.
+    """
+    exploration = {
+        robot
+        for robot in PROMPT_VARIABLES
+        if get_robot_spec(robot).supports_exploration
+    }
+
+    assert set(PROMPT_EXPLORE_SLICE_RENDERED_BUDGET) == exploration
 
 
 def test_rendered_explore_slice_prompt_stays_within_budget(tmp_path: Path) -> None:
