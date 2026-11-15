@@ -486,7 +486,7 @@ def query_world_map(
     )
 
 
-@tool(readonly=True)
+@tool(concurrent=True, captures_state=False)
 def finish(status: Literal["success", "failure", "stuck"], summary: str) -> ToolResult:
     """Declare the task finished. Call when robocasa_terminated becomes True (success detected), or when genuinely stuck after honest exploration. Provide a 1-3 sentence summary of what worked and what failed.
 
@@ -494,12 +494,9 @@ def finish(status: Literal["success", "failure", "stuck"], summary: str) -> Tool
         status: Task outcome classification.
         summary: 1-3 sentence summary of what worked / what failed.
     """
-    # Readonly keeps a finish call from queueing behind motion; the halt is
-    # the executed request, so it still reports completed.
-    return ToolResult(
-        data={"_finish": True, "status": status, "summary": summary},
-        execution_status="completed",
-    )
+    # Concurrent shares admission with readonly calls. The halt is not a read,
+    # so the unset execution layer reports it as completed.
+    return ToolResult(data={"_finish": True, "status": status, "summary": summary})
 
 
 # ---- recipe export ----
