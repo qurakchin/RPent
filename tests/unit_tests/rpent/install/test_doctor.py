@@ -119,7 +119,9 @@ def test_dev_installation_is_not_reported_as_stale(tmp_path, write_toml, monkeyp
             "profile": "alpha",
             "python": "3.11.9",
             "include_dev": True,
-            "requirements_sha256": requirements_sha256(resolution, include_dev=True),
+            "requirements_sha256": requirements_sha256(
+                resolution, root=tmp_path, include_dev=True
+            ),
         },
     )
 
@@ -131,10 +133,60 @@ def test_dev_installation_is_not_reported_as_stale(tmp_path, write_toml, monkeyp
     checks = check_installation(venv, root=tmp_path)
 
     assert any(
-        check.status == OK and "manifests unchanged" in check.message
+        check.status == OK and "installation inputs unchanged" in check.message
         for check in checks
     )
     assert not any("out of date" in check.message for check in checks)
+
+
+def test_lock_edited_after_install_makes_the_environment_stale(
+    tmp_path, write_toml, monkeypatch
+):
+    write_toml(
+        "envs/alpha.toml",
+        f"""
+        schema = 1
+        name = "alpha"
+        python = "3.11"
+        platform = "{runtime_platform()}"
+        core = false
+        lock = "envs/locks/alpha.lock"
+        """,
+    )
+    lock = write_toml("envs/locks/alpha.lock", "packaging==24.0")
+    resolution = resolve_install_target("alpha", discover(tmp_path), root=tmp_path)
+    venv = _venv(tmp_path)
+    write_fingerprint(
+        venv,
+        {
+            "profile": "alpha",
+            "python": "3.11.9",
+            "include_dev": False,
+            "reproducible": True,
+            "requirements_sha256": requirements_sha256(
+                resolution, root=tmp_path, reproducible=True
+            ),
+        },
+    )
+
+    def _missing_uv():
+        raise InstallError("uv missing")
+
+    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
+
+    checks = check_installation(venv, root=tmp_path)
+    assert any(
+        check.status == OK and "installation inputs unchanged" in check.message
+        for check in checks
+    )
+
+    # The manifest did not change, so only the lock hash can notice this.
+    lock.write_text("packaging==25.0\n", encoding="utf-8")
+    checks = check_installation(venv, root=tmp_path)
+
+    assert any(
+        check.status == FAIL and "out of date" in check.message for check in checks
+    )
 
 
 def test_component_installation_uses_the_recorded_interpreter(
@@ -173,7 +225,7 @@ def test_component_installation_uses_the_recorded_interpreter(
             "component": "beta",
             "python": "3.10.8",
             "include_dev": False,
-            "requirements_sha256": requirements_sha256(resolution),
+            "requirements_sha256": requirements_sha256(resolution, root=tmp_path),
         },
     )
 
@@ -186,7 +238,7 @@ def test_component_installation_uses_the_recorded_interpreter(
 
     assert "component: beta" in {check.message for check in checks}
     assert any(
-        check.status == OK and "manifests unchanged" in check.message
+        check.status == OK and "installation inputs unchanged" in check.message
         for check in checks
     )
     assert not any("out of date" in check.message for check in checks)
@@ -234,7 +286,7 @@ def test_component_diagnostic_uses_the_recorded_variant(
             "python": "3.11.9",
             "include_dev": False,
             "components": {"gamma": {"placement": "in-env", "variant": "pro"}},
-            "requirements_sha256": requirements_sha256(resolution),
+            "requirements_sha256": requirements_sha256(resolution, root=tmp_path),
         },
     )
 
@@ -247,7 +299,7 @@ def test_component_diagnostic_uses_the_recorded_variant(
 
     assert not any("cannot resolve" in check.message for check in checks)
     assert any(
-        check.status == OK and "manifests unchanged" in check.message
+        check.status == OK and "installation inputs unchanged" in check.message
         for check in checks
     )
 

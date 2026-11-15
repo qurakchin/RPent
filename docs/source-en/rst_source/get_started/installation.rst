@@ -169,8 +169,10 @@ Diagnose and reproduce
    rpent-env lock --all
    rpent-env lock --all --check
 
-``doctor`` compares the stored fingerprint with the profile manifests, checks
-Python and platform, runs ``uv pip check`` and the component probes, and can
+``doctor`` compares the stored fingerprint with every recorded installation
+input (the manifests, the lock the install read, the component override files,
+and the repository's ``[tool.uv]`` settings), checks Python and platform, runs
+``uv pip check`` and the component probes, and can
 probe external endpoints with ``--endpoint molmo=host:port``. A single
 component can be installed for development with
 ``rpent-env install <component>``; its fingerprint records

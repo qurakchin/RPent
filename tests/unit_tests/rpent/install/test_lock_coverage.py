@@ -324,6 +324,44 @@ def test_lock_violating_an_override_is_reported(
     assert "numpy==2.0.0" in problems[0]
 
 
+def test_marker_scoped_override_is_checked_against_the_profile_target(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    # The lock holds the line for the profile's target, so the override is
+    # evaluated for that target rather than the host running the check.
+    override = tmp_path / "override.txt"
+    override.write_text('numpy<2; sys_platform == "linux"\n', encoding="utf-8")
+    component = make_component(
+        "alpha", dependencies=["numpy>=2"], overrides=(override,)
+    )
+    profile = make_profile(
+        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+    )
+    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+
+    problems = lock_problems(profile, resolve(profile, catalog), tmp_path)
+
+    assert "does not satisfy override" in problems[0]
+
+
+def test_marker_scoped_override_for_another_target_is_skipped(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    override = tmp_path / "override.txt"
+    override.write_text('numpy<1; sys_platform == "win32"\n', encoding="utf-8")
+    component = make_component(
+        "alpha", dependencies=["numpy>=2"], overrides=(override,)
+    )
+    profile = make_profile(
+        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+    )
+    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+
+    assert lock_problems(profile, resolve(profile, catalog), tmp_path) == []
+
+
 def test_override_for_a_package_outside_the_lock_is_ignored(
     make_component, make_profile, make_catalog, tmp_path
 ):

@@ -42,7 +42,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 from rpent.install.manifest import Profile
-from rpent.install.requirements import environment_dependencies
+from rpent.install.requirements import environment_dependencies, override_files
 from rpent.install.resolve import Resolution
 
 #: Marker values derived from ``Profile.platform``. A platform outside this
@@ -200,30 +200,22 @@ def _override_requirements(
 
     Overrides are files handed to ``uv pip compile`` rather than manifest
     requirements, so the direct-coverage loop cannot see a lock that predates
-    an override edit.
+    an override edit. The files come from :func:`override_files`, the same
+    source the installation fingerprint hashes.
     """
     constraints: list[tuple[str, Requirement]] = []
-    seen: set[Path] = set()
-    for resolved in resolution.main_installed().values():
-        for override in resolved.component.overrides:
-            path = override if override.is_absolute() else root / override
-            if path in seen:
+    for display, path in override_files(resolution, root):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            value = line.split("#", 1)[0].strip()
+            if not value:
                 continue
-            seen.add(path)
-            try:
-                text = path.read_text(encoding="utf-8")
-            except OSError:
-                continue
-            display = (
-                str(path.relative_to(root)) if path.is_relative_to(root) else str(path)
-            )
-            for line in text.splitlines():
-                value = line.split("#", 1)[0].strip()
-                if not value:
-                    continue
-                requirement = _requirement(value)
-                if requirement is not None:
-                    constraints.append((display, requirement))
+            requirement = _requirement(value)
+            if requirement is not None:
+                constraints.append((display, requirement))
     return constraints
 
 

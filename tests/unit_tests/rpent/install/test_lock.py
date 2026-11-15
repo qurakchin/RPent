@@ -14,6 +14,7 @@
 
 """Profile locks are compiled to the declared path and checked for drift."""
 
+import os
 import stat
 
 import pytest
@@ -150,6 +151,31 @@ def test_lock_never_compiles_into_the_previous_lock_file(repo, fake_uv):
     output = arguments[arguments.index("--output-file") + 1]
     assert output != str(lock)
     assert "numpy>=2" in lock.read_text(encoding="utf-8")
+
+
+def test_lock_resolves_override_files_against_the_checkout(repo, fake_uv, write_toml):
+    # uv resolves relative paths against its working directory, so a lock
+    # compiled from a subdirectory would otherwise miss the override.
+    write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "json"
+        platforms = ["linux-x86_64"]
+        dependencies = ["numpy>=2"]
+        overrides = ["requirements/override.txt"]
+        """,
+    )
+    write_toml("robots/alpha/requirements/override.txt", "numpy<3\n")
+
+    assert lock_profiles(["alpha"], root=repo) == 0
+
+    arguments = (fake_uv.parent / "uv-args").read_text(encoding="utf-8").splitlines()
+    value = arguments[arguments.index("--overrides") + 1]
+    assert value == str(repo / "robots/alpha/requirements/override.txt")
+    assert os.path.isabs(value)
 
 
 def test_check_passes_for_an_unchanged_lock(repo, fake_uv, capsys):
