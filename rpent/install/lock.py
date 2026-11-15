@@ -94,6 +94,8 @@ def compile_profile(
         ]
         for resolved in resolution.main_installed().values():
             for override in resolved.component.overrides:
+                # Manifests resolve overrides to absolute paths when they are
+                # loaded, so uv's working directory does not matter here.
                 command.extend(["--overrides", str(override)])
         # Capture output so a resolution failure reports uv's reason (a missing
         # branch, an unreachable index) instead of only the command line.

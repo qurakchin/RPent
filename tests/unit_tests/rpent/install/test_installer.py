@@ -31,6 +31,7 @@ from rpent.install.installer import (
     install,
     resolve_install_target,
 )
+from rpent.install.requirements import read_core_dependencies, requirements_sha256
 
 
 @pytest.fixture
@@ -382,6 +383,37 @@ def test_install_uses_the_profile_lock_when_it_exists(repo, tmp_path, monkeypatc
     assert fingerprint["lock"] == "envs/locks/alpha.lock"
 
 
+def test_install_passes_override_files_by_absolute_path(
+    repo, tmp_path, write_toml, monkeypatch
+):
+    # uv resolves relative paths against its working directory, and the CLI may
+    # be run from a subdirectory, so manifests are resolved against the
+    # checkout before being handed over.
+    write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "json"
+        dependencies = ["numpy>=2"]
+        overrides = ["requirements/override.txt"]
+        """,
+    )
+    write_toml("robots/alpha/requirements/override.txt", "numpy<3\n")
+    lock = repo / "envs/locks/alpha.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
+    _, install_arguments = _fake_uv(tmp_path, monkeypatch)
+
+    install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+
+    arguments = install_arguments()[0]
+    value = arguments[arguments.index("--override") + 1]
+    assert value == str(repo / "robots/alpha/requirements/override.txt")
+    assert os.path.isabs(value)
+
+
 def test_install_rejects_a_lock_that_lost_a_requirement(repo, tmp_path, monkeypatch):
     lock = repo / "envs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
@@ -439,6 +471,15 @@ def test_profile_install_is_reproducible_when_it_uses_the_lock(
     assert fingerprint["profile"] == "alpha"
     assert fingerprint["component"] is None
     assert fingerprint["reproducible"] is True
+    # `doctor` recomputes this hash from the same inputs, so the installer has
+    # to record the lock as one of them.
+    resolution = resolve_install_target("alpha", discover(repo), root=repo)
+    assert fingerprint["requirements_sha256"] == requirements_sha256(
+        resolution,
+        root=repo,
+        core_dependencies=read_core_dependencies(repo),
+        reproducible=True,
+    )
 
 
 def test_component_install_refuses_a_profile_venv(repo, tmp_path, monkeypatch):

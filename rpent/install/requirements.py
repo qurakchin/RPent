@@ -12,7 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Render deterministic requirements files and installation input hashes."""
+"""Render deterministic requirements files and installation input hashes.
+
+An installation is identified by the hash of every input that decides what it
+contains: the profile, the component manifests, the lock the install reads, the
+override files its components apply, and the repository's ``[tool.uv]``
+resolution settings.
+"""
 
 from __future__ import annotations
 
@@ -22,12 +28,20 @@ from pathlib import Path
 from typing import Any
 
 from rpent.install.errors import InstallConfigError
+from rpent.install.manifest import Profile
 from rpent.install.resolve import Resolution
 
 try:  # Python 3.11+
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
+
+
+#: ``[tool.uv]`` entries that do not change an installation's contents.
+#: ``conflicts`` only constrains extra combinations in the generated
+#: compatibility block, and ``rpent-env`` installs requirement files rather
+#: than extras.
+_UV_IGNORED_SETTINGS = ("conflicts",)
 
 
 def read_core_dependencies(root: Path) -> tuple[str, ...]:
@@ -49,6 +63,84 @@ def read_core_dependencies(root: Path) -> tuple[str, ...]:
     ):
         raise InstallConfigError(f"{path}: [project].dependencies must be strings")
     return tuple(dependencies)
+
+
+def read_uv_settings(root: Path) -> dict[str, Any]:
+    """Return the ``[tool.uv]`` settings that apply to installs in this checkout.
+
+    ``uv`` reads these settings from the project it runs in, so they decide how
+    a requirement file resolves. The generated ``conflicts`` list is excluded:
+    it constrains extra combinations, which the installer does not use.
+    """
+    path = root / "pyproject.toml"
+    try:
+        with path.open("rb") as file:
+            data = tomllib.load(file)
+    except FileNotFoundError:
+        return {}
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise InstallConfigError(f"{path}: cannot read [tool.uv]: {exc}") from exc
+    tool = data.get("tool")
+    settings = tool.get("uv") if isinstance(tool, dict) else None
+    if not isinstance(settings, dict):
+        return {}
+    return {
+        key: value for key, value in settings.items() if key not in _UV_IGNORED_SETTINGS
+    }
+
+
+def override_files(resolution: Resolution, root: Path) -> list[tuple[str, Path]]:
+    """Return ``(display, path)`` for every override in the main environment.
+
+    ``display`` is relative to ``root`` while the file lives in the checkout,
+    so an installation fingerprint does not depend on where the checkout is.
+    """
+    files: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    for resolved in resolution.main_installed().values():
+        for override in resolved.component.overrides:
+            path = override if override.is_absolute() else root / override
+            if path in seen:
+                continue
+            seen.add(path)
+            display = (
+                str(path.relative_to(root)) if path.is_relative_to(root) else str(path)
+            )
+            files.append((display, path))
+    # The fingerprint hashes this list, so its order must not depend on the
+    # order components were resolved in.
+    files.sort(key=lambda entry: entry[0])
+    return files
+
+
+def _lock_sha256(profile: Profile, root: Path, *, reproducible: bool) -> str | None:
+    """Return the hash of the lock the installation read, if it read one.
+
+    ``--dev`` and component diagnostics install from generated requirements
+    instead, so they have no lock input.
+    """
+    if not reproducible or profile.lock is None:
+        return None
+    try:
+        return hashlib.sha256((root / profile.lock).read_bytes()).hexdigest()
+    except OSError:
+        # A deleted lock makes the inputs hash change, which is exactly the
+        # drift it should report.
+        return None
+
+
+def _override_inputs(resolution: Resolution, root: Path) -> list[dict[str, str]]:
+    """Return the override files an installation applies, with their hashes."""
+    entries: list[dict[str, str]] = []
+    for display, path in override_files(resolution, root):
+        try:
+            data = path.read_bytes()
+        except OSError:
+            # The installer hands the file to uv, which fails on a missing
+            # override; leaving it out keeps the hash true to what was read.
+            continue
+        entries.append({"path": display, "sha256": hashlib.sha256(data).hexdigest()})
+    return entries
 
 
 def environment_dependencies(
@@ -112,10 +204,17 @@ def render_requirements(
 def requirements_inputs(
     resolution: Resolution,
     *,
+    root: Path,
     core_dependencies: tuple[str, ...] = (),
     include_dev: bool = False,
+    reproducible: bool = False,
 ) -> dict[str, Any]:
-    """Return the canonical inputs whose hash identifies an installation."""
+    """Return the canonical inputs whose hash identifies an installation.
+
+    ``root`` locates the lock and override files, and ``reproducible`` says
+    whether the installation reads the lock; a ``--dev`` or component
+    diagnostic installation does not, so its contents do not depend on it.
+    """
     profile = resolution.profile
     components = {}
     for name, resolved in sorted(resolution.components.items()):
@@ -149,21 +248,31 @@ def requirements_inputs(
         },
         "core_dependencies": sorted(core_dependencies),
         "include_dev": include_dev,
+        # The lock and the override files are install inputs that no manifest
+        # hash covers: recompiling a lock or editing an override changes what a
+        # reinstall would produce, so `doctor` has to be able to see it.
+        "lock_sha256": _lock_sha256(profile, root, reproducible=reproducible),
+        "overrides": _override_inputs(resolution, root),
+        "uv_settings": read_uv_settings(root),
     }
 
 
 def requirements_sha256(
     resolution: Resolution,
     *,
+    root: Path,
     core_dependencies: tuple[str, ...] = (),
     include_dev: bool = False,
+    reproducible: bool = False,
 ) -> str:
-    """Hash the profile, manifests, and core dependencies of an installation."""
+    """Hash every input that determines what the installation contains."""
     payload = json.dumps(
         requirements_inputs(
             resolution,
+            root=root,
             core_dependencies=core_dependencies,
             include_dev=include_dev,
+            reproducible=reproducible,
         ),
         sort_keys=True,
         separators=(",", ":"),

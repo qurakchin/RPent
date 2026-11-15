@@ -106,26 +106,32 @@ def test_dependency_requirements_text_has_only_requirement_lines(resolution):
 
 
 def test_requirements_hash_tracks_manifests_and_options(
-    resolution, make_component, make_profile, make_catalog
+    resolution, make_component, make_profile, make_catalog, tmp_path
 ):
-    baseline = requirements_sha256(resolution, core_dependencies=("packaging",))
-
-    assert baseline == requirements_sha256(resolution, core_dependencies=("packaging",))
-    assert baseline != requirements_sha256(
-        resolution, core_dependencies=("packaging",), include_dev=True
-    )
-    assert baseline != requirements_sha256(
-        resolution, core_dependencies=("packaging", "pytest")
+    baseline = requirements_sha256(
+        resolution, root=tmp_path, core_dependencies=("packaging",)
     )
 
-    inputs = requirements_inputs(resolution, core_dependencies=("packaging",))
+    assert baseline == requirements_sha256(
+        resolution, root=tmp_path, core_dependencies=("packaging",)
+    )
+    assert baseline != requirements_sha256(
+        resolution, root=tmp_path, core_dependencies=("packaging",), include_dev=True
+    )
+    assert baseline != requirements_sha256(
+        resolution, root=tmp_path, core_dependencies=("packaging", "pytest")
+    )
+
+    inputs = requirements_inputs(
+        resolution, root=tmp_path, core_dependencies=("packaging",)
+    )
     assert inputs["profile"]["components"]["alpha"]["variant"] == "pro"
     assert inputs["profile"]["components"]["molmo"]["env"] == "molmo"
     assert inputs["core_dependencies"] == ["packaging"]
 
 
 def test_requirements_inputs_record_deps_environment_membership(
-    make_component, make_profile, make_catalog
+    make_component, make_profile, make_catalog, tmp_path
 ):
     rlinf = make_component("rlinf", kind="deps")
     alpha = make_component("alpha", requires=["rlinf"])
@@ -134,10 +140,103 @@ def test_requirements_inputs_record_deps_environment_membership(
 
     resolution = resolve(profile, catalog)
 
-    inputs = requirements_inputs(resolution)
+    inputs = requirements_inputs(resolution, root=tmp_path)
     assert inputs["environment_deps"] == {"sim": ["rlinf"]}
     assert inputs["profile"]["components"]["rlinf"]["placement"] == "in-env"
     assert "env" not in inputs["profile"]["components"]["rlinf"]
+
+
+def test_requirements_hash_tracks_the_lock_it_reads(
+    make_component, make_profile, make_catalog, tmp_path, write_toml
+):
+    robot = make_component("alpha", dependencies=["numpy>=2"])
+    profile = make_profile(
+        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+    )
+    resolution = resolve(profile, make_catalog([robot], {"alpha": profile}))
+    lock = write_toml("envs/locks/alpha.lock", "numpy==2.0.0")
+
+    baseline = requirements_sha256(resolution, root=tmp_path, reproducible=True)
+    inputs = requirements_inputs(resolution, root=tmp_path, reproducible=True)
+    assert inputs["lock_sha256"] is not None
+    assert baseline == requirements_sha256(resolution, root=tmp_path, reproducible=True)
+
+    lock.write_text("numpy==2.1.0\n", encoding="utf-8")
+    assert baseline != requirements_sha256(resolution, root=tmp_path, reproducible=True)
+
+    # `--dev` and component diagnostics install from generated requirements,
+    # so recompiling the lock must not change their hash.
+    without_lock = requirements_sha256(resolution, root=tmp_path)
+    lock.write_text("numpy==2.2.0\n", encoding="utf-8")
+    assert requirements_inputs(resolution, root=tmp_path)["lock_sha256"] is None
+    assert without_lock == requirements_sha256(resolution, root=tmp_path)
+
+
+def test_requirements_hash_tracks_component_overrides(
+    make_component, make_profile, make_catalog, tmp_path, write_toml
+):
+    declared = "robots/alpha/requirements/override.txt"
+    # Manifests resolve overrides to absolute paths when they are loaded.
+    override = write_toml(declared, "numpy<2")
+    robot = make_component("alpha", dependencies=["numpy>=2"], overrides=[override])
+    profile = make_profile("alpha", {"alpha": Selection()})
+    resolution = resolve(profile, make_catalog([robot], {"alpha": profile}))
+
+    baseline = requirements_sha256(resolution, root=tmp_path)
+    inputs = requirements_inputs(resolution, root=tmp_path)
+    assert [entry["path"] for entry in inputs["overrides"]] == [str(declared)]
+
+    override.write_text("numpy<3\n", encoding="utf-8")
+    changed = requirements_sha256(resolution, root=tmp_path)
+    assert baseline != changed
+
+    # Files the installation never reads are not inputs.
+    write_toml("robots/alpha/README.md", "notes")
+    assert changed == requirements_sha256(resolution, root=tmp_path)
+
+
+def test_requirements_hash_tracks_uv_settings_but_not_conflicts(
+    make_component, make_profile, make_catalog, tmp_path, write_toml
+):
+    robot = make_component("alpha")
+    profile = make_profile("alpha", {"alpha": Selection()})
+    resolution = resolve(profile, make_catalog([robot], {"alpha": profile}))
+    settings = """
+        [project]
+        name = "rpent"
+        dependencies = []
+
+        [tool.uv]
+        prerelease = "allow"
+        extra-build-dependencies = {}
+        conflicts = [[{ extra = "a" }, { extra = "b" }]]
+    """
+    pyproject = write_toml("pyproject.toml", settings)
+
+    baseline = requirements_sha256(resolution, root=tmp_path)
+    assert requirements_inputs(resolution, root=tmp_path)["uv_settings"] == {
+        "prerelease": "allow",
+        "extra-build-dependencies": {},
+    }
+
+    pyproject.write_text(
+        settings.replace('prerelease = "allow"', 'prerelease = "disallow"').strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    assert baseline != requirements_sha256(resolution, root=tmp_path)
+
+    # `conflicts` is generated from component manifests and only constrains
+    # extra combinations, which `rpent-env` does not install from.
+    pyproject.write_text(
+        settings.replace(
+            'conflicts = [[{ extra = "a" }, { extra = "b" }]]',
+            'conflicts = [[{ extra = "a" }, { extra = "c" }]]',
+        ).strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    assert baseline == requirements_sha256(resolution, root=tmp_path)
 
 
 def test_read_core_dependencies(write_toml, tmp_path):

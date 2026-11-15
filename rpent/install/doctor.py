@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Diagnose an installed environment against its fingerprint and manifests."""
+"""Diagnose an installed environment against its recorded installation inputs."""
 
 from __future__ import annotations
 
@@ -169,19 +169,24 @@ def check_installation(
     core = read_core_dependencies(repo_root) if profile.core else ()
     expected_requirements = requirements_sha256(
         resolution,
+        root=repo_root,
         core_dependencies=core,
-        include_dev=bool(fingerprint.get("include_dev", False)),
+        include_dev=include_dev,
+        # An installation that did not read the lock does not depend on it, so
+        # recompiling the lock must not make a `--dev` or diagnostic venv stale.
+        reproducible=bool(fingerprint.get("reproducible", False)),
     )
     if fingerprint.get("requirements_sha256") != expected_requirements:
         checks.append(
             Check(
                 FAIL,
-                "environment is out of date with its manifests; rerun "
+                "environment is out of date with its recorded inputs (manifests, "
+                f"lock, overrides, or [tool.uv]); rerun "
                 f"`rpent-env install {name} --venv {venv}`",
             )
         )
     else:
-        checks.append(Check(OK, "profile and component manifests unchanged"))
+        checks.append(Check(OK, "installation inputs unchanged"))
 
     python = venv_python(venv)
     if not python.exists():

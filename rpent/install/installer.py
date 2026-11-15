@@ -426,8 +426,10 @@ def install(
         },
         "requirements_sha256": requirements_sha256(
             resolution,
+            root=repo_root,
             core_dependencies=core,
             include_dev=include_dev,
+            reproducible=using_lock,
         ),
         "include_dev": include_dev,
         "freeze_sha256": freeze_sha256(frozen),
