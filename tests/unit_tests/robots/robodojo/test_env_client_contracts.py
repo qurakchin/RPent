@@ -79,7 +79,7 @@ def test_validation_and_plan_failure_do_not_damage_history(boundary):
     b.agent.plan_arm_path = lambda *a: {"status": "Failed"}
     primitive = RoboDojoPrimitives(env=b.env, check_cancelled=lambda: None)
     result = primitive.move_to(arm="right", xyz=[0, 0, 1.01]).data
-    assert result["stop_reason"] == "plan_failed"
+    assert result["stop_reason"] == "planning_rejected"
     b.env.require_policy_ready()
     assert not b.applied
     assert not any(e["kind"] == "reset" for e in events)

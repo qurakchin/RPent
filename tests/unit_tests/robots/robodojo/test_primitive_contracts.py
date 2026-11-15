@@ -216,12 +216,13 @@ def test_budget_stop_reports_partial(motion):
     assert result.no_execution is False
 
 
-def test_failed_plan_reports_not_started(motion):
+def test_refused_plan_reports_rejected(motion):
     env, primitive = motion
     env.plan_status = "Fail"
     result = primitive.move_to(arm="left", xyz=[0.1, 0.2, 0.9])
-    assert result.execution_status == "not_started"
+    assert result.execution_status == "rejected"
     assert result.no_execution is True
+    assert result.data["stop_reason"] == "planning_rejected"
 
 
 def test_rejected_native_action_reports_rejected(motion):
@@ -272,7 +273,7 @@ def test_planning_failure_does_not_execute_or_change_orientation(motion):
     quat = [0.0, 1.0, 0.0, 0.0]
     result = primitive.move_to(arm="right", xyz=[0, 0, 1], quat=quat).data
     assert len(env.plans) == 1 and env.plans[0][1][3:] == quat
-    assert not env.updates and result["stop_reason"] == "plan_failed"
+    assert not env.updates and result["stop_reason"] == "planning_rejected"
 
 
 def test_rotation_is_world_z_not_local_axis(motion):

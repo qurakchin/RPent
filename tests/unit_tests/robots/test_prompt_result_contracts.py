@@ -182,3 +182,20 @@ def test_prompt_documents_each_stop_reason_its_tools_emit(
     assert reasons
     undocumented = sorted(reason for reason in reasons if reason not in text)
     assert not undocumented, f"{case} does not explain {undocumented}"
+
+
+#: Modules that own a planner-driven move_to. A plan the planner refuses is one
+#: event, so every slice names it the same way and reports the same layer.
+PLANNER_MOTION_PRODUCERS = (
+    "rpent/tools/motion_tools.py",
+    "robots/robodojo/primitives.py",
+    "robots/yam/primitives.py",
+)
+
+
+@pytest.mark.parametrize("producer", PLANNER_MOTION_PRODUCERS)
+def test_planner_slices_share_one_plan_rejection_reason(producer) -> None:
+    reasons = _stop_reason_values(REPO_ROOT / producer)
+
+    assert "planning_rejected" in reasons
+    assert "plan_failed" not in reasons

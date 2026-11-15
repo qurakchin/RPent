@@ -18,7 +18,9 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
-from rpent.tools.motion_tools import MotionConfig, MotionTools
+import pytest
+
+from rpent.tools.motion_tools import MotionConfig, MotionTools, motion_result
 
 POSE = [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
 STATUS = {"eval_success": False, "take_action_cnt": 1, "step_lim": 100}
@@ -210,6 +212,74 @@ def test_arrival_reports_completed() -> None:
     assert result.execution_status == "completed"
     assert result.data["stop_reason"] == "arrived"
     assert result.data["completed"] is True
+
+
+@pytest.mark.parametrize(
+    "payload,execution_status,no_execution",
+    [
+        (
+            {
+                "stop_reason": "planning_rejected",
+                "requested_steps": 0,
+                "executed_steps": 0,
+            },
+            "rejected",
+            True,
+        ),
+        (
+            {"stop_reason": "rejected", "requested_steps": 10, "executed_steps": 0},
+            "rejected",
+            True,
+        ),
+        (
+            {
+                "stop_reason": "budget_exhausted",
+                "requested_actions": 10,
+                "executed_actions": 0,
+            },
+            "not_started",
+            True,
+        ),
+        (
+            {
+                "stop_reason": "budget_exhausted",
+                "requested_steps": 10,
+                "executed_steps": 4,
+            },
+            "partial",
+            False,
+        ),
+        (
+            {"stop_reason": "completed", "requested_steps": 10, "executed_steps": 10},
+            "completed",
+            False,
+        ),
+    ],
+)
+def test_slice_motion_results_share_the_family_layers(
+    payload: dict[str, Any], execution_status: str, no_execution: bool
+) -> None:
+    """A refused request is rejected; other zero-executed stops are not started."""
+    result = motion_result(payload)
+
+    assert result.execution_status == execution_status
+    assert result.no_execution is no_execution
+    assert result.data == payload
+
+
+def test_uncertain_slice_motion_result_reports_unknown() -> None:
+    payload = {
+        "stop_reason": "execution_unknown",
+        "requested_steps": 4,
+        "executed_steps": 0,
+        "execution_uncertain": True,
+    }
+
+    result = motion_result(payload)
+
+    assert result.execution_status == "unknown"
+    assert result.execution_uncertain is True
+    assert result.no_execution is False
 
 
 def test_motion_family_logs_omitted_tools(caplog) -> None:

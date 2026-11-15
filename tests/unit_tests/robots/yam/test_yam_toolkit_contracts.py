@@ -290,3 +290,77 @@ def test_recipe_keeps_issued_motion_unless_execution_was_refused(
     toolkit.execute_tool("render", {})
     text = Path(toolkit.write_recipe("solved")).read_text()
     assert ('"action": "move_to"' in text) == included
+
+
+@pytest.mark.parametrize(
+    "tool,payload,execution_status,no_execution",
+    [
+        (
+            "move_to",
+            {
+                "success": False,
+                "completed": False,
+                "requested_steps": 0,
+                "executed_steps": 0,
+                "stop_reason": "planning_rejected",
+            },
+            "rejected",
+            True,
+        ),
+        (
+            "set_gripper",
+            {
+                "success": False,
+                "completed": False,
+                "requested_steps": 10,
+                "executed_steps": 0,
+                "stop_reason": "budget_exhausted",
+            },
+            "not_started",
+            True,
+        ),
+        (
+            "release",
+            {
+                "success": False,
+                "completed": False,
+                "requested_steps": 10,
+                "executed_steps": 4,
+                "stop_reason": "budget_exhausted",
+            },
+            "partial",
+            False,
+        ),
+        (
+            "pi05_act",
+            {
+                "success": False,
+                "completed": False,
+                "requested_steps": 5,
+                "executed_steps": 0,
+                "stop_reason": "budget_exhausted",
+            },
+            "not_started",
+            True,
+        ),
+    ],
+)
+def test_motion_payloads_report_their_execution_layer(
+    toolkit_factory, monkeypatch, tool, payload, execution_status, no_execution
+):
+    """A motion payload never falls through to the default completed layer."""
+    # pi05_act is registered only when a policy is attached.
+    toolkit = toolkit_factory(model=SimpleNamespace(predict=lambda observation: None))
+    monkeypatch.setattr(toolkit._primitives, tool, lambda **kwargs: dict(payload))
+    arguments = {
+        "move_to": {"arm": "right", "xyz": [0, 0, 0]},
+        "set_gripper": {"arm": "right", "val": 1.0},
+        "release": {"arm": "right"},
+        "pi05_act": {},
+    }[tool]
+
+    result = toolkit.execute_tool(tool, arguments)
+
+    assert result.execution_status == execution_status
+    assert result.no_execution is no_execution
+    assert result.data["log"]["result"]["stop_reason"] == payload["stop_reason"]

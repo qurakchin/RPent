@@ -25,6 +25,7 @@ from robots.yam.tasks import classify_episode
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
 from rpent.tools import Toolkit, ToolResult, tool, unexecuted
+from rpent.tools.motion_tools import motion_result
 from rpent.utils.logging import get_output_dir
 
 if TYPE_CHECKING:
@@ -38,6 +39,12 @@ _RECIPE_ACTIONS = {
     "set_gripper",
     "release",
 }
+
+# These payloads carry requested/executed counters and a stop_reason, so a
+# refused plan or a stopped servo must not fall back to ``completed``.
+_LAYERED_ACTIONS = frozenset(
+    {"pi05_act", "move_to", "rotate_wrist", "set_gripper", "release"}
+)
 
 
 def tracking_hold_operator_supervised(
@@ -511,6 +518,8 @@ class YamToolkit(Toolkit):
             payload = {"success": True}
             return ToolResult(data=payload)
         payload = getattr(self._primitives, name)(**kwargs)
+        if name in _LAYERED_ACTIONS:
+            return motion_result(payload)
         return ToolResult(data=payload)
 
     def close(self) -> None:
