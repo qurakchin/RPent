@@ -28,7 +28,8 @@ from robots.robodojo.access import public_episode_budget
 from robots.robodojo.env_client import ActionRejected, ExecutionSyncError
 from robots.robodojo.tasks import validate_instruction
 from rpent.session.env_capture import CapturingEnvClient
-from rpent.tools import ToolResult, tool
+from rpent.tools import ToolResult, tool, unexecuted
+from rpent.tools.motion_tools import execution_layer
 from rpent.tools.toolkit import ToolCancelled
 from rpent.utils.logging import get_logger
 
@@ -202,6 +203,28 @@ class RoboDojoPrimitives:
             ),
         }
 
+    def _motion_result(self, result: dict) -> ToolResult:
+        """Describe a native motion result with the framework's execution layers.
+
+        The acknowledged counters separate a refused plan or rejected action,
+        which started nothing, from a servo that stopped partway. An uncertain
+        write reports ``unknown`` because it may have outlived the call.
+        """
+        if result.get("execution_uncertain"):
+            return ToolResult(
+                data=result, execution_uncertain=True, execution_status="unknown"
+            )
+        requested = int(
+            result.get("requested_actions", result.get("requested_steps", 0))
+        )
+        executed = int(result.get("executed_actions", result.get("executed_steps", 0)))
+        if executed == 0 and result.get("stop_reason") == "rejected":
+            return unexecuted(result, status="rejected")
+        status, no_execution = execution_layer(requested, executed)
+        return ToolResult(
+            data=result, no_execution=no_execution, execution_status=status
+        )
+
     def _execute_policy(
         self,
         *,
@@ -295,7 +318,7 @@ class RoboDojoPrimitives:
             ),
         )
         result["instruction"] = instruction
-        return ToolResult(data=result)
+        return self._motion_result(result)
 
     @tool
     def awomo05_act(
@@ -322,7 +345,7 @@ class RoboDojoPrimitives:
             instruction=self._awomo05_instruction,
             infer=infer,
         )
-        return ToolResult(data=result)
+        return self._motion_result(result)
 
     def _awomo05_execution_event(self, event: dict) -> None:
         """Consume each confirmed observation once, without maintaining model history."""
@@ -379,8 +402,8 @@ class RoboDojoPrimitives:
         planned = self.env.plan_arm_path(arm, [*xyz, *quat])
         self._check_cancelled()
         if planned["status"] != "Success":
-            return ToolResult(
-                data={
+            return self._motion_result(
+                {
                     "success": False,
                     "completed": False,
                     "requested_steps": 0,
@@ -406,7 +429,7 @@ class RoboDojoPrimitives:
             )
         except Exception as exc:
             result["feedback_error"] = str(exc)
-        return ToolResult(data=result)
+        return self._motion_result(result)
 
     @tool
     def rotate_wrist(
@@ -460,7 +483,7 @@ class RoboDojoPrimitives:
             result["gripper_val"] = self.env.get_motion_state()[f"{arm}_gripper"]
         except Exception as exc:
             result["feedback_error"] = str(exc)
-        return ToolResult(data=result)
+        return self._motion_result(result)
 
     @tool
     def release(
@@ -480,9 +503,9 @@ class RoboDojoPrimitives:
         self._last_obs = None
         return {"success": True}
 
-    # Readonly keeps a finish call from queueing behind motion; the halt is
-    # the executed request, so it still reports completed.
-    @tool(readonly=True)
+    # Concurrent shares admission with readonly calls. The halt is not a read,
+    # so the unset execution layer reports it as completed.
+    @tool(concurrent=True, captures_state=False)
     def finish(self, *, status: str, summary: str) -> ToolResult:
         """Stop the run; the environment, not the requested status, judges task success."""
         try:
@@ -495,7 +518,6 @@ class RoboDojoPrimitives:
                     "summary": summary,
                     "runtime_error": str(exc),
                 },
-                execution_status="completed",
             )
         success = native.get("success")
         reported = (
@@ -514,5 +536,4 @@ class RoboDojoPrimitives:
                 "success": success,
                 "episode_status": native,
             },
-            execution_status="completed",
         )

@@ -139,8 +139,12 @@ def stop_reason(
     return "stalled"
 
 
-def _execution_layer(requested: int, executed: int) -> tuple[str, bool]:
-    """Return ``(execution_status, no_execution)`` for native counters."""
+def execution_layer(requested: int, executed: int) -> tuple[str, bool]:
+    """Return ``(execution_status, no_execution)`` for native counters.
+
+    Slice motion tools share this mapping so a refused plan and a stopped
+    servo report the same layer as the shared motion family.
+    """
     if executed == 0:
         return "not_started", True
     if executed < requested:
@@ -355,7 +359,7 @@ class MotionTools(ToolFamily):
             and orientation_error <= self._config.orientation_tolerance_rad
         )
         diverged = not reached and position_error > initial_position_error
-        execution_status, no_execution = _execution_layer(len(updates), executed)
+        execution_status, no_execution = execution_layer(len(updates), executed)
         return ToolResult(
             data=self._feedback(
                 requested=len(updates),
@@ -444,7 +448,7 @@ class MotionTools(ToolFamily):
         error = abs(gripper_val - target)
         reached = error <= self._config.gripper_tolerance
         diverged = not reached and error > initial_error
-        execution_status, no_execution = _execution_layer(len(updates), executed)
+        execution_status, no_execution = execution_layer(len(updates), executed)
         return ToolResult(
             data=self._feedback(
                 requested=len(updates),
@@ -479,4 +483,10 @@ class MotionTools(ToolFamily):
         return self.set_gripper(arm=arm, val=val, steps=steps)
 
 
-__all__ = ["MotionBackend", "MotionConfig", "MotionTools", "quaternion_angle"]
+__all__ = [
+    "MotionBackend",
+    "MotionConfig",
+    "MotionTools",
+    "execution_layer",
+    "quaternion_angle",
+]

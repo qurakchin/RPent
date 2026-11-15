@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from robots.robodojo import agent_support, robot_spec, tools
-from robots.robodojo.env_client import ExecutionSyncError
+from robots.robodojo.env_client import ActionRejected, ExecutionSyncError
 from robots.robodojo.primitives import RoboDojoPrimitives
 from robots.robodojo.toolkit import RoboDojoToolkit
 from rpent.dashboard.events import NullDashboardEventSink
@@ -199,6 +199,57 @@ def test_native_runtime_stop_is_not_reported_as_success(motion):
     assert result["stop_reason"] == "runtime_failure"
     assert result["executed_steps"] == 0
     assert result["error"] and not result["execution_uncertain"]
+
+
+def test_completed_motion_reports_completed(motion):
+    _, primitive = motion
+    result = primitive.set_gripper(arm="left", val=0.5)
+    assert result.execution_status == "completed"
+    assert result.no_execution is False
+
+
+def test_budget_stop_reports_partial(motion):
+    env, primitive = motion
+    env.step_limit = 4
+    result = primitive.release(arm="left")
+    assert result.execution_status == "partial"
+    assert result.no_execution is False
+
+
+def test_failed_plan_reports_not_started(motion):
+    env, primitive = motion
+    env.plan_status = "Fail"
+    result = primitive.move_to(arm="left", xyz=[0.1, 0.2, 0.9])
+    assert result.execution_status == "not_started"
+    assert result.no_execution is True
+
+
+def test_rejected_native_action_reports_rejected(motion):
+    env, primitive = motion
+
+    def reject(**kwargs):
+        env.updates.append(kwargs)
+        raise ActionRejected("joint target outside the controller")
+
+    env.step_joint_update = reject
+    result = primitive.release(arm="left")
+    assert result.execution_status == "rejected"
+    assert result.no_execution is True
+    assert result.execution_uncertain is False
+
+
+def test_uncertain_native_write_reports_unknown(motion):
+    env, primitive = motion
+
+    def fail(**kwargs):
+        env.updates.append(kwargs)
+        raise TimeoutError("reply lost")
+
+    env.step_joint_update = fail
+    result = primitive.release(arm="left")
+    assert result.execution_status == "unknown"
+    assert result.no_execution is False
+    assert result.execution_uncertain is True
 
 
 @pytest.mark.parametrize(
