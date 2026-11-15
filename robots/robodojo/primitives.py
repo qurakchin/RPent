@@ -28,8 +28,8 @@ from robots.robodojo.access import public_episode_budget
 from robots.robodojo.env_client import ActionRejected, ExecutionSyncError
 from robots.robodojo.tasks import validate_instruction
 from rpent.session.env_capture import CapturingEnvClient
-from rpent.tools import ToolResult, tool, unexecuted
-from rpent.tools.motion_tools import execution_layer
+from rpent.tools import ToolResult, tool
+from rpent.tools.motion_tools import motion_result
 from rpent.tools.toolkit import ToolCancelled
 from rpent.utils.logging import get_logger
 
@@ -203,28 +203,6 @@ class RoboDojoPrimitives:
             ),
         }
 
-    def _motion_result(self, result: dict) -> ToolResult:
-        """Describe a native motion result with the framework's execution layers.
-
-        The acknowledged counters separate a refused plan or rejected action,
-        which started nothing, from a servo that stopped partway. An uncertain
-        write reports ``unknown`` because it may have outlived the call.
-        """
-        if result.get("execution_uncertain"):
-            return ToolResult(
-                data=result, execution_uncertain=True, execution_status="unknown"
-            )
-        requested = int(
-            result.get("requested_actions", result.get("requested_steps", 0))
-        )
-        executed = int(result.get("executed_actions", result.get("executed_steps", 0)))
-        if executed == 0 and result.get("stop_reason") == "rejected":
-            return unexecuted(result, status="rejected")
-        status, no_execution = execution_layer(requested, executed)
-        return ToolResult(
-            data=result, no_execution=no_execution, execution_status=status
-        )
-
     def _execute_policy(
         self,
         *,
@@ -318,7 +296,7 @@ class RoboDojoPrimitives:
             ),
         )
         result["instruction"] = instruction
-        return self._motion_result(result)
+        return motion_result(result)
 
     @tool
     def awomo05_act(
@@ -345,7 +323,7 @@ class RoboDojoPrimitives:
             instruction=self._awomo05_instruction,
             infer=infer,
         )
-        return self._motion_result(result)
+        return motion_result(result)
 
     def _awomo05_execution_event(self, event: dict) -> None:
         """Consume each confirmed observation once, without maintaining model history."""
@@ -402,13 +380,13 @@ class RoboDojoPrimitives:
         planned = self.env.plan_arm_path(arm, [*xyz, *quat])
         self._check_cancelled()
         if planned["status"] != "Success":
-            return self._motion_result(
+            return motion_result(
                 {
                     "success": False,
                     "completed": False,
                     "requested_steps": 0,
                     "executed_steps": 0,
-                    "stop_reason": "plan_failed",
+                    "stop_reason": "planning_rejected",
                     "plan_status": planned["status"],
                 }
             )
@@ -429,7 +407,7 @@ class RoboDojoPrimitives:
             )
         except Exception as exc:
             result["feedback_error"] = str(exc)
-        return self._motion_result(result)
+        return motion_result(result)
 
     @tool
     def rotate_wrist(
@@ -483,7 +461,7 @@ class RoboDojoPrimitives:
             result["gripper_val"] = self.env.get_motion_state()[f"{arm}_gripper"]
         except Exception as exc:
             result["feedback_error"] = str(exc)
-        return self._motion_result(result)
+        return motion_result(result)
 
     @tool
     def release(

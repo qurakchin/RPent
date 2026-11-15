@@ -24,9 +24,10 @@ different layer and stay.
 RoboDojo keeps its native motion tools until the a_5 contract can carry their
 execution truth. Its transport reports confirmed partial progress, marks a
 timed-out mutation as ``execution_unknown``, and returns the reason each command
-stopped (``plan_failed``, ``rejected``, ``synchronization_lost``, ...).
+stopped (``planning_rejected``, ``rejected``, ``synchronization_lost``, ...).
 ``MotionBackend`` has no field for any of that, so migrating now would replace
-verified execution states with the shared family's coarser ones.
+verified execution states with the shared family's coarser ones. The layers the
+slice computes are the shared ones, so both report a refused plan the same way.
 
 RoboTwin already uses the shared families. Its migration from the base module
 added ``recall``/``remember``/``corroborate`` and ``geometry``, and removed

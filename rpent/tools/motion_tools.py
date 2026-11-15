@@ -26,7 +26,7 @@ from typing import Annotated, Any, Literal, Mapping, Protocol, Sequence
 import numpy as np
 from pydantic import Field
 
-from rpent.tools.base import Tool, ToolResult, iter_tools, tool
+from rpent.tools.base import Tool, ToolResult, iter_tools, tool, unexecuted
 from rpent.tools.capabilities import Capabilities, ToolFamily
 from rpent.utils.logging import get_logger
 
@@ -150,6 +150,33 @@ def execution_layer(requested: int, executed: int) -> tuple[str, bool]:
     if executed < requested:
         return "partial", False
     return "completed", False
+
+
+#: Stop reasons that mean the request never reached the environment. Counters
+#: alone cannot separate them from a servo that stopped before its first step.
+_REFUSED_STOP_REASONS = frozenset({"planning_rejected", "rejected"})
+
+
+def motion_result(result: Mapping[str, Any]) -> ToolResult:
+    """Describe a native motion result with the framework's execution layers.
+
+    The acknowledged counters separate a refused plan or rejected action, which
+    started nothing, from a servo that stopped partway. A zero-executed result
+    without a refusal (an exhausted budget, an episode that ended first) is
+    ``not_started``. An uncertain write reports ``unknown`` because it may have
+    outlived the call.
+    """
+    data = dict(result)
+    if data.get("execution_uncertain"):
+        return ToolResult(
+            data=data, execution_uncertain=True, execution_status="unknown"
+        )
+    requested = int(data.get("requested_actions", data.get("requested_steps", 0)))
+    executed = int(data.get("executed_actions", data.get("executed_steps", 0)))
+    if executed == 0 and data.get("stop_reason") in _REFUSED_STOP_REASONS:
+        return unexecuted(data, status="rejected")
+    status, no_execution = execution_layer(requested, executed)
+    return ToolResult(data=data, no_execution=no_execution, execution_status=status)
 
 
 def _stop_evidence(
@@ -488,5 +515,6 @@ __all__ = [
     "MotionConfig",
     "MotionTools",
     "execution_layer",
+    "motion_result",
     "quaternion_angle",
 ]
