@@ -480,6 +480,8 @@ class RoboDojoPrimitives:
         self._last_obs = None
         return {"success": True}
 
+    # Readonly keeps a finish call from queueing behind motion; the halt is
+    # the executed request, so it still reports completed.
     @tool(readonly=True)
     def finish(self, *, status: str, summary: str) -> ToolResult:
         """Stop the run; the environment, not the requested status, judges task success."""
@@ -492,7 +494,8 @@ class RoboDojoPrimitives:
                     "status": "error",
                     "summary": summary,
                     "runtime_error": str(exc),
-                }
+                },
+                execution_status="completed",
             )
         success = native.get("success")
         reported = (
@@ -510,5 +513,6 @@ class RoboDojoPrimitives:
                 "requested_success": status.lower() == "success",
                 "success": success,
                 "episode_status": native,
-            }
+            },
+            execution_status="completed",
         )

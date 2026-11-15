@@ -119,7 +119,10 @@ request is rejected before any environment write, and ``unexecuted`` when the
 handler keeps its existing domain payload (usually a string ``error``) but the
 request still produced no physical action. Pass ``status="rejected"`` to
 ``unexecuted`` for a refusal rather than a failed lookup. ``ToolResult.to_text()``
-includes these layers.
+includes these layers. Read-only declarations report ``no_execution`` with
+``execution_status="not_started"`` because they never issue a physical action;
+the terminal ``finish`` is declared readonly only so that it is not queued
+behind motion, and it still reports ``completed``.
 
 The base class registers the common file tools and ``finish``; call
 ``super().__init__()`` then ``add_tool`` for robot tools. Shared tool families in ``rpent/tools``

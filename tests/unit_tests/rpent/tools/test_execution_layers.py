@@ -130,7 +130,7 @@ def test_cancellation_after_a_write_keeps_the_uncertain_execution_layer(
     assert result.execution_status == "unknown"
 
 
-def test_domain_error_keeps_call_ok_true_and_marks_the_call_completed(
+def test_domain_error_keeps_call_ok_true_and_reports_no_execution(
     tmp_path: Path,
 ) -> None:
     toolkit = _Toolkit(tmp_path)
@@ -147,7 +147,8 @@ def test_domain_error_keeps_call_ok_true_and_marks_the_call_completed(
     assert result.error is None
     assert result.is_error is True
     assert result.data["error"] == "target is not visible"
-    assert result.execution_status == "completed"
+    assert result.no_execution is True
+    assert result.execution_status == "not_started"
     assert result.to_dict()["call_ok"] is True
 
 
@@ -189,7 +190,7 @@ def test_serialization_failure_without_a_write_stays_not_started(
     assert result.no_execution is True
     assert result.execution_uncertain is False
     assert result.execution_status == "not_started"
-    assert result.data["reported_execution_status"] == "completed"
+    assert result.data["reported_execution_status"] == "not_started"
     assert "serialization failed" in result.data["error"]
 
 
@@ -212,7 +213,7 @@ def test_serialization_failure_after_a_write_is_execution_uncertain(
     assert result.no_execution is False
     assert result.execution_uncertain is True
     assert result.execution_status == "unknown"
-    assert result.data["reported_execution_status"] == "completed"
+    assert result.data["reported_execution_status"] == "not_started"
 
 
 def test_state_capture_failure_after_a_write_is_execution_uncertain(
@@ -281,7 +282,7 @@ def test_type_error_after_a_write_is_not_reported_as_validation(
     assert result.execution_status == "unknown"
 
 
-def test_successful_call_reports_completed_without_extra_layers(
+def test_successful_readonly_call_reports_no_execution(
     tmp_path: Path,
 ) -> None:
     toolkit = _Toolkit(tmp_path)
@@ -295,6 +296,31 @@ def test_successful_call_reports_completed_without_extra_layers(
     result = toolkit.execute_tool("read", {})
 
     assert result.call_ok is True
+    assert result.no_execution is True
+    assert result.execution_uncertain is False
+    assert result.execution_status == "not_started"
+    assert result.to_dict() == {
+        "value": 3,
+        "call_ok": True,
+        "no_execution": True,
+        "execution_status": "not_started",
+    }
+
+
+def test_successful_non_readonly_call_reports_completed(
+    tmp_path: Path,
+) -> None:
+    toolkit = _Toolkit(tmp_path)
+
+    @tool(captures_state=False)
+    def note() -> ToolResult:
+        """Record a value without touching the environment."""
+        return ToolResult(data={"value": 3})
+
+    toolkit.add_tool(note)
+    result = toolkit.execute_tool("note", {})
+
+    assert result.call_ok is True
     assert result.no_execution is False
     assert result.execution_uncertain is False
     assert result.execution_status == "completed"
@@ -303,6 +329,19 @@ def test_successful_call_reports_completed_without_extra_layers(
         "call_ok": True,
         "execution_status": "completed",
     }
+
+
+def test_terminal_finish_reports_completed_despite_being_readonly(
+    tmp_path: Path,
+) -> None:
+    toolkit = _Toolkit(tmp_path)
+
+    result = toolkit.execute_tool("finish", {"status": "success", "summary": "done"})
+
+    assert result.data["_finish"] is True
+    assert result.call_ok is True
+    assert result.no_execution is False
+    assert result.execution_status == "completed"
 
 
 def test_write_requests_keep_issue_order() -> None:

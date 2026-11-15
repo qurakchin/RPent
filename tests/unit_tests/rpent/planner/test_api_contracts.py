@@ -86,7 +86,12 @@ class RobotToolkit(Toolkit):
         self.add_tool(declaration.with_handler(run), replace=name in self._tools)
 
     def finish(self, status, summary):
-        return ToolResult(data={"_finish": True, "status": status, "summary": summary})
+        # Mirrors the real terminal handler: readonly for scheduling, completed
+        # because the halt is the executed request.
+        return ToolResult(
+            data={"_finish": True, "status": status, "summary": summary},
+            execution_status="completed",
+        )
 
     def execute_tool(self, name, input_dict):
         self.calls.append((name, input_dict))
@@ -198,7 +203,8 @@ def test_refused_finish_retries_without_claiming_success(tmp_path):
         attempts.append(args)
         if len(attempts) <= 2:
             return {"error": "finish refused; verify the environment"}
-        return {"_finish": True, **args}
+        # The accepted halt reports the same layer as the real terminal tool.
+        return ToolResult(data={"_finish": True, **args}, execution_status="completed")
 
     toolkit.register("finish", guarded_finish, Toolkit.finish)
     histories = []

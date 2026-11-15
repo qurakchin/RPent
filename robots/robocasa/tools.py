@@ -494,7 +494,12 @@ def finish(status: Literal["success", "failure", "stuck"], summary: str) -> Tool
         status: Task outcome classification.
         summary: 1-3 sentence summary of what worked / what failed.
     """
-    return ToolResult(data={"_finish": True, "status": status, "summary": summary})
+    # Readonly keeps a finish call from queueing behind motion; the halt is
+    # the executed request, so it still reports completed.
+    return ToolResult(
+        data={"_finish": True, "status": status, "summary": summary},
+        execution_status="completed",
+    )
 
 
 # ---- recipe export ----
