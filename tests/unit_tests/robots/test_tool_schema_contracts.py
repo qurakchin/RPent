@@ -218,6 +218,31 @@ def test_robotwin_declared_geometry_tracks_grounding_and_depth() -> None:
     assert {"view_env_state", "move_to", "lingbot_act", "recall"} <= no_depth
 
 
+def test_robotwin_declaration_delta_matches_the_migration_record() -> None:
+    """Pin the intended difference between the base and migrated declarations.
+
+    The base snapshot is the pre-refactor module list. ``geometry`` replaces
+    ``sample_world_xyz`` with a mask-based cloud fit, so it is not the same
+    single-pixel query under a new name; the memory family replaces file
+    browsing with ``recall``/``remember``/``corroborate``. ``reset`` is still
+    registered in exploration mode, which ``declared_tools()`` does not model.
+    """
+    baseline = json.loads(
+        (Path(__file__).parent / "fixtures" / "tool_schemas.json").read_text()
+    )
+    base = {item["name"] for item in baseline["tools"]["robots/robotwin/tools.py"]}
+    migrated = set(
+        json.loads(
+            (
+                Path(__file__).parent / "fixtures" / "robotwin_tool_schemas.json"
+            ).read_text()
+        )
+    )
+
+    assert migrated - base == {"corroborate", "geometry", "recall", "remember"}
+    assert base - migrated == {"reset", "sample_world_xyz"}
+
+
 def test_robotwin_spatial_tools_share_row_col_image_coordinates() -> None:
     by_name = {spec.name: spec for spec in TOOL_DECLARATIONS["robotwin"]}
 
