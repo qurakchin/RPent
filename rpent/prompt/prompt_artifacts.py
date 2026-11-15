@@ -17,9 +17,11 @@
 ``effective_prompt.md`` contains the assembled system and user prompts and, for
 a prefixing planner, the single message it sends. ``prompt_sources.json``
 records which file and layer each section came from, how the planner delivered
-the system prompt, and digests of the assembled prompt and the exact opening
-user message. Both are written per session so exploration handoffs do not
-overwrite each other's evidence.
+the system prompt, and digests of the assembled prompt, the assembled robot user
+layer, and the exact opening user message. A handoff or an operator edit can
+replace the opening message, so the artifact also keeps the assembled robot user
+layer that ``prompt_sha256`` covers. Both files are written per session so
+exploration handoffs do not overwrite each other's evidence.
 """
 
 from __future__ import annotations
@@ -113,11 +115,18 @@ def effective_prompt_markdown(
     axes: Sequence[str],
     user_message: str,
 ) -> str:
-    """Render the prompt artifact for humans."""
+    """Render the prompt artifact for humans.
+
+    ``prompt_sha256`` covers the assembled system and robot user prompts. When
+    the opening message replaced the assembled user layer, this artifact prints
+    that layer too, so the digest can be recomputed from the file.
+    """
     layout = PLANNER_PROMPT_LAYOUT.get(planner, "unknown")
     delivered = delivered_prompt_text(
         planner, system=assembled.system, user=user_message
     )
+    assembled_user = assembled.user.rstrip("\n")
+    replaced_user = bool(assembled_user) and assembled_user != user_message.rstrip("\n")
     header = [
         "# Effective prompt",
         "",
@@ -127,6 +136,11 @@ def effective_prompt_markdown(
         f"- prompt_sha256: `{assembled.prompt_sha256}`",
         f"- user_message_sha256: `{_sha256(user_message)}`",
     ]
+    if replaced_user:
+        header.append(
+            f"- assembled_user_sha256: `{_sha256(assembled.user)}`"
+            " (the opening message replaced this layer)"
+        )
     if delivered is not None:
         header.append(f"- delivered_sha256: `{_sha256(delivered)}`")
     header.extend(
@@ -142,6 +156,15 @@ def effective_prompt_markdown(
             "",
         ]
     )
+    if replaced_user:
+        header.extend(
+            [
+                "## Assembled robot user prompt",
+                "",
+                assembled_user,
+                "",
+            ]
+        )
     if delivered is not None:
         header.extend(
             [
@@ -167,10 +190,11 @@ def prompt_sources(
     """Build the machine-readable prompt provenance record.
 
     ``prompt_sha256`` covers the assembled system and robot user prompt.
+    ``assembled_user_sha256`` records that robot user layer on its own, even
+    when a handoff or an operator edit replaced it as the opening message.
     ``user_message_sha256`` covers the exact opening message handed to the
-    planner, which can differ from the assembled user prompt after a handoff or
-    an operator edit. ``delivered_sha256`` is present only when the planner
-    sends one concatenated message, and covers that text.
+    planner. ``delivered_sha256`` is present only when the planner sends one
+    concatenated message, and covers that text.
     """
     delivered = delivered_prompt_text(
         planner, system=assembled.system, user=user_message
@@ -181,6 +205,7 @@ def prompt_sources(
         "planner_prompt_layout": PLANNER_PROMPT_LAYOUT.get(planner, "unknown"),
         "axes": list(axes),
         "prompt_sha256": assembled.prompt_sha256,
+        "assembled_user_sha256": _sha256(assembled.user),
         "user_message_sha256": _sha256(user_message),
     }
     if delivered is not None:
