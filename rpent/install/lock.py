@@ -22,10 +22,14 @@ import tempfile
 from pathlib import Path
 
 from rpent.install.discovery import Catalog, discover
-from rpent.install.errors import InstallError
+from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.installer import find_uv, index_options, run_command
 from rpent.install.manifest import Profile
-from rpent.install.requirements import read_core_dependencies, render_requirements
+from rpent.install.requirements import (
+    read_core_dependencies,
+    read_requirement_text,
+    render_requirements,
+)
 from rpent.install.resolve import resolve
 from rpent.utils.config import get_repo_root
 
@@ -175,7 +179,20 @@ def lock_profiles(
             print(f"missing lock: {destination.relative_to(repo_root)}")
             has_drift = True
             continue
-        current = destination.read_text(encoding="utf-8")
+        try:
+            current = read_requirement_text(destination)
+        except InstallConfigError as exc:
+            # A corrupted lock must not hide the state of the other profiles.
+            print(f"lock {name}: FAIL\n  {exc}")
+            has_drift = True
+            continue
+        if current is None:
+            print(
+                f"cannot read {destination.relative_to(repo_root)}; check that it "
+                "is a readable file"
+            )
+            has_drift = True
+            continue
         if current != expected:
             diff = "".join(
                 difflib.unified_diff(

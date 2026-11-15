@@ -195,6 +195,23 @@ def test_deps_component_rejects_requires(write_toml):
         load_deps_component(path)
 
 
+def test_component_rejects_an_absolute_override(write_toml):
+    override = write_toml("robots/alpha/overrides.txt", "torch==2.7")
+    path = write_toml(
+        "robots/alpha/component.toml",
+        f"""
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "robots.alpha"
+        overrides = ["{override}"]
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="must be relative to the component"):
+        load_component(path)
+
+
 def test_component_rejects_missing_override(write_toml):
     path = write_toml(
         "robots/alpha/component.toml",

@@ -42,7 +42,11 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 from rpent.install.manifest import Profile
-from rpent.install.requirements import environment_dependencies, override_files
+from rpent.install.requirements import (
+    environment_dependencies,
+    override_files,
+    read_requirement_text,
+)
 from rpent.install.resolve import Resolution
 
 #: Marker values derived from ``Profile.platform``. A platform outside this
@@ -205,9 +209,8 @@ def _override_requirements(
     """
     constraints: list[tuple[str, Requirement]] = []
     for display, path in override_files(resolution, root):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
+        text = read_requirement_text(path)
+        if text is None:
             continue
         for line in text.splitlines():
             value = line.split("#", 1)[0].strip()
@@ -293,10 +296,9 @@ def lock_problems(
             f"profile {profile.name!r} declares lock {profile.lock}, but the file "
             f"does not exist; run `rpent-env lock {profile.name}`"
         ]
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError as exc:
-        return [f"cannot read {profile.lock}: {exc}"]
+    text = read_requirement_text(path)
+    if text is None:
+        return [f"cannot read {profile.lock}; check that it is a readable file"]
     entries = parse_lock(text)
     problems: list[str] = []
     markers, marker_problem = _marker_environment(profile)

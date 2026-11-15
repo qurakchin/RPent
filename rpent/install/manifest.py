@@ -300,9 +300,14 @@ def _component(
         raise InstallConfigError(
             f"{path}: 'variant_required' cannot be combined with a default 'variant'"
         )
-    overrides = tuple(
-        path.parent / relative for relative in _string_list(data, "overrides", path)
-    )
+    declared_overrides = _string_list(data, "overrides", path)
+    for relative in declared_overrides:
+        if Path(relative).is_absolute():
+            raise InstallConfigError(
+                f"{path}: override {relative!r} must be relative to the component "
+                "directory, so the checkout can move"
+            )
+    overrides = tuple(path.parent / relative for relative in declared_overrides)
     for override in overrides:
         if not override.is_file():
             raise InstallConfigError(f"{path}: override file not found: {override}")
