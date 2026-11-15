@@ -357,8 +357,12 @@ after assembly. Each session writes ``effective_prompt.md`` and
 ``prompt_sources.json`` to its state directory (the output directory, or
 ``sessions/session_NNN/`` during exploration) and records ``prompt_sha256`` in
 the transcript. ``prompt_sources.json`` also records
-``user_message_sha256`` for the exact opening message and, for prefixing
-planners, ``delivered_sha256`` for the concatenated text.
+``assembled_user_sha256`` for the robot user layer that ``prompt_sha256``
+covers, ``user_message_sha256`` for the exact opening message, and, for
+prefixing planners, ``delivered_sha256`` for the concatenated text. When a
+handoff or an operator edit replaces the opening message,
+``effective_prompt.md`` prints that assembled user layer as well, so
+``prompt_sha256`` can be recomputed from the artifact.
 
 .. _add-robot-toolkit:
 

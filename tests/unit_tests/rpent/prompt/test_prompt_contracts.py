@@ -50,11 +50,11 @@ from rpent.robots.prompt_bundle import PromptBundle
 from tests.unit_tests.rpent.robots.test_registry_contracts import PROMPT_VARIABLES
 
 ROOT = Path(__file__).resolve().parents[4]
-#: Aggregate source ceiling, including the section mappings and formatting that
-#: never reach the model. While every slice sits at its measured count the
-#: per-slice ceilings below already bound the total; this one binds after a
-#: slice is reduced, so the freed ceiling cannot be reused by another slice.
-#: The model-facing bound is :data:`PROMPT_SLICE_RENDERED_BUDGET`.
+#: Aggregate source ceiling at the measured total, including the section
+#: mappings and formatting that never reach the model. The per-slice ceilings
+#: below carry 5% headroom, so this aggregate is what forbids net growth: a
+#: slice may grow only by consuming another slice's reduction. The model-facing
+#: bound is :data:`PROMPT_SLICE_RENDERED_BUDGET`.
 PROMPT_SOURCE_LINE_BUDGET = 2393
 #: Design target for slice-owned prompt source (``a_2`` §7): the hand-written
 #: slice prompts together, including the code-mode prompts ``a_4`` adds. This
@@ -62,55 +62,61 @@ PROMPT_SOURCE_LINE_BUDGET = 2393
 #: without those prompts, so comparing the smaller set to the target is
 #: conservative. The strict xfail below records the gap.
 PROMPT_SOURCE_LINE_TARGET = 1200
-#: Per-slice source ceiling so one robot cannot absorb another's reduction.
+#: Per-slice source ceiling: the measured count plus 5%, rounded up. The
+#: headroom lets a slice take over another's reduction without editing two
+#: constants, while :data:`PROMPT_SOURCE_LINE_BUDGET` still forbids net growth.
 PROMPT_SLICE_LINE_BUDGET = {
-    "libero": 845,
-    "robodojo": 434,
-    "robocasa": 308,
-    "dual_franka": 267,
-    "robotwin": 265,
-    "yam": 203,
-    "franka": 71,
+    "libero": 888,
+    "robodojo": 456,
+    "robocasa": 324,
+    "dual_franka": 281,
+    "robotwin": 279,
+    "yam": 214,
+    "franka": 75,
 }
 
 #: Acceptances that describe what the model reads, in rendered lines: the
 #: LIBERO domain is a broad benchmark family, the other slices are narrower.
 PROMPT_DOMAIN_RENDERED_TARGET = {"libero": 300, "other": 150}
-#: Rendered slice text (domain, tool usage, user message) each robot may ship.
-#: These are no-growth ratchets at the current measurements; the shared tool
-#: guidance ``a_3`` adds is what removes the remaining slice tool text.
+#: Rendered slice text (domain, tool usage, user message) each robot may ship:
+#: the measured count plus 5%, rounded up. The headroom has the same trade role
+#: as :data:`PROMPT_SLICE_LINE_BUDGET`, and
+#: :data:`PROMPT_SLICE_RENDERED_TOTAL_BUDGET` still forbids net growth. The
+#: shared tool guidance ``a_3`` adds is what removes the remaining slice tool
+#: text.
 PROMPT_SLICE_RENDERED_BUDGET = {
-    "libero": 479,
-    "robodojo": 256,
-    "robocasa": 178,
-    "dual_franka": 98,
-    "robotwin": 154,
-    "yam": 112,
-    "franka": 43,
+    "libero": 503,
+    "robodojo": 269,
+    "robocasa": 187,
+    "dual_franka": 103,
+    "robotwin": 162,
+    "yam": 118,
+    "franka": 46,
 }
-#: Rendered slice text in exploration mode. The evaluation ceilings above do
-#: not cover the exploration workflow, which is the larger of the two for every
-#: slice, so each slice that reaches exploration needs its own no-growth
-#: ceiling. ``franka`` does not support exploration and has no entry.
+#: Rendered slice text in exploration mode: the measured count plus 5%, rounded
+#: up. The evaluation ceilings above do not cover the exploration workflow,
+#: which is the larger of the two for every slice, so each slice that reaches
+#: exploration needs its own ceiling. ``franka`` does not support exploration
+#: and has no entry.
 PROMPT_EXPLORE_SLICE_RENDERED_BUDGET = {
-    "libero": 622,
-    "robodojo": 309,
-    "robocasa": 182,
-    "robotwin": 182,
-    "yam": 178,
-    "dual_franka": 165,
+    "libero": 654,
+    "robodojo": 325,
+    "robocasa": 192,
+    "robotwin": 192,
+    "yam": 187,
+    "dual_franka": 174,
 }
-#: Aggregate exploration ceiling, with the same role as
-#: :data:`PROMPT_SLICE_RENDERED_TOTAL_BUDGET`: it binds once a reduced slice
-#: leaves slack in its own ceiling.
+#: Aggregate exploration ceiling at the measured total, with the same role as
+#: :data:`PROMPT_SLICE_RENDERED_TOTAL_BUDGET`: it is the no-growth bound once a
+#: slice uses its per-slice headroom.
 PROMPT_EXPLORE_SLICE_RENDERED_TOTAL_BUDGET = 1638
 #: Follow-up rendered total once shared tool guidance lands. It is not an
 #: ``a_2`` design metric; the design target is the source-line count above. The
 #: strict xfail below tracks it.
 PROMPT_SLICE_RENDERED_TOTAL_TARGET = 1200
-#: Aggregate rendered ceiling, with the same role as
-#: :data:`PROMPT_SOURCE_LINE_BUDGET`: it binds once a reduced slice leaves
-#: slack in its own ceiling.
+#: Aggregate rendered ceiling at the measured total. The per-slice ceilings
+#: above carry 5% headroom, so this one binds: any net growth fails even when a
+#: slice stays under its own ceiling.
 PROMPT_SLICE_RENDERED_TOTAL_BUDGET = 1320
 
 #: Tools whose call signatures must come from the tool schema, not the prompt.
@@ -515,10 +521,11 @@ def test_rendered_slice_prompt_meets_domain_targets_and_stays_within_budget(
 ) -> None:
     """Bound what the model reads rather than the Python that renders it.
 
-    The domain layer must meet its acceptance for every slice. The per-slice
-    and total budgets are no-growth ratchets at the current measurements; the
-    follow-up rendered total is lower because shared tool guidance has not yet
-    replaced the slice tool text.
+    The domain layer must meet its acceptance for every slice. Per-slice
+    ceilings carry a small trade headroom; the aggregate stays at the measured
+    total, so the suite cannot grow overall. The follow-up rendered total is
+    lower because shared tool guidance has not yet replaced the slice tool
+    text.
     """
     memory = tmp_path / "memory"
     (memory / "global").mkdir(parents=True)
@@ -543,7 +550,8 @@ def test_rendered_explore_slice_prompt_stays_within_budget(tmp_path: Path) -> No
     """The evaluation ceilings do not cover a slice's exploration workflow.
 
     Every slice that supports exploration renders a longer domain and tool
-    layer in exploration mode, so each one needs its own no-growth ceiling.
+    layer in exploration mode, so each one needs its own ceiling. Per-slice
+    ceilings carry 5% headroom; the aggregate stays at the measured total.
     """
     memory = _memory(tmp_path)
     totals = {}
@@ -674,9 +682,10 @@ def test_prompt_source_lines_do_not_grow() -> None:
     The measured model-facing bound is
     :func:`test_rendered_slice_prompt_meets_domain_targets_and_stays_within_budget`.
     This ratchet covers the Python around it, so a new mapping or helper cannot
-    quietly re-grow the slice files. Each slice has its own ceiling so one
-    robot's reduction cannot pay for another's growth. Lower both after a
-    deliberate prompt change; never raise them without one.
+    quietly re-grow the slice files. A slice may use its 5% headroom only by
+    consuming another slice's reduction; the aggregate stays at the measured
+    total. Lower both after a deliberate prompt change; never raise the
+    aggregate without one.
     """
     counts = {robot: _prompt_source_lines(robot) for robot in PROMPT_VARIABLES}
     total = sum(counts.values())

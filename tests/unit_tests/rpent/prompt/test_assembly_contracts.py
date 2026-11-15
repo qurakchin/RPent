@@ -276,6 +276,69 @@ def test_write_prompt_artifacts_records_layout_and_sources(tmp_path: Path) -> No
     assert not list(tmp_path.glob(".*.tmp"))
 
 
+def _artifact_section(text: str, heading: str, *next_headings: str) -> str:
+    """Return the printed text of one prompt block."""
+    body = text.split(f"{heading}\n\n", 1)[1]
+    for next_heading in next_headings:
+        body = body.split(f"\n\n{next_heading}\n\n", 1)[0]
+    return body.rstrip("\n")
+
+
+def test_handoff_artifact_keeps_the_assembled_user_layer() -> None:
+    """A replacement opening message must not hide the layer the digest covers.
+
+    ``prompt_sha256`` covers the assembled system and robot user prompts. An
+    exploration handoff opens with a different message, so the artifact keeps
+    the assembled user layer and the recorded digest stays recomputable.
+    """
+    assembled = assemble_prompt(
+        _layers(),
+        user=(
+            PromptSection("TASK", "assembled task body", "robot/user.py", role="user"),
+        ),
+        variables={},
+    )
+    handoff = "Continue from the archived attempts."
+
+    text = effective_prompt_markdown(
+        assembled,
+        robot_name="demo",
+        planner="api",
+        axes=("evaluate",),
+        user_message=handoff,
+    )
+    sources = prompt_sources(
+        assembled,
+        robot_name="demo",
+        planner="api",
+        axes=("evaluate",),
+        user_message=handoff,
+    )
+
+    assert (
+        sources["assembled_user_sha256"]
+        == hashlib.sha256(assembled.user.encode("utf-8")).hexdigest()
+    )
+    assert "assembled_user_sha256" in text
+    assert handoff in text
+
+    system = _artifact_section(text, "## System prompt", "## User message")
+    robot_user = _artifact_section(
+        text, "## Assembled robot user prompt", "## Delivered prompt"
+    )
+    assert robot_user == "assembled task body"
+    assert prompt_sha256(system + "\n", robot_user + "\n") == assembled.prompt_sha256
+
+    same = effective_prompt_markdown(
+        assembled,
+        robot_name="demo",
+        planner="api",
+        axes=("evaluate",),
+        user_message=assembled.user,
+    )
+    assert "## Assembled robot user prompt" not in same
+
+
 def test_prompt_sources_hash_the_delivered_message_for_prefixing_planners() -> None:
     assembled = assemble_prompt(_layers(), variables={})
     user_message = "do the task"

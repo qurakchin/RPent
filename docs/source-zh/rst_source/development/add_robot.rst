@@ -256,7 +256,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 将 prompt 内容保存在机器人包内，例如 ``robots/myrobot/prompts/system.py``、``user.py`` 和 ``tools.py``。分节内容可以是普通字符串，也可以使用 ``BulletList`` 或 ``Numbered``。占位符 ``{{suite}}`` / ``{{task}}`` / ``{{seed}}`` / ``{{output_dir}}`` / ``{{recipe_tag}}`` 在渲染时填充。
 
-如需在不启动仿真器或模型的情况下查看最终 prompt，可运行 ``rpent --robot myrobot ... --dump-prompt``。dump 打印渲染结果后退出，发生在记忆准备之前，因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁；它不写运行产物，运行自身记录的 prompt 文件才是证据。它不能与 ``--dashboard`` 同时使用，后者在自身的会话循环中按认领的任务拼装提示词；也不能与 ``--tui`` 同时使用，后者的操作员可以在拼装后编辑第一条消息。每次会话会在 state 目录（输出目录，探索运行时为 ``sessions/session_NNN/``）写入 ``effective_prompt.md`` 和 ``prompt_sources.json``，并在 transcript 中记录 ``prompt_sha256``。``prompt_sources.json`` 还记录本次会话实际投递的第一条消息的 ``user_message_sha256``；对会把 system prompt 拼到该消息前面的 planner，还记录拼接后文本的 ``delivered_sha256``。
+如需在不启动仿真器或模型的情况下查看最终 prompt，可运行 ``rpent --robot myrobot ... --dump-prompt``。dump 打印渲染结果后退出，发生在记忆准备之前，因此既不创建也不同步 memory，并跳过真机命令的操作员 TTY 门禁；它不写运行产物，运行自身记录的 prompt 文件才是证据。它不能与 ``--dashboard`` 同时使用，后者在自身的会话循环中按认领的任务拼装提示词；也不能与 ``--tui`` 同时使用，后者的操作员可以在拼装后编辑第一条消息。每次会话会在 state 目录（输出目录，探索运行时为 ``sessions/session_NNN/``）写入 ``effective_prompt.md`` 和 ``prompt_sources.json``，并在 transcript 中记录 ``prompt_sha256``。``prompt_sources.json`` 还记录 ``prompt_sha256`` 所覆盖的机器人 user 层摘要 ``assembled_user_sha256``、本次会话实际投递的第一条消息的 ``user_message_sha256``；对会把 system prompt 拼到该消息前面的 planner，还记录拼接后文本的 ``delivered_sha256``。当交接或操作员编辑替换了开场消息时，``effective_prompt.md`` 也会打印这一拼装后的 user 层，因此可以从该产物复算 ``prompt_sha256``。
 
 .. _add-robot-toolkit:
 
