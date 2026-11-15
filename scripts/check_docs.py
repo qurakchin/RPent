@@ -8,7 +8,8 @@ The check covers only rules that the repository owns:
   definitions, and same-file heading anchors. Cross-file anchors are reported
   as warnings because the GitHub slug algorithm is approximated here;
 - commands written in documentation: ``cd`` targets, ``python -m`` modules,
-  script paths, optional-dependency names, and ``-r``/``--requirement`` files.
+  script paths passed to an interpreter, optional-dependency names, and
+  ``-r``/``--requirement`` files.
   Each argument is read in the role its command gives it, so ``pytest -r a``
   and ``grep -r TODO`` are not requirement files, and a trailing ``::node``
   selector is not part of the path. Only the package managers read a path from
@@ -328,7 +329,16 @@ def heading_slug(text: str) -> str:
 
 
 class Checker:
-    """Resolve references for one repository root."""
+    """Resolve references for one repository root.
+
+    Each file is read once and dispatched to its rule family: Markdown links
+    and anchors, the design status line, the Validation Status table and the
+    commands its evidence cites, or the commands the page documents. Facts that
+    only a counterpart page can settle -- section structure, statuses, and
+    result numbers -- are recorded during that pass and compared in
+    ``_check_validation_pairs``, because the paired page may not have been read
+    yet.
+    """
 
     def __init__(self, root: Path) -> None:
         self.root = root

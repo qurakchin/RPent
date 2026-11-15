@@ -450,9 +450,12 @@ python scripts/check_docs.py
 It verifies repository-relative Markdown links and images (including
 reference-style links and definitions), same-file heading anchors, the
 presence and vocabulary of the **Validation Status** table and its evidence on
-simulator and robot pages, the repository paths, modules, `cd` targets, and
-optional dependencies named by documented commands, and the section structure,
-status sequence, and result numbers of the paired English and Chinese pages.
+simulator and robot pages, the repository paths, `cd` targets, `python -m`
+modules, and optional dependencies named by documented commands, and the
+section structure, status sequence, and result numbers of the paired English
+and Chinese pages. A script path is checked when a command passes it to an
+interpreter, as in `bash scripts/check_docs.py`; a bare invocation of a script
+is not read.
 Each argument is read in the role its command gives it: `-r` is a requirement
 file only for the package managers that read one (`pip`, `uv pip`, `uv add`),
 a trailing `::node` pytest selector is not part of the file path, and a line

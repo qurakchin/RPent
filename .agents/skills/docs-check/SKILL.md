@@ -56,13 +56,15 @@ python scripts/check_docs.py
 It covers repository-relative Markdown links and images (including
 reference-style links and definitions), same-file heading anchors, the presence
 and vocabulary of the **Validation Status** table on simulator and robot pages,
-the repository paths cited by its evidence, the repository paths, modules, `cd`
-targets, and optional dependencies named by documented commands, and the
-section structure, status sequence, and result numbers of the paired English
-and Chinese pages. Command arguments are read in the role their command gives
-them, so `pytest -r a`, `grep -r TODO`, and a `uv run` prefix on either are not
-requirement files, while `uv add -r` names one; a `::node` selector is not part
-of a path, and commands chained with `&&`, `;`, or `|` are read separately.
+the repository paths cited by its evidence, the repository paths, `cd` targets,
+`python -m` modules, and optional dependencies named by documented commands,
+and the section structure, status sequence, and result numbers of the paired
+English and Chinese pages. A script path is checked only when a command passes
+it to an interpreter. Command arguments are read in the role their command
+gives them, so `pytest -r a`, `grep -r TODO`, and a `uv run` prefix on either
+are not requirement files, while `uv add -r` names one; a `::node` selector is
+not part of a path, and commands chained with `&&`, `;`, or `|` are read
+separately.
 Commands for another checkout belong after an absolute `cd`; a relative `cd`
 leaves the checkout and is reported as a warning. The `docs-check` pre-commit
 hook checks only the changed pages; `docs-check-self` rechecks the whole tree
