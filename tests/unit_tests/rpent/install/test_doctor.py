@@ -33,7 +33,7 @@ from rpent.install.fingerprint import (
     write_fingerprint,
 )
 from rpent.install.installer import component_profile, resolve_install_target
-from rpent.install.requirements import requirements_sha256
+from rpent.install.requirements import REQUIREMENTS_SCHEMA, requirements_sha256
 from rpent.install.resolve import resolve
 
 
@@ -74,6 +74,7 @@ def test_stale_fingerprint_fails_before_running_checks(
     write_fingerprint(
         venv,
         {
+            "schema": REQUIREMENTS_SCHEMA,
             "profile": "alpha",
             "python": "3.11.9",
             "requirements_sha256": "stale",
@@ -93,6 +94,41 @@ def test_stale_fingerprint_fails_before_running_checks(
     assert any(
         check.status == WARN and "uv missing" in check.message for check in checks
     )
+
+
+def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
+    tmp_path, write_toml, monkeypatch
+):
+    _profile(write_toml)
+    venv = _venv(tmp_path)
+    recorded = {
+        "profile": "alpha",
+        "python": "3.11.9",
+        "include_dev": False,
+        "requirements_sha256": "written by an older rpent-env",
+    }
+
+    def _missing_uv():
+        raise InstallError("uv missing")
+
+    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
+
+    older = REQUIREMENTS_SCHEMA - 1
+    for schema, label in ((older, str(older)), (None, "unknown")):
+        fingerprint = dict(recorded)
+        if schema is not None:
+            fingerprint["schema"] = schema
+        write_fingerprint(venv, fingerprint)
+
+        checks = check_installation(venv, root=tmp_path)
+
+        assert any(
+            check.status == FAIL and f"input mode {label}" in check.message
+            for check in checks
+        )
+        # The hash was recorded by a different input mode, so comparing it
+        # would misreport drifted inputs instead of the required reinstall.
+        assert not any("out of date" in check.message for check in checks)
 
 
 def test_dev_installation_is_not_reported_as_stale(tmp_path, write_toml, monkeypatch):
@@ -116,6 +152,7 @@ def test_dev_installation_is_not_reported_as_stale(tmp_path, write_toml, monkeyp
     write_fingerprint(
         venv,
         {
+            "schema": REQUIREMENTS_SCHEMA,
             "profile": "alpha",
             "python": "3.11.9",
             "include_dev": True,
@@ -159,6 +196,7 @@ def test_lock_edited_after_install_makes_the_environment_stale(
     write_fingerprint(
         venv,
         {
+            "schema": REQUIREMENTS_SCHEMA,
             "profile": "alpha",
             "python": "3.11.9",
             "include_dev": False,
@@ -220,6 +258,7 @@ def test_component_installation_uses_the_recorded_interpreter(
     write_fingerprint(
         venv,
         {
+            "schema": REQUIREMENTS_SCHEMA,
             "install_kind": "component",
             "profile": None,
             "component": "beta",
@@ -280,6 +319,7 @@ def test_component_diagnostic_uses_the_recorded_variant(
     write_fingerprint(
         venv,
         {
+            "schema": REQUIREMENTS_SCHEMA,
             "install_kind": "component",
             "profile": None,
             "component": "gamma",

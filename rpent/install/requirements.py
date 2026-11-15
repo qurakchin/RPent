@@ -17,7 +17,8 @@
 An installation is identified by the hash of every input that decides what it
 contains: the profile, the component manifests, the lock the install reads, the
 override files its components apply, and the repository's ``[tool.uv]``
-resolution settings.
+resolution settings. Requirement files are hashed by the lines uv reads, so
+editing a comment does not make an installation look stale.
 """
 
 from __future__ import annotations
@@ -36,6 +37,11 @@ try:  # Python 3.11+
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
+
+#: Identifies the layout of :func:`requirements_inputs`. Bump it when a key
+#: changes meaning, not merely when one is added: ``doctor`` uses it to tell an
+#: installation recorded by an older input mode from one whose inputs drifted.
+REQUIREMENTS_SCHEMA = 2
 
 #: ``[tool.uv]`` entries that do not change an installation's contents.
 #: ``conflicts`` only constrains extra combinations in the generated
@@ -113,6 +119,21 @@ def override_files(resolution: Resolution, root: Path) -> list[tuple[str, Path]]
     return files
 
 
+def _requirement_lines_sha256(text: str) -> str:
+    """Hash the lines of a requirement file that a resolver reads.
+
+    Blank lines and comments do not change a resolution, so editing them must
+    not make an installation look stale. Every other line is hashed as written,
+    because a changed version, marker, URL, or option does change it.
+    """
+    lines = [
+        line.rstrip()
+        for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
+
+
 def _lock_sha256(profile: Profile, root: Path, *, reproducible: bool) -> str | None:
     """Return the hash of the lock the installation read, if it read one.
 
@@ -122,11 +143,12 @@ def _lock_sha256(profile: Profile, root: Path, *, reproducible: bool) -> str | N
     if not reproducible or profile.lock is None:
         return None
     try:
-        return hashlib.sha256((root / profile.lock).read_bytes()).hexdigest()
+        text = (root / profile.lock).read_text(encoding="utf-8")
     except OSError:
         # A deleted lock makes the inputs hash change, which is exactly the
         # drift it should report.
         return None
+    return _requirement_lines_sha256(text)
 
 
 def _override_inputs(resolution: Resolution, root: Path) -> list[dict[str, str]]:
@@ -134,12 +156,12 @@ def _override_inputs(resolution: Resolution, root: Path) -> list[dict[str, str]]
     entries: list[dict[str, str]] = []
     for display, path in override_files(resolution, root):
         try:
-            data = path.read_bytes()
+            text = path.read_text(encoding="utf-8")
         except OSError:
             # The installer hands the file to uv, which fails on a missing
             # override; leaving it out keeps the hash true to what was read.
             continue
-        entries.append({"path": display, "sha256": hashlib.sha256(data).hexdigest()})
+        entries.append({"path": display, "sha256": _requirement_lines_sha256(text)})
     return entries
 
 
@@ -228,7 +250,7 @@ def requirements_inputs(
             **({} if resolved.component.is_deps else {"env": resolved.env}),
         }
     return {
-        "schema": 1,
+        "schema": REQUIREMENTS_SCHEMA,
         # A deps component installs into every environment whose component
         # requires it, so its membership is recorded separately from the
         # single-environment ``env`` field below.

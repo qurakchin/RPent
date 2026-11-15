@@ -31,7 +31,11 @@ from rpent.install.installer import (
     install,
     resolve_install_target,
 )
-from rpent.install.requirements import read_core_dependencies, requirements_sha256
+from rpent.install.requirements import (
+    REQUIREMENTS_SCHEMA,
+    read_core_dependencies,
+    requirements_sha256,
+)
 
 
 @pytest.fixture
@@ -275,6 +279,7 @@ def _fake_uv(tmp_path, monkeypatch):
     uv.write_text(
         f"""#!/bin/sh
 set -eu
+pwd -P >> "$(dirname "$0")/uv-pwd"
 if [ "$1" = "venv" ]; then
   for last; do :; done
   mkdir -p "$last/bin"
@@ -298,6 +303,11 @@ exit 0
         return [block.splitlines() for block in text.split("--\n") if block.strip()]
 
     return uv, install_arguments
+
+
+def _uv_working_directories(tmp_path):
+    """Return the directory each ``uv`` invocation of the fake ran in."""
+    return (tmp_path / "uv-pwd").read_text(encoding="utf-8").splitlines()
 
 
 def test_install_probes_the_deps_components_of_the_environment(
@@ -363,6 +373,7 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
     fingerprint = install("alpha", root=repo, venv=venv, verbose=False)
 
     assert read_fingerprint(venv) == fingerprint
+    assert fingerprint["schema"] == REQUIREMENTS_SCHEMA
     assert fingerprint["profile"] == "alpha"
     assert fingerprint["components"]["alpha"]["placement"] == "in-env"
     assert fingerprint["requirements_file"] == ".rpent/envs/alpha.txt"
@@ -412,6 +423,20 @@ def test_install_passes_override_files_by_absolute_path(
     value = arguments[arguments.index("--override") + 1]
     assert value == str(repo / "robots/alpha/requirements/override.txt")
     assert os.path.isabs(value)
+
+
+def test_install_runs_uv_inside_the_checkout(repo, tmp_path, monkeypatch):
+    # uv discovers ``[tool.uv]`` by walking up from its working directory, so
+    # installing from a subdirectory must not resolve with other settings.
+    lock = repo / "envs/locks/alpha.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
+    _fake_uv(tmp_path, monkeypatch)
+    monkeypatch.chdir(repo / "robots")
+
+    install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+
+    assert set(_uv_working_directories(tmp_path)) == {str(repo.resolve())}
 
 
 def test_install_rejects_a_lock_that_lost_a_requirement(repo, tmp_path, monkeypatch):

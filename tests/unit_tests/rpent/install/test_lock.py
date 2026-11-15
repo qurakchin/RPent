@@ -99,6 +99,7 @@ def fake_uv(tmp_path, monkeypatch):
     uv.write_text(
         """#!/bin/sh
 set -eu
+pwd -P >> "$(dirname "$0")/uv-pwd"
 printf '%s\\n' "$@" > "$(dirname "$0")/uv-args"
 [ "$1 $2" = "pip compile" ]
 source=$3
@@ -135,6 +136,18 @@ def test_lock_writes_the_resolved_requirements(repo, fake_uv):
     text = lock.read_text(encoding="utf-8")
     assert "packaging" in text
     assert "numpy>=2" in text
+
+
+def test_lock_compiles_from_the_checkout(repo, fake_uv, monkeypatch):
+    # uv discovers ``[tool.uv]`` from its working directory, so a lock compiled
+    # from a subdirectory would record versions the checkout does not select.
+    monkeypatch.chdir(repo / "robots")
+
+    assert lock_profiles(["alpha"], root=repo) == 0
+
+    assert (repo / "uv-pwd").read_text(encoding="utf-8").splitlines() == [
+        str(repo.resolve())
+    ]
 
 
 def test_lock_never_compiles_into_the_previous_lock_file(repo, fake_uv):

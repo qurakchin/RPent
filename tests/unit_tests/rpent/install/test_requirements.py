@@ -19,6 +19,7 @@ import pytest
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import Selection
 from rpent.install.requirements import (
+    REQUIREMENTS_SCHEMA,
     dependency_requirements_text,
     environment_dependencies,
     read_core_dependencies,
@@ -125,6 +126,7 @@ def test_requirements_hash_tracks_manifests_and_options(
     inputs = requirements_inputs(
         resolution, root=tmp_path, core_dependencies=("packaging",)
     )
+    assert inputs["schema"] == REQUIREMENTS_SCHEMA
     assert inputs["profile"]["components"]["alpha"]["variant"] == "pro"
     assert inputs["profile"]["components"]["molmo"]["env"] == "molmo"
     assert inputs["core_dependencies"] == ["packaging"]
@@ -193,6 +195,29 @@ def test_requirements_hash_tracks_component_overrides(
     # Files the installation never reads are not inputs.
     write_toml("robots/alpha/README.md", "notes")
     assert changed == requirements_sha256(resolution, root=tmp_path)
+
+
+def test_requirement_file_hashes_ignore_comments_and_blank_lines(
+    make_component, make_profile, make_catalog, tmp_path, write_toml
+):
+    override = write_toml("robots/alpha/requirements/override.txt", "numpy<2")
+    robot = make_component("alpha", dependencies=["numpy>=2"], overrides=[override])
+    profile = make_profile(
+        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+    )
+    resolution = resolve(profile, make_catalog([robot], {"alpha": profile}))
+    lock = write_toml("envs/locks/alpha.lock", "numpy==2.0.0")
+
+    baseline = requirements_sha256(resolution, root=tmp_path, reproducible=True)
+
+    # uv ignores comments and blank lines, so editing them cannot change what
+    # a reinstall produces.
+    lock.write_text("\n# keep this pin in sync with the simulator\nnumpy==2.0.0\n")
+    override.write_text("# pinned for the simulator stack\nnumpy<2\n")
+    assert baseline == requirements_sha256(resolution, root=tmp_path, reproducible=True)
+
+    lock.write_text("# keep this pin in sync with the simulator\nnumpy==2.0.1\n")
+    assert baseline != requirements_sha256(resolution, root=tmp_path, reproducible=True)
 
 
 def test_requirements_hash_tracks_uv_settings_but_not_conflicts(
