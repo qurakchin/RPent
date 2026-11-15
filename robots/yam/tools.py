@@ -16,86 +16,8 @@ import numpy as np
 from pydantic import Field
 
 from rpent.session import EnvState, StepRecord
-from rpent.tools import ToolResult, tool
-
-
-def _tool_error(code: str, message: str, **details: Any) -> dict[str, Any]:
-    return {"success": False, "error": {"code": code, "message": message, **details}}
-
-
-def _artifact_name(view: str, field: str) -> str:
-    suffix = {
-        "rgb": ".png",
-        "depth": ".npy",
-        "world_xyz": ".npy",
-        "camera_meta": ".json",
-    }[field]
-    return f"{view}_{field}{suffix}"
-
-
-def _load_world_xyz(env_state: EnvState, *, view: str, step: int | None):
-    requested_step = -1 if step is None else int(step)
-    try:
-        record = env_state.get(requested_step)
-    except Exception:
-        return (
-            None,
-            None,
-            _tool_error(
-                "state_not_found",
-                "The requested YAM state does not exist.",
-                step=requested_step,
-            ),
-        )
-    state = record.state
-    actual_step = record.step_idx
-    views = state.get("artifacts", {})
-    if view not in views:
-        return (
-            None,
-            None,
-            _tool_error(
-                "view_not_found",
-                "The requested view is unavailable.",
-                view=view,
-                available_views=sorted(views) if isinstance(views, dict) else [],
-            ),
-        )
-    world_name = _artifact_name(view, "world_xyz")
-    if world_name not in record.artifacts:
-        return (
-            None,
-            None,
-            _tool_error(
-                "world_xyz_not_found",
-                "This view has no persisted world map.",
-                view=view,
-                step_idx=actual_step,
-            ),
-        )
-    try:
-        world = env_state.load(world_name, step=actual_step)
-    except Exception as error:
-        return (
-            None,
-            None,
-            _tool_error(
-                "world_xyz_invalid",
-                "The persisted world map cannot be read.",
-                detail=str(error),
-            ),
-        )
-    if world.ndim != 3 or world.shape[2] != 3:
-        return (
-            None,
-            None,
-            _tool_error(
-                "world_xyz_shape",
-                "A YAM world map must have shape [H,W,3].",
-                actual_shape=list(world.shape),
-            ),
-        )
-    return state, np.asarray(world), None
+from rpent.tools import ToolResult, tool, tool_error
+from rpent.tools.world_coordinates import artifact_name, load_world_xyz
 
 
 @tool(readonly=True, exclude=("env_state",))
@@ -113,33 +35,27 @@ def sample_world_xyz(
     ] = 1,
 ) -> ToolResult:
     """Read persisted same-frame YAM world xyz around [row,col] pixels."""
-    state, world, error = _load_world_xyz(env_state, view=view, step=step)
+    state, world, error = load_world_xyz(env_state, view=view, step=step)
     if error is not None:
-        payload = error
-        return ToolResult(data=payload)
+        return error
     assert state is not None and world is not None
     radius = int(neighborhood)
     if radius < 0 or radius > 32:
-        payload = _tool_error(
-            "invalid_neighborhood", "neighborhood must be 0 through 32."
-        )
-        return ToolResult(data=payload)
+        return tool_error("invalid_neighborhood", "neighborhood must be 0 through 32.")
     if not isinstance(pixels, list) or not pixels or len(pixels) > 256:
-        payload = _tool_error(
+        return tool_error(
             "invalid_pixels", "pixels must contain 1 to 256 [row,col] pairs."
         )
-        return ToolResult(data=payload)
     height, width = world.shape[:2]
     samples = []
     for pixel in pixels:
         if not isinstance(pixel, (list, tuple)) or len(pixel) != 2:
-            payload = _tool_error(
+            return tool_error(
                 "invalid_pixel", "Every pixel must be [row,col].", pixel=pixel
             )
-            return ToolResult(data=payload)
         row, col = int(pixel[0]), int(pixel[1])
         if row < 0 or row >= height or col < 0 or col >= width:
-            payload = _tool_error(
+            return tool_error(
                 "pixel_out_of_bounds",
                 "The pixel is outside this view's world map.",
                 pixel=[row, col],
@@ -148,19 +64,17 @@ def sample_world_xyz(
                 valid_row_range=[0, height - 1],
                 valid_col_range=[0, width - 1],
             )
-            return ToolResult(data=payload)
         region = world[
             max(0, row - radius) : min(height, row + radius + 1),
             max(0, col - radius) : min(width, col + radius + 1),
         ].reshape(-1, 3)
         finite = np.isfinite(region).all(axis=1)
         if not np.any(finite):
-            payload = _tool_error(
+            return tool_error(
                 "no_valid_world_points",
                 "The requested pixel neighborhood has no finite xyz.",
                 pixel=[row, col],
             )
-            return ToolResult(data=payload)
         xyz = np.nanmedian(region[finite], axis=0)
         samples.append(
             {
@@ -198,42 +112,35 @@ def query_world_map(
     ] = 256,
 ) -> ToolResult:
     """Read deterministic world-xyz samples from a half-open bbox."""
-    state, world, error = _load_world_xyz(env_state, view=view, step=step)
+    state, world, error = load_world_xyz(env_state, view=view, step=step)
     if error is not None:
-        payload = error
-        return ToolResult(data=payload)
+        return error
     assert state is not None and world is not None
     if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
-        payload = _tool_error(
+        return tool_error(
             "invalid_bbox", "bbox must be [row_start,col_start,row_end,col_end]."
         )
-        return ToolResult(data=payload)
     row_start, col_start, row_end, col_end = map(int, bbox)
     height, width = world.shape[:2]
     if not (0 <= row_start < row_end <= height and 0 <= col_start < col_end <= width):
-        payload = _tool_error(
+        return tool_error(
             "bbox_out_of_bounds",
             "bbox must be a non-empty half-open region inside the view.",
             bbox=list(map(int, bbox)),
             shape=[height, width],
         )
-        return ToolResult(data=payload)
     limit = int(max_points)
     if limit < 1 or limit > 4096:
-        payload = _tool_error(
-            "invalid_max_points", "max_points must be 1 through 4096."
-        )
-        return ToolResult(data=payload)
+        return tool_error("invalid_max_points", "max_points must be 1 through 4096.")
     region = world[row_start:row_end, col_start:col_end]
     valid_mask = np.isfinite(region).all(axis=2)
     local_rows, local_cols = np.nonzero(valid_mask)
     if not len(local_rows):
-        payload = _tool_error(
+        return tool_error(
             "no_valid_world_points",
             "The requested region contains no finite world coordinates.",
             bbox=list(map(int, bbox)),
         )
-        return ToolResult(data=payload)
     xyz = region[local_rows, local_cols]
     indices = (
         np.linspace(0, len(xyz) - 1, limit).astype(int)
@@ -283,7 +190,7 @@ def dump_observation(
         view_paths: dict[str, str] = {}
         for field in ("rgb", "depth", "world_xyz", "camera_meta"):
             if field in view:
-                name = _artifact_name(view_name, field)
+                name = artifact_name(view_name, field)
                 view_paths[field] = str(env_state.artifact_path(name, step=step_idx))
         paths[view_name] = view_paths
         shape_source = next(
@@ -332,7 +239,7 @@ def dump_observation(
             for field in ("rgb", "depth", "world_xyz", "camera_meta"):
                 if field in view:
                     env_state.save(
-                        _artifact_name(view_name, field),
+                        artifact_name(view_name, field),
                         view[field],
                         step=recorded_step,
                     )
@@ -366,7 +273,7 @@ def view_env_state(
     }
     images: list[bytes] = []
     for view in ("top", "left", "right"):
-        name = _artifact_name(view, "rgb")
+        name = artifact_name(view, "rgb")
         if name in record.artifacts:
             try:
                 images.append(state.load_bytes(name, step=record.step_idx))
