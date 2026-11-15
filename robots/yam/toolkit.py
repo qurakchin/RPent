@@ -24,7 +24,7 @@ from robots.yam.projection import world_from_depth as _world_from_depth_cv
 from robots.yam.tasks import classify_episode
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
-from rpent.tools import Toolkit, ToolResult, tool
+from rpent.tools import Toolkit, ToolResult, tool, unexecuted
 from rpent.utils.logging import get_output_dir
 
 if TYPE_CHECKING:
@@ -259,7 +259,7 @@ class YamToolkit(Toolkit):
                     "status": "retry",
                     "notice": "Record the lesson, then reset after the scene is ready.",
                 }
-                return ToolResult(data=payload)
+                return unexecuted(payload, status="rejected")
             payload = {"_finish": True, "status": "failure", "summary": summary}
             return ToolResult(data=payload)
         if status != "success":
@@ -280,7 +280,7 @@ class YamToolkit(Toolkit):
             "operator_question": "Is the current task complete? Confirm success or explain what remains.",
             "notice": "Ask the operator and wait. Do not poll finish; a current-episode verdict is required.",
         }
-        return ToolResult(data=payload)
+        return unexecuted(payload, status="rejected")
 
     @tool(name="reset")
     def _reset_episode(self) -> ToolResult:
@@ -291,14 +291,14 @@ class YamToolkit(Toolkit):
                 "error": "reset refused",
                 "reason": f"This session's attempt budget is spent ({budget} attempts).",
             }
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
         ready = self.status().data
         if ready.get("terminal_event") == "abort":
             payload = {
                 "error": "Operator aborted; call finish(status='failure') now.",
                 "status": "failure",
             }
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
         if not ready.get("ready_to_reset"):
             payload = {
                 "status": "pending",

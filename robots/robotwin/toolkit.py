@@ -41,7 +41,7 @@ from robots.robotwin.skills.policy import (
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
 from rpent.session.env_capture import CapturingEnvClient
-from rpent.tools import Tool, ToolResult, iter_tools, tool
+from rpent.tools import Tool, ToolResult, iter_tools, tool, unexecuted
 from rpent.tools.direct_action import direct_action_tool
 from rpent.tools.memory_tools import MemoryTools
 from rpent.tools.motion.vla_act import SkillTools
@@ -273,7 +273,7 @@ class RoboTwinToolkit(Toolkit):
                     "attempts left. Archive the attempt, reset, and change the plan."
                 ),
             }
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
         return self._primitives.finish(status=status, summary=summary)
 
     @tool(name="reset")
@@ -284,7 +284,7 @@ class RoboTwinToolkit(Toolkit):
                 "error": "reset refused",
                 "reason": "The task is already solved; save artifacts and finish.",
             }
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
         budget = self._attempts_per_session
         if budget and self._attempt >= budget:
             payload = {
@@ -294,7 +294,7 @@ class RoboTwinToolkit(Toolkit):
                     "Update the handoff notes and finish this session."
                 ),
             }
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
         result = self._primitives.reset()
         if result.get("error") or result.get("success") is False:
             payload = result

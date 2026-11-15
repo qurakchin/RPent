@@ -33,7 +33,7 @@ from robots.dual_franka import tools as dual_franka_tools
 from robots.franka import tools as franka_tools
 from robots.franka.toolkit import FrankaToolkit
 from rpent.dashboard.events import DashboardEventSink
-from rpent.tools import Tool, iter_tools
+from rpent.tools import Tool, iter_tools, unexecuted
 from rpent.tools.base import tool
 from rpent.tools.toolkit import ToolCancelled, ToolResult
 from rpent.utils.logging import get_output_dir
@@ -392,17 +392,19 @@ class DualFrankaToolkit(FrankaToolkit):
     def _guarded_finish(self, inner, **kwargs) -> ToolResult:
         if not self._operator_aborted:
             if self._operator_verdict is None:
-                return ToolResult(
-                    data={"error": "finish refused; request_operator_verdict first"}
+                return unexecuted(
+                    {"error": "finish refused; request_operator_verdict first"},
+                    status="rejected",
                 )
             if not self.solved() and self._budget and self._attempt < self._budget:
-                return ToolResult(
-                    data={
+                return unexecuted(
+                    {
                         "error": (
                             "finish refused; archive this attempt and request_scene_reset"
                         ),
                         "attempt": self._attempt,
-                    }
+                    },
+                    status="rejected",
                 )
         # Agent-authored finish status must never override the operator verdict.
         kwargs["status"] = "success" if self.solved() else "failure"
@@ -656,11 +658,12 @@ class DualFrankaToolkit(FrankaToolkit):
         if self._operator_aborted:
             return self._guarded_finish(inner, **kwargs)
         if self._operator_verdict is None:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": "finish refused",
                     "reason": "Real-robot tasks require request_operator_verdict before finish so the operator can judge the physical state.",
-                }
+                },
+                status="rejected",
             )
         budget = self._attempts_per_session
         if (
@@ -670,11 +673,12 @@ class DualFrankaToolkit(FrankaToolkit):
             and self._session_attempt < budget
         ):
             remaining = budget - self._session_attempt
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": "finish refused",
                     "reason": f"The operator marked this attempt as {self._operator_verdict!r}, and this session still has {remaining} of {budget} attempts left. Archive the attempt, call request_scene_reset, and try a different approach.",
-                }
+                },
+                status="rejected",
             )
         result = inner(**kwargs)
         result.data.setdefault("operator_verdict", self._operator_verdict)
