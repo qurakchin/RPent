@@ -173,7 +173,12 @@ Diagnose and reproduce
 input (the manifests, the lock the install read, the component override files,
 and the repository's ``[tool.uv]`` settings), checks Python and platform, runs
 ``uv pip check`` and the component probes, and can
-probe external endpoints with ``--endpoint molmo=host:port``. A single
+probe external endpoints with ``--endpoint molmo=host:port``. ``uv`` resolves
+from the checkout, so the compared settings do not depend on the directory
+the command is invoked from; user-level ``uv`` configuration
+(``~/.config/uv``) is outside the comparison. The fingerprint also records the
+input mode it was written with, so a venv installed by an older ``rpent-env``
+is reported as needing a reinstall rather than as drifted. A single
 component can be installed for development with
 ``rpent-env install <component>``; its fingerprint records
 ``install_kind = "component"``, ``reproducible = false``, and the interpreter

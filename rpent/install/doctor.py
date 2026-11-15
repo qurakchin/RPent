@@ -39,7 +39,11 @@ from rpent.install.installer import (
     resolve_install_target,
     venv_python,
 )
-from rpent.install.requirements import read_core_dependencies, requirements_sha256
+from rpent.install.requirements import (
+    REQUIREMENTS_SCHEMA,
+    read_core_dependencies,
+    requirements_sha256,
+)
 from rpent.install.resolve import resolve
 from rpent.utils.config import get_repo_root
 
@@ -176,7 +180,21 @@ def check_installation(
         # recompiling the lock must not make a `--dev` or diagnostic venv stale.
         reproducible=bool(fingerprint.get("reproducible", False)),
     )
-    if fingerprint.get("requirements_sha256") != expected_requirements:
+    recorded_schema = fingerprint.get("schema")
+    if recorded_schema != REQUIREMENTS_SCHEMA:
+        # `rpent-env` hashes a different set of inputs now, so the recorded
+        # hash cannot be compared. Say so instead of reporting drifted inputs.
+        interpreted = "unknown" if recorded_schema is None else recorded_schema
+        checks.append(
+            Check(
+                FAIL,
+                "fingerprint records installation input mode "
+                f"{interpreted}, current is {REQUIREMENTS_SCHEMA}; rerun "
+                f"`rpent-env install {name} --venv {venv}` to record the "
+                "current inputs",
+            )
+        )
+    elif fingerprint.get("requirements_sha256") != expected_requirements:
         checks.append(
             Check(
                 FAIL,

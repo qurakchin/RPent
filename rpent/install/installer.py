@@ -40,6 +40,7 @@ from rpent.install.fingerprint import (
 from rpent.install.lock_coverage import lock_problems
 from rpent.install.manifest import Component, Profile, Selection
 from rpent.install.requirements import (
+    REQUIREMENTS_SCHEMA,
     read_core_dependencies,
     render_requirements,
     requirements_sha256,
@@ -90,7 +91,14 @@ def run_command(
     *,
     env: dict[str, str] | None = None,
     capture: bool = False,
+    cwd: Path | None = None,
 ) -> str:
+    """Run ``command`` and return its captured stdout.
+
+    ``cwd`` is passed to every ``uv`` call that resolves or installs packages:
+    uv discovers ``[tool.uv]`` from its working directory, so resolution must
+    happen in the checkout rather than in the caller's directory.
+    """
     try:
         result = subprocess.run(
             command,
@@ -98,6 +106,7 @@ def run_command(
             text=True,
             capture_output=capture,
             env=env,
+            cwd=cwd,
         )
     except FileNotFoundError as exc:
         raise InstallError(f"command not found: {command[0]}") from exc
@@ -352,7 +361,10 @@ def install(
     if not python.exists():
         if verbose:
             print(f"$ {uv} venv --python {profile.python} {destination}")
-        run_command([uv, "venv", "--python", profile.python, str(destination)])
+        run_command(
+            [uv, "venv", "--python", profile.python, str(destination)],
+            cwd=repo_root,
+        )
         python = venv_python(destination)
     if not python.exists():
         raise InstallError(
@@ -375,7 +387,10 @@ def install(
     install_command.extend(["-r", str(install_from)])
     if verbose:
         print(f"$ {' '.join(install_command)}")
-    run_command(install_command)
+    # uv discovers ``[tool.uv]`` by walking up from its working directory, so
+    # run it in the checkout: the recorded inputs live there, and a profile
+    # installed from another directory must not resolve with other settings.
+    run_command(install_command, cwd=repo_root)
 
     if profile.core:
         editable = [
@@ -390,15 +405,17 @@ def install(
         ]
         if verbose:
             print(f"$ {' '.join(editable)}")
-        run_command(editable)
+        run_command(editable, cwd=repo_root)
 
     _probe_components(resolution, python, repo_root, verbose=verbose)
-    run_command([uv, "pip", "check", "--python", str(python)])
+    run_command([uv, "pip", "check", "--python", str(python)], cwd=repo_root)
 
-    frozen = run_command([uv, "pip", "freeze", "--python", str(python)], capture=True)
+    frozen = run_command(
+        [uv, "pip", "freeze", "--python", str(python)], capture=True, cwd=repo_root
+    )
     commit, dirty = source_state(repo_root)
     fingerprint = {
-        "schema": 1,
+        "schema": REQUIREMENTS_SCHEMA,
         "install_kind": install_kind,
         # A component diagnostic has no declared profile; record the component
         # instead so `doctor` can rebuild the same synthetic profile.
