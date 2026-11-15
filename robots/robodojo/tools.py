@@ -30,6 +30,7 @@ from rpent.tools import ToolResult, tool, unexecuted
 from rpent.tools.world_coordinates import artifact_name, load_world_xyz
 from rpent.tools.world_coordinates import query_world_map as query_world_map
 from rpent.tools.world_coordinates import sample_world_xyz as sample_world_xyz
+from toolkits.geometry.core import back_project as project_world_points
 
 # (camera key in the obs dict, artifact base name). Mirrors the ``frame_channels``
 # declared in ``robot_spec.ROBODOJO_DASHBOARD_SPEC``.
@@ -272,34 +273,9 @@ def _recorded_camera(
 
 def _world_from_depth(depth, intrinsic, cam2world) -> np.ndarray:
     """Project optical-axis metres using USD camera axes (+X, +Y up, -Z)."""
-    depth = np.asarray(depth, dtype=np.float64)
-    intrinsic = np.asarray(intrinsic, dtype=np.float64)
-    cam2world = np.asarray(cam2world, dtype=np.float64)
-    if depth.ndim != 2:
-        raise ValueError("depth must have shape [H,W]")
-    if (
-        intrinsic.shape != (3, 3)
-        or cam2world.shape != (4, 4)
-        or not np.isfinite(intrinsic).all()
-        or not np.isfinite(cam2world).all()
-        or intrinsic[0, 0] <= 0
-        or intrinsic[1, 1] <= 0
-    ):
-        raise ValueError(
-            "camera calibration must be finite with positive focal lengths"
-        )
-    valid = np.isfinite(depth) & (depth > 0)
-    depth = np.where(valid, depth, np.nan)
-    rows, cols = np.indices(depth.shape)
-    points = np.stack(
-        (
-            (cols - intrinsic[0, 2]) * depth / intrinsic[0, 0],
-            -(rows - intrinsic[1, 2]) * depth / intrinsic[1, 1],
-            -depth,
-        ),
-        axis=-1,
-    )
-    return (points @ cam2world[:3, :3].T + cam2world[:3, 3]).astype(np.float32)
+    return project_world_points(
+        depth, intrinsic, cam2world, convention="opengl"
+    ).astype(np.float32)
 
 
 def _refresh_obs(primitives) -> dict:

@@ -33,6 +33,7 @@ from rpent.session import EnvState, StepRecord
 from rpent.session.env_capture import CapturingEnvClient
 from rpent.tools import Tool, ToolResult, tool, unexecuted
 from rpent.utils.logging import get_logger
+from toolkits.geometry.core import back_project as project_world_points
 
 if TYPE_CHECKING:
     from robots.libero.wam_client import LiberoWAMClient
@@ -1054,18 +1055,17 @@ def _metric_depth(depth: Any, camera_meta: dict) -> np.ndarray:
 
 
 def _world_from_depth(depth_metric: np.ndarray, camera_meta: dict) -> np.ndarray:
-    k_matrix = np.array(camera_meta["intrinsic_K"], dtype=np.float64)
-    extrinsic = np.array(camera_meta["extrinsic_cam2world"], dtype=np.float64)
-    fx, fy = k_matrix[0, 0], k_matrix[1, 1]
-    cx, cy = k_matrix[0, 2], k_matrix[1, 2]
-    height, width = depth_metric.shape
-    rr, cc = np.mgrid[0:height, 0:width]
-    z = depth_metric.astype(np.float64)
-    camera_points = np.stack(
-        [(cc - cx) * z / fx, (rr - cy) * z / fy, z, np.ones_like(z)],
-        axis=-1,
+    """Project metric depth through LIBERO's recorded OpenCV camera pose.
+
+    Pixels without a positive measurement become NaN; the world-map readers
+    already treat non-finite values as unmeasured.
+    """
+    return project_world_points(
+        depth_metric,
+        camera_meta["intrinsic_K"],
+        camera_meta["extrinsic_cam2world"],
+        convention="opencv",
     )
-    return (camera_points @ extrinsic.T)[..., :3]
 
 
 def dump_state(

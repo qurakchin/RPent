@@ -21,6 +21,7 @@ import numpy as np
 from rpent.robots.components.am_contracts import AMObservation
 from rpent.session import EnvState, StepRecord
 from rpent.tools.world_coordinates import artifact_name
+from toolkits.geometry.core import back_project
 
 ROBOTWIN_CAMERAS = ("head", "left_wrist", "right_wrist")
 
@@ -49,19 +50,9 @@ def world_from_depth(
             f"depth={depth.shape}, metadata="
             f"({camera_meta.get('height')}, {camera_meta.get('width')})"
         )
-    fx, fy = intrinsic[0, 0], intrinsic[1, 1]
-    cx, cy = intrinsic[0, 2], intrinsic[1, 2]
-    rows, cols = np.mgrid[0:height, 0:width]
-    camera_points = np.stack(
-        [
-            (cols - cx) * depth / fx,
-            -(rows - cy) * depth / fy,
-            -depth,
-        ],
-        axis=-1,
+    return back_project(depth, intrinsic, cam2world, convention="opengl").astype(
+        np.float32
     )
-    world = camera_points @ cam2world[:3, :3].T + cam2world[:3, 3]
-    return world.astype(np.float32)
 
 
 def dump_observation(
