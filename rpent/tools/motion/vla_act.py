@@ -30,7 +30,7 @@ from typing import Any, Protocol
 
 from rpent.tools.base import Tool, ToolResult
 from rpent.tools.capabilities import Capabilities, ToolFamily
-from rpent.tools.motion_tools import _execution_layer, stop_reason
+from rpent.tools.motion_tools import execution_layer, stop_reason
 from rpent.utils.logging import get_logger
 
 logger = get_logger("tools.skill")
@@ -119,7 +119,7 @@ def run_skill(
         binding.check_cancelled()
     status = binding.episode_status()
     reached = requested > 0 and executed == requested
-    execution_status, no_execution = _execution_layer(requested, executed)
+    execution_status, no_execution = execution_layer(requested, executed)
     return ToolResult(
         data={
             "completed": reached,

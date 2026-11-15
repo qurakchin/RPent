@@ -243,6 +243,39 @@ def test_robotwin_declaration_delta_matches_the_migration_record() -> None:
     assert base - migrated == {"reset", "sample_world_xyz"}
 
 
+def test_robodojo_declaration_delta_matches_the_migration_record() -> None:
+    """Pin the intended difference between the base and migrated declarations.
+
+    ``stabilize`` and ``place_in_bin`` were task-specific composites. The
+    migrated surface exposes the native motion primitives, the policy tools,
+    the saved-frame queries, and the ``reset``/``finish`` the toolkit registers.
+    """
+    baseline = json.loads(
+        (Path(__file__).parent / "fixtures" / "tool_schemas.json").read_text()
+    )
+    base = {item["name"] for item in baseline["tools"]["robots/robodojo/tools.py"]}
+    migrated = set(
+        json.loads(
+            (
+                Path(__file__).parent / "fixtures" / "robodojo_tool_schemas.json"
+            ).read_text()
+        )
+    )
+
+    assert migrated - base == {
+        "awomo05_act",
+        "finish",
+        "query_world_map",
+        "release",
+        "render",
+        "reset",
+        "rotate_wrist",
+        "sample_world_xyz",
+        "vpp2_act",
+    }
+    assert base - migrated == {"place_in_bin", "stabilize"}
+
+
 def test_robotwin_spatial_tools_share_row_col_image_coordinates() -> None:
     by_name = {spec.name: spec for spec in TOOL_DECLARATIONS["robotwin"]}
 
