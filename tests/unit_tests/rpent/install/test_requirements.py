@@ -220,6 +220,49 @@ def test_requirement_file_hashes_ignore_comments_and_blank_lines(
     assert baseline != requirements_sha256(resolution, root=tmp_path, reproducible=True)
 
 
+@pytest.mark.parametrize("corrupt", ["lock", "override"])
+def test_requirement_file_that_is_not_utf8_is_a_configuration_error(
+    make_component, make_profile, make_catalog, tmp_path, corrupt
+):
+    override = tmp_path / "robots/alpha/requirements/override.txt"
+    override.parent.mkdir(parents=True)
+    override.write_text("numpy<2\n", encoding="utf-8")
+    robot = make_component("alpha", dependencies=["numpy>=2"], overrides=[override])
+    profile = make_profile(
+        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+    )
+    resolution = resolve(profile, make_catalog([robot], {"alpha": profile}))
+    lock = tmp_path / "envs/locks/alpha.lock"
+    lock.parent.mkdir(parents=True)
+    lock.write_text("numpy==2.0.0\n", encoding="utf-8")
+
+    # uv rejects a requirement file it cannot decode, so recording it as an
+    # absent input would hide the problem behind a drift report.
+    (lock if corrupt == "lock" else override).write_bytes(b"numpy\n\xff\n")
+
+    with pytest.raises(InstallConfigError, match="not UTF-8"):
+        requirements_inputs(resolution, root=tmp_path, reproducible=True)
+
+
+def test_requirements_hash_does_not_depend_on_how_the_checkout_is_named(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    checkout = tmp_path / "checkout"
+    override = checkout / "robots/alpha/requirements/override.txt"
+    override.parent.mkdir(parents=True)
+    override.write_text("numpy<2\n", encoding="utf-8")
+    robot = make_component("alpha", overrides=[override])
+    profile = make_profile("alpha", {"alpha": Selection()})
+    resolution = resolve(profile, make_catalog([robot], {"alpha": profile}))
+
+    linked = tmp_path / "linked"
+    linked.symlink_to(checkout, target_is_directory=True)
+
+    assert requirements_sha256(resolution, root=linked) == requirements_sha256(
+        resolution, root=checkout
+    )
+
+
 def test_requirements_hash_tracks_uv_settings_but_not_conflicts(
     make_component, make_profile, make_catalog, tmp_path, write_toml
 ):

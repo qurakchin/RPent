@@ -119,6 +119,24 @@ def override_files(resolution: Resolution, root: Path) -> list[tuple[str, Path]]
     return files
 
 
+def read_requirement_text(path: Path) -> str | None:
+    """Return the text of a requirement file, or ``None`` when it is unreadable.
+
+    A missing or unreadable file is reported as absent so callers can treat it
+    as a changed input. A file that is not UTF-8 raises instead: uv rejects it
+    too, and hashing bytes nobody can resolve would hide the real problem
+    behind a drift report.
+    """
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        raise InstallConfigError(
+            f"{path}: requirement file is not UTF-8: {exc}"
+        ) from exc
+    except OSError:
+        return None
+
+
 def _requirement_lines_sha256(text: str) -> str:
     """Hash the lines of a requirement file that a resolver reads.
 
@@ -142,9 +160,8 @@ def _lock_sha256(profile: Profile, root: Path, *, reproducible: bool) -> str | N
     """
     if not reproducible or profile.lock is None:
         return None
-    try:
-        text = (root / profile.lock).read_text(encoding="utf-8")
-    except OSError:
+    text = read_requirement_text(root / profile.lock)
+    if text is None:
         # A deleted lock makes the inputs hash change, which is exactly the
         # drift it should report.
         return None
@@ -155,9 +172,8 @@ def _override_inputs(resolution: Resolution, root: Path) -> list[dict[str, str]]
     """Return the override files an installation applies, with their hashes."""
     entries: list[dict[str, str]] = []
     for display, path in override_files(resolution, root):
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError:
+        text = read_requirement_text(path)
+        if text is None:
             # The installer hands the file to uv, which fails on a missing
             # override; leaving it out keeps the hash true to what was read.
             continue
@@ -237,6 +253,9 @@ def requirements_inputs(
     whether the installation reads the lock; a ``--dev`` or component
     diagnostic installation does not, so its contents do not depend on it.
     """
+    # Override paths are recorded relative to ``root``. Resolving it here makes
+    # that relative form independent of how the caller spelled the checkout.
+    root = root.resolve()
     profile = resolution.profile
     components = {}
     for name, resolved in sorted(resolution.components.items()):

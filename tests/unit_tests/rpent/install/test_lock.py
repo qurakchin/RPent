@@ -215,6 +215,17 @@ def test_check_reports_a_missing_lock(repo, fake_uv, capsys):
     assert "missing lock: envs/locks/alpha.lock" in capsys.readouterr().out
 
 
+def test_check_reports_a_lock_that_is_not_utf8(repo, fake_uv, capsys):
+    lock_profiles(["alpha"], root=repo)
+    (repo / "envs/locks/alpha.lock").write_bytes(b"packaging\n\xff\n")
+    capsys.readouterr()
+
+    assert lock_profiles(["alpha"], root=repo, check=True) == 1
+    output = capsys.readouterr().out
+    assert "lock alpha: FAIL" in output
+    assert "not UTF-8" in output
+
+
 def test_compile_rejects_an_unknown_platform(
     tmp_path, make_component, make_profile, make_catalog, fake_uv
 ):

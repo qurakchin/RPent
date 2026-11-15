@@ -16,6 +16,7 @@
 
 import pytest
 
+from rpent.install.errors import InstallConfigError
 from rpent.install.lock_coverage import lock_problems, parse_lock
 from rpent.install.manifest import Selection
 from rpent.install.resolve import resolve
@@ -379,3 +380,34 @@ def test_override_for_a_package_outside_the_lock_is_ignored(
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
     assert lock_problems(profile, resolve(profile, catalog), tmp_path) == []
+
+
+def test_lock_that_is_not_utf8_is_a_configuration_error(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    profile, resolution = _resolution(
+        make_component, make_profile, make_catalog, ["numpy>=2"]
+    )
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+    (tmp_path / "envs/locks/alpha.lock").write_bytes(b"numpy==2.0.0\n\xff\n")
+
+    with pytest.raises(InstallConfigError, match="not UTF-8"):
+        lock_problems(profile, resolution, tmp_path)
+
+
+def test_override_that_is_not_utf8_is_a_configuration_error(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    override = tmp_path / "override.txt"
+    override.write_bytes(b"numpy<2\n\xff\n")
+    component = make_component(
+        "alpha", dependencies=["numpy>=2"], overrides=(override,)
+    )
+    profile = make_profile(
+        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+    )
+    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    _write_lock(tmp_path, "numpy==2.0.0\n")
+
+    with pytest.raises(InstallConfigError, match="not UTF-8"):
+        lock_problems(profile, resolve(profile, catalog), tmp_path)
