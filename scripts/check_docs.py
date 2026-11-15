@@ -11,10 +11,12 @@ The check covers only rules that the repository owns:
   script paths, optional-dependency names, and ``-r``/``--requirement`` files.
   Each argument is read in the role its command gives it, so ``pytest -r a``
   and ``grep -r TODO`` are not requirement files, and a trailing ``::node``
-  selector is not part of the path. Only ``pip`` reads a path from ``-r``, so a
-  line that merely runs under ``uv run`` does not make it a requirement file.
-  Design documents under ``docs/design/`` are skipped, because they name modules
-  and paths that do not exist yet;
+  selector is not part of the path. Only the package managers read a path from
+  ``-r``, so a line that merely runs under ``uv run`` does not make it a
+  requirement file. Commands chained with ``&&``, ``;``, or ``|`` are read
+  separately, and a command continued with a trailing backslash is read as one
+  line. Design documents under ``docs/design/`` are skipped, because they name
+  modules and paths that do not exist yet;
 - the **Validation Status** / **验证状态** table on simulator and real-world
   robot pages: section presence and position, evidence-level vocabulary, an
   Evidence column with the minimum content for each status, repository paths
@@ -37,7 +39,8 @@ exception cannot outlive the reason it was written for.
 Exit status is 1 when a reference, documented command, or evidence path does
 not resolve, a required status table is missing or uses an unknown status word,
 a row lacks the evidence its status promises, paired pages disagree, an
-exception expired, or a design document has no reachable status line.
+exception has no valid future date, or a design document has no reachable
+status line.
 """
 
 from __future__ import annotations
@@ -49,6 +52,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from typing import NamedTuple
 from urllib.parse import unquote
 
 SUFFIXES = {".md", ".rst"}
@@ -86,11 +90,18 @@ RUN_EXTRA = re.compile(r"uv\s+run[^\n`'\"]*?--extra(?:=|\s+)([A-Za-z0-9_-]+)")
 REQUIREMENT_OPTION = re.compile(
     r"--(?:override|requirement|requirements)(?:=|\s+)([^\s`'\"]+)|-r\s+([^\s`'\"]+)"
 )
-# ``-r`` means different things to different tools: a requirement file for pip,
-# report characters for pytest, and a recursive search for grep. Only pip reads
-# a path from it, so require the line to name pip. Naming ``uv`` alone is not
-# enough: ``uv run pytest -r a`` passes ``-r`` to pytest.
-REQUIREMENT_COMMAND = re.compile(r"(?:^|[\s`'\"(])(?:pip3?|uv\s+pip3?)\b")
+# ``-r`` means different things to different tools: a requirement file for pip
+# and ``uv add``, report characters for pytest, and a recursive search for grep.
+# Only the package managers read a path from it, so require the command to name
+# one. Naming ``uv`` alone is not enough: ``uv run pytest -r a`` passes ``-r``
+# to pytest. ``uv tool install`` does not take ``-r``.
+REQUIREMENT_COMMAND = re.compile(r"(?:^|[\s`'\"(])(?:pip3?|uv\s+pip3?|uv\s+add)\b")
+# ``uv run --with-requirements FILE`` names a file whatever command follows it.
+WITH_REQUIREMENTS = re.compile(r"--with-requirements(?:=|\s+)([^\s`'\"]+)")
+# A line may run several commands; a path belongs to the command that names it.
+# Splitting on shell separators keeps ``pip install -e . && pytest -r a`` from
+# reading pytest's ``-r`` as a requirement file.
+SEGMENT = re.compile(r"\s*(?:&&|\|\||[;|])\s*")
 PYTHON_COMMAND = re.compile(r"(?:^|[\s`'\"(])(?:python3?|uv\s+run)\b")
 MODULE_OPTION = re.compile(r"-m\s+([A-Za-z_][A-Za-z0-9_.]*)")
 PLACEHOLDERS = set("<>{}*?$|")
@@ -155,6 +166,14 @@ DESIGN_STATUS = re.compile(
     r".*?最后更新\s*(\d{4}-\d{2}-\d{2})\s*$"
 )
 DESIGN_NAME = re.compile(r"^a_(?:\d+_[^/]+|global|summary)\.md$")
+
+
+class Heading(NamedTuple):
+    """An RST section heading and the depth RST assigns it."""
+
+    number: int
+    level: int
+    title: str
 
 
 @dataclass
@@ -252,6 +271,23 @@ def exact_exists(root: Path, path: Path) -> bool:
 def has_scheme(target: str) -> bool:
     """Return whether a link target names a URL or another scheme."""
     return bool(SCHEME.match(target) or target.startswith("//"))
+
+
+def path_token(token: str) -> str:
+    """Return a documented path without surrounding punctuation.
+
+    Only the closing punctuation a sentence may put after a path is trimmed,
+    because a leading ``.`` belongs to ``./script``, to ``..``, and to
+    dotfiles. An explicit ``./`` prefix is then dropped so the path stays
+    relative.
+    """
+    trimmed = token.rstrip(TRAILING)
+    if trimmed and not token.endswith(".."):
+        token = trimmed
+    token = token.lstrip("('\"`")
+    while token.startswith("./"):
+        token = token[2:]
+    return token
 
 
 def split_target(target: str) -> tuple[str, str]:
@@ -409,8 +445,8 @@ class Checker:
         A marker on its own comment line hides the next non-blank line, so an
         RST comment can be followed by the required blank line. A marker
         appended to content hides only that line. Every marker must carry an
-        ``until YYYY-MM-DD`` date; an expired marker and an invalid date are
-        errors, and a missing date is a warning.
+        ``until YYYY-MM-DD`` date, so an exception cannot become permanent: a
+        missing date, an invalid date, and an expired date are errors.
         """
         lines = text.splitlines()
         ignored: set[int] = set()
@@ -433,7 +469,7 @@ class Checker:
         """Require an unexpired ``until`` date on every exception marker."""
         match = IGNORE_EXPIRY.search(text)
         if match is None:
-            self.report.warning(
+            self.report.error(
                 path,
                 line,
                 "docs-check exception has no 'until YYYY-MM-DD' date",
@@ -609,17 +645,12 @@ class Checker:
         if language is None:
             return
         lines = text.splitlines()
-        self._section_levels_by_path[path] = self._section_levels(lines)
-        heading: int | None = None
-        for number, line in enumerate(lines):
-            if line.strip() not in VALIDATION_HEADINGS:
-                continue
-            if number + 1 >= len(lines):
-                continue
-            underline = lines[number + 1].strip()
-            if underline and set(underline) <= set("-=") and len(underline) >= 3:
-                heading = number
-                break
+        headings = self._headings(lines)
+        self._section_levels_by_path[path] = [item.level for item in headings]
+        heading = next(
+            (item for item in headings if item.title.strip() in VALIDATION_HEADINGS),
+            None,
+        )
         if heading is None:
             self.report.error(
                 path,
@@ -628,27 +659,21 @@ class Checker:
                 self.root,
             )
             return
-        for number in range(heading + 2, len(lines) - 1):
-            underline = lines[number + 1].strip()
-            if (
-                lines[number]
-                and not lines[number][0].isspace()
-                and underline
-                and set(underline) <= set("-=~")
-                and len(underline) >= 3
-            ):
-                self.report.error(
-                    path,
-                    number + 1,
-                    "Validation Status must be the last section",
-                    self.root,
-                )
-                break
-        rows = self._list_table_rows(lines[heading + 2 :], heading + 3)
+        following = next(
+            (item for item in headings if item.number > heading.number), None
+        )
+        if following is not None:
+            self.report.error(
+                path,
+                following.number,
+                "Validation Status must be the last section",
+                self.root,
+            )
+        rows = self._list_table_rows(lines[heading.number + 1 :], heading.number + 2)
         if len(rows) < 2:
             self.report.error(
                 path,
-                heading + 1,
+                heading.number,
                 "Validation Status section has no list-table with rows",
                 self.root,
             )
@@ -663,7 +688,7 @@ class Checker:
         if status_column is None:
             self.report.error(
                 path,
-                heading + 1,
+                heading.number,
                 "Validation Status table has no Status / 状态 column",
                 self.root,
             )
@@ -671,7 +696,7 @@ class Checker:
         if evidence_column is None:
             self.report.error(
                 path,
-                heading + 1,
+                heading.number,
                 "Validation Status table has no Evidence / 证据 column",
                 self.root,
             )
@@ -707,7 +732,7 @@ class Checker:
                 if base is not None:
                     self._check_evidence_content(path, number, base, evidence)
             collected.append((number, base or status, evidence))
-        self._validation_rows[path] = (heading + 1, collected)
+        self._validation_rows[path] = (heading.number, collected)
 
     def _check_evidence_content(
         self, path: Path, line: int, status: str, evidence: str
@@ -940,32 +965,33 @@ class Checker:
         return rows
 
     @staticmethod
-    def _section_levels(lines: list[str]) -> list[int]:
-        """Return the depth of each RST section, in document order.
+    def _headings(lines: list[str]) -> list[Heading]:
+        """Return the RST section headings of a page, in document order.
 
-        A heading is a prose line followed by an adornment line at least as
-        long as it; table borders either mix adornment characters or follow a
-        blank line, so they are not counted. Depth is the order in which an
-        adornment character first appears, the way RST assigns levels. The
-        characters differ between the two languages, so only the depth
-        sequence is shared; nesting and merged sections change it while a
-        translated page keeps it.
+        This is the only place that decides what a heading is. A heading is a
+        prose line followed by an adornment line: one printable punctuation
+        character repeated at least three times and at least as long as the
+        title. Table borders either mix characters or follow a blank line, and
+        indented lines are content, so neither counts. Depth is the order in
+        which an adornment character first appears, the way RST assigns levels,
+        so the two languages share the depth sequence even though the
+        characters differ.
         """
         order: dict[str, int] = {}
-        levels: list[int] = []
-        for index, line in enumerate(lines[:-1]):
+        headings: list[Heading] = []
+        for index, title in enumerate(lines[:-1]):
             underline = lines[index + 1].strip()
-            if not line or line[0].isspace() or not underline:
+            if not title or title[0].isspace() or not underline:
                 continue
             if len(set(underline)) != 1 or underline[0] not in ADORNMENT:
                 continue
-            if len(underline) < 3 or len(underline) < len(line.rstrip()):
+            if len(underline) < 3 or len(underline) < len(title.rstrip()):
                 continue
             character = underline[0]
             if character not in order:
                 order[character] = len(order) + 1
-            levels.append(order[character])
-        return levels
+            headings.append(Heading(index + 1, order[character], title.rstrip()))
+        return headings
 
     @staticmethod
     def _describe_sections(levels: list[int]) -> str:
@@ -979,32 +1005,38 @@ class Checker:
         cwd = self.root
         external = False
         block = -1
-        carry = False
+        carried = ""
+        first = 0
         for block_id, number, line in self._code_lines(path, text):
             if block_id != block:
                 block = block_id
                 cwd = self.root
                 external = False
-                carry = False
-            # A shell line continued with a backslash belongs to the command
-            # above it, so ``uv pip install \`` followed by ``-r FILE`` keeps
-            # the requirement-file reading.
-            requirements = carry or bool(REQUIREMENT_COMMAND.search(line))
-            carry = requirements and line.rstrip().endswith("\\")
+                carried = ""
             if number in self._ignored:
+                carried = ""
                 continue
+            # A shell command continued with a backslash is one command, so
+            # join the physical lines before reading its options and paths.
+            if not carried:
+                first = number
+            line = f"{carried} {line.strip()}" if carried else line
+            if line.rstrip().endswith("\\"):
+                carried = line.rstrip()[:-1].rstrip()
+                continue
+            carried = ""
             cd = re.match(r"^\s*(?:\$ )?cd\s+([^\s;&|]+)", line)
             if cd:
-                cwd, external = self._apply_cd(path, number, cd.group(1), cwd)
+                cwd, external = self._apply_cd(path, first, cd.group(1), cwd)
             if external:
                 continue
-            self._check_command_text(path, number, line, cwd, requirements)
+            self._check_command_text(path, first, line, cwd)
 
     def _apply_cd(
         self, path: Path, line: int, raw: str, cwd: Path
     ) -> tuple[Path, bool]:
         """Update the working directory for a documented ``cd`` command."""
-        target = raw.strip(TRAILING)
+        target = path_token(raw)
         if (
             not target
             or has_scheme(target)
@@ -1027,6 +1059,17 @@ class Checker:
             return self.root, False
         candidate = (cwd / target).resolve()
         if not candidate.is_relative_to(self.root):
+            # The style guide asks for an absolute ``cd`` when a block shows
+            # another checkout. A relative path cannot be resolved from here,
+            # so say that the rest of the block went unchecked instead of
+            # dropping it silently.
+            self.report.warning(
+                path,
+                line,
+                f"documented cd target {target!r} is outside the checkout; "
+                "later commands in this block were not checked",
+                self.root,
+            )
             return cwd, True
         if candidate.is_dir():
             return candidate, False
@@ -1035,10 +1078,16 @@ class Checker:
         )
         return cwd, True
 
-    def _check_command_text(
-        self, path: Path, line: int, text: str, cwd: Path, requirements: bool
+    def _check_command_text(self, path: Path, line: int, text: str, cwd: Path) -> None:
+        """Check the commands and paths named on one documented line."""
+        for segment in SEGMENT.split(text):
+            if segment.strip():
+                self._check_command_segment(path, line, segment, cwd)
+
+    def _check_command_segment(
+        self, path: Path, line: int, text: str, cwd: Path
     ) -> None:
-        """Check command paths and optional extras named on one line."""
+        """Check one command, so an option is read by the command owning it."""
         for match in PIP_EXTRA.finditer(text):
             extras = match.group(1) or match.group(2) or ""
             self._check_extras(path, line, extras)
@@ -1046,11 +1095,13 @@ class Checker:
             self._check_extras(path, line, match.group(1))
         for match in RUN_EXTRA.finditer(text):
             self._check_extras(path, line, match.group(1))
-        if requirements:
+        if REQUIREMENT_COMMAND.search(text):
             for match in REQUIREMENT_OPTION.finditer(text):
                 self._check_command_path(
                     path, line, match.group(1) or match.group(2), cwd
                 )
+        for match in WITH_REQUIREMENTS.finditer(text):
+            self._check_command_path(path, line, match.group(1), cwd)
         if PYTHON_COMMAND.search(text):
             for match in MODULE_OPTION.finditer(text):
                 self._check_module(path, line, match.group(1))
@@ -1070,13 +1121,7 @@ class Checker:
             for match in INLINE_CODE.finditer(line):
                 span = match.group(2).strip()
                 if span:
-                    self._check_command_text(
-                        path,
-                        number,
-                        span,
-                        self.root,
-                        bool(REQUIREMENT_COMMAND.search(span)),
-                    )
+                    self._check_command_text(path, number, span, self.root)
 
     def _code_lines(self, path: Path, text: str) -> list[tuple[int, int, str]]:
         """Return ``(block, line number, line)`` for code and literal blocks."""
@@ -1135,7 +1180,7 @@ class Checker:
     def _check_python_arguments(
         self, path: Path, line: int, arguments: str, cwd: Path
     ) -> None:
-        tokens = [token.strip(TRAILING) for token in arguments.split()]
+        tokens = [path_token(token) for token in arguments.split()]
         for token in tokens:
             if token == "-m":
                 return
@@ -1148,7 +1193,7 @@ class Checker:
     def _check_command_arguments(
         self, path: Path, line: int, command: str, arguments: str, cwd: Path
     ) -> None:
-        tokens = [token.strip(TRAILING) for token in arguments.split()]
+        tokens = [path_token(token) for token in arguments.split()]
         # sphinx-build takes a source tree followed by a generated output
         # directory; only the source tree must exist in the checkout.
         limit = 1 if command == "sphinx-build" else len(tokens)
@@ -1175,7 +1220,7 @@ class Checker:
         return token.split("::", 1)[0]
 
     def _check_command_path(self, path: Path, line: int, token: str, cwd: Path) -> None:
-        token = self._without_selector(token.strip(TRAILING))
+        token = self._without_selector(path_token(token))
         if not token or has_scheme(token) or token.startswith(("/", "~", "$", "@")):
             return
         if PLACEHOLDERS.intersection(token) or "..." in token:

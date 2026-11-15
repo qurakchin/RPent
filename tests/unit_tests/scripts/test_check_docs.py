@@ -502,6 +502,123 @@ def test_flags_for_other_tools_are_not_requirement_files(tmp_path: Path) -> None
     assert result.returncode == 0, result.stdout
 
 
+def test_commands_chained_on_one_line_are_read_separately(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n.. code-block:: bash\n\n"
+        "   pip install -e . && pytest -r a\n"
+        "   pip install -r missing.txt && pytest -r a\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'missing.txt' does not exist" in result.stdout
+    assert "documented path 'a' does not exist" not in result.stdout
+
+
+def test_a_continued_command_is_read_as_one_line(tmp_path: Path) -> None:
+    write(tmp_path, "requirements.txt")
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n.. code-block:: bash\n\n"
+        "   pip install -r \\\n"
+        "     requirements.txt\n"
+        "   pip install -r \\\n"
+        "     missing.txt\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'missing.txt' does not exist" in result.stdout
+    assert result.stdout.count("does not exist") == 1
+
+
+def test_uv_add_reads_a_requirements_file(tmp_path: Path) -> None:
+    write(tmp_path, "config/requirements.txt")
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n.. code-block:: bash\n\n"
+        "   uv add -r config/requirements.txt\n"
+        "   uv add -r missing.txt\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'missing.txt' does not exist" in result.stdout
+    assert "'config/requirements.txt'" not in result.stdout
+
+
+def test_with_requirements_names_a_file(tmp_path: Path) -> None:
+    write(tmp_path, "requirements.txt")
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n.. code-block:: bash\n\n"
+        "   uv run --with-requirements requirements.txt pytest -r a\n"
+        "   uv run --with-requirements missing.txt pytest\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'missing.txt' does not exist" in result.stdout
+    assert "'requirements.txt'" not in result.stdout
+
+
+def test_a_leading_dot_slash_is_a_relative_path(tmp_path: Path) -> None:
+    write(tmp_path, "docs/.keep")
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n.. code-block:: bash\n\n   cd ./docs\n   bash ./missing.sh\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'missing.sh' does not exist" in result.stdout
+
+
+def test_a_parent_cd_stays_relative(tmp_path: Path) -> None:
+    write(tmp_path, "docs/.keep")
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n.. code-block:: bash\n\n"
+        "   cd docs\n"
+        "   cd ..\n"
+        "   bash missing.sh\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "documented path 'missing.sh' does not exist" in result.stdout
+    assert "outside the checkout" not in result.stdout
+
+
+def test_a_relative_cd_outside_the_checkout_is_reported(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/page.rst",
+        "Demo\n====\n\n.. code-block:: bash\n\n"
+        "   cd ../elsewhere\n"
+        "   bash missing.sh\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+    assert "'../elsewhere' is outside the checkout" in result.stdout
+    assert "missing.sh" not in result.stdout
+
+
 def test_requirement_files_are_checked_for_pip_and_uv(tmp_path: Path) -> None:
     write(tmp_path, "config/requirements.txt")
     write(
@@ -548,6 +665,52 @@ def test_a_path_repeated_on_one_line_is_reported_once(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert result.stdout.count("documented path 'missing.sh' does not exist") == 1
+
+
+def test_a_caret_adornment_marks_the_validation_section(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/caret.rst",
+        validation_page().replace(
+            "Validation Status\n-----------------",
+            "Validation Status\n^^^^^^^^^^^^^^^^^",
+        ),
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout
+
+
+def test_a_section_after_the_validation_table_is_an_error_with_any_adornment(
+    tmp_path: Path,
+) -> None:
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/trailing-caret.rst",
+        validation_page() + "\nExtra\n^^^^^\n\nMore.\n",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "Validation Status must be the last section" in result.stdout
+
+
+def test_an_underline_that_mixes_characters_is_not_a_heading(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "docs/source-en/rst_source/simulators/mixed.rst",
+        validation_page().replace(
+            "Validation Status\n-----------------",
+            "Validation Status\n------==========",
+        ),
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "missing Validation Status / 验证状态 section" in result.stdout
 
 
 def test_paired_pages_must_agree_on_section_structure(tmp_path: Path) -> None:
@@ -873,7 +1036,7 @@ def test_ignore_marker_requires_an_expiry_date(tmp_path: Path) -> None:
 
     result = run(tmp_path)
 
-    assert result.returncode == 0, result.stdout
+    assert result.returncode == 1
     assert "docs-check exception has no 'until YYYY-MM-DD' date" in result.stdout
 
 

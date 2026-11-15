@@ -299,7 +299,9 @@ simulator version, while keeping the CLI identifier `robocasa` unchanged.
   directory. To show an installer or script owned by another checkout, such as
   RLinf's `requirements/install.sh`, start the block with an absolute
   `cd /path/to/<project>`; `docs-check` treats the rest of the block as
-  external and does not resolve its paths.
+  external and does not resolve its paths. A relative `cd` that leaves the
+  checkout is reported as a warning, so a block meant for another checkout
+  must use the absolute form.
 - Teaching examples use placeholders: `<robot>`, `/path/to/...`, or `$VAR`.
   `docs-check` skips tokens that contain placeholder characters or `...`, so an
   example that names a concrete path must point at a real repository path.
@@ -430,7 +432,7 @@ ratios and percentages in paired rows and reports a difference. Keep the counts
 in prose, because the comparison skips backticked spans, dates, and URLs. Only a
 deliberately different number needs a dated `docs-check` exception: add an
 ignore marker with an `until` date and the reason to the evidence cell. Every
-marker must name its expiry date; an expired marker is an error.
+marker must name its expiry date; a missing or expired date is an error.
 
 ## Verify before handing off
 
@@ -452,10 +454,12 @@ simulator and robot pages, the repository paths, modules, `cd` targets, and
 optional dependencies named by documented commands, and the section structure,
 status sequence, and result numbers of the paired English and Chinese pages.
 Each argument is read in the role its command gives it: `-r` is a requirement
-file only where the command is `pip`, and a trailing `::node` pytest selector
-is not part of the file path. The `docs-check` pre-commit hook checks only the
-changed pages and fails on a broken reference; a second hook rechecks the whole
-tree when `scripts/check_docs.py` changes.
+file only for the package managers that read one (`pip`, `uv pip`, `uv add`),
+a trailing `::node` pytest selector is not part of the file path, and a line
+that chains commands with `&&`, `;`, or `|` is read as separate commands. The
+`docs-check` pre-commit hook checks only the changed pages and fails on a
+broken reference; a second hook rechecks the whole tree when
+`scripts/check_docs.py` changes.
 Design documents skip command checks because they name modules and paths that
 do not exist yet. RST directives, `:doc:`, `:ref:`, and other RST references are
 left to Sphinx: the `Docs` workflow builds both trees with `-W --keep-going`,
