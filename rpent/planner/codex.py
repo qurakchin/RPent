@@ -57,6 +57,7 @@ from rpent.planner.base import (
     strip_mcp_prefix,
 )
 from rpent.planner.utils.http_mcp_server import HttpMcpServer
+from rpent.prompt.assembly import prefix_system_prompt
 from rpent.session.codex_capture import finalize_codex_capture
 from rpent.tools.toolkit import Toolkit
 from rpent.utils.config import get_repo_root
@@ -154,7 +155,7 @@ class CodexPlanner(Planner):
             if capture_state is not None and capture_state.get_task() is not None
             else None
         )
-        prompt = f"{system_prompt}\n\n{user_message}" if system_prompt else user_message
+        prompt = prefix_system_prompt(system_prompt, user_message)
         result: PlannerResult | None = None
         terminal_cleanup: threading.Event | None = None
         try:

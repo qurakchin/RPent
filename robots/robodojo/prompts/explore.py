@@ -20,7 +20,7 @@ from collections.abc import Mapping
 
 from robots.robodojo.prompts import evaluate as base
 from robots.robodojo.prompts.policy import POLICY_PROMPTS
-from rpent.prompt.utils import PromptNode
+from rpent.prompt.assembly import PromptSection, sections
 from rpent.utils.templates import substitute
 
 GOAL = """Solve the current task at its fixed seed and layout, then produce
@@ -32,29 +32,25 @@ READ_ORDER = """Before the first robot action:
 1. Read robots/robodojo/guides/GUIDE_RPENT.md completely.
 2. Inspect view_env_state and the head and wrist images. Read the native task
    instruction and note both arms' initial end-effector positions and orientations.
-3. Read {{memory_dir}}/MEMORY.md when present and relevant task-family notes.
-   Consult matching global lessons and successful task-specific JSON/JSONL pairs.
+3. Read the published task-specific JSON/JSONL pair and task-family notes when
+   present, plus relevant global lessons from {{memory_dir}}/MEMORY.md.
 4. Read {{memory_inbox}}/wip/notes.md when present.
 
-Current instructions and observations override memory. Use a successful JSON
-audit for its phase plan and reasoning, and its JSONL recipe for action order,
-parameters and {{policy_name}} cadence. Transfer supported phase order, observable gates,
-controller division and recovery ideas. Preserve arm roles required by the
-current instruction; reconsider roles chosen only for a previous layout.
-Rebind object identities, destinations, pixels, poses, heights, clearances and
-grasp offsets from this scene. If memory is absent, proceed from observation."""
+Use a successful JSON audit for its phase plan and reasoning, and its JSONL
+recipe for action order, parameters and {{policy_name}} cadence. Preserve arm
+roles required by the current instruction; reconsider roles chosen only for a
+previous layout. If memory is absent, proceed from observation."""
 
 RULES = """This session allows {{explore_attempts_per_session}} attempts including the
 initial episode (0 means no attempt-count limit; other run limits still apply).
 
-Prefer in-place recovery when possible. reset restores the same task, seed
-group and layout. Re-run perception and do not reuse stale pixels or coordinates.
-Before each reset or unsolved finish, save the attempt number, actual commands,
-observed progress, failure evidence and next changed strategy variable under
+reset restores the same task, seed group and layout. Re-run perception and do
+not reuse stale pixels or coordinates. Before each reset or unsolved finish,
+save the attempt number, actual commands, observed progress, failure evidence
+and next changed strategy variable under
 {{output_dir}}/attempts/attempt_<N>_failed.json. Never overwrite an earlier
 attempt. Append bounded observations to {{memory_inbox}}/wip/notes.md.
-{{retry_strategy}} Do not infer that a task is
-impossible from one unsuccessful approach; record unknown causes as unknown.
+{{retry_strategy}}
 An unsolved finish is refused while a finite attempt budget remains. After
 native success, stop motion; reset is refused. Use the remaining turns to
 record what worked and the uncertainties before calling finish."""
@@ -72,8 +68,7 @@ call with actual parameters, trace step, phase, observed result and the reason
 for any {{policy_name}}/primitive switch. Do not invent, omit or reorder calls.
 The runner exports {{recipe_tag}}_recipe.jsonl from recorded motion commands
 and SAM3 calls that found a mask without an error, in invocation order.
-Finding a mask does not establish correct identity. Historical pixels, steps
-and coordinates are evidence, not targets to replay on a new layout.
+Finding a mask does not establish correct identity.
 The audit/recipe pair is published only when native success is confirmed."""
 
 MEMORY = """Only after success, consolidate working notes and the successful
@@ -96,52 +91,34 @@ compact reference that helps evaluation adapt the strategy to a new scene:
 - Recovery and limits: failure evidence, changes tried, what subsequently
   worked, unresolved causes and situations where the strategy may not apply.
 
-Separate observed outcomes from explanations. A successful retry does not prove
-which change caused improvement. Do not invent causes or parameter ranges.
 Keep scene coordinates in the audit, not reusable guidance. One seed/layout
 supports single-shot confidence, even after several attempts; it does not
 establish robustness across scenes. Use the recorded evidence after success,
 not additional robot motion, to prepare memory.
-Task-family frontmatter must be valid YAML delimited by --- lines:
----
-scope: task-family
-suite: robodojo
-regime: {{env_cfg_type}}
-task_id: {{task}}
-task_language: >-
-  <observed native instruction>
-evidence:
-  cells: [{{recipe_tag}}]
-  attempts: <number of attempts>
-confidence: single-shot
----
+Use the shared task-family frontmatter with a bare `id`, `suite: robodojo`,
+`regime: {{env_cfg_type}}`, `task_id: {{task}}`, the observed native
+instruction, `evidence.cells: [{{recipe_tag}}]`, and the attempt count.
 
 When evidence supports a cross-task lesson, write a separate
-{{memory_inbox}}/new_global_<lesson-id>.md. Use scope: global, a bare descriptive
-id, title, applies_when, kind (one of primitive, perception, strategy, failure,
-infra), and the same evidence and confidence fields. State the observation,
-how to apply it, its limits and what would falsify it. A single layout warrants
-single-shot confidence only. Read existing relevant leaves before proposing
-a lesson; avoid duplicates and record contradicting evidence explicitly.
-If no new global lesson is supported, say so rather than inventing one.
+{{memory_inbox}}/<bare-id>.md in the shared global shape, with its limits and
+what would falsify it. A single layout warrants single-shot confidence only.
+Read existing relevant leaves before proposing a lesson, and use the shared
+proposal contract for corroboration or contradiction. If no new global lesson
+is supported, say so rather than inventing one.
 
-During failed attempts, write lessons only in wip/. Never write directly to
-published memory. The shared finalizer merges valid inbox proposals and updates
-MEMORY.md after the run; do not claim publication before it completes."""
+During failed attempts, write lessons only in wip/. The shared finalizer merges
+valid inbox proposals and updates MEMORY.md after the run; do not claim
+publication before it completes."""
 
 
 def system_prompt(
     variables: Mapping[str, object] | None = None,
-) -> PromptNode:
+) -> tuple[PromptSection, ...]:
     """Assemble exploration rules with shared perception and control guidance."""
-    sections = {
+    prompt = {
         "ROLE AND RULES": base.ROLE_AND_RULES,
         "EXPLORATION GOAL": GOAL,
         "READ ORDER AND MEMORY TRANSFER": READ_ORDER,
-        "TOOL ACCESS": base.TOOL_ACCESS,
-        "PERCEPTION": base.PERCEPTION,
-        "AVAILABLE OPERATIONS": base.TOOLS,
-        "VLA AND PRIMITIVE CONTROL": base.CONTROL,
         "PHASE CHECKS AND COMPLETION": base.PHASE_CHECKS,
         "SAFETY": base.SAFETY,
         "REWARD AND SCORE": base.REWARD,
@@ -150,4 +127,4 @@ def system_prompt(
         "MEMORY CONSOLIDATION": MEMORY,
     }
     backend = (variables or {}).get("vla_backend") or "vpp2"
-    return substitute(sections, POLICY_PROMPTS[backend])
+    return sections(__file__, substitute(prompt, POLICY_PROMPTS[backend]))

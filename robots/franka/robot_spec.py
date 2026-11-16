@@ -23,7 +23,11 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from robots.franka.prompt_bundle import system_prompt, user_prompt
+from robots.franka.prompt_bundle import (
+    system_prompt,
+    tool_sections,
+    user_prompt,
+)
 from robots.franka.runtime_config import (
     set_robot_config_path,
     validate_calibration_sources,
@@ -81,7 +85,12 @@ def get_robot_spec() -> RobotSpec:
     return RobotSpec(
         name="franka",
         run_flash=replay_card,
-        prompts=PromptBundle(system=system_prompt, user=user_prompt),
+        prompts=PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            tool_sections=tool_sections,
+            source="robots/franka/prompts",
+        ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,
         init_runtime=_init_runtime,
@@ -129,8 +138,10 @@ def _parse_config(args: argparse.Namespace) -> RunConfig:
     select_am(args, "franka")
     set_robot_config_path(args.robot_config)
     # Fail fast before servers/planner start when easy_handeye YAMLs are
-    # missing (e.g. the calibration has not been run on this machine).
-    validate_calibration_sources()
+    # missing (e.g. the calibration has not been run on this machine). A prompt
+    # dump never touches perception, so it does not require calibration.
+    if not getattr(args, "dump_prompt", False):
+        validate_calibration_sources()
     if args.task_id is None:
         raise ValueError("--task-id is required")
     from robots.franka.flash.replay import prepare
@@ -145,6 +156,11 @@ def _parse_config(args: argparse.Namespace) -> RunConfig:
     constraints = "\n".join(
         f"{index}. {constraint}" for index, constraint in enumerate(task.constraints, 1)
     )
+    memory_dir = (
+        Path(args.memory_dir).expanduser().resolve()
+        if getattr(args, "memory_dir", None)
+        else get_memory_dir("franka")
+    )
     return RunConfig(
         recipe_tag=f"franka_t{args.task_id}",
         output_dir=output_dir,
@@ -153,6 +169,7 @@ def _parse_config(args: argparse.Namespace) -> RunConfig:
             "instruction": task.instruction,
             "success_criteria": task.success_criteria,
             "constraints": constraints,
+            "memory_dir": str(memory_dir),
         },
         task_desc={"task_id": args.task_id, "task_name": task.name},
     )

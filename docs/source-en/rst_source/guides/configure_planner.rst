@@ -44,6 +44,50 @@ loop is orchestrated, and which model SDK is used.
      - You want to re-run a known-good plan on new layouts, without online
        LLM planning. Perception and VLA services are still required.
 
+Inspect the Prompt
+------------------
+
+Every session writes the exact model input to its state directory — the output
+directory for evaluation runs, or ``sessions/session_NNN/`` for exploration
+sessions. ``effective_prompt.md`` contains the rendered system prompt and user
+message, and ``prompt_sources.json`` records the robot, planner, run axes,
+section names, sources, and SHA-256 digests of the assembled prompt and the
+opening user message. The transcript stores ``prompt_sha256`` for the run's
+first session; later exploration sessions keep their own artifacts under
+``sessions/session_NNN/``. ``prompt_sha256`` covers the assembled system and
+user messages, while ``user_message_sha256`` covers the exact opening message
+for that session, which can differ after a handoff or an operator edit.
+``prompt_sources.json`` records how the planner receives the two roles, and for
+``codex`` — which prepends the system prompt to the first user message —
+``effective_prompt.md`` also contains that prefixed single message and
+``prompt_sources.json`` records its ``delivered_sha256``. ``api`` and
+``claude_code`` keep the roles separate, and ``flash`` does not receive the
+prompt. SDK-managed planners may still add their own context, so these
+artifacts cover RPent's contribution, not the model's complete final context.
+
+Add ``--dump-prompt`` to any robot command to render the prompt, print it, and
+exit without starting simulators or models. The dump runs before the run's
+memory preparation, so it neither creates nor syncs memory, bypasses the
+operator TTY gates of real-robot commands, and writes no run artifacts; RPent
+warns on stderr when the memory sections are absent, and a run's own
+``effective_prompt.md`` is authoritative for what the model received. The dump
+cannot be combined with ``--dashboard``, which assembles prompts per claimed
+task in its own session loop, or with ``--tui``, whose operator can edit the
+first message after assembly:
+
+.. code-block:: bash
+
+   rpent --robot libero --suite libero_object_task --task 0 \
+     --output-dir /tmp/libero-prompt --dump-prompt
+
+The assembly order is fixed: base rules, the run-axis contracts, tool guidance,
+the robot's domain prompt, and the memory guidance this run can use. The reading
+protocol requires an existing corpus; exploration also receives the proposal
+contract. Each section in ``prompt_sources.json`` names the module that owns its
+text. The file also records how the selected planner receives the two roles;
+``api`` and ``claude_code`` keep them separate, while ``codex`` prefixes the
+system prompt to the first user message.
+
 .. _planner-direct-actions:
 
 Direct actions
