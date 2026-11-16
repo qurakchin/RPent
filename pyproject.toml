@@ -54,6 +54,7 @@ dependencies = [
 
 [project.scripts]
 rpent = "rpent.cli.main:main"
+rpent-install = "rpent.cli.install:main"
 rpent-memory = "rpent.cli.memory:main"
 rpent-check-llm = "rpent.cli.check_llm:main"
 rpent-flywheel = "rpent.flywheel.cli:main"
@@ -265,15 +266,13 @@ nvidia-curobo = ["torch==2.8.0"]
 [tool.setuptools]
 include-package-data = true
 
-[tool.setuptools.packages.find]
-where = ["."]
-# robots is a top-level package; without it, non-editable installations
-# leave the CLI unable to import any backend. The globs also cover every
-# per-robot subpackage (robots.yam.*, robots.robodojo.*, ...).
-include = ["rpent*", "robots", "robots.*"]
-exclude = ["tests*", "docs*", "examples*", "docker*", "toolkits*"]
+# Package discovery lives in setup.py so an editable or source install keeps
+# robots/ while the published core wheel can be restricted to rpent/.
 
 [tool.setuptools.package-data]
+# Component manifests are runtime data: discovery reads each component's
+# component.toml from the package that ships it.
+"*" = ["component.toml"]
 "robots.robodojo" = ["guides/*.md"]
 "rpent.dashboard" = ["*.html", "static/*.css", "static/*.js"]
 "robots.yam" = ["config/*.yaml", "config/*.json", "guides/*.md"]
