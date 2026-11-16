@@ -42,7 +42,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 #: changes meaning or the repository layout moves the files the inputs name, not
 #: merely when one is added: ``doctor`` uses it to tell an installation recorded
 #: by an older input mode from one whose inputs drifted.
-REQUIREMENTS_SCHEMA = 3
+REQUIREMENTS_SCHEMA = 4
 
 #: ``[tool.uv]`` entries that do not change an installation's contents.
 #: ``conflicts`` only constrains extra combinations in the generated
@@ -282,6 +282,9 @@ def requirements_inputs(
             "name": profile.name,
             "python": profile.python,
             "platform": profile.platform,
+            # The glibc baseline decides which wheel tags uv may select, so two
+            # installations that differ only here are different environments.
+            "manylinux": profile.manylinux,
             "components": components,
             "dependencies": sorted(profile.dependencies),
             "index_url": profile.index_url,

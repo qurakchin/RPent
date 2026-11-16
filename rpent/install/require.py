@@ -40,17 +40,33 @@ def _install_hint(component: str) -> str:
     if fingerprint is None:
         return (
             f"install the environment that provides component {component!r}: "
-            f"run `rpent-install list` and install the profile that includes it"
+            f"run `rpent-install list`, install a profile that includes it, or "
+            f"run `rpent-install install {component}` for a development environment"
         )
     profile = fingerprint.get("profile")
     installed = profile or fingerprint.get("component")
     placement = fingerprint.get("components", {}).get(component)
     if placement is None:
+        profiles = fingerprint.get("component_profiles", {}).get(component, [])
         if profile is None:
+            if profiles:
+                return (
+                    f"this environment was installed for component {installed!r}; "
+                    f"install one of the profiles that includes {component!r}: "
+                    f"{', '.join(profiles)}, or run `rpent-install install "
+                    f"{component}` for a development environment"
+                )
             return (
                 f"this environment was installed for component {installed!r}; "
                 f"install a profile that includes {component!r}, or run "
                 f"`rpent-install install {component}` for a development environment"
+            )
+        if profiles:
+            return (
+                f"component {component!r} is not part of profile {profile!r}; "
+                f"install one of the profiles that includes it: "
+                f"{', '.join(profiles)}, or use `rpent-install install "
+                f"{component}` for a development environment"
             )
         return (
             f"component {component!r} is not part of profile {profile!r}; "

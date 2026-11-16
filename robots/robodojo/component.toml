@@ -13,8 +13,8 @@ overrides = ["requirements/robodojo-override.txt"]
 docs = "docs/source-en/rst_source/simulators/robodojo.rst"
 
 dependencies = [
-  "rlinf @ git+https://github.com/littleZ05/RLinf.git@rpent/robodojo",
-  "rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@rpent",
+  "rlinf @ git+https://github.com/littleZ05/RLinf.git@91e0c6e361eff9371e2423a4183602481ae95ee5",
+  "rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@6d76a0c4a49a7a47bf5ee3924de2ccd7ecb8a8b7",
   # datasets 5 requires PyArrow >=21; PyArrow 26 needs NumPy >=2,
   # incompatible with RoboDojo's NumPy 1 simulator stack.
   "pyarrow>=21.0.0,<26.0.0",

@@ -178,6 +178,29 @@ def _profiles_placing(catalog: Catalog, component_name: str) -> list[str]:
     )
 
 
+def _component_profiles(catalog: Catalog) -> dict[str, list[str]]:
+    """Return component -> profiles whose resolution closure contains it.
+
+    ``require()`` reads this reverse index from the installation fingerprint,
+    so a missing optional dependency can name the profile that provides it
+    without reading the checkout's manifests at the point of failure. A
+    profile that does not resolve is a configuration error reported by
+    ``rpent-install check``; leaving it out keeps the index usable.
+    """
+    mapping: dict[str, list[str]] = {name: [] for name in catalog.components}
+    for profile_name, profile in sorted(catalog.profiles.items()):
+        resolution = resolve(profile, catalog)
+        if not resolution.ok:
+            continue
+        for name in resolution.components:
+            mapping.setdefault(name, []).append(profile_name)
+    return {
+        name: sorted(set(profiles))
+        for name, profiles in sorted(mapping.items())
+        if profiles
+    }
+
+
 def component_profile(
     component_name: str,
     catalog: Catalog,
@@ -237,6 +260,7 @@ def component_profile(
         dependencies=(),
         index_url=None,
         extra_index_urls=(),
+        index_strategy=None,
         lock=None,
         core=True,
         generate_extra=False,
@@ -441,6 +465,11 @@ def install(
             }
             for name, resolved in sorted(resolution.components.items())
         },
+        # A reverse index for require(): the profiles that would install a
+        # component the current environment does not contain. Computing it
+        # here costs one catalog resolution per profile instead of every
+        # failed import reading manifests.
+        "component_profiles": _component_profiles(catalog),
         "requirements_sha256": requirements_sha256(
             resolution,
             root=repo_root,
@@ -477,6 +506,8 @@ def index_options(profile: Profile) -> list[str]:
         options.extend(["--index-url", profile.index_url])
     for url in profile.extra_index_urls:
         options.extend(["--extra-index-url", url])
+    if profile.index_strategy:
+        options.extend(["--index-strategy", profile.index_strategy])
     return options
 
 

@@ -84,14 +84,19 @@ jobs:
           hosted = set(load("HOSTED"))
           gpu = set(load("GPU"))
           suites = {"libero", "robocasa", "robotwin"}
+          # A core change keeps `full` for nightly and release runs, but a PR
+          # installs only the pilot profiles. The install-instance paths keep
+          # the full set, so an installer or profile change still proves every
+          # environment.
+          selected = scope.get("pr_profiles", scope["profiles"])
           if scope["full"]:
-              e2e = sorted(suites)
+              e2e = sorted(suites) if set(selected) == set(scope["profiles"]) else []
           else:
               e2e = sorted(suites & set(scope["components"]))
           values = {
               "tests": scope["tests"],
-              "hosted": [p for p in scope["profiles"] if p in hosted],
-              "gpu": [p for p in scope["profiles"] if p in gpu],
+              "hosted": [p for p in selected if p in hosted],
+              "gpu": [p for p in selected if p in gpu],
               "e2e": e2e,
               "toolkit": scope["full"] or "geometry" in scope["components"],
               "docs": scope["docs"],
@@ -99,7 +104,7 @@ jobs:
               # closure from the lock, which `full ci` does.
               "needs_full": bool(scope["components"]),
               "package": any(
-                  path in {"pyproject.toml", "uv.lock", "MANIFEST.in"}
+                  path in {"pyproject.toml", "uv.lock", "setup.py", "MANIFEST.in"}
                   for path in changed
               ),
           }

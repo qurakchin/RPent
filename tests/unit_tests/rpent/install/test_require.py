@@ -82,6 +82,23 @@ def test_component_outside_profile_points_to_a_development_install(monkeypatch):
     assert "is not part of profile 'alpha'" in str(error.value)
 
 
+def test_missing_component_names_the_profiles_that_include_it(monkeypatch):
+    fingerprint = {
+        "profile": "minimal",
+        "components": {},
+        "component_profiles": {"sam3": ["dev", "libero-pro", "sam3-server"]},
+    }
+    monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
+    monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
+
+    with pytest.raises(components.MissingComponentError) as error:
+        components.require("sam3", "definitely_missing_rpent_module")
+
+    message = str(error.value)
+    assert "is not part of profile 'minimal'" in message
+    assert "dev, libero-pro, sam3-server" in message
+
+
 def test_component_diagnostic_repairs_the_component(monkeypatch):
     # A component install records ``profile: null``; the hint must not tell the
     # user to rerun `rpent-install install None`.

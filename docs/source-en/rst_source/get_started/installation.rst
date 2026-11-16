@@ -51,16 +51,17 @@ Bootstrap it without installing RPent first:
      python -m rpent.cli.install install libero-pro --venv .venv-libero-pro
    source .venv-libero-pro/bin/activate
 
-``rpent-install`` runs from a checkout. The wheel contains the core packages and
-the component packages together with their ``component.toml`` manifests, but
-``installs/profiles/`` ships only with the repository: a non-editable ``pip install rpent``
-provides ``rpent`` and the component code, and ``rpent-install`` reports that it
-cannot find profiles.
+``rpent-install`` runs from a checkout. The wheel published to PyPI contains
+only the core ``rpent`` package; ``robots/``, ``components/`` with their
+``component.toml`` manifests, and ``installs/profiles/`` ship only with the
+source checkout and sdist. A non-editable ``pip install rpent`` provides the
+CLI; run a specific robot, model service, or toolkit from a source checkout,
+where ``rpent-install`` can find the profiles.
 
 Each profile gets its own virtual environment. Profiles pin different
 simulator, robot, and model runtimes, so an environment already installed for
 another profile is refused; install it under a different ``--venv``. Without
-``--venv``, a profile installs into ``.rpent/vinstalls/profiles/<profile>`` under the
+``--venv``, a profile installs into ``.rpent/venvs/<profile>`` under the
 checkout; ``.rpent/`` is local state and is ignored by git, so later
 ``install`` and ``doctor`` runs find the same environment. A profile with
 ``core = false`` (for example ``molmo-server``) skips the editable RPent
@@ -185,14 +186,14 @@ component can be installed for development with
 it used, and ``doctor`` rebuilds that diagnostic profile with the recorded
 interpreter rather than the one running the check. ``inspect`` prints the
 fingerprint and its hash. ``lock`` compiles ``installs/locks/<profile>.lock``
-with ``uv pip compile``; ``--check`` recompiles and fails when the result
-differs from the committed lock, which also happens whenever an upstream
-package publishes a new version, so it is a release-time check rather than a
-nightly one. The ``Release install check`` workflow recompiles every profile
-on manual dispatch, hosted profiles on ``ubuntu-latest`` and GPU profiles on
-the embodied runner; it gates a release, not a pull request. ``install`` and
-``check`` verify the cheaper invariant before installing: every direct
-requirement is still covered by the lock, its pin still satisfies the
+with ``uv pip compile`` and records the upstream cutoff as an
+``# exclude_newer`` header. ``--check`` recompiles at that recorded instant and
+fails when the result differs from the committed lock, so it reports changed
+manifests or a different resolver rather than packages released since. The
+publish workflow calls Full CI with ``full: true``, whose lock job recompiles
+every profile on the embodied runner; it gates a release, not a pull request.
+``install`` and ``check`` verify the cheaper invariant before installing: every
+direct requirement is still covered by the lock, its pin still satisfies the
 manifest, and the lock satisfies every component override. Linux locks
 target the ``manylinux_2_31`` baseline by default (glibc 2.31, Ubuntu 20.04 or
 newer), because current GPU wheels are not published for older baselines. A
@@ -202,7 +203,8 @@ reports a profile that cannot resolve on the current host and continues with
 the rest; the ``robotwin-sim`` lock needs a Linux host with ``CUDA_HOME`` set
 because cuRobo builds metadata during resolution. Regenerate locks with a
 current ``uv``: an older release can resolve different versions for the same
-inputs, so its output disagrees with the committed lock.
+inputs, so its output disagrees with the committed lock. The release job pins
+the ``uv`` version that generated the locks; bump it in the same relock change.
 
 Run artifacts record the active profile, fingerprint hash, source commit, and
 component names in ``run.json``.

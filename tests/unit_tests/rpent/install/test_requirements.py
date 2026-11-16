@@ -129,7 +129,26 @@ def test_requirements_hash_tracks_manifests_and_options(
     assert inputs["schema"] == REQUIREMENTS_SCHEMA
     assert inputs["profile"]["components"]["alpha"]["variant"] == "pro"
     assert inputs["profile"]["components"]["molmo"]["env"] == "molmo"
+    assert inputs["profile"]["manylinux"] == "2_31"
     assert inputs["core_dependencies"] == ["packaging"]
+
+
+def test_requirements_hash_tracks_the_manylinux_baseline(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    robot = make_component("alpha")
+    catalog = make_catalog([robot])
+    default = resolve(make_profile("alpha", {"alpha": Selection()}), catalog)
+    raised = resolve(
+        make_profile("alpha", {"alpha": Selection()}, manylinux="2_35"), catalog
+    )
+
+    # The baseline decides which wheel tags uv may select, so it is an input
+    # even though it does not appear in the rendered requirements.
+    assert requirements_sha256(default, root=tmp_path) != requirements_sha256(
+        raised, root=tmp_path
+    )
+    assert requirements_inputs(raised, root=tmp_path)["profile"]["manylinux"] == "2_35"
 
 
 def test_requirements_inputs_record_deps_environment_membership(

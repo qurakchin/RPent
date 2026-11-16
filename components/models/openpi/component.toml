@@ -11,5 +11,5 @@ placement = ["in-env", "external-env"]
 docs = "docs/source-en/rst_source/development/add_action_model.rst"
 
 dependencies = [
-  "rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent",
+  "rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0",
 ]

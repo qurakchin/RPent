@@ -179,6 +179,80 @@ def test_component_rejects_invalid_placements(write_toml, placement, message):
         load_component(path)
 
 
+def test_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
+    branch = write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "robots.alpha"
+        dependencies = ["pkg @ git+https://github.com/example/pkg.git@main"]
+        """,
+    )
+    commit = write_toml(
+        "robots/beta/component.toml",
+        """
+        schema = 1
+        name = "beta"
+        kind = "robot"
+        probe = "robots.beta"
+        dependencies = [
+          "pkg @ git+https://github.com/example/pkg.git@0123456789abcdef0123456789abcdef01234567",
+        ]
+        """,
+    )
+    tag = write_toml(
+        "robots/gamma/component.toml",
+        """
+        schema = 1
+        name = "gamma"
+        kind = "robot"
+        probe = "robots.gamma"
+        dependencies = ["pkg @ git+https://github.com/example/pkg.git@v1.2.3"]
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="pins git ref 'main'"):
+        load_component(branch)
+    assert load_component(commit).dependencies[0].endswith("01234567")
+    assert load_component(tag).dependencies == (
+        "pkg @ git+https://github.com/example/pkg.git@v1.2.3",
+    )
+
+
+def test_profile_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
+    path = write_toml(
+        "installs/profiles/alpha.toml",
+        """
+        schema = 1
+        name = "alpha"
+        python = "3.11"
+        platform = "linux-x86_64"
+        dependencies = ["pkg @ git+https://github.com/example/pkg.git@main"]
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="pins git ref 'main'"):
+        load_profile(path)
+
+
+def test_git_dependency_without_a_ref_is_rejected(write_toml):
+    path = write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "robots.alpha"
+        dependencies = ["pkg @ git+https://github.com/example/pkg.git"]
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="has no git ref"):
+        load_component(path)
+
+
 def test_deps_component_rejects_requires(write_toml):
     path = write_toml(
         "installs/deps/rlinf.toml",
@@ -288,6 +362,47 @@ def test_profile_manylinux_defaults_and_overrides(write_toml):
 
     assert default.manylinux == "2_31"
     assert raised.manylinux == "2_35"
+
+
+def test_profile_index_strategy_is_optional_and_validated(write_toml):
+    default = load_profile(
+        write_toml(
+            "installs/profiles/alpha.toml",
+            """
+            schema = 1
+            name = "alpha"
+            python = "3.11"
+            platform = "linux-x86_64"
+            """,
+        )
+    )
+    declared = load_profile(
+        write_toml(
+            "installs/profiles/beta.toml",
+            """
+            schema = 1
+            name = "beta"
+            python = "3.11"
+            platform = "linux-x86_64"
+            index-strategy = "unsafe-first-match"
+            """,
+        )
+    )
+    invalid = write_toml(
+        "installs/profiles/gamma.toml",
+        """
+        schema = 1
+        name = "gamma"
+        python = "3.11"
+        platform = "linux-x86_64"
+        index-strategy = "best-match"
+        """,
+    )
+
+    assert default.index_strategy is None
+    assert declared.index_strategy == "unsafe-first-match"
+    with pytest.raises(InstallConfigError, match="'index-strategy' must be one of"):
+        load_profile(invalid)
 
 
 def test_profile_rejects_invalid_manylinux(write_toml):

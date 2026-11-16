@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -79,7 +80,7 @@ def test_target50_manifest_identity_and_dependencies():
     }
 
 
-def test_target50_source_branches_match_manifest_and_documentation():
+def test_target50_sources_match_manifest_and_documentation():
     dependencies = _manifest()["dependencies"]
     sources = {
         "robosuite": "robosuite",
@@ -91,12 +92,16 @@ def test_target50_source_branches_match_manifest_and_documentation():
         encoding="utf-8"
     )
     for name, package in sources.items():
+        # The public manifest records the upstream branch the protocol was
+        # evaluated against; the install pins a commit on that branch so a
+        # relock cannot silently change the simulator.
         assert dependencies[name]["branch"] == "rpent"
         assert "commit" not in dependencies[name]
         repository = dependencies[name]["repository"]
-        requirement = f"{package} @ git+{repository}.git@rpent"
-        assert requirement in component
-        assert requirement in project
+        requirement = f"{package} @ git+{repository}.git@"
+        pinned = re.compile(rf"{re.escape(requirement)}[0-9a-f]{{40}}")
+        assert pinned.search(component)
+        assert pinned.search(project)
         for language in ("en", "zh"):
             guide = (
                 REPO_ROOT

@@ -96,10 +96,10 @@ dual-franka = [
     'pyspacemouse>=2.0.0',
     'pyyaml',
     'pyzmq',
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
     'rospkg',
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
     'websockets',
@@ -127,9 +127,9 @@ franka = [
     'pyspacemouse>=2.0.0',
     'pyyaml',
     'pyzmq',
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
     'rospkg',
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
     'websockets',
 ]
 geometry-eval = [
@@ -139,10 +139,10 @@ libero = [
     'mujoco==3.3.0',
     'pillow>=10',
     'pycocotools',
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
-    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
 ]
@@ -151,10 +151,10 @@ libero-openpi-external = [
     'mujoco==3.3.0',
     'pillow>=10',
     'pycocotools',
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
-    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
-    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77',
+    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@d1e11fb181b8544487d27742c0caa3a4d46452ad',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
 ]
@@ -164,10 +164,10 @@ libero-plus = [
     'mujoco==3.3.0',
     'pillow>=10',
     'pycocotools',
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
     'rlinf-liberoplus',
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
 ]
@@ -176,11 +176,11 @@ libero-pro = [
     'mujoco==3.3.0',
     'pillow>=10',
     'pycocotools',
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
-    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
-    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent',
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77',
+    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@d1e11fb181b8544487d27742c0caa3a4d46452ad',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
 ]
@@ -192,11 +192,11 @@ libero-pro-flywheel = [
     'pillow>=10',
     'pyarrow<26',
     'pycocotools',
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
-    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
-    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent',
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77',
+    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@d1e11fb181b8544487d27742c0caa3a4d46452ad',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
 ]
@@ -205,11 +205,11 @@ libero-pro-molmo = [
     'mujoco==3.3.0',
     'pillow>=10',
     'pycocotools',
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
-    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent',
-    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent',
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
+    'rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77',
+    'rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@d1e11fb181b8544487d27742c0caa3a4d46452ad',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
 ]
@@ -220,26 +220,26 @@ molmo = [
     'transformers>=4.57',
 ]
 openpi = [
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
 ]
 rlinf = [
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
 ]
 robocasa = [
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
-    'rlinf-rldx @ git+https://github.com/RLinf/RLDX-1.git@rpent',
-    'robosuite @ git+https://github.com/RLinf/robosuite.git@rpent',
-    'rpent-robocasa365 @ git+https://github.com/RLinf/robocasa.git@rpent',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
+    'rlinf-rldx @ git+https://github.com/RLinf/RLDX-1.git@ebcfd13df5177e4b3e574bdf5a3b427c7c4a1e8a',
+    'robosuite @ git+https://github.com/RLinf/robosuite.git@97cfbde4b68d8ec43dad20cf4747297866a6ca2e',
+    'rpent-robocasa365 @ git+https://github.com/RLinf/robocasa.git@2692d8fc5fd86708a1b2028dcbce892ec418a9e7',
 ]
 robodojo = [
     'einops>=0.8.0',
     'pillow>=10',
     'pyarrow>=21.0.0,<26.0.0',
     'pycocotools',
-    'rlinf @ git+https://github.com/littleZ05/RLinf.git@rpent/robodojo',
-    'rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@rpent',
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'rlinf @ git+https://github.com/littleZ05/RLinf.git@91e0c6e361eff9371e2423a4183602481ae95ee5',
+    'rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@6d76a0c4a49a7a47bf5ee3924de2ccd7ecb8a8b7',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
 ]
@@ -248,16 +248,16 @@ robodojo-sim = [
     'pillow>=10',
     'pyarrow>=21.0.0,<26.0.0',
     'pycocotools',
-    'rlinf @ git+https://github.com/littleZ05/RLinf.git@rpent/robodojo',
-    'rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@rpent',
-    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'rlinf @ git+https://github.com/littleZ05/RLinf.git@91e0c6e361eff9371e2423a4183602481ae95ee5',
+    'rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@6d76a0c4a49a7a47bf5ee3924de2ccd7ecb8a8b7',
+    'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
 ]
 robotwin = [
     'nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@v0.7.8',
-    'rlinf @ git+https://github.com/RLinf/RLinf.git@release/v0.4',
+    'rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3',
     'rlinf-lingbotvla==0.1.3',
     'rlinf-robotwin-runtime==0.1.3',
 ]
@@ -265,7 +265,7 @@ sam3 = [
     'einops>=0.8.0',
     'pillow>=10',
     'pycocotools',
-    'sam3 @ git+https://github.com/RLinf/sam3.git@main',
+    'sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8',
     'torch',
     'torchvision',
 ]
@@ -349,27 +349,24 @@ nvidia-curobo = ["torch==2.8.0"]
 
 [tool.setuptools]
 include-package-data = true
-
-[tool.setuptools.packages.find]
-where = ["."]
-# robots and components are top-level packages; without them, non-editable
-# installations leave the CLI unable to import any backend. The globs also
-# cover every per-robot subpackage (robots.yam.*, ...), every model service
-# (components.models.molmo.*, ...) and every toolkit (components.toolkits.*).
-include = [
-  "rpent*",
-  "robots",
-  "robots.*",
-  "components",
-  "components.*",
-]
-exclude = ["tests*", "docs*", "examples*", "docker*"]
+# Package discovery lives in setup.py because the published wheel and a
+# source install intentionally differ: the wheel contains only rpent/, while
+# editable and sdist builds also include robots/ and components/.
 
 [tool.setuptools.package-data]
 # Component manifests are runtime data: discovery reads them from installed
-# packages, so every component package must ship its component.toml.
+# packages, so every component package must ship its component.toml. The other
+# entries are files the installed package opens by path: the dashboard
+# frontend, robot defaults and evaluation manifests, and the geometry report
+# template.
 "*" = ["component.toml"]
+"components.toolkits.geometry.evaluation" = ["*.md"]
+"robots.dual_franka" = ["config/*.yaml"]
+"robots.franka" = ["config/*.yaml"]
+"robots.libero" = ["guides/*.md"]
+"robots.robocasa" = ["eval/*.json"]
 "robots.robodojo" = ["guides/*.md"]
+"robots.robotwin" = ["eval/*.json", "guides/*.md"]
 "rpent.dashboard" = ["*.html", "static/*.css", "static/*.js"]
 "robots.yam" = ["config/*.yaml", "config/*.json", "guides/*.md"]
 

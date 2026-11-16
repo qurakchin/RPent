@@ -58,6 +58,16 @@ ROBOT_SHARED_TESTS = (
     "tests/unit_tests/robots/test_tool_schema_contracts.py",
     "tests/unit_tests/robots/test_toolkit_contracts.py",
 )
+#: Profiles a pull request installs when a change affects the core. They cover
+#: the core-only environment and the CPU toolkit without pulling the full GPU
+#: matrix into every core edit; nightly and release runs still install every
+#: profile.
+PR_PILOT_PROFILES = ("geometry-eval", "minimal")
+#: Paths whose change can alter every installation, so a PR installs every
+#: profile instead of the pilot set. Packaging files outside ``rpent/`` and
+#: ``tests/`` already select every profile because no other path rule matches
+#: them.
+PR_ALL_PROFILE_PREFIXES = ("rpent/install/", "installs/", ".github/")
 
 
 @dataclass(frozen=True)
@@ -69,6 +79,11 @@ class Scope:
     profiles: tuple[str, ...]
     #: True when nothing narrowed the answer to part of the repository.
     full: bool
+    #: Profiles a pull request installs. For a component change this equals
+    #: ``profiles``; for a core change it is the pilot set, while ``profiles``
+    #: stays complete for nightly and release runs. Installer and profile
+    #: changes keep the full set because they can alter any environment.
+    pr_profiles: tuple[str, ...] = ()
     #: True when every changed path is prose, so only the docs check applies.
     docs: bool = False
 
@@ -90,6 +105,27 @@ def _component_for(path: str) -> tuple[str, str] | None:
         if parts[: len(root_parts)] == root_parts and len(parts) > len(root_parts):
             return kind, parts[len(root_parts)]
     return None
+
+
+def _pr_profiles(paths: list[str], profiles: dict[str, object]) -> tuple[str, ...]:
+    """Return the profiles a pull request should install for ``paths``.
+
+    A component change never reaches this helper: its profile set is already
+    the resolution closure. For a core change, installing every GPU profile
+    proves little beyond what nightly proves and costs a self-hosted runner
+    slot, so the PR installs the core-only and CPU toolkit profiles. Anything
+    that can change an installation itself — the installer, profiles, locks,
+    packaging, workflows — keeps the full set.
+    """
+    available = tuple(sorted(profiles))
+    if not paths:
+        return available
+    if any(path.startswith(PR_ALL_PROFILE_PREFIXES) for path in paths):
+        return available
+    if all(path.startswith(("rpent/", "tests/")) for path in paths):
+        pilots = tuple(name for name in PR_PILOT_PROFILES if name in profiles)
+        return pilots or available
+    return available
 
 
 def affected_components(paths: list[str], catalog: Catalog) -> set[str] | None:
@@ -135,6 +171,7 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
             tests=("tests/unit_tests",),
             profiles=tuple(sorted(catalog.profiles)),
             full=True,
+            pr_profiles=_pr_profiles(paths, catalog.profiles),
         )
     kinds = {name: catalog.components[name].kind for name in sorted(names)}
     tests: set[str] = {path for path in SHARED_TESTS if (root / path).exists()}
@@ -159,6 +196,7 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
         tests=tuple(sorted(tests)),
         profiles=tuple(profiles),
         full=False,
+        pr_profiles=tuple(profiles),
     )
 
 
@@ -216,6 +254,7 @@ def main(argv: list[str] | None = None, *, root: Path) -> int:
         scope = replace(
             scope,
             profiles=tuple(name for name in scope.profiles if name in allowed),
+            pr_profiles=tuple(name for name in scope.pr_profiles if name in allowed),
         )
     print(json.dumps(scope.as_dict()))
     return 0

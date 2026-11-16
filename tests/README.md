@@ -72,6 +72,16 @@ Run the complete suite with:
 pytest tests/unit_tests -v
 ```
 
+The tests that import model servers need Torch, which the `dev` profile
+deliberately omits. CI runs this suite in the `unit-cpu` profile, which installs
+CPU Torch from the PyTorch CPU index:
+
+```bash
+uv run --no-project --python 3.11 --with packaging -- \
+  python -m rpent.cli.install install unit-cpu --venv .venv-unit-cpu
+.venv-unit-cpu/bin/python -m pytest tests/unit_tests -v
+```
+
 ## RoboCasa environment smoke tests
 
 RoboCasa separates simulator checks, model component checks and the full call chain:

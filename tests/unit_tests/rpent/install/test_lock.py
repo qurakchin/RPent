@@ -23,9 +23,11 @@ from rpent.cli.install import main as env_main
 from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.lock import (
+    LOCK_TIMESTAMP_PREFIX,
     compile_profile,
     lock_path,
     lock_profiles,
+    lock_timestamp,
     resolve_profile,
 )
 from rpent.install.manifest import Selection
@@ -136,6 +138,10 @@ def test_lock_writes_the_resolved_requirements(repo, fake_uv):
     text = lock.read_text(encoding="utf-8")
     assert "packaging" in text
     assert "numpy>=2" in text
+    assert text.startswith(LOCK_TIMESTAMP_PREFIX)
+    assert lock_timestamp(text) is not None
+    arguments = (fake_uv.parent / "uv-args").read_text(encoding="utf-8").splitlines()
+    assert arguments[arguments.index("--exclude-newer") + 1] == lock_timestamp(text)
 
 
 def test_lock_compiles_from_the_checkout(repo, fake_uv, monkeypatch):
@@ -201,13 +207,39 @@ def test_check_passes_for_an_unchanged_lock(repo, fake_uv, capsys):
 
 def test_check_reports_a_stale_lock(repo, fake_uv, capsys):
     lock_profiles(["alpha"], root=repo)
-    (repo / "installs/locks/alpha.lock").write_text("stale\n", encoding="utf-8")
+    lock = repo / "installs/locks/alpha.lock"
+    lock.write_text(
+        f"{LOCK_TIMESTAMP_PREFIX}2026-11-16T00:00:00Z\nstale\n", encoding="utf-8"
+    )
     capsys.readouterr()
 
     assert lock_profiles(["alpha"], root=repo, check=True) == 1
     output = capsys.readouterr().out
     assert "lock is out of date for alpha" in output
     assert "stale" in output
+
+
+def test_check_rejects_a_lock_without_a_timestamp(repo, fake_uv, capsys):
+    lock = repo / "installs/locks/alpha.lock"
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    lock.write_text("packaging==24.0\n", encoding="utf-8")
+
+    assert lock_profiles(["alpha"], root=repo, check=True) == 1
+    output = capsys.readouterr().out
+    assert "lock alpha: FAIL" in output
+    assert "has no '# exclude_newer =' header" in output
+
+
+def test_check_recompiles_at_the_recorded_timestamp(repo, fake_uv, capsys):
+    lock_profiles(["alpha"], root=repo)
+    recorded = lock_timestamp(
+        (repo / "installs/locks/alpha.lock").read_text(encoding="utf-8")
+    )
+    capsys.readouterr()
+
+    assert lock_profiles(["alpha"], root=repo, check=True) == 0
+    arguments = (fake_uv.parent / "uv-args").read_text(encoding="utf-8").splitlines()
+    assert arguments[arguments.index("--exclude-newer") + 1] == recorded
 
 
 def test_check_reports_a_missing_lock(repo, fake_uv, capsys):

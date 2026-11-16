@@ -42,8 +42,14 @@ KINDS = ("robot", "toolkit", "model", "deps")
 #: Kinds declared by ``component.toml`` inside the component's own directory.
 DIRECTORY_KINDS = ("robot", "toolkit", "model")
 PLACEMENTS = ("in-env", "external-env", "remote")
+#: ``uv``'s multi-index strategies; see ``--index-strategy`` in ``uv pip compile``.
+INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
 _PYTHON_MINOR = re.compile(r"^\d+\.\d+$")
 _MANYLINUX = re.compile(r"^\d+_\d+$")
+#: A git dependency must name an immutable ref. Branches move, which makes a
+#: lock compiled yesterday install different code tomorrow.
+_FULL_COMMIT = re.compile(r"^[0-9a-f]{40}$")
+_VERSION_TAG = re.compile(r"^v?\d+(?:\.\d+)*(?:[-+][0-9A-Za-z.-]+)?$")
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -97,6 +103,47 @@ def _string_list(
     return tuple(value)
 
 
+def _git_ref(requirement: str) -> str | None:
+    """Return the ref of a ``name @ git+...@ref`` requirement, if any."""
+    marker = requirement.find("git+")
+    if marker < 0:
+        return None
+    target = requirement[marker + len("git+") :].strip()
+    _, separator, ref = target.rpartition("@")
+    if not separator:
+        return None
+    return ref.split("#", 1)[0] or None
+
+
+def _check_git_dependency(requirement: str, path: Path) -> None:
+    """Reject a mutable git ref; commits and version tags are reproducible."""
+    if "git+" not in requirement:
+        return
+    ref = _git_ref(requirement)
+    if ref is None:
+        raise InstallConfigError(
+            f"{path}: dependency {requirement!r} has no git ref; pin a "
+            "40-character commit or a version tag"
+        )
+    if _FULL_COMMIT.fullmatch(ref) or _VERSION_TAG.fullmatch(ref):
+        return
+    raise InstallConfigError(
+        f"{path}: dependency {requirement!r} pins git ref {ref!r}; use a "
+        "40-character commit or a version tag so the lock cannot change when "
+        "the branch moves"
+    )
+
+
+def _dependency_list(
+    data: dict[str, Any], key: str, path: Path, *, required: bool = False
+) -> tuple[str, ...]:
+    """Read a dependency list and validate its direct git references."""
+    values = _string_list(data, key, path, required=required)
+    for value in values:
+        _check_git_dependency(value, path)
+    return values
+
+
 def _placement_list(data: dict[str, Any], path: Path) -> tuple[str, ...]:
     placements = _string_list(data, "placement", path) or ("in-env",)
     unknown = sorted(set(placements) - set(PLACEMENTS))
@@ -122,6 +169,8 @@ def _optional_groups(data: dict[str, Any], path: Path) -> dict[str, tuple[str, .
             raise InstallConfigError(
                 f"{path}: optional group {name!r} must be a list of strings"
             )
+        for value in values:
+            _check_git_dependency(value, path)
         groups[name] = tuple(values)
     return groups
 
@@ -193,6 +242,7 @@ class Profile:
     dependencies: tuple[str, ...]
     index_url: str | None
     extra_index_urls: tuple[str, ...]
+    index_strategy: str | None
     lock: str | None
     core: bool
     generate_extra: bool
@@ -328,7 +378,7 @@ def _component(
         default_placement=default_placement,
         default_variant=default_variant,
         variant_required=variant_required,
-        dependencies=_string_list(data, "dependencies", path),
+        dependencies=_dependency_list(data, "dependencies", path),
         optional=optional,
         overrides=overrides,
         docs=_optional_string(data, "docs", path),
@@ -419,15 +469,21 @@ def load_profile(path: Path) -> Profile:
             f"{path}: 'manylinux' must name a glibc baseline such as '2_31'"
         )
     index_url = _optional_string(data, "index-url", path)
+    index_strategy = _optional_string(data, "index-strategy", path)
+    if index_strategy is not None and index_strategy not in INDEX_STRATEGIES:
+        raise InstallConfigError(
+            f"{path}: 'index-strategy' must be one of {', '.join(INDEX_STRATEGIES)}"
+        )
     return Profile(
         name=name,
         path=path,
         python=python,
         platform=platform,
         components=components,
-        dependencies=_string_list(data, "dependencies", path),
+        dependencies=_dependency_list(data, "dependencies", path),
         index_url=index_url,
         extra_index_urls=_string_list(data, "extra-index-urls", path),
+        index_strategy=index_strategy,
         lock=_optional_string(data, "lock", path),
         core=core,
         generate_extra=generate_extra,

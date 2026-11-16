@@ -18,14 +18,14 @@ docs = "docs/source-en/rst_source/simulators/libero.rst"
 # LIBERO-plus requires robosuite<1.5, while the standard package pins a newer
 # robosuite.
 standard = [
-  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent",
+  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77",
   # MuJoCo 3.4+ changes LIBERO settling, misplacing objects and reducing task
   # success; see https://github.com/RLinf/RLinf/issues/1460.
   "mujoco==3.3.0",
 ]
 pro = [
-  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent",
-  "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent",
+  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77",
+  "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@d1e11fb181b8544487d27742c0caa3a4d46452ad",
   "mujoco==3.3.0",
 ]
 # `pro` plus the LeRobot stack used to export and replay trajectories. The
@@ -33,8 +33,8 @@ pro = [
 # LeRobot 0.3.x expects Fraction frame rates, PyAV 19 returns AVRational, and
 # OpenPI requires NumPy 1.x while PyArrow 26 requires NumPy 2 at import time.
 pro-flywheel = [
-  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent",
-  "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent",
+  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77",
+  "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@d1e11fb181b8544487d27742c0caa3a4d46452ad",
   "mujoco==3.3.0",
   "lerobot>=0.3.3,<0.4",
   "av<19",

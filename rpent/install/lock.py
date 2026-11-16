@@ -19,6 +19,7 @@ from __future__ import annotations
 import difflib
 import shutil
 import tempfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 from rpent.install.discovery import Catalog, discover
@@ -44,6 +45,36 @@ PLATFORM_TAGS = {
     "darwin-x86_64": "x86_64-apple-darwin",
 }
 
+#: Every lock records the upstream cutoff it was compiled with. ``--check``
+#: recompiles at the same instant, so a lock only drifts when its declared
+#: inputs change rather than whenever an upstream project publishes a release.
+LOCK_TIMESTAMP_PREFIX = "# exclude_newer = "
+
+
+def lock_timestamp(text: str) -> str | None:
+    """Return the ``exclude_newer`` timestamp declared by a lock, if valid."""
+    first = text.splitlines()[0] if text else ""
+    if not first.startswith(LOCK_TIMESTAMP_PREFIX):
+        return None
+    value = first[len(LOCK_TIMESTAMP_PREFIX) :].strip()
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return None
+    return value
+
+
+def new_lock_timestamp() -> str:
+    """Return the current UTC instant in lock-header form."""
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
 
 def lock_path(root: Path, profile: Profile) -> Path:
     """Return the profile's declared or conventional lock path."""
@@ -57,8 +88,14 @@ def compile_profile(
     root: Path,
     uv: str,
     output: Path,
+    exclude_newer: str | None = None,
 ) -> str:
-    """Compile one profile's lock into ``output`` and return the lock text."""
+    """Compile one profile's lock into ``output`` and return the lock text.
+
+    ``exclude_newer`` pins the upstream cutoff. ``lock --check`` reads it from
+    the existing lock, so the recompiled body is comparable even after a
+    release lands upstream; ``lock`` writes the current instant.
+    """
     resolution = resolve(
         profile,
         catalog,
@@ -96,6 +133,8 @@ def compile_profile(
             str(output),
             *index_options(profile),
         ]
+        if exclude_newer is not None:
+            command.extend(["--exclude-newer", exclude_newer])
         for resolved in resolution.main_installed().values():
             for override in resolved.component.overrides:
                 # Manifests resolve overrides to absolute paths when they are
@@ -106,7 +145,11 @@ def compile_profile(
         # discovers ``[tool.uv]`` from its working directory, so compile in the
         # checkout rather than wherever the CLI was invoked.
         run_command(command, capture=True, cwd=root)
-    return output.read_text(encoding="utf-8")
+    text = output.read_text(encoding="utf-8")
+    if exclude_newer is not None:
+        text = f"{LOCK_TIMESTAMP_PREFIX}{exclude_newer}\n{text}"
+        output.write_text(text, encoding="utf-8")
+    return text
 
 
 def resolve_profile(
@@ -158,39 +201,59 @@ def lock_profiles(
                 ) as directory:
                     candidate = Path(directory) / destination.name
                     compile_profile(
-                        profile, catalog, root=repo_root, uv=uv, output=candidate
+                        profile,
+                        catalog,
+                        root=repo_root,
+                        uv=uv,
+                        output=candidate,
+                        exclude_newer=new_lock_timestamp(),
                     )
                     shutil.copyfile(candidate, destination)
                 print(f"locked {name}: {destination.relative_to(repo_root)}")
                 continue
+            if not destination.is_file():
+                print(f"missing lock: {destination.relative_to(repo_root)}")
+                has_drift = True
+                continue
+            try:
+                current = read_requirement_text(destination)
+            except InstallConfigError as exc:
+                # A corrupted lock must not hide the state of the other profiles.
+                print(f"lock {name}: FAIL\n  {exc}")
+                has_drift = True
+                continue
+            if current is None:
+                print(
+                    f"cannot read {destination.relative_to(repo_root)}; check that "
+                    "it is a readable file"
+                )
+                has_drift = True
+                continue
+            timestamp = lock_timestamp(current)
+            if timestamp is None:
+                print(
+                    f"lock {name}: FAIL\n  "
+                    f"{destination.relative_to(repo_root)} has no "
+                    f"'{LOCK_TIMESTAMP_PREFIX.strip()}' header; regenerate it "
+                    f"with `rpent-install lock {name}`"
+                )
+                has_drift = True
+                continue
             with tempfile.TemporaryDirectory(prefix="rpent-lock-check-") as directory:
                 candidate = Path(directory) / destination.name
                 compile_profile(
-                    profile, catalog, root=repo_root, uv=uv, output=candidate
+                    profile,
+                    catalog,
+                    root=repo_root,
+                    uv=uv,
+                    output=candidate,
+                    exclude_newer=timestamp,
                 )
                 expected = candidate.read_text(encoding="utf-8")
         except InstallError as exc:
             # One profile that cannot resolve on this host must not hide the
             # state of the others; for example a simulator may need CUDA to lock.
             print(f"lock {name}: FAIL\n  {exc}")
-            has_drift = True
-            continue
-        if not destination.is_file():
-            print(f"missing lock: {destination.relative_to(repo_root)}")
-            has_drift = True
-            continue
-        try:
-            current = read_requirement_text(destination)
-        except InstallConfigError as exc:
-            # A corrupted lock must not hide the state of the other profiles.
-            print(f"lock {name}: FAIL\n  {exc}")
-            has_drift = True
-            continue
-        if current is None:
-            print(
-                f"cannot read {destination.relative_to(repo_root)}; check that it "
-                "is a readable file"
-            )
             has_drift = True
             continue
         if current != expected:

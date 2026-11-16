@@ -16,9 +16,19 @@
 
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
+from rpent.install import layout
+
 REPO_ROOT = Path(__file__).resolve().parents[4]
+
+#: Package groups each component root lives under; all must stay importable.
+GROUP_INITS = {
+    "robots": ("robots",),
+    "components/models": ("components", "components/models"),
+    "components/toolkits": ("components", "components/toolkits"),
+}
 
 
 def _component(write_toml, root, name, kind, *, requires=(), imports=()):
@@ -36,6 +46,13 @@ def _component(write_toml, root, name, kind, *, requires=(), imports=()):
         """,
     )
     _skeleton(manifest.parent, kind)
+    # ``manifest.parents[0]`` is the component directory, so the synthetic
+    # repository root sits one level above its root directory.
+    base = manifest.parents[len(Path(root).parts) + 1]
+    for relative in GROUP_INITS[root]:
+        directory = base / relative
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / "__init__.py").touch()
 
 
 #: Files a new component of each kind needs for K2 to pass.
@@ -47,10 +64,9 @@ SKELETON = {
         "adapter.py",
         "prompts/__init__.py",
         "prompts/domain.py",
-        "prompts/tools.py",
     ),
     "toolkit": ("__init__.py", "tool.py", "core.py", "observation.py"),
-    "model": ("__init__.py", "server.py", "config.py", "README.md"),
+    "model": ("__init__.py", "server.py"),
 }
 
 
@@ -371,3 +387,125 @@ def test_model_contracts_may_name_robots(tmp_path, write_toml):
 
     assert result.returncode == 0
     assert "layout ok" in result.stdout
+
+
+def test_group_package_keeps_an_empty_group_importable(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    (tmp_path / "robots" / "__init__.py").unlink()
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "package group robots/ needs __init__.py" in result.stdout
+
+
+def test_model_service_needs_only_its_package_and_server(tmp_path, write_toml):
+    # ``config.py`` and ``README.md`` are conventions for a model service, not
+    # part of the skeleton a new integration must create.
+    _component(write_toml, "components/models", "delta", "model")
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0
+    assert "layout ok" in result.stdout
+
+
+def test_new_model_without_a_server_is_an_error(tmp_path, write_toml):
+    _component(write_toml, "components/models", "delta", "model")
+    (tmp_path / "components" / "models" / "delta" / "server.py").unlink()
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "model 'delta' is missing its skeleton files: server.py" in result.stdout
+
+
+def test_pure_data_module_rejects_runtime_imports(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _write(
+        tmp_path / "robots" / "alpha" / "observation.py",
+        "import torch\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "pure-data module imports third-party 'torch'" in result.stdout
+
+
+def test_package_entry_point_must_not_import_a_runtime(tmp_path, write_toml):
+    _component(write_toml, "components/models", "delta", "model")
+    _write(
+        tmp_path / "components" / "models" / "delta" / "__init__.py",
+        "import torch\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "package entry point imports third-party 'torch'" in result.stdout
+
+
+def test_pure_data_module_accepts_numpy_and_core_contracts(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _write(
+        tmp_path / "robots" / "alpha" / "observation.py",
+        "import numpy\nfrom typing_extensions import TypedDict\n"
+        "from rpent.env import observation\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0
+    assert "layout ok" in result.stdout
+
+
+def test_core_name_exemption_warns_while_it_applies(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _write(tmp_path / "rpent" / "models" / "platforms.py", 'ALPHA_OSC = "alpha"\n')
+
+    findings = layout.check_core_robot_names(tmp_path, today=date(2026, 11, 16))
+
+    assert [finding for finding in findings if finding.level == layout.ERROR] == []
+    warnings = [finding.message for finding in findings]
+    assert any(
+        "K5 exemption for rpent/models applies until 2027-06-30" in message
+        for message in warnings
+    )
+
+
+def test_core_name_exemption_fails_once_it_expires(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _write(tmp_path / "rpent" / "models" / "platforms.py", 'ALPHA_OSC = "alpha"\n')
+
+    findings = layout.check_core_robot_names(tmp_path, today=date(2030, 1, 1))
+
+    errors = [finding.message for finding in findings if finding.level == layout.ERROR]
+    assert any(
+        "exemption for 'rpent/models' expired on 2027-06-30" in m for m in errors
+    )
+    assert any("core names 'ALPHA'" in message for message in errors)
+
+
+def test_legacy_slice_names_fail_after_the_migration_deadline(tmp_path, write_toml):
+    _component(write_toml, "robots", "libero", "robot")
+    _write(tmp_path / "robots" / "libero" / "robot_spec.py", "")
+
+    findings = layout.check_legacy_names(tmp_path, today=date(2030, 1, 1))
+
+    assert len(findings) == 1
+    assert findings[0].level == layout.ERROR
+    assert "has passed" in findings[0].message
+
+
+def test_legacy_component_skeleton_fails_after_the_migration_deadline(
+    tmp_path, write_toml
+):
+    _component(write_toml, "robots", "libero", "robot")
+    (tmp_path / "robots" / "libero" / "adapter.py").unlink()
+
+    findings = layout.check_role_files(tmp_path, today=date(2030, 1, 1))
+
+    assert len(findings) == 1
+    assert findings[0].level == layout.ERROR
+    assert "migration deadline 2027-06-30 passed" in findings[0].message

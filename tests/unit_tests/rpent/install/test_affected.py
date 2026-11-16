@@ -62,6 +62,9 @@ def test_robot_change_narrows_to_its_slice_tests(
 
     assert scope.components == ("alpha",)
     assert scope.profiles == ("alpha",)
+    # A component change already narrows to its resolution closure, so a pull
+    # request installs exactly the profiles a full run would install for it.
+    assert scope.pr_profiles == ("alpha",)
     assert "tests/unit_tests/robots/alpha" in scope.tests
     assert "tests/unit_tests/robots/test_toolkit_contracts.py" in scope.tests
     assert not scope.full
@@ -99,6 +102,7 @@ def test_docs_only_change_needs_no_tests_or_profiles(
     assert scope.docs
     assert scope.tests == ()
     assert scope.profiles == ()
+    assert scope.pr_profiles == ()
     assert not scope.full
 
 
@@ -111,12 +115,56 @@ def test_unmapped_path_selects_every_component_and_profile(
         profiles={"alpha": make_profile("alpha", {"alpha": Selection()})},
     )
 
-    scope = affected.affected_scope(["pyproject.toml"], catalog, tmp_path)
+    for path in ("pyproject.toml", "setup.py", "MANIFEST.in"):
+        scope = affected.affected_scope([path], catalog, tmp_path)
 
-    assert scope.full
-    assert scope.components == ("alpha",)
-    assert scope.tests == ("tests/unit_tests",)
-    assert scope.profiles == ("alpha",)
+        assert scope.full
+        assert scope.components == ("alpha",)
+        assert scope.tests == ("tests/unit_tests",)
+        assert scope.profiles == ("alpha",)
+        # Packaging decides what every environment installs, so a pull request
+        # keeps the full profile set rather than the pilot one.
+        assert scope.pr_profiles == ("alpha",)
+
+
+def test_core_change_installs_the_pilot_profiles_in_a_pull_request(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    alpha = make_component("alpha")
+    catalog = make_catalog(
+        components=[alpha],
+        profiles={
+            "alpha": make_profile("alpha", {"alpha": Selection()}),
+            "geometry-eval": make_profile("geometry-eval", {}),
+            "libero-sim": make_profile("libero-sim", {}),
+            "minimal": make_profile("minimal", {}),
+        },
+    )
+
+    for path in ("rpent/session/session.py", "tests/unit_tests/rpent/test_session.py"):
+        scope = affected.affected_scope([path], catalog, tmp_path)
+
+        assert scope.full
+        assert scope.profiles == ("alpha", "geometry-eval", "libero-sim", "minimal")
+        assert scope.pr_profiles == ("geometry-eval", "minimal")
+
+
+def test_installer_change_installs_every_profile_in_a_pull_request(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    alpha = make_component("alpha")
+    catalog = make_catalog(
+        components=[alpha],
+        profiles={
+            "geometry-eval": make_profile("geometry-eval", {}),
+            "libero-sim": make_profile("libero-sim", {}),
+        },
+    )
+
+    for path in ("rpent/install/lock.py", "installs/profiles/minimal.toml"):
+        scope = affected.affected_scope([path], catalog, tmp_path)
+
+        assert scope.pr_profiles == ("geometry-eval", "libero-sim")
 
 
 def test_main_prints_scope_as_json(tmp_path, write_toml, capsys):
@@ -157,3 +205,35 @@ def test_main_prints_scope_as_json(tmp_path, write_toml, capsys):
     assert scope["components"] == ["alpha"]
     assert scope["profiles"] == ["alpha"]
     assert not scope["full"]
+
+
+def test_runner_filter_narrows_both_profile_sets(tmp_path, write_toml, capsys):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
+        """,
+    )
+    for name in ("geometry-eval", "libero-sim", "minimal"):
+        write_toml(
+            f"installs/profiles/{name}.toml",
+            f"""
+            schema = 1
+            name = "{name}"
+            python = "3.11"
+            platform = "linux-x86_64"
+
+            [components]
+            """,
+        )
+
+    assert (
+        affected.main(["rpent/session/session.py", "--runner", "gpu"], root=tmp_path)
+        == 0
+    )
+
+    scope = json.loads(capsys.readouterr().out)
+    assert scope["profiles"] == ["libero-sim"]
+    assert scope["pr_profiles"] == []

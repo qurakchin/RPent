@@ -8,7 +8,7 @@ placement = ["in-env", "external-env"]
 docs = "docs/source-en/rst_source/guides/advanced_deployment.rst"
 
 dependencies = [
-  "sam3 @ git+https://github.com/RLinf/sam3.git@main",
+  "sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8",
   "einops>=0.8.0",
   "pycocotools",
   "torch",

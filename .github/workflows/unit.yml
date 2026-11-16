@@ -10,6 +10,11 @@ on:
         required: false
         type: string
         default: ""
+      profile:
+        description: Install profile that supplies the test environment
+        required: false
+        type: string
+        default: "unit-cpu"
 
 permissions:
   contents: read
@@ -50,20 +55,22 @@ jobs:
         run: uv python install 3.11
       - name: Read the environment cache key
         id: key
-        run: echo "lock=$(sha256sum installs/locks/dev.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      # The prebuilt environment is reproducible from the dev profile's lock, so
-      # the cache key is that lock's hash plus the interpreter and platform.
+        run: echo "lock=$(sha256sum installs/locks/${{ inputs.profile }}.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      # The prebuilt environment is reproducible from the selected profile's
+      # lock, so the cache key is that lock's hash plus the interpreter and
+      # platform. `unit-cpu` supplies CPU Torch for the tests that import model
+      # servers; `dev` alone deliberately has no Torch.
       - name: Restore the prebuilt environment
         id: env
         uses: actions/cache@v4
         with:
           path: .venv
-          key: rpent-dev-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
+          key: rpent-${{ inputs.profile }}-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
       - name: Build the prebuilt environment from the lock
         if: steps.env.outputs.cache-hit != 'true'
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install install dev --venv .venv
+            python -m rpent.cli.install install "${{ inputs.profile }}" --venv .venv
       - name: Run the selected tests
         shell: bash
         env:
@@ -75,7 +82,38 @@ jobs:
           if [[ ${#paths[@]} -eq 0 ]]; then
             paths=(tests/unit_tests)
           fi
-          .venv/bin/python -m pytest "${paths[@]}" -v
+          .venv/bin/python -m pytest "${paths[@]}" -v \
+            --junitxml="$RUNNER_TEMP/junit.xml"
+      - name: Report skipped tests
+        if: always()
+        shell: bash
+        env:
+          JUNIT: ${{ runner.temp }}/junit.xml
+        run: |
+          if [[ ! -f "$JUNIT" ]]; then
+            echo "::warning::pytest did not write a JUnit report; skipping counters"
+            exit 0
+          fi
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          suite = ET.parse(os.environ["JUNIT"]).getroot()
+          suites = [suite] if suite.tag == "testsuite" else list(suite.iter("testsuite"))
+          totals = {"tests": 0, "skipped": 0, "failures": 0, "errors": 0}
+          for item in suites:
+              for key in totals:
+                  totals[key] += int(item.attrib.get(key, 0))
+          line = (
+              f"tests={totals['tests']} skipped={totals['skipped']} "
+              f"failures={totals['failures']} errors={totals['errors']}"
+          )
+          print(line)
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as handle:
+                  handle.write(f"### Unit tests\n\n`{line}`\n")
+          PY
 
   minimal-imports:
     name: Minimal environment imports

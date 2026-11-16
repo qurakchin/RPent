@@ -47,6 +47,7 @@ import re
 import sys
 import tokenize
 from dataclasses import dataclass
+from datetime import date
 from fnmatch import fnmatch
 from pathlib import Path
 
@@ -68,15 +69,47 @@ ALLOWED_ROOT_FILES = (
     "LICENSE",
     "AGENTS.md",
     "CLAUDE.md",
+    "MANIFEST.in",
+    "setup.py",
     ".gitignore",
     ".pre-commit-config.yaml",
 )
 #: Generated, gitignored directories that may appear in a working checkout.
 IGNORED_TOP_LEVEL = frozenset({"memory", "__pycache__"})
-#: Core subdirectories K5 does not scan. Model-side wire contracts name the
-#: embodiment they control, and the install tooling holds the authored profile
-#: partition and the published extra names.
-CORE_NAME_EXEMPTIONS = ("rpent/models", "rpent/install")
+#: Core subdirectories K5 does not scan, with the reason and the date by which
+#: the exception must be removed or renewed. Model-side wire contracts name the
+#: embodiment they control; the install tooling holds the authored profile
+#: partition and the published extra names. An expired entry is an error, so a
+#: temporary exception cannot become permanent by being forgotten.
+CORE_NAME_EXEMPTIONS = {
+    "rpent/models": (
+        "model-side wire contracts and the backend table name the embodiment "
+        "they speak to",
+        date(2027, 6, 30),
+    ),
+    "rpent/install": (
+        "the authored profile partition and generated extra names are data, "
+        "not scheduling logic",
+        date(2027, 6, 30),
+    ),
+}
+#: Migration exceptions (legacy role files and retired slice names) warn until
+#: this date and fail afterwards.
+MIGRATION_DEADLINE = date(2027, 6, 30)
+#: Package groups that must be importable packages even when empty.
+GROUP_PACKAGES = (
+    "robots",
+    "components",
+    "components/models",
+    "components/toolkits",
+)
+#: Files that carry wire data rather than behavior. They may use the standard
+#: library, NumPy, core contracts, and their own group's modules; anything else
+#: belongs in the adapter or server.
+PURE_DATA_FILES = frozenset(
+    {"control.py", "observation.py", "contracts.py", "platforms.py"}
+)
+PURE_DATA_ALLOWED_ROOTS = frozenset({"numpy", "typing_extensions"})
 #: Line-count limits from K7; exceeded counts are warnings until the slice
 #: split lands.
 LINE_LIMITS = {"spec.py": 80, "adapter.py": 400, "native_tools.py": 100}
@@ -203,10 +236,11 @@ REQUIRED_ROLE_FILES = {
         "adapter.py",
         "prompts/__init__.py",
         "prompts/domain.py",
-        "prompts/tools.py",
     ),
     "toolkit": ("__init__.py", "tool.py", "core.py", "observation.py", "evaluation"),
-    "model": ("__init__.py", "server.py", "config.py", "README.md"),
+    # A model service only needs an importable package and its server; config
+    # and README are useful conventions, not skeleton requirements.
+    "model": ("__init__.py", "server.py"),
 }
 #: Components that predate the target skeleton; missing role files warn until
 #: their migration lands.
@@ -515,19 +549,20 @@ def check_imports(root: Path) -> list[Finding]:
     return findings
 
 
-def check_core_robot_names(root: Path) -> list[Finding]:
+def check_core_robot_names(root: Path, *, today: date | None = None) -> list[Finding]:
     """Return K5 findings for robot or benchmark names in core sources.
 
-    Only ``rpent/`` is scanned. ``rpent/models/`` may name a robot in a
-    model-side platform contract or the backend table: that is the wire
-    protocol the service speaks, not scheduling logic. ``rpent/install/`` names
-    profiles by the components they contain, and its manifest parser resolves
-    components by name by design. A component or slice may name a robot because
-    it is about that robot by definition.
+    Only ``rpent/`` is scanned. The exceptions in ``CORE_NAME_EXEMPTIONS``
+    carry a reason and an expiry date: while they apply they suppress a
+    violation and report one warning saying why, and after the date they stop
+    suppressing and add an error so the exception is removed or renewed. A
+    component or slice may name a robot because it is about that robot by
+    definition.
     """
     names = _component_names(root / "robots")
     if not names:
         return []
+    today = today or date.today()
     # Underscores are not word boundaries here: UPPER_SNAKE constants such as
     # ``ROBOTWIN_QPOS`` embed a robot name and must be reported too.
     pattern = re.compile(
@@ -536,11 +571,34 @@ def check_core_robot_names(root: Path) -> list[Finding]:
         re.IGNORECASE,
     )
     findings: list[Finding] = []
-    exempt = tuple(root / name for name in CORE_NAME_EXEMPTIONS)
+    exemptions: dict[Path, tuple[str, date, bool]] = {}
+    for relative, (reason, deadline) in CORE_NAME_EXEMPTIONS.items():
+        expired = today > deadline
+        exemptions[root / relative] = (reason, deadline, expired)
+        if expired:
+            findings.append(
+                Finding(
+                    root / relative,
+                    0,
+                    f"K5 exemption for {relative!r} expired on "
+                    f"{deadline.isoformat()}; remove it or renew it with a new "
+                    "reason and date",
+                )
+            )
+    used: set[Path] = set()
     for path in sorted((root / "rpent").rglob("*.py")):
         if any(part in {".git", ".rpent", "__pycache__"} for part in path.parts):
             continue
-        if any(path.is_relative_to(directory) for directory in exempt):
+        exemption = next(
+            (
+                (directory, values)
+                for directory, values in exemptions.items()
+                if path.is_relative_to(directory)
+            ),
+            None,
+        )
+        if exemption is not None and not exemption[1][2]:
+            used.add(exemption[0])
             continue
         try:
             with path.open("rb") as file:
@@ -565,6 +623,81 @@ def check_core_robot_names(root: Path) -> list[Finding]:
                     "benchmark detail into its slice",
                 )
             )
+    for directory in sorted(used):
+        reason, deadline, _ = exemptions[directory]
+        findings.append(
+            Finding(
+                directory,
+                0,
+                f"K5 exemption for {str(directory.relative_to(root))} applies until "
+                f"{deadline.isoformat()}: {reason}",
+                WARNING,
+            )
+        )
+    return findings
+
+
+def check_group_packages(root: Path) -> list[Finding]:
+    """Return K2 findings for package groups without ``__init__.py``."""
+    findings: list[Finding] = []
+    for relative in GROUP_PACKAGES:
+        directory = root / relative
+        if directory.is_dir() and not (directory / "__init__.py").is_file():
+            findings.append(
+                Finding(
+                    directory,
+                    0,
+                    f"package group {relative}/ needs __init__.py so an empty "
+                    "group remains importable",
+                )
+            )
+    return findings
+
+
+def check_pure_data_imports(root: Path) -> list[Finding]:
+    """Return K4 findings for behavior imports in pure-data modules.
+
+    Wire contracts, control/observation adapters, and model platform tables
+    must stay importable without a simulator or model runtime. NumPy and core
+    contracts are data dependencies; everything else belongs in an adapter,
+    server, or toolkit implementation. A model or toolkit package entry point
+    follows the same rule: importing the package must not load its runtime.
+    """
+    findings: list[Finding] = []
+    stdlib = sys.stdlib_module_names
+    for path in sorted(root.rglob("*.py")):
+        if any(part in {".git", ".rpent", "tests", "docs"} for part in path.parts):
+            continue
+        owner = _owner(path, root)
+        if path.name in PURE_DATA_FILES:
+            if owner is None or owner[0] == "core":
+                continue
+        elif path.name == "__init__.py":
+            if owner is None or owner[0] not in {"model", "toolkit"}:
+                continue
+        else:
+            continue
+        for line, module in _imports(path, root):
+            top = module.split(".", 1)[0]
+            if (
+                top in stdlib
+                or top in PURE_DATA_ALLOWED_ROOTS
+                or top in {"rpent", "robots", "components"}
+            ):
+                continue
+            if path.name == "__init__.py":
+                message = (
+                    f"package entry point imports third-party {top!r}; keep "
+                    "the package importable without a runtime and move "
+                    "behavior into the server or toolkit implementation"
+                )
+            else:
+                message = (
+                    f"pure-data module imports third-party {top!r}; keep wire "
+                    "data independent of runtimes and move behavior into the "
+                    "adapter or server"
+                )
+            findings.append(Finding(path, line, message))
     return findings
 
 
@@ -658,9 +791,14 @@ def check_coverage(root: Path) -> list[Finding]:
     return findings
 
 
-def check_role_files(root: Path) -> list[Finding]:
-    """Return K2 findings for components missing their skeleton files."""
+def check_role_files(root: Path, *, today: date | None = None) -> list[Finding]:
+    """Return K2 findings for components missing their skeleton files.
+
+    Components that predate the skeleton warn until ``MIGRATION_DEADLINE`` and
+    fail afterwards, so a migration exception cannot outlive its schedule.
+    """
     findings: list[Finding] = []
+    expired = (today or date.today()) > MIGRATION_DEADLINE
     roots = [
         (root / "robots", "robot"),
         (root / "components" / "models", "model"),
@@ -678,22 +816,33 @@ def check_role_files(root: Path) -> list[Finding]:
             missing = [name for name in required if not (child / name).exists()]
             if not missing:
                 continue
-            level = WARNING if (kind, child.name) in LEGACY_COMPONENTS else ERROR
+            legacy = (kind, child.name) in LEGACY_COMPONENTS
+            level = WARNING if legacy and not expired else ERROR
+            note = (
+                f" (migration deadline {MIGRATION_DEADLINE.isoformat()} passed)"
+                if legacy and expired
+                else ""
+            )
             findings.append(
                 Finding(
                     child,
                     0,
                     f"{kind} {child.name!r} is missing its skeleton files: "
-                    f"{', '.join(missing)}",
+                    f"{', '.join(missing)}{note}",
                     level,
                 )
             )
     return findings
 
 
-def check_legacy_names(root: Path) -> list[Finding]:
-    """Return K3 findings for retired slice-root names."""
+def check_legacy_names(root: Path, *, today: date | None = None) -> list[Finding]:
+    """Return K3 findings for retired slice-root names.
+
+    Pre-migration names warn until ``MIGRATION_DEADLINE``; after that they are
+    errors, not a permanent allowance.
+    """
     findings: list[Finding] = []
+    expired = (today or date.today()) > MIGRATION_DEADLINE
     robots = root / "robots"
     if not robots.is_dir():
         return findings
@@ -730,14 +879,18 @@ def check_legacy_names(root: Path) -> list[Finding]:
             )
         kept = [name for name in present if name in baseline]
         if kept:
+            note = (
+                f"; the migration deadline {MIGRATION_DEADLINE.isoformat()} has passed"
+                if expired
+                else "; the slice migration renames them and turns this into an error"
+            )
             findings.append(
                 Finding(
                     slice_dir,
                     0,
                     f"slice {slice_dir.name!r} still has {len(kept)} pre-migration "
-                    f"names ({', '.join(kept)}); the slice migration renames them and "
-                    "turns this into an error",
-                    WARNING,
+                    f"names ({', '.join(kept)}){note}",
+                    ERROR if expired else WARNING,
                 )
             )
     return findings
@@ -794,9 +947,11 @@ def main(argv: list[str] | None = None) -> int:
     findings = (
         check_top_level(root)
         + check_coverage(root)
+        + check_group_packages(root)
         + check_role_files(root)
         + check_legacy_names(root)
         + check_imports(root)
+        + check_pure_data_imports(root)
         + check_core_robot_names(root)
         + check_lazy_slices(root)
         + check_file_sizes(root)

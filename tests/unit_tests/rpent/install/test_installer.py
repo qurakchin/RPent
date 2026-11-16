@@ -263,6 +263,7 @@ def test_index_options_preserve_order(make_profile):
         "alpha",
         index_url="https://index.test/simple",
         extra_index_urls=("https://extra.test/simple",),
+        index_strategy="unsafe-first-match",
     )
 
     assert index_options(profile) == [
@@ -270,6 +271,8 @@ def test_index_options_preserve_order(make_profile):
         "https://index.test/simple",
         "--extra-index-url",
         "https://extra.test/simple",
+        "--index-strategy",
+        "unsafe-first-match",
     ]
 
 
@@ -376,6 +379,7 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
     assert fingerprint["schema"] == REQUIREMENTS_SCHEMA
     assert fingerprint["profile"] == "alpha"
     assert fingerprint["components"]["alpha"]["placement"] == "in-env"
+    assert fingerprint["component_profiles"]["alpha"] == ["alpha"]
     assert fingerprint["requirements_file"] == ".rpent/requirements/alpha.txt"
     assert fingerprint["source_commit"] is None
     assert os.path.isfile(venv / "bin" / "python")
