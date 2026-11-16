@@ -40,7 +40,9 @@ Any planner must:
    ``toolkit.list_tools()`` and execute
    tools with ``toolkit.execute_tool(name, arguments)``.
 3. Convert ``ToolResult.to_text()`` and PNG bytes in ``ToolResult.images`` to the
-   format expected by the model SDK.
+   format expected by the model SDK. Keep the call and execution fields
+   (``call_ok``, ``error``, ``no_execution``, ``execution_uncertain``, and
+   ``execution_status``) in the model-visible result.
 4. Detect ``ToolResult.data.get("_finish")`` and stop according to
    ``max_turns`` and any other limits.
 5. Return a ``PlannerResult`` containing the finish state, messages,

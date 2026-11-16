@@ -29,7 +29,6 @@ from typing import Annotated, Any, Literal, Mapping, Sequence
 import numpy as np
 from pydantic import BaseModel, ConfigDict, Field, create_model
 
-from components.toolkits.geometry.capabilities import Capabilities, ToolFamily
 from components.toolkits.geometry.core import (
     GeometryConfig,
     depth_region_mask,
@@ -44,17 +43,29 @@ from components.toolkits.geometry.observation import (
     Segmenter,
 )
 from rpent.tools.base import Tool, ToolResult, tool
+from rpent.tools.capabilities import Capabilities, ToolFamily
+from rpent.utils.logging import get_logger
 
-Quantity = Literal["center", "extent", "z_range", "orientation"]
-_QUANTITIES = ("center", "extent", "z_range", "orientation")
+logger = get_logger("components.toolkits.geometry")
+
+Quantity = Literal["center", "extent", "z_range", "orientation", "points"]
+_QUANTITIES = ("center", "extent", "z_range", "orientation", "points")
 
 
 @dataclass(frozen=True)
 class GeometryToolConfig:
-    """Host configuration for localization quality and defaults."""
+    """Host configuration for localization quality and defaults.
+
+    ``GeometryConfig`` holds the corpus-calibrated defaults. A host may pass a
+    stricter or looser config; slices that do not override it use the defaults
+    recorded with the evaluation corpus.
+    """
 
     quality: GeometryConfig = field(default_factory=GeometryConfig)
     default_quantities: tuple[Quantity, ...] = ("center", "extent")
+    #: Upper bound for the ``points`` quantity. The sample is deterministic so
+    #: a replay of the same observation returns the same rows.
+    max_points: int = 256
 
 
 def _error(status: str, code: str, message: str, **details: Any) -> dict[str, Any]:
@@ -316,6 +327,23 @@ def estimate_geometry(
                 evidence="inferred",
                 refs=refs,
             )
+    if "points" in quantities:
+        point_values = world_xyz[mask]
+        point_values = point_values[np.isfinite(point_values).all(axis=1)]
+        limit = max(1, int(config.max_points))
+        if len(point_values) > limit:
+            indices = np.linspace(0, len(point_values) - 1, num=limit, dtype=np.int64)
+            point_values = point_values[indices]
+        fields["points"] = _field(
+            point_values.tolist(),
+            unit="metre",
+            definition=(
+                f"deterministic row-major sample of at most {limit} finite "
+                "world-frame mask points"
+            ),
+            evidence="measured" if len(point_values) else "unknown",
+            refs=refs,
+        )
 
     status = "usable"
     if not fit.accepted:
@@ -356,7 +384,7 @@ def geometry(
     pixel: Annotated[list[int], Field(min_length=2, max_length=2)] | None = None,
     view: str | None = None,
     step: int | None = None,
-    quantities: Annotated[list[Quantity], Field(min_length=1, max_length=4)]
+    quantities: Annotated[list[Quantity], Field(min_length=1, max_length=5)]
     | None = None,
 ) -> ToolResult:
     """Localize one visible target from the current or a recorded camera view. Returns a world-frame center and axis-aligned extent with quality flags. Give a natural-language target when the runtime can ground it, or a [row,col] pixel measured on the selected view. Read-only; does not move the robot.
@@ -366,7 +394,7 @@ def geometry(
         pixel: [row, col] chosen on the selected view; skips grounding.
         view: Camera view; omit for the default view.
         step: Recorded step; -1 = latest.
-        quantities: Requested measurements; defaults to center and extent.
+        quantities: Requested measurements; defaults to center and extent. Use "points" for a bounded world-frame point set.
     """
     try:
         observation = provider.observe(
@@ -448,6 +476,11 @@ class GeometryTools(ToolFamily):
         if capabilities is not None and not (
             capabilities.has_depth() and capabilities.has_calibration()
         ):
+            logger.info(
+                "geometry tool omitted: depth_views=%s calibrated_views=%s",
+                list(capabilities.depth_views),
+                list(capabilities.calibrated_views),
+            )
             return ()
         declaration = geometry.with_handler(
             partial(
@@ -459,6 +492,10 @@ class GeometryTools(ToolFamily):
             )
         )
         if capabilities is not None and not capabilities.grounding:
+            logger.info(
+                "geometry target grounding omitted: no grounder is connected; "
+                "the model must pass a pixel"
+            )
             schema = declaration.input_schema
             schema["properties"].pop("target", None)
             schema["properties"]["pixel"] = {

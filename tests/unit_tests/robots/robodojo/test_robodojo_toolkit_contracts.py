@@ -492,6 +492,9 @@ def test_exploration_policy_reset_recipe_and_finish(
     ).is_error
     refused = kit.execute_tool("finish", {"status": "failure", "summary": "retry"})
     assert not refused.data.get("_finish")
+    # The guard refused to end the session; no action reached the host.
+    assert refused.no_execution is True
+    assert refused.execution_status == "rejected"
     assert not kit.execute_tool("reset", {}).is_error
     assert env.frame == 0
     assert not kit.execute_tool(tool, {"chunks": 1, **arguments}).is_error

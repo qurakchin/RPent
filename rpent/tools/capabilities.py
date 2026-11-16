@@ -28,7 +28,9 @@ class Capabilities:
 
     Values come from the adapter's environment metadata and from services that
     were actually connected at runtime; configuration flags alone must not
-    claim a capability.
+    claim a capability. ``execution`` is a read-only projection of the
+    environment's ``EnvMeta.execution_capabilities``; the environment contract
+    remains the source.
     """
 
     env: Mapping[str, Any] = field(default_factory=dict)
@@ -39,7 +41,6 @@ class Capabilities:
     real_robot: bool = False
     depth_views: tuple[str, ...] = ()
     calibrated_views: tuple[str, ...] = ()
-    native_tools: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         """Return a JSON-serializable snapshot for run metadata."""
@@ -52,7 +53,6 @@ class Capabilities:
             "real_robot": self.real_robot,
             "depth_views": list(self.depth_views),
             "calibrated_views": list(self.calibrated_views),
-            "native_tools": list(self.native_tools),
         }
 
     def has_depth(self, view: str | None = None) -> bool:
@@ -67,12 +67,23 @@ class Capabilities:
             return bool(self.calibrated_views)
         return view in self.calibrated_views
 
+    def supports_execution(self, *names: str) -> bool:
+        """Whether the connected env declares any of these execution methods."""
+        return any(bool(self.execution.get(name)) for name in names)
+
 
 class ToolFamily:
     """A capability-gated group of declarations.
 
-    Families only register and trim tools. Implementations that need their own
-    evaluation corpus live under ``components/toolkits/``.
+    Families own the planner-facing surface: tool names, schemas, capability
+    trimming, and lightweight execution helpers that need no independent
+    evaluation corpus. Implementations that need frozen inputs and their own
+    report live under ``toolkits/``.
+
+    A family omits a declaration only when the host cannot implement it at
+    all. A connected service that can still fail per call keeps its
+    declaration and returns a structured error, so the planner-facing schema
+    stays stable for the life of a session.
     """
 
     name = "tools"

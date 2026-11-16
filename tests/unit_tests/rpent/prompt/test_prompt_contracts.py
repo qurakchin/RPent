@@ -55,7 +55,9 @@ ROOT = Path(__file__).resolve().parents[4]
 #: below carry 5% headroom, so this aggregate is what forbids net growth: a
 #: slice may grow only by consuming another slice's reduction. The model-facing
 #: bound is :data:`PROMPT_SLICE_RENDERED_BUDGET`.
-PROMPT_SOURCE_LINE_BUDGET = 2393
+#: The merged tree adds the tool-result vocabulary ``a_3`` gives the slices
+#: that emit motion results: RoboTwin's stop fields and RoboDojo's stop reasons.
+PROMPT_SOURCE_LINE_BUDGET = 2414
 #: Design target for slice-owned prompt source (``a_2`` §7): the hand-written
 #: slice prompts together, including the code-mode prompts ``a_4`` adds. This
 #: branch counts ``robots/<robot>/prompts/*.py`` plus ``prompt_bundle.py``
@@ -70,7 +72,7 @@ PROMPT_SLICE_LINE_BUDGET = {
     "robodojo": 456,
     "robocasa": 324,
     "dual_franka": 281,
-    "robotwin": 279,
+    "robotwin": 294,
     "yam": 214,
     "franka": 75,
 }
@@ -89,7 +91,7 @@ PROMPT_SLICE_RENDERED_BUDGET = {
     "robodojo": 269,
     "robocasa": 187,
     "dual_franka": 103,
-    "robotwin": 162,
+    "robotwin": 179,
     "yam": 118,
     "franka": 46,
 }
@@ -103,14 +105,14 @@ PROMPT_EXPLORE_SLICE_RENDERED_BUDGET = {
     "libero": 654,
     "robodojo": 325,
     "robocasa": 192,
-    "robotwin": 192,
+    "robotwin": 209,
     "yam": 187,
     "dual_franka": 174,
 }
 #: Aggregate exploration ceiling at the measured total, with the same role as
 #: :data:`PROMPT_SLICE_RENDERED_TOTAL_BUDGET`: it is the no-growth bound once a
 #: slice uses its per-slice headroom.
-PROMPT_EXPLORE_SLICE_RENDERED_TOTAL_BUDGET = 1638
+PROMPT_EXPLORE_SLICE_RENDERED_TOTAL_BUDGET = 1661
 #: Follow-up rendered total once shared tool guidance lands. It is not an
 #: ``a_2`` design metric; the design target is the source-line count above. The
 #: strict xfail below tracks it.
@@ -118,7 +120,7 @@ PROMPT_SLICE_RENDERED_TOTAL_TARGET = 1200
 #: Aggregate rendered ceiling at the measured total. The per-slice ceilings
 #: above carry 5% headroom, so this one binds: any net growth fails even when a
 #: slice stays under its own ceiling.
-PROMPT_SLICE_RENDERED_TOTAL_BUDGET = 1320
+PROMPT_SLICE_RENDERED_TOTAL_BUDGET = 1342
 
 #: Tools whose call signatures must come from the tool schema, not the prompt.
 TOOL_NAMES = (

@@ -29,8 +29,8 @@ import numpy as np
 from components.toolkits.geometry.core import GeometryConfig
 from components.toolkits.geometry.evaluation.corpus import render_case
 from components.toolkits.geometry.evaluation.references import reference_from_case
-from components.toolkits.geometry.observation import Observation
 from components.toolkits.geometry.tool import GeometryToolConfig, estimate_geometry
+from rpent.tools.observation import Observation
 
 
 @dataclass(frozen=True)

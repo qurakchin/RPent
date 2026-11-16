@@ -407,6 +407,7 @@ def test_bundle_assembly_keeps_the_declared_layer_order(tmp_path: Path) -> None:
         "OPERATING RULES",
         "RUN MODE — EXPLORATION",
         "RUN MODE — REAL ROBOT",
+        "TOOL RESULTS",
         "TOOL",
         "DOMAIN",
         "MEMORY — HOW TO READ",

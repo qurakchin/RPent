@@ -56,7 +56,9 @@ functions implemented in ``robot_spec.py`` for ``main.py`` to call:
 construct a :class:`~rpent.memory.MemoryManager` (rooted at the configured
 ``config.prompt_vars["memory_dir"]``, falling back to
 ``get_memory_dir(robot_name)`` when unset) and pass it to the toolkit.
-The manager is required; the toolkit always registers memory file tools and ``finish``.
+The manager is required; the toolkit always registers the common file tools
+and ``finish``. Toolkits that adopt the shared memory family additionally
+register ``recall`` / ``remember`` / ``corroborate`` (RoboTwin currently does).
 Memory access permissions are configured on the manager. Robots that need
 extra toolkit arguments may declare them as keyword-only parameters; LIBERO
 additionally uses ``mode``, ``attempts_per_session``, and ``state_output_dir``.
@@ -99,19 +101,60 @@ Subclass ``Toolkit`` in ``robots/<robot>/toolkit.py`` and register robot tools w
 
 Declare functions or methods with ``@tool``. Type annotations and Google-style
 docstrings provide parameter schemas and descriptions; ``@tool(readonly=True)``
-allows concurrent readonly calls and skips post-action state capture. Handlers return ``ToolResult(data=..., images=...)``:
-``data`` holds the JSON payload, including ``error`` or ``_finish`` when needed,
-and ``images`` holds PNG bytes.
+allows concurrent readonly calls and skips post-action state capture. A call that
+leaves the environment unchanged but is not a read, such as the terminal
+``finish``, uses ``@tool(concurrent=True)``: it shares admission with readonly
+calls and still reports its own execution layer. ``@tool(captures_state=False)``
+marks a non-readonly call that changes nothing, such as a file or memory write,
+so the toolkit records no state transition for it. Handlers return
+``ToolResult(data=..., images=...)``: ``data`` holds the domain payload,
+including ``error`` or ``_finish`` when needed, and ``images`` holds PNG bytes.
 
-The base class registers common file tools when a memory manager is provided; call ``super().__init__()`` then
-``add_tool`` for robot tools. Per-step state and ``view_env_state`` are in
-:doc:`add_primitive`.
+``ToolResult`` also separates the call from its physical effects. ``call_ok``
+reports whether the call was valid and the framework completed dispatch: the
+tool existed, the arguments validated, and the result could be encoded. It never
+means the requested action succeeded. ``error.code`` distinguishes
+``validation``, ``unknown_tool``, ``refused``, ``execution_failed``,
+``execution_uncertain``, and ``cancelled``. ``no_execution`` marks a request that
+definitely did not touch the environment, while ``execution_uncertain`` marks a
+state-changing request that may have outlived the call. ``execution_status``
+records ``completed``, ``partial``, ``rejected``, ``not_started``, or
+``unknown``; ``rejected`` means the environment refused the request before
+executing it. A successful call does not imply that the requested task
+succeeded. Domain handlers normally set only ``data``; use ``tool_error`` when a
+request is rejected before any environment write, and ``unexecuted`` when the
+handler keeps its existing domain payload (usually a string ``error``) but the
+request still produced no physical action. Pass ``status="rejected"`` to
+``unexecuted`` for a refusal rather than a failed lookup. ``ToolResult.to_text()``
+includes these layers. Read-only declarations report ``no_execution`` with
+``execution_status="not_started"`` because they never issue a physical action.
+The terminal ``finish`` is instead declared ``concurrent``: the halt is the
+executed request, so a handler that leaves the layer unset reports
+``completed``.
 
-Tools without ``readonly=True`` run exclusively, in admission order. Waiting
-exclusive calls take priority over new readonly calls. Exclusive execution
-includes observation capture and Dashboard publication. A readonly handler that
-updates shared caches must synchronize those updates itself. ``EnvState.save``
-serializes artifact writes.
+The base class registers the common file tools and ``finish``; call
+``super().__init__()`` then ``add_tool`` for robot tools. Shared tool families in ``rpent/tools``
+(``SceneTools``, ``MotionTools``, ``MemoryTools``, ``SkillTools``) expose
+``tools(capabilities, config)``. Register them with
+``add_tools(family, ..., capabilities=services, config=...)`` so each family
+publishes only the declarations the connected host supports. Until the a_1
+slice migration lands, RoboTwin still assembles its families in
+``robots/robotwin/toolkit.py``; it calls the same capability builder and family
+declarations that a declarative ``config.py`` will use. Per-step state and
+``view_env_state`` are in :doc:`add_primitive`.
+
+Shared tools used by more than one robot live under ``components/toolkits/<name>/`` and do
+not import ``robots/``. ``components/toolkits/geometry`` provides the ``geometry`` tool and
+a CPU-only evaluation: ``geometry-eval --output-dir <dir>`` replays a frozen
+synthetic corpus and writes a manifest, raw results, and a report. The synthetic
+reference checks pipeline consistency; it is not a real-sensor accuracy
+baseline.
+
+Tools that are neither readonly nor concurrent run exclusively, in admission
+order. Waiting exclusive calls take priority over new readonly or concurrent
+calls. Exclusive execution includes observation capture and Dashboard
+publication. A readonly handler that updates shared caches must synchronize those
+updates itself. ``EnvState.save`` serializes artifact writes.
 
 ``cancel_active_and_wait()`` pauses new calls, signals queued and active calls,
 and waits for their cleanup. Long-running handlers check ``raise_if_cancelled()``

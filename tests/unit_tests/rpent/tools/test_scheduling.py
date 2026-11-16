@@ -32,13 +32,14 @@ class ScheduledToolkit(Toolkit):
             state=EnvState(tmp_path),
         )
         self.entered = {
-            name: threading.Event() for name in ("read1", "read2", "write1", "write2")
+            name: threading.Event()
+            for name in ("read1", "read2", "write1", "write2", "halt1")
         }
         self.release = {name: threading.Event() for name in self.entered}
         self.captured = threading.Event()
         self.release_capture = threading.Event()
         self.order = []
-        self.add_tools((self.read, self.write))
+        self.add_tools((self.read, self.write, self.halt))
 
     def _register_common_tools(self):
         pass
@@ -49,6 +50,10 @@ class ScheduledToolkit(Toolkit):
 
     @tool
     def write(self, label: str) -> ToolResult:
+        return self.block(label)
+
+    @tool(concurrent=True, captures_state=False)
+    def halt(self, label: str) -> ToolResult:
         return self.block(label)
 
     def block(self, label):
@@ -102,6 +107,21 @@ def test_readonly_calls_overlap(scheduled):
     toolkit.release_all()
     assert not first.result(timeout=3).is_error
     assert not second.result(timeout=3).is_error
+
+
+def test_concurrent_call_shares_with_reads_and_reports_completed(scheduled):
+    toolkit, pool = scheduled
+    reader = submit(pool, toolkit, "read1")
+    assert toolkit.entered["read1"].wait(3)
+    halt = submit(pool, toolkit, "halt1")
+    assert toolkit.entered["halt1"].wait(3)
+    toolkit.release["halt1"].set()
+    result = halt.result(timeout=3)
+    assert result.execution_status == "completed"
+    assert result.no_execution is False
+    assert not toolkit.captured.is_set()
+    toolkit.release_all()
+    assert not reader.result(timeout=3).is_error
 
 
 def test_exclusive_calls_keep_order_and_block_new_readers_through_capture(scheduled):

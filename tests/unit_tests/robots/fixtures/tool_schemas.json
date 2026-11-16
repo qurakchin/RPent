@@ -5,7 +5,7 @@
     "rpent/tools/common.py": [
       {
         "name": "read_text_file",
-        "description": "Read a UTF-8 text file. Use for past recipe JSONLs, audit JSONs, and memory files. Large files are truncated. Published memory is read-only. During exploration, you may write only to your current memory inbox. Memory for other robots is unavailable.",
+        "description": "Read a UTF-8 text file. Use for past recipe JSONLs and audit JSONs. Large files are truncated. Published memory is read-only. Memory for other robots is unavailable.",
         "input_schema": {
           "type": "object",
           "properties": {
@@ -17,7 +17,7 @@
       },
       {
         "name": "write_text_file",
-        "description": "Write a UTF-8 text file (creates parent dirs). Use this to save the working recipe JSONL and the final audit JSON at the end of a successful run. Published memory is read-only. During exploration, you may write only to your current memory inbox. Memory for other robots is unavailable.",
+        "description": "Write a UTF-8 text file inside the run output directory (creates parent dirs). Use this to save the working recipe JSONL and the final audit JSON at the end of a successful run. Paths outside the output directory are refused. Published memory is read-only.",
         "input_schema": {
           "type": "object",
           "properties": {
@@ -29,7 +29,7 @@
       },
       {
         "name": "list_dir",
-        "description": "List files in a directory (non-recursive). Default = {{output_dir}}. Use to inspect the working directory or discover existing resource files. Published memory is read-only. During exploration, you may write only to your current memory inbox. Memory for other robots is unavailable.",
+        "description": "List files in a directory (non-recursive). Default = {{output_dir}}. Use to inspect the working directory or discover existing resource files. Published memory is read-only. Memory for other robots is unavailable.",
         "input_schema": {
           "type": "object",
           "properties": {

@@ -523,8 +523,12 @@ def _connect_components(
         if (
             args.env_endpoint is None
             and primitive not in {"reset", "request_scene_reset"}
+            # Only an exclusive declaration advances the environment; readonly
+            # and concurrent calls (such as ``finish``) need no prepared episode.
             and any(
-                definition.name == primitive and not definition.readonly
+                definition.name == primitive
+                and not definition.readonly
+                and not definition.concurrent
                 for definition in DualFrankaToolkit.declared_tools()
             )
         ):

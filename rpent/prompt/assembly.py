@@ -286,7 +286,10 @@ def build_robot_prompt(
     layers = PromptLayers(
         base=(fragment("base", "OPERATING RULES"),),
         axis=_axis_sections(axes),
-        tools=_normalize(tools, source=source, role="system"),
+        tools=(
+            fragment("tool_results", "TOOL RESULTS"),
+            *_normalize(tools, source=source, role="system"),
+        ),
         domain=_normalize(bundle.system(variables), source=source, role="system"),
         memory=memory_sections(variables, explore="explore" in axes),
     )

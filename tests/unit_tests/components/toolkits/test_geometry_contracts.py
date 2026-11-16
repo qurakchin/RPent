@@ -30,8 +30,8 @@ from components.toolkits.geometry.evaluation.references import (
     reference_from_case,
     visible_surface,
 )
-from components.toolkits.geometry.observation import Observation
 from components.toolkits.geometry.tool import GeometryToolConfig, estimate_geometry
+from rpent.tools.observation import Observation
 
 
 def _clean_case() -> dict:
@@ -193,6 +193,33 @@ def test_estimate_geometry_matches_the_frozen_reference() -> None:
     assert payload["center"]["unit"] == "metre"
     assert payload["method"]["back_projection"] == "depth_and_calibration"
     assert payload["pixel_rc"] == case["pixel"]
+
+
+def test_estimate_geometry_returns_a_bounded_deterministic_point_sample() -> None:
+    case = _clean_case()
+    rendered = corpus.render_case(case)
+    config = GeometryToolConfig(max_points=16)
+
+    first = estimate_geometry(
+        _observation(rendered),
+        pixel=tuple(case["pixel"]),
+        quantities=("points",),
+        segmenter=replay.FrozenMaskSegmenter(rendered.mask),
+        config=config,
+    )
+    second = estimate_geometry(
+        _observation(rendered),
+        pixel=tuple(case["pixel"]),
+        quantities=("points",),
+        segmenter=replay.FrozenMaskSegmenter(rendered.mask),
+        config=config,
+    )
+
+    assert first["points"] == second["points"]
+    assert first["points"]["unit"] == "metre"
+    assert first["points"]["evidence_status"] == "measured"
+    assert 0 < len(first["points"]["value"]) <= 16
+    assert "at most 16" in first["points"]["definition"]
 
 
 def test_estimate_geometry_refuses_an_empty_segmentation() -> None:

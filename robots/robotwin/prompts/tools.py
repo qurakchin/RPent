@@ -40,10 +40,24 @@ robots/robotwin/guides/GUIDE_RPENT.md and re-observe after every primitive."""
 PERCEPTION = """Use the head view as semantic authority for identity,
 distractors, destinations, language relations, and global progress. Use the
 matching current wrist view to refine geometry for that same chosen candidate;
-do not let it silently switch to a look-alike. Pair RGB and world maps from the
-same step, view, and resolution. World maps are [row,col] -> [x,y,z] metres and
-may contain NaN; visible surface points are not automatically object centers.
-Relocalize after occlusion, contact, or substantial arm/object motion."""
+do not let it silently switch to a look-alike. RoboTwin has no grounding
+service, so call geometry with a [row,col] pixel measured on the named view and
+the quantities you need; a described target is rejected. It returns a world-frame
+center, extent, pixel_rc, fit_accepted, and
+warnings; inspect status and warnings instead of reading a rejected fit as
+usable. Use query_world_map for deterministic samples from a known world map.
+Pair RGB, depth, and world maps from the same step and view. Relocalize after
+occlusion, contact, or substantial arm/object motion."""
+
+# RoboTwin is the only host that registers MotionTools, so only its prompt
+# promises the motion stop fields.
+MOTION_RESULT_FIELDS = """Motion results also report `stop_reason`,
+`stop_evidence`, and `pose_error`. For motion tools `stop_reason` is `arrived`,
+`stalled`, `diverging`, `unsafe_motion`, `planning_rejected`, `max_steps`, or
+`episode_over`; `max_steps` means the native step budget is exhausted. Other
+tools may report their own `stop_reason` values; judge those by `completed` and
+`execution_status`. Judge motion by these fields and a fresh observation, not
+by `call_ok`."""
 
 
 def tool_sections(
@@ -57,5 +71,6 @@ def tool_sections(
         {
             "VLA AND PRIMITIVE CONTROL": CONTROL,
             "PERCEPTION": PERCEPTION,
+            "MOTION RESULT FIELDS": MOTION_RESULT_FIELDS,
         },
     )

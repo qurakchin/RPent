@@ -45,7 +45,7 @@ different robots.
    * - Prompt assembly
      - Order shared fragments, run-axis contracts, tool guidance, the robot domain, and memory; render both roles and record each section's source and the prompt hash.
    * - Toolkit
-     - Define schemas, dispatch calls, record state, and expose results as ``ToolResult`` for the planner.
+     - Define schemas, dispatch calls, record state, and expose domain data plus call and execution status as ``ToolResult`` for the planner.
    * - Environment service
      - Own the simulator or robot connection, execute actions, and expose native state and success information.
    * - VLA / perception services

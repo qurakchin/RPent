@@ -29,7 +29,8 @@ READ_ORDER = """Before the first robot mutation:
 2. Inspect `view_env_state` at step 0 and its head image.
 3. Read {{memory_dir}}/task-specific/{{reference_tag}}.json and
    {{memory_dir}}/task-specific/{{reference_tag}}_recipe.jsonl when present.
-4. Use {{memory_dir}}/MEMORY.md for the relevant global leaves; one to three usually suffice.
+4. Call recall with the task name and objects to find at most one to three
+   relevant published memory notes.
 
 Use the semantic JSON as the phase plan and the JSONL as evidence for action
 type and VLA cadence, never as a coordinate replay."""

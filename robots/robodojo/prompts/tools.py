@@ -56,9 +56,15 @@ give less execution time; completed means the selected commands ran, not that
 the target pose was reached. set_gripper opens or closes the fingers; its
 schema defines which value means which. release drops the object.
 Intermediate openings are control targets, not guaranteed physical widths.
-Inspect completed, executed_steps and stop_reason. final_dist_m is measured
-position error, not a task-success verdict. On failure, inspect and decide
-the next action; do not assume a failed call left the robot unmoved.
+Inspect completed, executed_steps and stop_reason. stop_reason is completed when
+every requested command ran; otherwise it is planning_rejected (nothing was
+planned or executed), rejected, runtime_failure, inference_failed,
+synchronization_lost, execution_unknown, cancelled, native_success,
+budget_exhausted (the episode reached its step budget), or episode_end (the
+environment ended the episode).
+final_dist_m is measured position error, not a task-success verdict. On failure,
+inspect and decide the next action; do not assume a failed call left the robot
+unmoved.
 
 {{policy_tools}}"""
 

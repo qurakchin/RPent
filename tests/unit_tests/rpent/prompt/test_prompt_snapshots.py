@@ -41,7 +41,9 @@ SNAPSHOT = Path(__file__).with_name("prompt_snapshot.json")
 #: variant; the spec-derived set excludes it. Moving the finish rule into the
 #: real-robot fragment left franka and dual_franka level and gave yam, the third
 #: real-robot slice, the rule it was missing; that is the one-line increase.
-PROMPT_FULL_RENDERED_BUDGET = 5051
+#: Adding the shared tool-result fragment to every prompt raises each
+#: evaluation and exploration render by the same paragraph.
+PROMPT_FULL_RENDERED_BUDGET = 5256
 
 
 def _memory_dir(tmp_path: Path) -> Path:

@@ -21,6 +21,7 @@ from typing import Any
 import numpy as np
 
 from robots.franka.env_client import FrankaEnvClient
+from rpent.tools.execution import mark_write_issued
 from rpent.utils.rpc import RpcClient
 
 _MOTION_TIMEOUT_S = 120.0
@@ -54,6 +55,7 @@ class DualFrankaEnvClient(FrankaEnvClient):
     def move_delta(
         self, arm: str, delta_xyz: np.ndarray | list[float]
     ) -> dict[str, Any]:
+        mark_write_issued("move_delta")
         result = self._client.call(
             "env.move_delta",
             kwargs={
@@ -68,6 +70,7 @@ class DualFrankaEnvClient(FrankaEnvClient):
     def rotate_delta(
         self, arm: str, delta_rpy: np.ndarray | list[float]
     ) -> dict[str, Any]:
+        mark_write_issued("rotate_delta")
         result = self._client.call(
             "env.rotate_delta",
             kwargs={
@@ -80,6 +83,7 @@ class DualFrankaEnvClient(FrankaEnvClient):
         return result
 
     def set_gripper(self, arm: str, *, open: bool) -> dict[str, Any]:
+        mark_write_issued("set_gripper")
         result = self._client.call(
             "env.set_gripper",
             kwargs={"arm": str(arm), "open": bool(open)},
@@ -91,6 +95,7 @@ class DualFrankaEnvClient(FrankaEnvClient):
     def recover_joint_posture(
         self, *, reason: str = "", return_to_start: bool = True
     ) -> dict[str, Any]:
+        mark_write_issued("recover_joint_posture")
         result = self._client.call(
             "env.recover_joint_posture",
             kwargs={
