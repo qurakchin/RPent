@@ -27,6 +27,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       tests: ${{ steps.scope.outputs.tests }}
+      profile: ${{ steps.scope.outputs.profile }}
       hosted: ${{ steps.scope.outputs.hosted }}
       gpu: ${{ steps.scope.outputs.gpu }}
       e2e: ${{ steps.scope.outputs.e2e }}
@@ -93,16 +94,25 @@ jobs:
               e2e = sorted(suites) if set(selected) == set(scope["profiles"]) else []
           else:
               e2e = sorted(suites & set(scope["components"]))
+          # The installer unit and repository contract groups need only the
+          # core and `dev` dependencies. Every other test path may import a
+          # model server, so it keeps the CPU Torch profile; an empty selection
+          # runs the whole suite and needs that profile too.
+          dev_tests = {"tests/unit_tests/rpent/install", "tests/unit_tests/installs"}
+          tests = set(scope["tests"])
+          profile = "dev" if tests and tests <= dev_tests else "unit-cpu"
           values = {
               "tests": scope["tests"],
+              "profile": profile,
               "hosted": [p for p in selected if p in hosted],
               "gpu": [p for p in selected if p in gpu],
               "e2e": e2e,
               "toolkit": scope["full"] or "geometry" in scope["components"],
               "docs": scope["docs"],
               # A component change can only be proven by installing its
-              # closure from the lock, which `full ci` does.
-              "needs_full": bool(scope["components"]),
+              # closure from the lock, which `full ci` does. Install data
+              # narrows the profile set rather than emptying it.
+              "needs_full": bool(scope["components"] or scope["profiles"]),
               "package": any(
                   path in {"pyproject.toml", "uv.lock", "setup.py", "MANIFEST.in"}
                   for path in changed
@@ -119,6 +129,7 @@ jobs:
     uses: ./.github/workflows/unit.yml
     with:
       tests: ${{ needs.changes.outputs.tests }}
+      profile: ${{ needs.changes.outputs.profile }}
 
   package:
     name: Package

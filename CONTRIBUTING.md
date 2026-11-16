@@ -96,7 +96,10 @@ Follow these conventions while developing:
 - **Write tests with the change.** New behavior and bug fixes should include
   tests. Refactors should keep existing tests passing; if behavior changes,
   update the tests and explain why. Unit tests must run offline on an ordinary
-  CPU machine; use fakes when model or service output is needed.
+  CPU machine; use fakes when model or service output is needed. Installer
+  units use synthetic manifests under `tests/unit_tests/rpent/install/`;
+  contracts over the checked-in components, profiles, locks, and packaging
+  extras belong in `tests/unit_tests/installs/`.
 - **Follow the project style.** Pre-commit handles Ruff formatting and linting.
   Public Python APIs should have type hints and Google-style docstrings, and
   runtime messages should use the project logger rather than `print`.

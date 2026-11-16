@@ -58,7 +58,9 @@ def make_component(tmp_path):
             imports=tuple(values.pop("imports", ())),
             env_conflicts=tuple(values.pop("env_conflicts", ())),
             placements=placements,
-            default_placement=values.pop("default_placement", placements[0]),
+            default_placement=values.pop(
+                "default_placement", placements[0] if placements else None
+            ),
             default_variant=values.pop("default_variant", None),
             variant_required=values.pop("variant_required", False),
             dependencies=tuple(values.pop("dependencies", ())),

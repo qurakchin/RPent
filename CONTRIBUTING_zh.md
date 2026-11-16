@@ -72,7 +72,9 @@ pre-commit install
 - **保持已有接口和行为兼容。** 修改 API、命令行参数、配置或保存数据的格式时，检查已有调用和数据是否仍可使用。即使参数名称和类型不变，也要检查其含义、默认值和执行行为是否改变。确需改变现有用法时，说明影响和调整方式，并更新相关调用、测试和文档。
 - **改动应配套测试。** 新行为和 bug 修复应包含测试。refactor 应保持已有测试通过；
   如果行为发生变化，请同步更新测试并说明原因。单测必须能在普通 CPU 机器上离线
-  跑通；需要模型或服务输出时使用 fake。
+  跑通；需要模型或服务输出时使用 fake。安装器单测放在
+  `tests/unit_tests/rpent/install/`，使用合成清单；针对仓库内 `component.toml`、
+  配方、锁和打包 extras 的跨文件契约放在 `tests/unit_tests/installs/`。
 - **遵循项目代码风格。** pre-commit 负责 Ruff 格式化和 lint。公共 Python API 应有
   类型标注和 Google 风格 docstring，运行时信息应使用项目 logger，而不是 `print`。
 

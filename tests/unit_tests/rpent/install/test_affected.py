@@ -115,7 +115,7 @@ def test_unmapped_path_selects_every_component_and_profile(
         profiles={"alpha": make_profile("alpha", {"alpha": Selection()})},
     )
 
-    for path in ("pyproject.toml", "setup.py", "MANIFEST.in"):
+    for path in ("setup.py", "MANIFEST.in"):
         scope = affected.affected_scope([path], catalog, tmp_path)
 
         assert scope.full
@@ -161,10 +161,129 @@ def test_installer_change_installs_every_profile_in_a_pull_request(
         },
     )
 
-    for path in ("rpent/install/lock.py", "installs/profiles/minimal.toml"):
-        scope = affected.affected_scope([path], catalog, tmp_path)
+    scope = affected.affected_scope(["rpent/install/lock.py"], catalog, tmp_path)
 
-        assert scope.pr_profiles == ("geometry-eval", "libero-sim")
+    assert scope.full
+    assert scope.tests == ("tests/unit_tests",)
+    assert scope.pr_profiles == ("geometry-eval", "libero-sim")
+
+
+def _install_data_catalog(make_component, make_profile, make_catalog):
+    """Build a catalog with two profiles and a deps component."""
+    shared = make_component(
+        "shared",
+        kind="deps",
+        placements=(),
+        default_placement=None,
+        dependencies=["packaging"],
+    )
+    alpha = make_component("alpha", requires=("shared",))
+    return make_catalog(
+        components=[alpha, shared],
+        profiles={
+            "alpha": make_profile(
+                "alpha",
+                {"alpha": Selection()},
+                lock="installs/locks/alpha.lock",
+            ),
+            "minimal": make_profile("minimal", {}),
+        },
+    )
+
+
+def test_install_data_change_runs_the_repository_contract_tests(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+
+    scope = affected.affected_scope(
+        ["installs/profiles/minimal.toml"], catalog, tmp_path
+    )
+
+    assert not scope.full
+    assert scope.components == ()
+    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.profiles == ("minimal",)
+    assert scope.pr_profiles == ("minimal",)
+
+
+def test_deps_change_reaches_the_profiles_that_require_it(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+
+    scope = affected.affected_scope(["installs/deps/shared.toml"], catalog, tmp_path)
+
+    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.profiles == ("alpha",)
+
+
+def test_lock_change_reaches_the_profile_that_reads_it(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+
+    scope = affected.affected_scope(["installs/locks/alpha.lock"], catalog, tmp_path)
+
+    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.profiles == ("alpha",)
+
+
+def test_packaging_settings_keep_every_profile(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+
+    scope = affected.affected_scope(["pyproject.toml"], catalog, tmp_path)
+
+    assert not scope.full
+    assert scope.components == ()
+    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.profiles == ("alpha", "minimal")
+    assert scope.pr_profiles == ("alpha", "minimal")
+
+
+def test_repository_contract_test_change_installs_no_profile(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+
+    scope = affected.affected_scope(
+        ["tests/unit_tests/installs/test_catalog.py"], catalog, tmp_path
+    )
+
+    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.profiles == ()
+    assert scope.pr_profiles == ()
+    assert not scope.full
+
+
+def test_unrecognised_install_data_widens_to_every_profile(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+
+    scope = affected.affected_scope(["installs/matrix.toml"], catalog, tmp_path)
+
+    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.profiles == ("alpha", "minimal")
+
+
+def test_mixed_install_and_core_change_widens_to_everything(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+
+    scope = affected.affected_scope(
+        ["installs/profiles/minimal.toml", "rpent/session/session.py"],
+        catalog,
+        tmp_path,
+    )
+
+    assert scope.full
+    assert scope.tests == ("tests/unit_tests",)
+    assert scope.profiles == ("alpha", "minimal")
+    assert scope.pr_profiles == ("alpha", "minimal")
 
 
 def test_main_prints_scope_as_json(tmp_path, write_toml, capsys):
