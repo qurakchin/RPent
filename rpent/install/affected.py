@@ -26,6 +26,11 @@ component name is treated the same way rather than silently ignored. The answer
 then names every component, every profile, and the whole unit suite. When no
 path is given there is nothing to narrow the answer with, so the same happens.
 
+Changes confined to the repository's install data are narrower: they decide
+which environment can be built rather than how a component behaves, so they
+select the repository contract tests and the profiles that read the changed
+files. Unrecognised install data widens back to every profile.
+
 Narrowing is fail-open throughout: a change no test directory covers, or a
 component whose tests do not exist yet, widens the scope instead of reporting a
 smaller one.
@@ -64,10 +69,19 @@ ROBOT_SHARED_TESTS = (
 #: profile.
 PR_PILOT_PROFILES = ("geometry-eval", "minimal")
 #: Paths whose change can alter every installation, so a PR installs every
-#: profile instead of the pilot set. Packaging files outside ``rpent/`` and
-#: ``tests/`` already select every profile because no other path rule matches
-#: them.
+#: profile instead of the pilot set. Install data changes narrow their own
+#: profile set first; a path here in a mixed change still widens it. Packaging
+#: files outside ``rpent/`` and ``tests/`` already select every profile because
+#: no other path rule matches them.
 PR_ALL_PROFILE_PREFIXES = ("rpent/install/", "installs/", ".github/")
+#: The repository's install data: the profiles, dependency-only manifests,
+#: locks and packaging settings that decide what each environment contains.
+INSTALL_DATA_PREFIXES = ("installs/",)
+INSTALL_DATA_ROOT_FILES = ("pyproject.toml",)
+#: Repository contract tests read that data. Installer unit tests live under
+#: ``tests/unit_tests/rpent/install/`` and use synthetic manifests, so the two
+#: groups stay distinguishable by path.
+INSTALL_DATA_TESTS = "tests/unit_tests/installs"
 
 
 @dataclass(frozen=True)
@@ -107,15 +121,88 @@ def _component_for(path: str) -> tuple[str, str] | None:
     return None
 
 
+def _is_install_data(path: str) -> bool:
+    """Return whether ``path`` changes the repository's install data."""
+    if path in INSTALL_DATA_ROOT_FILES:
+        return True
+    if path.startswith(INSTALL_DATA_PREFIXES):
+        return True
+    return path == INSTALL_DATA_TESTS or path.startswith(f"{INSTALL_DATA_TESTS}/")
+
+
+def _profiles_requiring(name: str, catalog: Catalog) -> list[str] | None:
+    """Return the profiles that install deps component ``name``.
+
+    ``None`` widens the answer when a profile cannot be resolved: ``check``
+    reports that profile separately, and CI must install it rather than skip it.
+    """
+    if name not in catalog.components:
+        return None
+    found: list[str] = []
+    for profile_name, profile in sorted(catalog.profiles.items()):
+        try:
+            resolution = resolve(profile, catalog)
+        except InstallConfigError:
+            return None
+        if name in resolution.components:
+            found.append(profile_name)
+    return found
+
+
+def _profiles_for_install_data(paths: list[str], catalog: Catalog) -> tuple[str, ...]:
+    """Return the profiles whose installation reads ``paths``, or all of them.
+
+    A profile names itself, a lock names the profile that declares it, and a
+    deps manifest names the profiles whose closure installs it. Packaging
+    settings feed every profile, and an unrecognised file widens the answer
+    rather than guessing which environments it reaches.
+    """
+    every = tuple(sorted(catalog.profiles))
+    selected: set[str] = set()
+    for path in paths:
+        if path in INSTALL_DATA_ROOT_FILES:
+            return every
+        if path == INSTALL_DATA_TESTS or path.startswith(f"{INSTALL_DATA_TESTS}/"):
+            # A test-only change installs nothing; the unit job still runs it.
+            continue
+        parts = path.split("/")
+        area = parts[1] if len(parts) > 1 else ""
+        stem = parts[2] if len(parts) > 2 else ""
+        suffix = Path(stem).suffix
+        if area == "profiles" and suffix == ".toml" and len(parts) == 3:
+            name = stem[: -len(suffix)]
+            if name not in catalog.profiles:
+                return every
+            selected.add(name)
+        elif area == "locks" and suffix == ".lock" and len(parts) == 3:
+            declared = [
+                name
+                for name, profile in catalog.profiles.items()
+                if profile.lock == path
+            ]
+            if not declared:
+                return every
+            selected.update(declared)
+        elif area == "deps" and suffix == ".toml" and len(parts) == 3:
+            required = _profiles_requiring(stem[: -len(suffix)], catalog)
+            if required is None:
+                return every
+            selected.update(required)
+        else:
+            return every
+    return tuple(sorted(selected))
+
+
 def _pr_profiles(paths: list[str], profiles: dict[str, object]) -> tuple[str, ...]:
     """Return the profiles a pull request should install for ``paths``.
 
     A component change never reaches this helper: its profile set is already
     the resolution closure. For a core change, installing every GPU profile
     proves little beyond what nightly proves and costs a self-hosted runner
-    slot, so the PR installs the core-only and CPU toolkit profiles. Anything
-    that can change an installation itself — the installer, profiles, locks,
-    packaging, workflows — keeps the full set.
+    slot, so the PR installs the core-only and CPU toolkit profiles. The
+    installer, workflows, packaging, and a mixed change that still names one of
+    them keep the full set; install data on its own narrows before this helper
+    runs.
     """
     available = tuple(sorted(profiles))
     if not paths:
@@ -164,6 +251,20 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
     """Return the components, tests and profiles ``paths`` can change."""
     if paths and all(_is_docs(path) for path in paths):
         return Scope(components=(), tests=(), profiles=(), full=False, docs=True)
+    if paths and all(_is_install_data(path) for path in paths):
+        # Install data is repository-level: it changes which environment can be
+        # built, not a component's behavior. The contract tests under
+        # ``tests/unit_tests/installs/`` own the cross-file checks, and the
+        # profiles that read the changed files are the ones a pull request
+        # installs.
+        profiles = _profiles_for_install_data(paths, catalog)
+        return Scope(
+            components=(),
+            tests=(INSTALL_DATA_TESTS,),
+            profiles=profiles,
+            full=False,
+            pr_profiles=profiles,
+        )
     names = affected_components(paths, catalog)
     if names is None or not paths:
         return Scope(

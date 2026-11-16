@@ -15,12 +15,9 @@
 """Every profile must be installed by exactly one full-CI runner."""
 
 import json
-from pathlib import Path
 
 from rpent.install import matrix
 from rpent.install.discovery import discover_profiles
-
-REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 def _write_profile(root, name):
@@ -31,10 +28,6 @@ def _write_profile(root, name):
         encoding="utf-8",
     )
     return path
-
-
-def test_repository_partition_covers_every_profile():
-    assert matrix.problems(discover_profiles(REPO_ROOT)) == []
 
 
 def test_profile_without_a_runner_is_reported(tmp_path):
@@ -89,10 +82,18 @@ def test_check_reports_drift_and_fails(tmp_path, capsys):
     assert matrix.main(["--check"], root=tmp_path) == 1
     assert "not installed by any runner" in capsys.readouterr().err
 
-    assert matrix.main(["--check"], root=REPO_ROOT) == 0
+
+def test_check_passes_when_the_partition_matches(tmp_path, monkeypatch, capsys):
+    _write_profile(tmp_path, "alpha")
+    monkeypatch.setattr(matrix, "MATRICES", {"hosted": ("alpha",), "gpu": ()})
+
+    assert matrix.main(["--check"], root=tmp_path) == 0
+    assert capsys.readouterr().err == ""
 
 
-def test_runner_prints_the_workflow_matrix(capsys):
+def test_runner_prints_the_selected_partition(monkeypatch, capsys):
+    monkeypatch.setattr(matrix, "MATRICES", {"hosted": ("alpha",), "gpu": ()})
+
     assert matrix.main(["--runner", "hosted"]) == 0
 
-    assert json.loads(capsys.readouterr().out) == list(matrix.HOSTED)
+    assert json.loads(capsys.readouterr().out) == ["alpha"]

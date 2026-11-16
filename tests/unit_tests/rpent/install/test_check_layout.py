@@ -14,14 +14,18 @@
 
 """Layout checks reject imports across component ownership boundaries."""
 
+import os
 import subprocess
 import sys
 from datetime import date
 from pathlib import Path
 
+import rpent
 from rpent.install import layout
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+#: Directory that contains the ``rpent`` package. The layout check runs against
+#: a synthetic repository, so the child process only needs this import path.
+IMPORT_ROOT = Path(rpent.__file__).resolve().parents[1]
 
 #: Package groups each component root lives under; all must stay importable.
 GROUP_INITS = {
@@ -90,7 +94,8 @@ def _run(root):
         [sys.executable, "-m", "rpent.install.layout", "--root", str(root)],
         capture_output=True,
         text=True,
-        cwd=REPO_ROOT,
+        cwd=root,
+        env={**os.environ, "PYTHONPATH": str(IMPORT_ROOT)},
     )
 
 

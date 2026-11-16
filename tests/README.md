@@ -2,9 +2,9 @@
 
 RPent keeps fast, offline unit tests under `unit_tests`. Real-simulator smoke
 tests, model component and policy-chain tests, and explicit real-robot
-diagnostics belong under `e2e_tests`. Unit tests mirror the production module
-they exercise; GPU tests are grouped by robot stack. Environment smoke tests
-can run without model checkpoints.
+diagnostics belong under `e2e_tests`. Unit tests mirror the production module or
+repository data they exercise; GPU tests are grouped by robot stack.
+Environment smoke tests can run without model checkpoints.
 
 ## Directory layout
 
@@ -22,13 +22,14 @@ tests/
     ├── rpent/             # tests for the core package
     │   ├── cli/
     │   ├── dashboard/
-    │   ├── install/       # manifests, resolution, locks, layout, CI scope
+    │   ├── install/       # installer units; synthetic manifests and temp repos
     │   ├── memory/
     │   ├── planner/
     │   ├── robots/
     │   ├── session/
     │   ├── tools/
     │   └── utils/
+    ├── installs/          # contracts over the real checked-in install data
     ├── robots/<name>/     # tests for one robot slice
     │   ├── libero/
     │   ├── robocasa/
@@ -50,7 +51,18 @@ them when the first test for that module lands.
   `tests/unit_tests/components/toolkits/`.
 - Place cross-layer tests with the primary contract owner. Registry and config
   contracts belong to `rpent/robots/`; slice toolkit and schema contracts
-  belong to `robots/`; install and layout checks belong to `rpent/install/`.
+  belong to `robots/`; installer units belong to `rpent/install/`.
+- Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
+  exercises `rpent/install/` with temporary fixtures and synthetic manifests;
+  `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
+  `installs/{profiles,deps,locks}/`, the authored runner partition, the
+  compatibility extras and conflicts in the root `pyproject.toml`, and the
+  workflows that consume them. Do not read the real install data from
+  `tests/unit_tests/rpent/install/`; the test path would otherwise hide which
+  layer owns the failure. `installs/` is not a Python package, so the test
+  directory mirrors the repository-level data rather than a `rpent/` module.
+  Both groups use only the core and `dev` dependencies, and `fast ci` runs them
+  in the `dev` profile.
 - Keep one-off fakes in the test module that uses them. Put shared fixtures in
   the nearest `conftest.py`: use `tests/conftest.py` only for suite-wide
   fixtures and a module directory's `conftest.py` for local fixtures.
