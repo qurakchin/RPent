@@ -1,0 +1,46 @@
+name: Package
+
+# Reusable packaging checks: the sdist and wheel build, install into a fresh
+# environment, expose the CLI, and carry the component packages.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and install the distribution
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Install the wheel into a fresh environment
+        run: |
+          uv venv --python 3.11 .venv-wheel
+          uv pip install --python .venv-wheel/bin/python dist/*.whl
+      - name: Check the wheel install
+        run: |
+          .venv-wheel/bin/rpent --help >/dev/null
+          .venv-wheel/bin/python - <<'PY'
+          from pathlib import Path
+
+          import rpent
+
+          root = Path(rpent.__file__).resolve().parent.parent
+          for package in ("robots", "components", "components/models"):
+              if not (root / package).is_dir():
+                  raise SystemExit(f"{package}/ is missing from the wheel")
+          print(sorted(path.name for path in root.iterdir() if path.is_dir()))
+          PY
+      - name: Install the sdist and upgrade it to the wheel
+        run: |
+          uv venv --python 3.11 .venv-sdist
+          uv pip install --python .venv-sdist/bin/python dist/*.tar.gz
+          .venv-sdist/bin/rpent --help >/dev/null
+          uv pip install --python .venv-sdist/bin/python --reinstall dist/*.whl
+          .venv-sdist/bin/rpent --help >/dev/null
+          .venv-sdist/bin/python -c "import rpent; print(rpent.__version__)"

@@ -26,9 +26,7 @@ def test_requires_closure_adds_components_with_default_placement(
     make_component, make_profile, make_catalog
 ):
     robot = make_component("alpha", requires=["sam3"])
-    sam3 = make_component(
-        "sam3", kind="capability", placements=("in-env", "external-env")
-    )
+    sam3 = make_component("sam3", kind="model", placements=("in-env", "external-env"))
     profile = make_profile("alpha", {"alpha": Selection()})
     catalog = _catalog(make_catalog, robot, sam3)
 
@@ -112,7 +110,7 @@ def test_deps_component_joins_every_consuming_environment(
     robot = make_component("alpha", requires=["rlinf"])
     model = make_component(
         "molmo",
-        kind="capability",
+        kind="model",
         placements=("in-env", "external-env"),
         requires=["rlinf"],
     )
@@ -149,7 +147,7 @@ def test_external_placement_uses_named_environment(
 ):
     molmo = make_component(
         "molmo",
-        kind="capability",
+        kind="model",
         placements=("in-env", "external-env"),
         default_placement="external-env",
     )
@@ -167,9 +165,7 @@ def test_external_placement_uses_named_environment(
 def test_external_environment_must_exist_and_include_the_component(
     make_component, make_profile, make_catalog
 ):
-    molmo = make_component(
-        "molmo", kind="capability", placements=("in-env", "external-env")
-    )
+    molmo = make_component("molmo", kind="model", placements=("in-env", "external-env"))
     profile = make_profile(
         "flash", {"molmo": Selection(placement="external-env", profile="molmo")}
     )
@@ -179,15 +175,16 @@ def test_external_environment_must_exist_and_include_the_component(
     resolution = resolve(profile, catalog)
 
     assert not resolution.ok
-    assert any("envs/molmo.toml does not exist" in error for error in resolution.errors)
+    assert any(
+        "installs/profiles/molmo.toml does not exist" in error
+        for error in resolution.errors
+    )
 
 
 def test_external_profile_without_the_component_is_reported(
     make_component, make_profile, make_catalog
 ):
-    molmo = make_component(
-        "molmo", kind="capability", placements=("in-env", "external-env")
-    )
+    molmo = make_component("molmo", kind="model", placements=("in-env", "external-env"))
     profile = make_profile(
         "flash", {"molmo": Selection(placement="external-env", profile="molmo")}
     )
@@ -288,7 +285,7 @@ def test_conflict_suggests_moving_the_component_that_can_leave_the_environment(
     resolution = resolve(profile, catalog)
 
     assert (
-        "option 1: move alpha to external-env in envs/shared.toml"
+        "option 1: move alpha to external-env in installs/profiles/shared.toml"
         in (resolution.errors[0])
     )
 

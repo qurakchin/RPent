@@ -25,14 +25,14 @@ from rpent.install.resolve import resolve
 def _resolution(make_component, make_profile, make_catalog, dependencies):
     component = make_component("alpha", dependencies=list(dependencies))
     profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
     return profile, resolve(profile, catalog)
 
 
 def _write_lock(tmp_path, text):
-    path = tmp_path / "envs/locks/alpha.lock"
+    path = tmp_path / "installs/locks/alpha.lock"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     return path
@@ -71,8 +71,8 @@ def test_missing_declared_lock_is_reported(
     problems = lock_problems(profile, resolution, tmp_path)
 
     assert problems == [
-        "profile 'alpha' declares lock envs/locks/alpha.lock, but the file does "
-        "not exist; run `rpent-env lock alpha`"
+        "profile 'alpha' declares lock installs/locks/alpha.lock, but the file does "
+        "not exist; run `rpent-install lock alpha`"
     ]
 
 
@@ -190,7 +190,7 @@ def test_every_supported_platform_maps_to_its_marker_values(
     profile = make_profile(
         "alpha",
         {"alpha": Selection()},
-        lock="envs/locks/alpha.lock",
+        lock="installs/locks/alpha.lock",
         platform=platform,
     )
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
@@ -212,7 +212,7 @@ def test_unknown_profile_platform_is_reported(
     profile = make_profile(
         "alpha",
         {"alpha": Selection()},
-        lock="envs/locks/alpha.lock",
+        lock="installs/locks/alpha.lock",
         platform="windows-x86_64",
     )
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
@@ -297,7 +297,7 @@ def test_lock_satisfying_an_override_is_accepted(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
     profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
     _write_lock(tmp_path, "numpy==2.0.0\n")
@@ -314,7 +314,7 @@ def test_lock_violating_an_override_is_reported(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
     profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
     _write_lock(tmp_path, "numpy==2.0.0\n")
@@ -336,7 +336,7 @@ def test_marker_scoped_override_is_checked_against_the_profile_target(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
     profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
     _write_lock(tmp_path, "numpy==2.0.0\n")
@@ -355,7 +355,7 @@ def test_marker_scoped_override_for_another_target_is_skipped(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
     profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
     _write_lock(tmp_path, "numpy==2.0.0\n")
@@ -374,7 +374,7 @@ def test_override_for_a_package_outside_the_lock_is_ignored(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
     profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
     _write_lock(tmp_path, "numpy==2.0.0\n")
@@ -389,7 +389,7 @@ def test_lock_that_is_not_utf8_is_a_configuration_error(
         make_component, make_profile, make_catalog, ["numpy>=2"]
     )
     _write_lock(tmp_path, "numpy==2.0.0\n")
-    (tmp_path / "envs/locks/alpha.lock").write_bytes(b"numpy==2.0.0\n\xff\n")
+    (tmp_path / "installs/locks/alpha.lock").write_bytes(b"numpy==2.0.0\n\xff\n")
 
     with pytest.raises(InstallConfigError, match="not UTF-8"):
         lock_problems(profile, resolution, tmp_path)
@@ -404,7 +404,7 @@ def test_override_that_is_not_utf8_is_a_configuration_error(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
     profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="envs/locks/alpha.lock"
+        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
     _write_lock(tmp_path, "numpy==2.0.0\n")

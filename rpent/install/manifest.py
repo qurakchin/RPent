@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Typed component manifests (``component.toml``) and profiles (``envs/*.toml``).
+"""Typed component manifests (``component.toml``) and profiles.
+
+Profiles live at ``installs/profiles/<name>.toml``.
 
 Manifests own a component's packages. Profiles choose components, their
 placement, and an optional variant; they may add packages that belong to no
@@ -36,9 +38,9 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
 SCHEMA = 1
-KINDS = ("robot", "toolkit", "capability", "deps")
+KINDS = ("robot", "toolkit", "model", "deps")
 #: Kinds declared by ``component.toml`` inside the component's own directory.
-DIRECTORY_KINDS = ("robot", "toolkit", "capability")
+DIRECTORY_KINDS = ("robot", "toolkit", "model")
 PLACEMENTS = ("in-env", "external-env", "remote")
 _PYTHON_MINOR = re.compile(r"^\d+\.\d+$")
 _MANYLINUX = re.compile(r"^\d+_\d+$")
@@ -198,7 +200,7 @@ class Profile:
     description: str | None
     manylinux: str = "2_31"
     #: A development diagnostic built for one component rather than a profile
-    #: declared in ``envs/``; nothing may present it as one.
+    #: declared in ``installs/profiles/``; nothing may present it as one.
     synthetic: bool = False
 
     def relative_lock(self) -> Path | None:
@@ -218,13 +220,13 @@ def load_component(path: Path) -> Component:
     kind = data.get("kind")
     if kind == "deps":
         raise InstallConfigError(
-            f"{path}: 'deps' components live at envs/deps/<name>.toml"
+            f"{path}: 'deps' components live at installs/deps/<name>.toml"
         )
     return _component(data, path, name=name, kind=kind)
 
 
 def load_deps_component(path: Path) -> Component:
-    """Load and validate one ``envs/deps/<name>.toml`` manifest."""
+    """Load and validate one ``installs/deps/<name>.toml`` manifest."""
     data = _read_toml(path)
     _schema(data, path)
     name = _name(data, path)
@@ -236,7 +238,7 @@ def load_deps_component(path: Path) -> Component:
     if kind != "deps":
         raise InstallConfigError(
             f"{path}: 'kind' must be 'deps'; use component.toml in a component "
-            "directory for robots, toolkits and capabilities"
+            "directory for robots, models and toolkits"
         )
     if "placement" in data or "default_placement" in data:
         raise InstallConfigError(

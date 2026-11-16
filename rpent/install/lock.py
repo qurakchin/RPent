@@ -47,7 +47,7 @@ PLATFORM_TAGS = {
 
 def lock_path(root: Path, profile: Profile) -> Path:
     """Return the profile's declared or conventional lock path."""
-    return root / (profile.lock or f"envs/locks/{profile.name}.lock")
+    return root / (profile.lock or f"installs/locks/{profile.name}.lock")
 
 
 def compile_profile(
@@ -118,7 +118,7 @@ def resolve_profile(
 ) -> str:
     """Compile ``profile`` into a temporary file and return the uv output.
 
-    ``rpent-env check --resolve`` uses this to prove that the declared
+    ``rpent-install check --resolve`` uses this to prove that the declared
     dependencies have a solution; it delegates to :func:`compile_profile` so
     there is only one resolver.
     """
@@ -203,7 +203,7 @@ def lock_profiles(
                 )
             )
             print(diff)
-            print(f"lock is out of date for {name}; run `rpent-env lock {name}`")
+            print(f"lock is out of date for {name}; run `rpent-install lock {name}`")
             has_drift = True
         else:
             print(f"lock ok: {name}")

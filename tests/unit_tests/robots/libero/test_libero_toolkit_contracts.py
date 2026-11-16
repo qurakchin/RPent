@@ -27,7 +27,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from capabilities.sam3.client import Sam3Result
+from components.models.sam3.client import Sam3Result
 from robots.libero import robot_spec, toolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager

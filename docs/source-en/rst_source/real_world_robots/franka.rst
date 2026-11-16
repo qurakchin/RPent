@@ -24,7 +24,7 @@ its own environment:
 
 .. code-block:: bash
 
-   rpent-env install franka-real --venv .venv-franka-real
+   rpent-install install franka-real --venv .venv-franka-real
 
 It includes RLinf ``release/v0.4``, ``rpent-openpi``, and the Franka camera,
 gripper, and teleoperation dependencies. The included ``franky-control`` wheel

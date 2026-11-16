@@ -39,7 +39,7 @@ from rpent.install.resolve import resolve
 
 def _profile(write_toml, *, core=False):
     write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         f"""
         schema = 1
         name = "alpha"
@@ -63,7 +63,7 @@ def test_missing_fingerprint_reports_install_command(tmp_path):
     checks = check_installation(tmp_path / "venv", root=tmp_path)
 
     assert checks[0].status == FAIL
-    assert "rpent-env install <profile>" in checks[0].message
+    assert "rpent-install install <profile>" in checks[0].message
 
 
 def test_stale_fingerprint_fails_before_running_checks(
@@ -105,7 +105,7 @@ def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
         "profile": "alpha",
         "python": "3.11.9",
         "include_dev": False,
-        "requirements_sha256": "written by an older rpent-env",
+        "requirements_sha256": "written by an older rpent-install",
     }
 
     def _missing_uv():
@@ -134,7 +134,7 @@ def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
 def test_dev_installation_is_not_reported_as_stale(tmp_path, write_toml, monkeypatch):
     _profile(write_toml)
     write_toml(
-        "envs/dev.toml",
+        "installs/profiles/dev.toml",
         f"""
         schema = 1
         name = "dev"
@@ -180,17 +180,17 @@ def test_lock_edited_after_install_makes_the_environment_stale(
     tmp_path, write_toml, monkeypatch
 ):
     write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         f"""
         schema = 1
         name = "alpha"
         python = "3.11"
         platform = "{runtime_platform()}"
         core = false
-        lock = "envs/locks/alpha.lock"
+        lock = "installs/locks/alpha.lock"
         """,
     )
-    lock = write_toml("envs/locks/alpha.lock", "packaging==24.0")
+    lock = write_toml("installs/locks/alpha.lock", "packaging==24.0")
     resolution = resolve_install_target("alpha", discover(tmp_path), root=tmp_path)
     venv = _venv(tmp_path)
     write_fingerprint(

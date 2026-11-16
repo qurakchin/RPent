@@ -26,8 +26,8 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal
 import numpy as np
 from pydantic import Field
 
-from capabilities.molmo.client import MolmoClient
-from capabilities.sam3.client import Sam3Client
+from components.models.molmo.client import MolmoClient
+from components.models.sam3.client import Sam3Client
 from robots.libero.env_client import LiberoEnvClient
 from rpent.session import EnvState, StepRecord
 from rpent.session.env_capture import CapturingEnvClient
@@ -35,8 +35,8 @@ from rpent.tools import Tool, ToolResult, tool
 from rpent.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from capabilities._base.client import BaseVLAClient
     from robots.libero.wam_client import LiberoWAMClient
+    from rpent.models.client import BaseVLAClient
 
 logger = get_logger("libero_tools")
 

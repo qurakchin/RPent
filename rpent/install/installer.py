@@ -60,8 +60,8 @@ def default_venv(root: Path, profile: Profile) -> Path:
 def requirements_file(root: Path, profile: Profile, environment: str) -> Path:
     """Return the generated requirements path for one environment."""
     if environment == profile.name:
-        return root / STATE_DIR / "envs" / f"{profile.name}.txt"
-    return root / STATE_DIR / "envs" / f"{profile.name}.{environment}.txt"
+        return root / STATE_DIR / "requirements" / f"{profile.name}.txt"
+    return root / STATE_DIR / "requirements" / f"{profile.name}.{environment}.txt"
 
 
 def venv_python(venv: Path) -> Path:
@@ -301,7 +301,7 @@ def install(
         raise InstallError("\n".join(resolution.errors))
     profile = resolution.profile
     # A component install is a development diagnostic: its synthetic profile
-    # comes from the host interpreter rather than a declared envs/<name>.toml,
+    # comes from the host interpreter rather than a declared profile,
     # so the fingerprint must say so.
     install_kind = "profile" if target in catalog.profiles else "component"
     core = read_core_dependencies(repo_root) if profile.core else ()
@@ -369,7 +369,7 @@ def install(
     if not python.exists():
         raise InstallError(
             f"{destination} exists but has no Python interpreter; remove it and "
-            f"rerun `rpent-env install {target}`"
+            f"rerun `rpent-install install {target}`"
         )
 
     # Install the profile's lock when it exists so a checkout with a lock gets
@@ -467,7 +467,7 @@ def install(
         if external:
             print("external environments are installed separately:")
             for environment in sorted(external):
-                print(f"  rpent-env install {environment}")
+                print(f"  rpent-install install {environment}")
     return fingerprint
 
 
@@ -522,7 +522,7 @@ def probe_source(probe: str) -> str:
 def repair_command(resolution: Resolution) -> str:
     """Return the command that rebuilds the same installation."""
     profile = resolution.profile
-    command = f"rpent-env install {profile.name}"
+    command = f"rpent-install install {profile.name}"
     selection = profile.components.get(profile.name)
     if profile.synthetic and selection is not None and selection.variant is not None:
         command += f" --variant {selection.variant}"

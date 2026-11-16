@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Discover component manifests and environment profiles in a source checkout."""
+"""Discover component manifests and install profiles in a source checkout."""
 
 from __future__ import annotations
 
@@ -34,10 +34,9 @@ from rpent.utils.config import get_repo_root
 #: ``component.toml``; the ``deps`` kind reads one file per component.
 COMPONENT_ROOTS = (
     ("robots/*/component.toml", "robot"),
-    ("toolkits/*/component.toml", "toolkit"),
-    ("capabilities/*/component.toml", "capability"),
-    ("rpent/*/component.toml", "capability"),
-    ("envs/deps/*.toml", "deps"),
+    ("components/models/*/component.toml", "model"),
+    ("components/toolkits/*/component.toml", "toolkit"),
+    ("installs/deps/*.toml", "deps"),
 )
 
 
@@ -108,7 +107,7 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
 def _check_imports(components: dict[str, Component]) -> None:
     """Allow ``imports`` on robot slices, naming a co-installed robot.
 
-    Toolkits and capabilities share a contract instead of importing each
+    Toolkits and model services share a contract instead of importing each
     other's modules, so an ``imports`` entry on either is a manifest error
     rather than a boundary the layout check has to honour.
     """
@@ -205,21 +204,22 @@ def _close_conflicts(components: dict[str, Component]) -> dict[str, Component]:
 
 
 def discover_profiles(root: Path | None = None) -> dict[str, Profile]:
-    """Load every profile under ``envs/`` in ``root``.
+    """Load every profile under ``installs/profiles/`` in ``root``.
 
     Raises:
-        InstallConfigError: ``root`` is not a source checkout with ``envs/``.
+        InstallConfigError: ``root`` is not a source checkout with
+            ``installs/profiles/``.
     """
     repo_root = (root or get_repo_root()).resolve()
-    envs = repo_root / "envs"
-    if not envs.is_dir():
+    profiles_dir = repo_root / "installs" / "profiles"
+    if not profiles_dir.is_dir():
         raise InstallConfigError(
-            f"{envs} does not exist; environment profiles ship with the source "
-            "checkout, so run rpent-env from the repository root or reinstall "
-            "RPent in editable mode (pip install -e .)"
+            f"{profiles_dir} does not exist; profiles ship with the source "
+            "checkout, so run rpent-install from the repository root or "
+            "reinstall RPent in editable mode (pip install -e .)"
         )
     profiles: dict[str, Profile] = {}
-    for path in sorted(envs.glob("*.toml")):
+    for path in sorted(profiles_dir.glob("*.toml")):
         if _is_metadata_file(path):
             continue
         profile = load_profile(path)

@@ -41,11 +41,16 @@ def make_component(tmp_path):
 
     def _make(name, **values):
         placements = tuple(values.pop("placements", ("in-env",)))
+        kind = values.pop("kind", "robot")
+        directory = {
+            "model": Path("components") / "models",
+            "toolkit": Path("components") / "toolkits",
+        }.get(kind, Path("robots"))
         return Component(
             name=name,
-            kind=values.pop("kind", "robot"),
-            path=tmp_path / "components" / name,
-            manifest=tmp_path / "components" / name / "component.toml",
+            kind=kind,
+            path=tmp_path / directory / name,
+            manifest=tmp_path / directory / name / "component.toml",
             probe=values.pop("probe", f"robots.{name}"),
             python=values.pop("python", None),
             platforms=tuple(values.pop("platforms", ())),
@@ -73,7 +78,7 @@ def make_profile(tmp_path):
     def _make(name, components=None, **values):
         return Profile(
             name=name,
-            path=tmp_path / "envs" / f"{name}.toml",
+            path=tmp_path / "installs" / "profiles" / f"{name}.toml",
             python=values.pop("python", "3.11"),
             platform=values.pop("platform", "linux-x86_64"),
             components=components or {},

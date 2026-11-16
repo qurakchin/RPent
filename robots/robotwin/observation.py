@@ -18,10 +18,10 @@ from typing import Any
 
 import numpy as np
 
-from capabilities._base.contracts import AMObservation
+from rpent.models.contracts import AMObservation
 
 #: Camera roles RoboTwin exposes, in the order model adapters expect. The
-#: capability-side copy lives in ``capabilities/_base/platforms.py``; keep the
+#: capability-side copy lives in ``rpent/models/platforms.py``; keep the
 #: two equal.
 ROBOTWIN_CAMERAS = ("head", "left_wrist", "right_wrist")
 

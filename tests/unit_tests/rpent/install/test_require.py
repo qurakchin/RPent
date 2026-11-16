@@ -37,7 +37,7 @@ def test_missing_module_names_component_and_install(monkeypatch):
 
     message = str(error.value)
     assert "component 'sam3' requires 'definitely_missing_rpent_module'" in message
-    assert "rpent-env list" in message
+    assert "rpent-install list" in message
 
 
 def test_external_component_hint_names_its_environment(monkeypatch):
@@ -54,7 +54,7 @@ def test_external_component_hint_names_its_environment(monkeypatch):
         components.require("molmo", "definitely_missing_rpent_module")
 
     assert "external environment 'molmo-server'" in str(error.value)
-    assert "rpent-env install molmo-server" in str(error.value)
+    assert "rpent-install install molmo-server" in str(error.value)
 
 
 def test_in_environment_component_repairs_its_profile(monkeypatch):
@@ -68,7 +68,7 @@ def test_in_environment_component_repairs_its_profile(monkeypatch):
     with pytest.raises(components.MissingComponentError) as error:
         components.require("sam3", "definitely_missing_rpent_module")
 
-    assert "rerun `rpent-env install alpha`" in str(error.value)
+    assert "rerun `rpent-install install alpha`" in str(error.value)
 
 
 def test_component_outside_profile_points_to_a_development_install(monkeypatch):
@@ -84,7 +84,7 @@ def test_component_outside_profile_points_to_a_development_install(monkeypatch):
 
 def test_component_diagnostic_repairs_the_component(monkeypatch):
     # A component install records ``profile: null``; the hint must not tell the
-    # user to rerun `rpent-env install None`.
+    # user to rerun `rpent-install install None`.
     fingerprint = {
         "install_kind": "component",
         "profile": None,
@@ -97,7 +97,7 @@ def test_component_diagnostic_repairs_the_component(monkeypatch):
     with pytest.raises(components.MissingComponentError) as error:
         components.require("sam3", "definitely_missing_rpent_module")
 
-    assert "rerun `rpent-env install sam3`" in str(error.value)
+    assert "rerun `rpent-install install sam3`" in str(error.value)
     assert "None" not in str(error.value)
 
 
@@ -118,4 +118,4 @@ def test_missing_module_in_a_component_diagnostic_names_the_component(
 
     message = str(error.value)
     assert "installed for component 'sam3'" in message
-    assert "rpent-env install molmo" in message
+    assert "rpent-install install molmo" in message

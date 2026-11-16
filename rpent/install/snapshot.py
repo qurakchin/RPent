@@ -36,7 +36,7 @@ RUN_MANIFEST_NAME = "run.json"
 def installation_snapshot(venv: Path | None = None) -> dict[str, Any]:
     """Return the current environment's installation identity.
 
-    A source checkout that was not installed through ``rpent-env`` still gets a
+    A source checkout that was not installed through ``rpent-install`` still gets a
     snapshot, but ``profile`` and ``install_sha256`` are ``None`` so a run can
     be traced to the environment that produced it.
     """

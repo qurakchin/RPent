@@ -22,7 +22,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from capabilities.openpi.client import Pi05VLAClient
+from components.models.openpi.client import Pi05VLAClient
 from rpent.utils.daemon import ProcessDaemon, pick_free_port
 from rpent.utils.rpc import make_rpc_client, wait_for_ready
 from tests.e2e_tests.common import (
@@ -51,7 +51,7 @@ def apxinf_endpoint(libero_scenario: LiberoScenario) -> Iterator[str]:
     command = [
         os.environ.get("APXINF_PYTHON", sys.executable),
         "-m",
-        "capabilities.apxinf.server",
+        "components.models.apxinf.server",
         "--embodiment",
         "libero",
         "--model-path",

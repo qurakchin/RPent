@@ -49,7 +49,7 @@ Entry Point and Component Manifest
 ----------------------------------
 
 A robot is a component: a directory under ``robots/`` plus a
-``component.toml`` that tells ``rpent-env`` how to install it. The target
+``component.toml`` that tells ``rpent-install`` how to install it. The target
 skeleton is:
 
 .. code-block:: text
@@ -72,7 +72,7 @@ The slices in this checkout still use their pre-migration names
 above. Write new slices against the target names; the sections below name the
 current file for each role until that migration lands.
 
-``component.toml`` declares what ``rpent-env`` reads:
+``component.toml`` declares what ``rpent-install`` reads:
 
 .. code-block:: toml
 
@@ -87,15 +87,15 @@ current file for each role until that migration lands.
 
    dependencies = ["my-simulator==1.2"]
 
-``probe`` names the importable package. ``rpent-env install`` and
-``rpent-env doctor`` import it inside the target environment together with the
+``probe`` names the importable package. ``rpent-install install`` and
+``rpent-install doctor`` import it inside the target environment together with the
 slice's environment adapter, so a successful probe proves the real
 dependencies are present. Keep only this robot's packages in
 ``dependencies``; a package that two or more components need belongs in a
-``deps`` component under ``envs/deps/``. ``imports`` is only for a robot slice
+``deps`` component under ``installs/deps/``. ``imports`` is only for a robot slice
 that reuses another slice's code: name the other robot, and make one of the
 two ``requires`` the other so the install closure includes both. Toolkits and
-capabilities share a contract instead of importing each other.
+model services share a contract instead of importing each other.
 
 The compatibility extras in ``pyproject.toml`` are generated from the manifests
 and profiles. Adding or renaming a component or profile therefore also requires
@@ -104,10 +104,10 @@ not live under ``robots/``:
 
 .. code-block:: bash
 
-   python scripts/gen_extras.py --write
+   rpent-install extras --write
 
-The script checks by default and CI runs ``--check``, so a stale block fails the
-build; ``--write`` is the only mode that edits ``pyproject.toml``.
+The command checks by default and CI runs ``--check``, so a stale block fails
+the build; ``--write`` is the only mode that edits ``pyproject.toml``.
 
 ``__init__.py`` is the package entry point and must stay lazy. Robot discovery
 imports every package before the user selects one, so an eager import of a

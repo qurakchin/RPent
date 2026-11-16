@@ -41,7 +41,7 @@ On the VLA host, set the checkpoint path and start the HTTP service:
 .. code-block:: bash
 
    export PI05_CHECKPOINT_PATH=/path/to/rlinf-pi05-libero-130-fullshot-sft
-   python -m capabilities.openpi.server \
+   python -m components.models.openpi.server \
      --embodiment libero \
      --cuda-device 0 \
      --transport http --host 0.0.0.0 --port VLA_PORT
@@ -67,7 +67,7 @@ Start the service with that environment's Python:
 
 .. code-block:: bash
 
-   python -m capabilities.apxinf.server \
+   python -m components.models.apxinf.server \
      --embodiment libero \
      --model-path /path/to/pi05-libero \
      --tokenizer-path /path/to/tokenizer.model \
@@ -104,7 +104,7 @@ On the SAM3 host, set the local checkpoint path and start the HTTP service:
 .. code-block:: bash
 
    export SAM3_CHECKPOINT_PATH=/path/to/sam3/sam3.pt
-   python -m capabilities.sam3.server \
+   python -m components.models.sam3.server \
      --cuda-device 0 \
      --transport http --host 0.0.0.0 --port SAM3_PORT
 

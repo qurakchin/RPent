@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Component manifests, environment profiles, and the ``rpent-env`` installer.
+"""Component manifests, environment profiles, and the ``rpent-install`` installer.
 
 A component is an install boundary: one directory, one ``component.toml``, one
-import probe, and its direct dependencies. A profile in ``envs/<name>.toml``
+import probe, and its direct dependencies. A profile in ``installs/profiles/<name>.toml``
 composes components into one supported environment. Installed environments
 carry ``rpent-install.json`` with the profile, component manifests, lock, and
-freeze hashes used by ``rpent-env doctor`` and run artifacts.
+freeze hashes used by ``rpent-install doctor`` and run artifacts.
 """
 
 from rpent.install.discovery import (

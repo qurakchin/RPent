@@ -142,7 +142,7 @@ def check_installation(
             Check(
                 FAIL,
                 f"{venv} has no {FINGERPRINT_NAME}; "
-                f"install it with `rpent-env install <profile> --venv {venv}`",
+                f"install it with `rpent-install install <profile> --venv {venv}`",
             )
         ]
     kind = fingerprint.get("install_kind", "profile")
@@ -182,7 +182,7 @@ def check_installation(
     )
     recorded_schema = fingerprint.get("schema")
     if recorded_schema != REQUIREMENTS_SCHEMA:
-        # `rpent-env` hashes a different set of inputs now, so the recorded
+        # `rpent-install` hashes a different set of inputs now, so the recorded
         # hash cannot be compared. Say so instead of reporting drifted inputs.
         interpreted = "unknown" if recorded_schema is None else recorded_schema
         checks.append(
@@ -190,7 +190,7 @@ def check_installation(
                 FAIL,
                 "fingerprint records installation input mode "
                 f"{interpreted}, current is {REQUIREMENTS_SCHEMA}; rerun "
-                f"`rpent-env install {name} --venv {venv}` to record the "
+                f"`rpent-install install {name} --venv {venv}` to record the "
                 "current inputs",
             )
         )
@@ -200,7 +200,7 @@ def check_installation(
                 FAIL,
                 "environment is out of date with its recorded inputs (manifests, "
                 f"lock, overrides, or [tool.uv]); rerun "
-                f"`rpent-env install {name} --venv {venv}`",
+                f"`rpent-install install {name} --venv {venv}`",
             )
         )
     else:
@@ -246,7 +246,7 @@ def check_installation(
                 Check(
                     FAIL,
                     "installed packages changed since the fingerprint was written; "
-                    f"rerun `rpent-env install {name} --venv {venv}`",
+                    f"rerun `rpent-install install {name} --venv {venv}`",
                 )
             )
         else:

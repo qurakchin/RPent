@@ -15,20 +15,20 @@
 """Compatibility aliases for the environment and model base classes.
 
 The implementations moved out of ``rpent/robots/components/``: the env bases
-live in ``rpent/env/`` and the model bases in ``capabilities/_base/``. This
-module keeps the old import path working for one release; import the new
-modules instead.
+live in ``rpent/env/`` and the model bases in ``rpent/models/``. This module
+keeps the old import path working for one release; import the new modules
+instead.
 """
 
 from importlib import import_module
 
 _ALIASES = {
-    "BaseAMClient": "capabilities._base.client",
-    "BaseVLAClient": "capabilities._base.client",
-    "BaseWAMClient": "capabilities._base.client",
-    "BaseAMFacade": "capabilities._base.facade",
-    "BaseVLAFacade": "capabilities._base.facade",
-    "BaseWAMFacade": "capabilities._base.facade",
+    "BaseAMClient": "rpent.models.client",
+    "BaseVLAClient": "rpent.models.client",
+    "BaseWAMClient": "rpent.models.client",
+    "BaseAMFacade": "rpent.models.facade",
+    "BaseVLAFacade": "rpent.models.facade",
+    "BaseWAMFacade": "rpent.models.facade",
     "BaseEnvClient": "rpent.env.client",
     "BaseEnvFacade": "rpent.env.facade",
 }

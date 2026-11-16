@@ -69,20 +69,20 @@ def repo(tmp_path, write_toml):
     )
     major, minor = sys.version_info[:2]
     write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         f"""
         schema = 1
         name = "alpha"
         python = "{major}.{minor}"
         platform = "{runtime_platform()}"
-        lock = "envs/locks/alpha.lock"
+        lock = "installs/locks/alpha.lock"
 
         [components.alpha]
         placement = "in-env"
         """,
     )
     write_toml(
-        "envs/dev.toml",
+        "installs/profiles/dev.toml",
         f"""
         schema = 1
         name = "dev"
@@ -175,7 +175,7 @@ def test_component_target_selects_its_variant_explicitly(tmp_path, write_toml):
     )
     major, minor = sys.version_info[:2]
     write_toml(
-        "envs/gamma-pro.toml",
+        "installs/profiles/gamma-pro.toml",
         f"""
         schema = 1
         name = "gamma-pro"
@@ -220,18 +220,18 @@ def test_component_target_reports_profiles_that_place_it(tmp_path, write_toml):
         """,
     )
     write_toml(
-        "capabilities/delta/component.toml",
+        "components/models/delta/component.toml",
         """
         schema = 1
         name = "delta"
-        kind = "capability"
+        kind = "model"
         probe = "json"
         placement = ["remote"]
         """,
     )
     major, minor = sys.version_info[:2]
     write_toml(
-        "envs/delta-remote.toml",
+        "installs/profiles/delta-remote.toml",
         f"""
         schema = 1
         name = "delta-remote"
@@ -333,7 +333,7 @@ def test_install_probes_the_deps_components_of_the_environment(
             """,
         )
     write_toml(
-        "envs/deps/shared.toml",
+        "installs/deps/shared.toml",
         """
         schema = 1
         name = "shared"
@@ -344,7 +344,7 @@ def test_install_probes_the_deps_components_of_the_environment(
     )
     major, minor = sys.version_info[:2]
     write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         f"""
         schema = 1
         name = "alpha"
@@ -364,7 +364,7 @@ def test_install_probes_the_deps_components_of_the_environment(
 
 
 def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatch):
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _fake_uv(tmp_path, monkeypatch)
@@ -376,13 +376,13 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
     assert fingerprint["schema"] == REQUIREMENTS_SCHEMA
     assert fingerprint["profile"] == "alpha"
     assert fingerprint["components"]["alpha"]["placement"] == "in-env"
-    assert fingerprint["requirements_file"] == ".rpent/envs/alpha.txt"
+    assert fingerprint["requirements_file"] == ".rpent/requirements/alpha.txt"
     assert fingerprint["source_commit"] is None
     assert os.path.isfile(venv / "bin" / "python")
 
 
 def test_install_uses_the_profile_lock_when_it_exists(repo, tmp_path, monkeypatch):
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
@@ -391,7 +391,7 @@ def test_install_uses_the_profile_lock_when_it_exists(repo, tmp_path, monkeypatc
 
     requirements_arguments = install_arguments()[0]
     assert requirements_arguments[requirements_arguments.index("-r") + 1] == str(lock)
-    assert fingerprint["lock"] == "envs/locks/alpha.lock"
+    assert fingerprint["lock"] == "installs/locks/alpha.lock"
 
 
 def test_install_passes_override_files_by_absolute_path(
@@ -412,7 +412,7 @@ def test_install_passes_override_files_by_absolute_path(
         """,
     )
     write_toml("robots/alpha/requirements/override.txt", "numpy<3\n")
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
@@ -428,7 +428,7 @@ def test_install_passes_override_files_by_absolute_path(
 def test_install_runs_uv_inside_the_checkout(repo, tmp_path, monkeypatch):
     # uv discovers ``[tool.uv]`` by walking up from its working directory, so
     # installing from a subdirectory must not resolve with other settings.
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _fake_uv(tmp_path, monkeypatch)
@@ -440,7 +440,7 @@ def test_install_runs_uv_inside_the_checkout(repo, tmp_path, monkeypatch):
 
 
 def test_install_rejects_a_lock_that_lost_a_requirement(repo, tmp_path, monkeypatch):
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("numpy==2.0.0\n", encoding="utf-8")
     _fake_uv(tmp_path, monkeypatch)
@@ -459,7 +459,7 @@ def test_install_rejects_a_missing_declared_lock(repo, tmp_path, monkeypatch):
 def test_install_refuses_a_venv_belonging_to_another_profile(
     repo, tmp_path, monkeypatch
 ):
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _fake_uv(tmp_path, monkeypatch)
@@ -485,7 +485,7 @@ def test_component_install_marks_its_fingerprint(repo, tmp_path, monkeypatch):
 def test_profile_install_is_reproducible_when_it_uses_the_lock(
     repo, tmp_path, monkeypatch
 ):
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _fake_uv(tmp_path, monkeypatch)
@@ -508,7 +508,7 @@ def test_profile_install_is_reproducible_when_it_uses_the_lock(
 
 
 def test_component_install_refuses_a_profile_venv(repo, tmp_path, monkeypatch):
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _fake_uv(tmp_path, monkeypatch)
@@ -523,7 +523,7 @@ def test_component_install_refuses_a_profile_venv(repo, tmp_path, monkeypatch):
 def test_install_with_dev_resolves_instead_of_using_the_lock(
     repo, tmp_path, monkeypatch
 ):
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("numpy==2.0.0\npackaging==24.0\n", encoding="utf-8")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
@@ -534,6 +534,6 @@ def test_install_with_dev_resolves_instead_of_using_the_lock(
 
     requirements_arguments = install_arguments()[0]
     assert requirements_arguments[requirements_arguments.index("-r") + 1] == str(
-        repo / ".rpent/envs/alpha.txt"
+        repo / ".rpent/requirements/alpha.txt"
     )
     assert fingerprint["lock"] is None

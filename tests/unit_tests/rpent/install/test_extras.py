@@ -29,9 +29,9 @@ def catalog(make_component, make_profile, make_catalog):
     alpha = make_component("alpha", dependencies=["alpha-dep"], env_conflicts=["beta"])
     beta = make_component("beta", dependencies=["beta-dep"], env_conflicts=["alpha"])
     gamma = make_component(
-        "gamma", kind="capability", dependencies=["gamma-dep"], requires=["delta"]
+        "gamma", kind="model", dependencies=["gamma-dep"], requires=["delta"]
     )
-    delta = make_component("delta", kind="capability", dependencies=["delta-dep"])
+    delta = make_component("delta", kind="model", dependencies=["delta-dep"])
     profiles = {
         "alpha": make_profile(
             "alpha",

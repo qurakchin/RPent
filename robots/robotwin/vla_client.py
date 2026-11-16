@@ -21,8 +21,8 @@ from typing import Any
 
 import numpy as np
 
-from capabilities._base.client import BaseVLAClient
 from robots.robotwin.observation import physical_observation
+from rpent.models.client import BaseVLAClient
 
 
 class LingBotWebSocketTransport:

@@ -567,7 +567,7 @@ VLA Inference Check
 Complete :ref:`VLA configuration <robocasa-vla-configuration>`, then select an
 available GPU and a fresh output directory. If you need test dependencies,
 reinstall the profile with ``--dev``:
-``rpent-env install robocasa-sim --venv .venv-robocasa-sim --dev``.
+``rpent-install install robocasa-sim --venv .venv-robocasa-sim --dev``.
 
 .. code-block:: bash
 

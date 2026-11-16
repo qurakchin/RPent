@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     from packaging.specifiers import SpecifierSet
 
 # ``packaging`` parses requirement strings and is imported where that happens,
-# not at module import. Manifest discovery (``scripts/env_matrix.py``) imports
+# not at module import. Manifest discovery (``rpent-install matrix``) imports
 # this module through ``rpent.install`` and must run in a checkout that has no
 # third-party packages installed; every install path still needs packaging.
 
@@ -150,7 +150,7 @@ def _owner_pin(value: str) -> tuple[str, str] | None:
     """Return ``(package, pin)`` for an exact pin or a URL requirement.
 
     Ranges and unpinned requirements compose, so they are not owners: whether
-    they resolve together is uv's decision (``rpent-env check --resolve``).
+    they resolve together is uv's decision (``rpent-install check --resolve``).
     """
     identity = _canonical(value)
     if identity is None:
@@ -229,7 +229,7 @@ def _format_conflict(
         None,
     )
     suggestion = (
-        f"  option 1: move {movable.name} to external-env in envs/{environment}.toml"
+        f"  option 1: move {movable.name} to external-env in installs/profiles/{environment}.toml"
         if movable is not None
         else f"  option 1: install {right.name} in a separate environment"
     )
@@ -239,7 +239,7 @@ def _format_conflict(
         + "\n".join(details)
         + f"\n{suggestion}\n"
         f"  option 2: install without {right.name}: "
-        f"rpent-env install {environment}"
+        f"rpent-install install {environment}"
     )
 
 
@@ -314,7 +314,7 @@ def resolve(
             resolution.errors.append(
                 f"component {name!r} requires a variant; add "
                 f"'variant = \"...\"' under [components.{name}] in "
-                f"envs/{profile.name}.toml; expected one of "
+                f"installs/profiles/{profile.name}.toml; expected one of "
                 f"{', '.join(sorted(component.optional))}"
             )
         elif variant is not None and variant not in component.optional:
@@ -349,13 +349,13 @@ def resolve(
             elif external is None:
                 resolution.errors.append(
                     f"component {name!r} uses external environment {env!r}, but "
-                    f"envs/{env}.toml does not exist; add the profile or set "
+                    f"installs/profiles/{env}.toml does not exist; add the profile or set "
                     f"'env' to an existing one"
                 )
             elif name not in external.components:
                 resolution.errors.append(
                     f"external environment {env!r} does not install component "
-                    f"{name!r}; add [components.{name}] to envs/{env}.toml"
+                    f"{name!r}; add [components.{name}] to installs/profiles/{env}.toml"
                 )
         elif placement == "in-env":
             env = profile.name

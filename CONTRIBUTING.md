@@ -42,14 +42,14 @@ Use a branch name that reflects the change, such as
 ```bash
 # Create and activate the development environment.
 uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.env install dev --venv .venv-dev
+  python -m rpent.cli.install install dev --venv .venv-dev
 source .venv-dev/bin/activate
 
 # For robot work, install that profile into its own virtualenv with the test
 # packages. Profiles cannot share a virtualenv because their pins differ.
-rpent-env install libero-pro --venv .venv-libero-pro --dev      # LIBERO
-rpent-env install robocasa-sim --venv .venv-robocasa-sim --dev  # RoboCasa
-rpent-env install robotwin-sim --venv .venv-robotwin-sim --dev  # RoboTwin
+rpent-install install libero-pro --venv .venv-libero-pro --dev      # LIBERO
+rpent-install install robocasa-sim --venv .venv-robocasa-sim --dev  # RoboCasa
+rpent-install install robotwin-sim --venv .venv-robotwin-sim --dev  # RoboTwin
 
 # Install and enable the repository hooks.
 uv pip install pre-commit==4.6.2
@@ -69,8 +69,11 @@ Follow these conventions while developing:
   repository-wide cleanup should normally be separate pull requests.
 - **Keep code in the appropriate module.** Reuse existing implementations
   where possible. Put integration code for a specific robot or simulation
-  environment in its `robots/<name>/` directory. Place shared functionality
-  in common modules with matching responsibilities.
+  environment in its `robots/<name>/` directory, model services in
+  `components/models/<name>/`, and toolkits in `components/toolkits/<name>/`.
+  Place shared functionality in common modules with matching responsibilities.
+  Install recipes, dependency-only components, and locks live under
+  `installs/`.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and

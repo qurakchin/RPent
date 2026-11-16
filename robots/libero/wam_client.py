@@ -21,14 +21,14 @@ from typing import Any
 
 import numpy as np
 
-from capabilities._base.client import BaseWAMClient
-from capabilities._base.contracts import (
+from robots.libero.control import LIBERO_OSC
+from robots.libero.observation import physical_observation
+from rpent.models.client import BaseWAMClient
+from rpent.models.contracts import (
     AMControlSpec,
     WAMPrediction,
     WAMRequest,
 )
-from robots.libero.control import LIBERO_OSC
-from robots.libero.observation import physical_observation
 from rpent.utils.rpc import RpcClient
 
 ACTION_SPACE = LIBERO_OSC["action_space"]

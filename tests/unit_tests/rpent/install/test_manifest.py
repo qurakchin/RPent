@@ -181,7 +181,7 @@ def test_component_rejects_invalid_placements(write_toml, placement, message):
 
 def test_deps_component_rejects_requires(write_toml):
     path = write_toml(
-        "envs/deps/rlinf.toml",
+        "installs/deps/rlinf.toml",
         """
         schema = 1
         name = "rlinf"
@@ -230,7 +230,7 @@ def test_component_rejects_missing_override(write_toml):
 
 def test_profile_reads_components_and_disables_generated_extra(write_toml):
     path = write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         """
         schema = 1
         name = "alpha"
@@ -264,7 +264,7 @@ def test_profile_reads_components_and_disables_generated_extra(write_toml):
 def test_profile_manylinux_defaults_and_overrides(write_toml):
     default = load_profile(
         write_toml(
-            "envs/alpha.toml",
+            "installs/profiles/alpha.toml",
             """
             schema = 1
             name = "alpha"
@@ -275,7 +275,7 @@ def test_profile_manylinux_defaults_and_overrides(write_toml):
     )
     raised = load_profile(
         write_toml(
-            "envs/beta.toml",
+            "installs/profiles/beta.toml",
             """
             schema = 1
             name = "beta"
@@ -292,7 +292,7 @@ def test_profile_manylinux_defaults_and_overrides(write_toml):
 
 def test_profile_rejects_invalid_manylinux(write_toml):
     path = write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         """
         schema = 1
         name = "alpha"
@@ -308,7 +308,7 @@ def test_profile_rejects_invalid_manylinux(write_toml):
 
 def test_profile_requires_minor_python(write_toml):
     path = write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         """
         schema = 1
         name = "alpha"
@@ -337,7 +337,7 @@ def test_profile_requires_minor_python(write_toml):
 )
 def test_profile_rejects_inconsistent_placements(write_toml, entry, message):
     path = write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         f"""
         schema = 1
         name = "alpha"

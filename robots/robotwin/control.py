@@ -14,11 +14,11 @@
 
 """RoboTwin action layouts for native qpos and end-effector execution.
 
-The capability-side copy in ``capabilities/_base/platforms.py`` states what a
+The capability-side copy in ``rpent/models/platforms.py`` states what a
 model adapter expects; keep the two equal.
 """
 
-from capabilities._base.contracts import AMControlSpec
+from rpent.models.contracts import AMControlSpec
 
 # Native joint_action.vector order: left six joint targets and gripper,
 # then right six joint targets and gripper. Preserve native gripper values.

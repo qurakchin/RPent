@@ -15,27 +15,64 @@
 """Generate compatibility extras and uv conflicts from manifests and profiles.
 
 The generated tables are a one-release compatibility alias for
-``pip install -e ".[<extra>]"``. ``rpent-env`` is the supported entry point;
+``pip install -e ".[<extra>]"``. ``rpent-install`` is the supported entry point;
 after the compatibility release, delete the generated block and this module.
+
+Usage::
+
+    rpent-install extras --write
+    rpent-install extras --check   # CI
 """
 
 from __future__ import annotations
 
+import argparse
 import itertools
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
+from pathlib import Path
 
-from rpent.install.discovery import Catalog
+from rpent.install.discovery import Catalog, discover
 from rpent.install.manifest import Component
 from rpent.install.requirements import environment_dependencies
 from rpent.install.resolve import resolve
 
 BEGIN_MARKER = (
-    "# --- BEGIN GENERATED EXTRAS: do not edit, run scripts/gen_extras.py ---"
+    "# --- BEGIN GENERATED EXTRAS: do not edit, run `rpent-install extras --write` ---"
 )
 END_MARKER = "# --- END GENERATED EXTRAS ---"
 #: Profiles whose extra is a development alias and must not enter uv conflicts.
 DEV_PROFILES = {"dev"}
+#: Pre-migration extras whose component or profile now has a different name.
+#: They keep working for the compatibility release.
+EXTRA_ALIASES = {"robodojo-sim": "robodojo"}
+#: Extras published before the component split. A rename may add an alias but
+#: must not drop a name users already install.
+LEGACY_EXTRAS = (
+    "cosmos3",
+    "cosmos_policy",
+    "dual-franka",
+    "fast_wam",
+    "franka",
+    "geometry-eval",
+    "libero",
+    "libero-openpi-external",
+    "libero-plus",
+    "libero-pro",
+    "libero-pro-flywheel",
+    "libero-pro-molmo",
+    "molmo",
+    "openpi",
+    "rlinf",
+    "robocasa",
+    "robodojo",
+    "robodojo-sim",
+    "robotwin",
+    "sam3",
+    "test",
+    "yam",
+)
 
 
 @dataclass(frozen=True)
@@ -107,10 +144,10 @@ def generate(
         extra = name
         if extra in extras:
             continue
-        # A capability or deps component keeps its own compatibility extra even
-        # when a profile installs it, so ``pip install -e ".[sam3]"`` and
+        # A model or deps component keeps its own compatibility extra even when
+        # a profile installs it, so ``pip install -e ".[sam3]"`` and
         # ``pip install -e ".[rlinf]"`` keep working during the migration.
-        if name in covered and component.kind not in {"capability", "deps"}:
+        if name in covered and component.kind not in {"model", "deps"}:
             continue
         extras[extra] = _component_closure(component, catalog)
         members[extra] = frozenset({name})
@@ -202,3 +239,60 @@ def replace_block(pyproject: str, generated: GeneratedExtras) -> str:
     start = pyproject.index(BEGIN_MARKER)
     end = pyproject.index(END_MARKER) + len(END_MARKER)
     return pyproject[:start] + generated.text.rstrip("\n") + pyproject[end:]
+
+
+def repository_extras(catalog: Catalog) -> GeneratedExtras:
+    """Return generated extras with the repository's compatibility aliases."""
+    generated = generate(catalog, aliases=EXTRA_ALIASES)
+    missing = [name for name in LEGACY_EXTRAS if name not in generated.extras]
+    if missing:
+        raise SystemExit(
+            "compatibility extras disappeared from the generated block: "
+            + ", ".join(missing)
+        )
+    return generated
+
+
+def main(argv: list[str] | None = None, *, root: Path) -> int:
+    """Rewrite or verify the generated block in ``pyproject.toml``."""
+    parser = argparse.ArgumentParser(
+        prog="rpent-install extras",
+        description="Regenerate the compatibility extras and uv conflicts.",
+    )
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument(
+        "--write",
+        action="store_true",
+        help="rewrite the generated block in pyproject.toml",
+    )
+    group.add_argument(
+        "--check",
+        action="store_true",
+        help="fail when pyproject.toml is out of date (default)",
+    )
+    parser.add_argument(
+        "--pyproject",
+        type=Path,
+        default=root / "pyproject.toml",
+        help="pyproject.toml to update or verify",
+    )
+    args = parser.parse_args(argv)
+    generated = repository_extras(discover(root))
+    current = args.pyproject.read_text(encoding="utf-8")
+    updated = replace_block(current, generated)
+    if args.write:
+        if updated != current:
+            args.pyproject.write_text(updated, encoding="utf-8")
+            print(f"updated {args.pyproject}")
+        else:
+            print(f"{args.pyproject} already up to date")
+        return 0
+    if updated != current:
+        print(
+            f"{args.pyproject} is out of date with component manifests; "
+            "run `rpent-install extras --write`",
+            file=sys.stderr,
+        )
+        return 1
+    print(f"{args.pyproject} extras and conflicts are up to date")
+    return 0

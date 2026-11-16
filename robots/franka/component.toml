@@ -15,7 +15,7 @@ placement = ["in-env"]
 docs = "docs/source-en/rst_source/real_world_robots/franka.rst"
 
 dependencies = [
-  # Keep this list aligned with requirements/embodied/envs/franka.txt at the
+  # Keep this list aligned with requirements/embodied/installs/profiles/franka.txt at the
   # RLinf revision pinned by the rlinf capability.
   "pyyaml",
   "rospkg",

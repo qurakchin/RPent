@@ -38,8 +38,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from capabilities.openpi.client import Pi05VLAClient
-from capabilities.sam3.client import Sam3Client
+from components.models.openpi.client import Pi05VLAClient
+from components.models.sam3.client import Sam3Client
 from robots.dual_franka import perception as dual_franka_perception
 from robots.dual_franka.robot_spec import _add_runtime_cli_args
 from robots.dual_franka.runtime_config import DEFAULT_CONFIG

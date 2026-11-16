@@ -309,8 +309,8 @@ def test_configured_chunk_length_is_checked_before_execution(tmp_path):
 def test_dual_franka_spawns_shared_vla_server(monkeypatch, tmp_path):
     from unittest.mock import Mock
 
-    from capabilities._base import runtime
     from robots.dual_franka import robot_spec
+    from rpent.models import backends as runtime
     from tests.e2e_tests.dual_franka.dual_franka_vla import build_parser
 
     args = build_parser().parse_args(
@@ -331,7 +331,7 @@ def test_dual_franka_spawns_shared_vla_server(monkeypatch, tmp_path):
     command = factory.call_args.kwargs["cmd"]
     assert command[1:5] == [
         "-m",
-        "capabilities.openpi.server",
+        "components.models.openpi.server",
         "--embodiment",
         "dual_franka",
     ]

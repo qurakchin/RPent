@@ -34,7 +34,7 @@ first, then install the ``yam-real`` profile on each machine as described below:
    git clone --branch main https://github.com/RLinf/RLinf.git /path/to/RLinf
    git -C /path/to/RLinf checkout --detach 196d40b6dec6f7a4063edee31cfeaa6ca0ee435a
 
-On a fresh checkout where ``rpent-env`` is not installed yet, bootstrap it as
+On a fresh checkout where ``rpent-install`` is not installed yet, bootstrap it as
 described in :doc:`../get_started/installation`.
 
 **Control machine installation**
@@ -48,9 +48,9 @@ dependencies:
    cd /path/to/RPent
    source .venv-yam-real/bin/activate
    uv pip install --torch-backend cpu \
-     --build-constraints /path/to/RLinf/requirements/embodied/envs/yam-build-constraints.txt \
+     --build-constraints /path/to/RLinf/requirements/embodied/installs/profiles/yam-build-constraints.txt \
      -e /path/to/RLinf \
-     -r /path/to/RLinf/requirements/embodied/envs/yam.txt
+     -r /path/to/RLinf/requirements/embodied/installs/profiles/yam.txt
    uv pip check
 
 **Inference machine installation**
@@ -238,7 +238,7 @@ then run:
 
 .. code-block:: bash
 
-   python -m capabilities.openpi.server \
+   python -m components.models.openpi.server \
      --embodiment yam --model-path "$YAM_MODEL_PATH" \
      --norm-stats-path "$YAM_MODEL_PATH/norm_stats.json" \
      --transport socket --host 127.0.0.1 --port 8220

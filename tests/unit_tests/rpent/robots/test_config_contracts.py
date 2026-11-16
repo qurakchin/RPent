@@ -22,7 +22,6 @@ from unittest.mock import Mock
 
 import pytest
 
-from capabilities._base import runtime
 from robots.dual_franka.runtime_config import (
     DEFAULT_CONFIG as DUAL_FRANKA_DEFAULT_CONFIG,
 )
@@ -33,6 +32,7 @@ from robots.franka.runtime_config import (
     get_robot_config_path,
     set_robot_config_path,
 )
+from rpent.models import backends as runtime
 from rpent.robots import get_robot_spec
 from rpent.utils.config import get_memory_dir
 
@@ -371,7 +371,7 @@ def test_relative_model_python_is_resolved_before_changing_worker_directory(
     "robot_name,default_backend", [("libero", "pi05"), ("robotwin", "lingbot")]
 )
 def test_am_backend_selects_one_model_category(robot_name, default_backend):
-    from capabilities._base.runtime import select_am
+    from rpent.models.backends import select_am
 
     parser = _parser(robot_name, dashboard=True)
     args = parser.parse_args(["--am-endpoint", "http://localhost:8116"])

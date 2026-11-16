@@ -159,7 +159,7 @@ The ``codex`` Planner
 ``--planner codex`` uses the OpenAI Codex Python SDK. For each run,
 RPent starts a local Streamable HTTP MCP server on a background thread
 in the current process, and Codex calls the same toolkit through that
-server. You do not need to start ``scripts/codex_proxy/`` first.
+server. No separate proxy process needs to be started.
 
 RPent excludes repository ``AGENTS.md`` instructions and development skills
 in ``.agents/skills/`` from the Codex planner's automatic context loading.

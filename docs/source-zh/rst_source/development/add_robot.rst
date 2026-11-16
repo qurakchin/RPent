@@ -48,7 +48,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 当前仓库中的切片仍使用迁移前的文件名（``robot_spec.py``、``prompt_bundle.py``、``toolkit.py``、``env_client.py``、``env_server.py``、``tools.py``），a_5 会把它们改名为上表中的角色名。新增切片请直接使用目标名；下文在每个角色处同时注明当前文件名。
 
-``component.toml`` 声明 ``rpent-env`` 读取的清单字段：
+``component.toml`` 声明 ``rpent-install`` 读取的清单字段：
 
 .. code-block:: toml
 
@@ -63,15 +63,15 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
    dependencies = ["my-simulator==1.2"]
 
-``probe`` 指向可导入的包。``rpent-env install`` 和 ``rpent-env doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进 ``envs/deps/`` 下的 deps 组件。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。toolkit 和 capability 之间共享契约，不互相 import。
+``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进 ``installs/deps/`` 下的 deps 组件。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。工具包与模型服务之间共享契约，不互相 import。
 
 ``pyproject.toml`` 里的兼容 extra 由清单和配方生成。因此新增或重命名组件、配方后还要重新生成该区块，这是新接入里唯一不放在 ``robots/`` 下的步骤：
 
 .. code-block:: bash
 
-   python scripts/gen_extras.py --write
+   rpent-install extras --write
 
-脚本默认执行检查，CI 也跑 ``--check``，区块过期会让构建失败；只有 ``--write`` 会修改 ``pyproject.toml``。
+该命令默认执行检查，CI 也跑 ``--check``，区块过期会让构建失败；只有 ``--write`` 会修改 ``pyproject.toml``。
 
 ``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的 extra。通过 ``__getattr__`` 暴露工厂：
 

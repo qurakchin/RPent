@@ -431,7 +431,7 @@ Target50 包含 50 个厨房任务，共运行 340 次。以下使用 Codex、GP
 VLA 推理检查
 ~~~~~~~~~~~~
 
-完成 :ref:`VLA 配置 <robocasa-vla-configuration>` 后，选择空闲 GPU 和新的输出目录运行。需要测试依赖时，用 ``--dev`` 重新安装该配方：``rpent-env install robocasa-sim --venv .venv-robocasa-sim --dev``。
+完成 :ref:`VLA 配置 <robocasa-vla-configuration>` 后，选择空闲 GPU 和新的输出目录运行。需要测试依赖时，用 ``--dev`` 重新安装该配方：``rpent-install install robocasa-sim --venv .venv-robocasa-sim --dev``。
 
 .. code-block:: bash
 

@@ -23,8 +23,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from capabilities._base import runtime
 from robots.robodojo import robot_spec, tools
+from rpent.models import backends as runtime
 from rpent.tools import Tool, iter_tools
 
 
@@ -414,7 +414,7 @@ def saved_camera(tmp_path, fake_env):
 
 
 def test_readers_are_readonly_and_do_not_act(saved_camera):
-    from capabilities.sam3.client import Sam3Result
+    from components.models.sam3.client import Sam3Result
 
     obs = {
         "vision": {
@@ -817,7 +817,6 @@ def test_backends_accept_shared_sam3_endpoint(runtime_services, tmp_path, backen
 def test_resource_root_uses_selected_backend_environment(
     monkeypatch, backend, variable
 ):
-
     monkeypatch.setenv("VPP2_MODEL_PATH", "/models/vpp2")
     monkeypatch.setenv("AWOMO05_MODEL_PATH", "/models/awomo")
     config = _args("--vla-backend", backend)

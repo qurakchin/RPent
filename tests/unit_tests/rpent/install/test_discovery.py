@@ -41,9 +41,9 @@ def test_discovery_loads_components_profiles_and_conflict_symmetry(
 ):
     _manifest(write_toml, "robots", "alpha", "robot", conflicts=["beta"])
     _manifest(write_toml, "robots", "beta", "robot", conflicts=["alpha"])
-    _manifest(write_toml, "capabilities", "sam3", "capability")
+    _manifest(write_toml, "components/models", "sam3", "model")
     write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         """
         schema = 1
         name = "alpha"
@@ -58,12 +58,12 @@ def test_discovery_loads_components_profiles_and_conflict_symmetry(
     catalog = discover(tmp_path)
 
     assert sorted(catalog.components) == ["alpha", "beta", "sam3"]
-    assert catalog.components["sam3"].kind == "capability"
+    assert catalog.components["sam3"].kind == "model"
     assert catalog.profiles["alpha"].components["alpha"].placement == "in-env"
 
 
 def test_component_kind_must_match_root(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "capability")
+    _manifest(write_toml, "robots", "alpha", "model")
 
     with pytest.raises(InstallConfigError, match="does not match"):
         discover_components(tmp_path)
@@ -71,7 +71,7 @@ def test_component_kind_must_match_root(tmp_path, write_toml):
 
 def test_duplicate_component_names_are_rejected(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "robot")
-    _manifest(write_toml, "toolkits", "alpha", "toolkit")
+    _manifest(write_toml, "components/toolkits", "alpha", "toolkit")
 
     with pytest.raises(InstallConfigError, match="declared twice"):
         discover_components(tmp_path)
@@ -103,7 +103,7 @@ def test_conflicts_must_not_name_the_component_itself(tmp_path, write_toml):
 
 def test_profiles_are_discovered_by_filename(tmp_path, write_toml):
     write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         """
         schema = 1
         name = "alpha"
@@ -118,7 +118,7 @@ def test_profiles_are_discovered_by_filename(tmp_path, write_toml):
 
 
 def test_profiles_require_a_source_checkout(tmp_path):
-    with pytest.raises(InstallConfigError, match="envs.*does not exist"):
+    with pytest.raises(InstallConfigError, match="installs/profiles.*does not exist"):
         discover_profiles(tmp_path)
 
 
@@ -169,7 +169,7 @@ def test_imports_must_name_a_same_kind_component(tmp_path, write_toml):
         imports = ["sam3"]
         """,
     )
-    _manifest(write_toml, "capabilities", "sam3", "capability")
+    _manifest(write_toml, "components/models", "sam3", "model")
 
     with pytest.raises(InstallConfigError, match="must name a robot component"):
         discover_components(tmp_path)
@@ -177,7 +177,7 @@ def test_imports_must_name_a_same_kind_component(tmp_path, write_toml):
 
 def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
     write_toml(
-        "toolkits/alpha/component.toml",
+        "components/toolkits/alpha/component.toml",
         """
         schema = 1
         name = "alpha"
@@ -187,7 +187,7 @@ def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
         imports = ["beta"]
         """,
     )
-    _manifest(write_toml, "toolkits", "beta", "toolkit", requires=["alpha"])
+    _manifest(write_toml, "components/toolkits", "beta", "toolkit", requires=["alpha"])
 
     with pytest.raises(InstallConfigError, match="imports is only for robot slices"):
         discover_components(tmp_path)
@@ -195,7 +195,7 @@ def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
 
 def test_apple_double_metadata_is_ignored(tmp_path, write_toml):
     write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         """
         schema = 1
         name = "alpha"
@@ -204,7 +204,9 @@ def test_apple_double_metadata_is_ignored(tmp_path, write_toml):
         """,
     )
     # A network filesystem stores macOS extended attributes as ._<name> files.
-    (tmp_path / "envs" / "._alpha.toml").write_bytes(b"\xa3\na metadata file")
+    (tmp_path / "installs" / "profiles" / "._alpha.toml").write_bytes(
+        b"\xa3\na metadata file"
+    )
     _manifest(write_toml, "robots", "alpha", "robot")
     (tmp_path / "robots" / "._alpha").write_bytes(b"\xa3 metadata")
 

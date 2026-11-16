@@ -12,7 +12,6 @@ env_conflicts = [
   "robocasa",
   "robodojo",
   "molmo",
-  "flywheel",
 ]
 placement = ["in-env"]
 docs = "docs/source-en/rst_source/simulators/robotwin.rst"

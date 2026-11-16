@@ -121,14 +121,14 @@ RPent 面向以下四类用户：
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # 默认推荐（LIBERO-PRO）：
 uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.env install libero-pro --venv .venv-libero-pro
+  python -m rpent.cli.install install libero-pro --venv .venv-libero-pro
 source .venv-libero-pro/bin/activate
 
 # 其他配方使用各自的虚拟环境：
-rpent-env install robocasa-sim --venv .venv-robocasa-sim          # RoboCasa
-rpent-env install robotwin-sim --venv .venv-robotwin-sim          # RoboTwin
-rpent-env install franka-real --venv .venv-franka-real            # Franka
-rpent-env install dual-franka-real --venv .venv-dual-franka-real  # 双臂 Franka
+rpent-install install robocasa-sim --venv .venv-robocasa-sim          # RoboCasa
+rpent-install install robotwin-sim --venv .venv-robotwin-sim          # RoboTwin
+rpent-install install franka-real --venv .venv-franka-real            # Franka
+rpent-install install dual-franka-real --venv .venv-dual-franka-real  # 双臂 Franka
 ```
 
 `libero-pro` 是默认推荐配方。全部配方、兼容 extra 和诊断方法见

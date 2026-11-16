@@ -28,6 +28,18 @@ pro = [
   "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent",
   "mujoco==3.3.0",
 ]
+# `pro` plus the LeRobot stack used to export and replay trajectories. The
+# optional groups are additive and cannot inherit, so the PRO packages repeat.
+# LeRobot 0.3.x expects Fraction frame rates, PyAV 19 returns AVRational, and
+# OpenPI requires NumPy 1.x while PyArrow 26 requires NumPy 2 at import time.
+pro-flywheel = [
+  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@rpent",
+  "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@rpent",
+  "mujoco==3.3.0",
+  "lerobot>=0.3.3,<0.4",
+  "av<19",
+  "pyarrow<26",
+]
 plus = [
   "rlinf-liberoplus",
   "mujoco==3.3.0",

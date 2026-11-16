@@ -10,8 +10,8 @@ import types
 from pathlib import Path
 from types import SimpleNamespace
 
-from capabilities._base import runtime
 from robots.robocasa import robot_spec, vla_server
+from rpent.models import backends as runtime
 
 REVISION = "4b9f870d1287e0d38d7eb1445e6d8c60afe66dd7"
 

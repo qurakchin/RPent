@@ -36,7 +36,7 @@ from typing import Any
 
 import numpy as np
 
-from capabilities.molmo.client import MolmoClient
+from components.models.molmo.client import MolmoClient
 from robots.libero import tools as libero_tools
 from robots.libero.flash.prompts import build as prompt_for
 from robots.libero.memory import replay_directory

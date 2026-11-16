@@ -31,7 +31,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
    git clone --branch main https://github.com/RLinf/RLinf.git /path/to/RLinf
    git -C /path/to/RLinf checkout --detach 196d40b6dec6f7a4063edee31cfeaa6ca0ee435a
 
-新检出的仓库还没有 ``rpent-env`` 时，按 :doc:`../get_started/installation` 引导。
+新检出的仓库还没有 ``rpent-install`` 时，按 :doc:`../get_started/installation` 引导。
 
 **控制机安装**
 
@@ -42,9 +42,9 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
    cd /path/to/RPent
    source .venv-yam-real/bin/activate
    uv pip install --torch-backend cpu \
-     --build-constraints /path/to/RLinf/requirements/embodied/envs/yam-build-constraints.txt \
+     --build-constraints /path/to/RLinf/requirements/embodied/installs/profiles/yam-build-constraints.txt \
      -e /path/to/RLinf \
-     -r /path/to/RLinf/requirements/embodied/envs/yam.txt
+     -r /path/to/RLinf/requirements/embodied/installs/profiles/yam.txt
    uv pip check
 
 **推理机安装**
@@ -196,7 +196,7 @@ Codex 配置
 
 .. code-block:: bash
 
-   python -m capabilities.openpi.server \
+   python -m components.models.openpi.server \
      --embodiment yam --model-path "$YAM_MODEL_PATH" \
      --norm-stats-path "$YAM_MODEL_PATH/norm_stats.json" \
      --transport socket --host 127.0.0.1 --port 8220

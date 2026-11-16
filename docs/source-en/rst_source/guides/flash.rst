@@ -54,7 +54,7 @@ Molmo runs in its own Python environment because its model stack pins its own
 Torch and Transformers versions. Molmo's model code also needs
 ``transformers>=4.57``, while the RoboTwin stack is pinned to ``4.51.3``; the
 component manifests declare those two mutually exclusive, so
-``rpent-env check`` rejects a profile that places both in one environment.
+``rpent-install check`` rejects a profile that places both in one environment.
 
 Install the ``molmo-server`` profile into a separate environment with the command
 from :doc:`../get_started/installation`; its lock installs the pinned PyTorch
@@ -69,7 +69,7 @@ compatible build such as ``cu126`` or ``cu128`` (see the
      --reinstall-package torch --reinstall-package torchvision \
      torch torchvision --index-url "https://download.pytorch.org/whl/<CUDA_TAG>/"
 
-``rpent-env doctor`` then reports that the installed package set differs from
+``rpent-install doctor`` then reports that the installed package set differs from
 the fingerprint, which is expected after replacing the build.
 
 Download ``allenai/Molmo2-8B`` from `Hugging Face
@@ -80,7 +80,7 @@ Download ``allenai/Molmo2-8B`` from `Hugging Face
 
    export MOLMO_CHECKPOINT_PATH=/path/to/Molmo2-8B
    PYTHONPATH=/path/to/RPent .venv-molmo-server/bin/python \
-     capabilities/molmo/server.py \
+     components/models/molmo/server.py \
      --transport http --host 127.0.0.1 --port 20703
 
 Run a Plan

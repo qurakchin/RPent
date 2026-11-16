@@ -19,7 +19,7 @@ import stat
 
 import pytest
 
-from rpent.cli.env import main as env_main
+from rpent.cli.install import main as env_main
 from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.lock import (
@@ -53,13 +53,13 @@ def repo(tmp_path, write_toml):
         """,
     )
     write_toml(
-        "envs/alpha.toml",
+        "installs/profiles/alpha.toml",
         """
         schema = 1
         name = "alpha"
         python = "3.11"
         platform = "linux-x86_64"
-        lock = "envs/locks/alpha.lock"
+        lock = "installs/locks/alpha.lock"
 
         [components.alpha]
         placement = "in-env"
@@ -76,14 +76,14 @@ def repo(tmp_path, write_toml):
         """,
     )
     write_toml(
-        "envs/beta.toml",
+        "installs/profiles/beta.toml",
         """
         schema = 1
         name = "beta"
         python = "3.11"
         platform = "linux-x86_64"
         manylinux = "2_35"
-        lock = "envs/locks/beta.lock"
+        lock = "installs/locks/beta.lock"
 
         [components.beta]
         placement = "in-env"
@@ -126,13 +126,13 @@ def test_lock_path_uses_declaration_or_convention(make_profile, tmp_path):
     conventional = make_profile("beta")
 
     assert lock_path(tmp_path, declared) == tmp_path / "custom/alpha.lock"
-    assert lock_path(tmp_path, conventional) == tmp_path / "envs/locks/beta.lock"
+    assert lock_path(tmp_path, conventional) == tmp_path / "installs/locks/beta.lock"
 
 
 def test_lock_writes_the_resolved_requirements(repo, fake_uv):
     assert lock_profiles(["alpha"], root=repo) == 0
 
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     text = lock.read_text(encoding="utf-8")
     assert "packaging" in text
     assert "numpy>=2" in text
@@ -154,7 +154,7 @@ def test_lock_never_compiles_into_the_previous_lock_file(repo, fake_uv):
     # uv seeds resolution from an existing --output-file, so compiling straight
     # into the tracked lock can keep versions the current index no longer
     # selects and leave `--check` disagreeing with `lock`.
-    lock = repo / "envs/locks/alpha.lock"
+    lock = repo / "installs/locks/alpha.lock"
     lock.parent.mkdir(parents=True, exist_ok=True)
     lock.write_text("packaging==0.0.0\n", encoding="utf-8")
 
@@ -201,7 +201,7 @@ def test_check_passes_for_an_unchanged_lock(repo, fake_uv, capsys):
 
 def test_check_reports_a_stale_lock(repo, fake_uv, capsys):
     lock_profiles(["alpha"], root=repo)
-    (repo / "envs/locks/alpha.lock").write_text("stale\n", encoding="utf-8")
+    (repo / "installs/locks/alpha.lock").write_text("stale\n", encoding="utf-8")
     capsys.readouterr()
 
     assert lock_profiles(["alpha"], root=repo, check=True) == 1
@@ -212,12 +212,12 @@ def test_check_reports_a_stale_lock(repo, fake_uv, capsys):
 
 def test_check_reports_a_missing_lock(repo, fake_uv, capsys):
     assert lock_profiles(["alpha"], root=repo, check=True) == 1
-    assert "missing lock: envs/locks/alpha.lock" in capsys.readouterr().out
+    assert "missing lock: installs/locks/alpha.lock" in capsys.readouterr().out
 
 
 def test_check_reports_a_lock_that_is_not_utf8(repo, fake_uv, capsys):
     lock_profiles(["alpha"], root=repo)
-    (repo / "envs/locks/alpha.lock").write_bytes(b"packaging\n\xff\n")
+    (repo / "installs/locks/alpha.lock").write_bytes(b"packaging\n\xff\n")
     capsys.readouterr()
 
     assert lock_profiles(["alpha"], root=repo, check=True) == 1
@@ -251,11 +251,11 @@ def test_resolve_profile_compiles_without_writing_a_lock(repo, fake_uv):
     )
 
     assert "numpy>=2" in text
-    assert not (repo / "envs/locks/alpha.lock").exists()
+    assert not (repo / "installs/locks/alpha.lock").exists()
 
 
 def test_check_resolve_reports_the_uv_solution(repo, fake_uv, write_toml, capsys):
-    write_toml("envs/locks/alpha.lock", "packaging==24.0\nnumpy==2.0.0")
+    write_toml("installs/locks/alpha.lock", "packaging==24.0\nnumpy==2.0.0")
 
     assert env_main(["--root", str(repo), "check", "alpha", "--resolve"]) == 0
     assert "profile alpha: ok, uv resolved 2 requirements" in capsys.readouterr().out
@@ -264,12 +264,12 @@ def test_check_resolve_reports_the_uv_solution(repo, fake_uv, write_toml, capsys
 def test_check_resolve_reports_a_uv_failure(
     repo, fake_uv, write_toml, monkeypatch, capsys
 ):
-    write_toml("envs/locks/alpha.lock", "packaging==24.0\nnumpy==2.0.0")
+    write_toml("installs/locks/alpha.lock", "packaging==24.0\nnumpy==2.0.0")
 
     def fail(*args, **kwargs):
         raise InstallError("no solution for numpy>=9")
 
-    monkeypatch.setattr("rpent.cli.env.resolve_profile", fail)
+    monkeypatch.setattr("rpent.cli.install.resolve_profile", fail)
 
     assert env_main(["--root", str(repo), "check", "alpha", "--resolve"]) == 1
     output = capsys.readouterr().out
@@ -298,13 +298,13 @@ def test_lock_all_reports_failures_and_continues(repo, fake_uv, write_toml, caps
         """,
     )
     write_toml(
-        "envs/gamma.toml",
+        "installs/profiles/gamma.toml",
         """
         schema = 1
         name = "gamma"
         python = "3.11"
         platform = "solaris"
-        lock = "envs/locks/gamma.lock"
+        lock = "installs/locks/gamma.lock"
 
         [components.gamma]
         placement = "in-env"
@@ -316,12 +316,12 @@ def test_lock_all_reports_failures_and_continues(repo, fake_uv, write_toml, caps
     output = capsys.readouterr().out
     assert "lock gamma: FAIL" in output
     assert "unknown platform 'solaris'" in output
-    assert (repo / "envs/locks/alpha.lock").is_file()
+    assert (repo / "installs/locks/alpha.lock").is_file()
 
 
 def test_lock_all_covers_declared_profiles(repo, fake_uv):
-    assert discover(repo).profiles["alpha"].lock == "envs/locks/alpha.lock"
+    assert discover(repo).profiles["alpha"].lock == "installs/locks/alpha.lock"
 
     assert lock_profiles([], root=repo) == 0
-    assert (repo / "envs/locks/alpha.lock").is_file()
-    assert (repo / "envs/locks/beta.lock").is_file()
+    assert (repo / "installs/locks/alpha.lock").is_file()
+    assert (repo / "installs/locks/beta.lock").is_file()

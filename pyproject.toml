@@ -54,7 +54,7 @@ dependencies = [
 
 [project.scripts]
 rpent = "rpent.cli.main:main"
-rpent-env = "rpent.cli.env:main"
+rpent-install = "rpent.cli.install:main"
 rpent-memory = "rpent.cli.memory:main"
 rpent-check-llm = "rpent.cli.check_llm:main"
 rpent-flywheel = "rpent.flywheel.cli:main"
@@ -65,7 +65,7 @@ Repository = "https://github.com/RLinf/RPent"
 Documentation = "https://rpent.readthedocs.io/en/latest/"
 "Bug Report" = "https://github.com/RLinf/RPent/issues"
 
-# --- BEGIN GENERATED EXTRAS: do not edit, run scripts/gen_extras.py ---
+# --- BEGIN GENERATED EXTRAS: do not edit, run `rpent-install extras --write` ---
 [project.optional-dependencies]
 apxinf = [
 ]
@@ -105,11 +105,6 @@ dual-franka = [
     'websockets',
 ]
 fast_wam = [
-]
-flywheel = [
-    'av<19',
-    'lerobot>=0.3.3,<0.4',
-    'pyarrow<26',
 ]
 franka = [
     'defusedxml',
@@ -308,7 +303,6 @@ conflicts = [
     [{ extra = "dual-franka" }, { extra = "robodojo" }],
     [{ extra = "dual-franka" }, { extra = "robodojo-sim" }],
     [{ extra = "dual-franka" }, { extra = "robotwin" }],
-    [{ extra = "flywheel" }, { extra = "robotwin" }],
     [{ extra = "franka" }, { extra = "libero" }],
     [{ extra = "franka" }, { extra = "libero-openpi-external" }],
     [{ extra = "franka" }, { extra = "libero-plus" }],
@@ -358,18 +352,16 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-# robots, toolkits and capabilities are top-level packages; without them,
-# non-editable installations leave the CLI unable to import any backend. The
-# globs also cover every per-robot subpackage (robots.yam.*, ...) and every
-# model service (capabilities.molmo.*, ...).
+# robots and components are top-level packages; without them, non-editable
+# installations leave the CLI unable to import any backend. The globs also
+# cover every per-robot subpackage (robots.yam.*, ...), every model service
+# (components.models.molmo.*, ...) and every toolkit (components.toolkits.*).
 include = [
   "rpent*",
   "robots",
   "robots.*",
-  "toolkits",
-  "toolkits.*",
-  "capabilities",
-  "capabilities.*",
+  "components",
+  "components.*",
 ]
 exclude = ["tests*", "docs*", "examples*", "docker*"]
 

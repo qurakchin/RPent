@@ -21,7 +21,7 @@ RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械�
 
 .. code-block:: bash
 
-   rpent-env install franka-real --venv .venv-franka-real
+   rpent-install install franka-real --venv .venv-franka-real
 
 该配方包含 RLinf ``release/v0.4``、``rpent-openpi`` 以及 Franka 的相机、夹爪和遥操作依赖。其中的 ``franky-control`` wheel 已包含 libfranka 0.19.0。下文命令直接运行 ``.venv-franka-real/bin/rpent``，因此使用该环境；先激活环境再运行 ``rpent`` 效果相同。
 
