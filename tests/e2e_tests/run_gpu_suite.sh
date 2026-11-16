@@ -21,6 +21,7 @@ unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX
 
 if [[ $# -ne 3 ]]; then
   echo "Usage: $0 <libero-pro|robocasa|robotwin> <output-dir> <venv-root>"
+  echo "Targets map to the libero-pro, robocasa-sim, and robotwin-sim profiles."
   exit 2
 fi
 
@@ -220,25 +221,43 @@ run_gpu_pytest() {
   return "$cleanup_status"
 }
 
+# rpent-install is the only supported install entry point. A fresh checkout has no
+# installed CLI yet, so bootstrap it in a throwaway environment that adds only
+# the manifest parser dependency.
+run_rpent_install() {
+  local python_version=$1
+  shift
+  (
+    cd "$repo_root"
+    timeout --foreground --kill-after=2m "$install_timeout" \
+      uv run --no-project --python "$python_version" --with packaging -- \
+      python -m rpent.cli.install "$@"
+  )
+}
+
+install_test_runner() {
+  local python=$1
+  timeout --foreground --kill-after=2m "$install_timeout" \
+    uv pip install --python "$python" pytest pytest-timeout
+}
+
 run_in_clean_env() {
   local name=$1
-  local python_version=$2
-  local extra=$3
-  local test_dir=$4
-  local suite_output=$5
+  local profile=$2
+  local test_dir=$3
+  local suite_output=$4
   local venv_dir="$venv_root/$name"
 
-  timeout --foreground --kill-after=2m "$install_timeout" \
-    uv venv "$venv_dir" --python "$python_version"
-  # Torch and torchvision version compatibility must come from the selected
-  # public RPent extra and its transitive package metadata. The CUDA wheel
+  # Install from the profile's lock and add only the test runner. `--dev`
+  # resolves generated requirements instead of the lock, and reproducing a
+  # clean machine from the lock is what this suite exists to prove.
+  #
+  # Torch and torchvision version compatibility come from the profile's
+  # component manifests and their transitive package metadata. The CUDA wheel
   # backend is the separate runner/install-policy input UV_TORCH_BACKEND.
   # Do not hide a dependency-contract failure with a workflow-only version pin.
-  timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
-    --python "$venv_dir/bin/python" \
-    --editable "${repo_root}[$extra,test]"
-  timeout --foreground --kill-after=2m "$install_timeout" \
-    uv pip check --python "$venv_dir/bin/python"
+  run_rpent_install 3.11 install "$profile" --venv "$venv_dir"
+  install_test_runner "$venv_dir/bin/python"
   (
     cd "$repo_root"
     run_gpu_pytest \
@@ -260,11 +279,8 @@ case "$target" in
     export LIBERO_CONFIG_PATH="$(cd "$output_dir" && pwd)/libero-config"
     mkdir -p "$LIBERO_CONFIG_PATH"
     venv_dir="$venv_root/libero-pro"
-    timeout --foreground --kill-after=2m "$install_timeout" \
-      uv venv "$venv_dir" --python 3.11
-    timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
-      --python "$venv_dir/bin/python" \
-      --editable "${repo_root}[libero-pro,test]"
+    run_rpent_install 3.11 install libero-pro --venv "$venv_dir"
+    install_test_runner "$venv_dir/bin/python"
     # Keep realpath(__file__) beside this venv's assets, preserving the Git revision.
     liberopro_requirement=$(uv pip freeze --python "$venv_dir/bin/python" \
       | awk '$1 == "rpent-liberopro" {print}')
@@ -293,7 +309,7 @@ case "$target" in
     require_dir ROBOCASA_ASSETS_PATH
     export RPENT_RUN_ROBOCASA_INTEGRATION=1
     run_in_clean_env \
-      robocasa 3.10 robocasa tests/e2e_tests/robocasa "$output_dir/robocasa"
+      robocasa robocasa-sim tests/e2e_tests/robocasa "$output_dir/robocasa"
     ;;
   robotwin)
     require_dir LINGBOT_MODEL_PATH
@@ -303,7 +319,7 @@ case "$target" in
       exit 1
     fi
     run_in_clean_env \
-      robotwin 3.11 robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
+      robotwin robotwin-sim tests/e2e_tests/robotwin "$output_dir/robotwin"
     ;;
   *)
     echo "Unknown target: $target"

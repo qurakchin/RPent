@@ -24,8 +24,8 @@ from robots.robotwin.control import (
     ROBOTWIN_QPOS,
 )
 from robots.robotwin.observation import physical_observation
-from rpent.robots.components.am_client_base import BaseWAMClient
-from rpent.robots.components.am_contracts import (
+from rpent.models.client import BaseWAMClient
+from rpent.models.contracts import (
     AMControlSpec,
     WAMPrediction,
     WAMRequest,
