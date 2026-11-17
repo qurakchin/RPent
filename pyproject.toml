@@ -76,7 +76,7 @@ cosmos3 = [
 ]
 cosmos_policy = [
 ]
-dual-franka = [
+dual_franka = [
     'defusedxml',
     'einops>=0.8.0',
     'empy==3.3.4',
@@ -292,16 +292,16 @@ prerelease = "allow"
 # Torch, Transformers, Tokenizers, or Diffusers versions are mutually
 # incompatible with the others. Generated from component env_conflicts.
 conflicts = [
-    [{ extra = "dual-franka" }, { extra = "libero" }],
-    [{ extra = "dual-franka" }, { extra = "libero-openpi-external" }],
-    [{ extra = "dual-franka" }, { extra = "libero-plus" }],
-    [{ extra = "dual-franka" }, { extra = "libero-pro" }],
-    [{ extra = "dual-franka" }, { extra = "libero-pro-flywheel" }],
-    [{ extra = "dual-franka" }, { extra = "libero-pro-molmo" }],
-    [{ extra = "dual-franka" }, { extra = "robocasa" }],
-    [{ extra = "dual-franka" }, { extra = "robodojo" }],
-    [{ extra = "dual-franka" }, { extra = "robodojo-sim" }],
-    [{ extra = "dual-franka" }, { extra = "robotwin" }],
+    [{ extra = "dual_franka" }, { extra = "libero" }],
+    [{ extra = "dual_franka" }, { extra = "libero-openpi-external" }],
+    [{ extra = "dual_franka" }, { extra = "libero-plus" }],
+    [{ extra = "dual_franka" }, { extra = "libero-pro" }],
+    [{ extra = "dual_franka" }, { extra = "libero-pro-flywheel" }],
+    [{ extra = "dual_franka" }, { extra = "libero-pro-molmo" }],
+    [{ extra = "dual_franka" }, { extra = "robocasa" }],
+    [{ extra = "dual_franka" }, { extra = "robodojo" }],
+    [{ extra = "dual_franka" }, { extra = "robodojo-sim" }],
+    [{ extra = "dual_franka" }, { extra = "robotwin" }],
     [{ extra = "franka" }, { extra = "libero" }],
     [{ extra = "franka" }, { extra = "libero-openpi-external" }],
     [{ extra = "franka" }, { extra = "libero-plus" }],
@@ -333,8 +333,6 @@ conflicts = [
     [{ extra = "molmo" }, { extra = "robotwin" }],
     [{ extra = "rlinf" }, { extra = "robodojo" }],
     [{ extra = "rlinf" }, { extra = "robodojo-sim" }],
-    [{ extra = "robocasa" }, { extra = "robodojo" }],
-    [{ extra = "robocasa" }, { extra = "robodojo-sim" }],
     [{ extra = "robocasa" }, { extra = "robotwin" }],
     [{ extra = "robodojo" }, { extra = "robotwin" }],
     [{ extra = "robodojo-sim" }, { extra = "robotwin" }],

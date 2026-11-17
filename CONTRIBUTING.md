@@ -48,8 +48,11 @@ source .venv-dev/bin/activate
 # For robot work, install that profile into its own virtualenv with the test
 # packages. Profiles cannot share a virtualenv because their pins differ.
 rpent-install install libero-pro --venv .venv-libero-pro --dev      # LIBERO
-rpent-install install robocasa-sim --venv .venv-robocasa-sim --dev  # RoboCasa
-rpent-install install robotwin-sim --venv .venv-robotwin-sim --dev  # RoboTwin
+
+# Robots outside this install refactor still use their compatibility extras;
+# add the test extra to get the same test packages.
+uv pip install -e ".[robocasa,test]"  # RoboCasa
+uv pip install -e ".[robotwin,test]"  # RoboTwin
 
 # Install and enable the repository hooks.
 uv pip install pre-commit==4.6.2

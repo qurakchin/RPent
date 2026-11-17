@@ -17,13 +17,15 @@ RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械�
 
 请先按照 `libfranka 官方快速安装指南 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_ 安装 libfranka 0.19.0。
 
-按 :doc:`../get_started/installation` 把 ``franka-real`` 配方安装到独立环境：
+把兼容 extra 安装到独立环境：
 
 .. code-block:: bash
 
-   rpent-install install franka-real --venv .venv-franka-real
+   uv venv .venv-franka-real --python 3.11
+   source .venv-franka-real/bin/activate
+   uv pip install -e ".[franka]"
 
-该配方包含 RLinf ``release/v0.4``、``rpent-openpi`` 以及 Franka 的相机、夹爪和遥操作依赖。其中的 ``franky-control`` wheel 已包含 libfranka 0.19.0。下文命令直接运行 ``.venv-franka-real/bin/rpent``，因此使用该环境；先激活环境再运行 ``rpent`` 效果相同。
+该 extra 包含 RLinf ``release/v0.4``、``rpent-openpi`` 以及 Franka 的相机、夹爪和遥操作依赖。其中的 ``franky-control`` wheel 已包含 libfranka 0.19.0。下文命令直接运行 ``.venv-franka-real/bin/rpent``，因此使用该环境；先激活环境再运行 ``rpent`` 效果相同。
 
 标定（Calibration）
 ----------------------

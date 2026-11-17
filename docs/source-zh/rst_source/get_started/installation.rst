@@ -44,6 +44,8 @@ RPent 安装的是具名环境配方，而不是一组 extra。``installs/profil
 
 重复执行会复用环境并修复过期安装。安装器根据配方和组件清单生成 requirements，再由 ``uv pip install`` 解析安装。清单中的直接依赖版本约束和 Git revision 仍然生效；随着上游发布新版本，不同时间全新安装的传递依赖版本可能不同。``--dev`` 将测试依赖追加到生成的 requirements，``--dry-run`` 只打印这些 requirements。配方把组件放到外部环境时，安装器会打印该环境的安装命令；请在同一个源码目录中执行。
 
+Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 暂不包含在本次安装重构中，请按各自指南使用兼容 extra 安装，例如 ``uv pip install -e ".[franka]"``；参见 :doc:`../real_world_robots/franka`、:doc:`../real_world_robots/yam` 以及对应仿真器指南。
+
 配方
 ----
 
@@ -72,21 +74,6 @@ RPent 安装的是具名环境配方，而不是一组 extra。``installs/profil
    * - ``libero-openpi-external``
      - 3.11
      - LIBERO-PRO，通过 ``--am-endpoint`` 连接外部 ``openpi-server`` 环境中的 Pi0.5 服务。
-   * - ``franka-real`` / ``dual-franka-real``
-     - 3.11
-     - Franka 真机；双臂配方额外包含 SAM 3.0。
-   * - ``robocasa-sim``
-     - 3.10
-     - RoboCasa365 与 RLinf 的 RoboCasa、RLDX 栈。
-   * - ``robotwin-sim``
-     - 3.11
-     - RoboTwin 与 LingBot-VLA、cuRobo。
-   * - ``robodojo-sim``
-     - 3.11
-     - RoboDojo 及其 RLinf fork 与 Isaac Sim 运行时。
-   * - ``yam-real``
-     - 3.11
-     - YAM 控制和推理依赖。
    * - ``molmo-server``
      - 3.11
      - 独立的 Molmo 服务环境（``core = false``）。
@@ -110,12 +97,6 @@ RPent 安装的是具名环境配方，而不是一组 extra。``installs/profil
    rpent-install install libero-pro-flywheel --venv .venv-libero-pro-flywheel
    rpent-install install libero-pro-molmo --venv .venv-libero-pro-molmo
    rpent-install install libero-openpi-external --venv .venv-libero-openpi-external
-   rpent-install install franka-real --venv .venv-franka-real
-   rpent-install install dual-franka-real --venv .venv-dual-franka-real
-   rpent-install install robocasa-sim --venv .venv-robocasa-sim
-   rpent-install install robotwin-sim --venv .venv-robotwin-sim
-   rpent-install install robodojo-sim --venv .venv-robodojo-sim
-   rpent-install install yam-real --venv .venv-yam-real
    rpent-install install molmo-server --venv .venv-molmo-server
    rpent-install install sam3-server --venv .venv-sam3-server
    rpent-install install openpi-server --venv .venv-openpi-server
@@ -130,7 +111,7 @@ RPent 安装的是具名环境配方，而不是一组 extra。``installs/profil
 
 ``doctor`` 将安装指纹与每项记录在案的安装输入比较（清单、组件 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查 Python 和平台，运行 ``uv pip check`` 与组件探针，并可用 ``--endpoint molmo=host:port`` 探测外部 endpoint。``uv`` 的解析在仓库根目录进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内；指纹还记录写入时使用的输入模式，由旧版 ``rpent-install`` 安装的 venv 会报告为需要重装，而不是环境已漂移。开发时也可以用 ``rpent-install install <组件>`` 单独安装一个组件；它的指纹记录 ``install_kind = "component"`` 及安装时使用的解释器，``doctor`` 会用这个解释器重建诊断配方，而不是用当前运行检查的解释器。``inspect`` 打印指纹及其 hash。``doctor`` 还会比较当前安装包集合与记录的 freeze hash。这些检查用于发现环境变化，不会固定将来解析出的依赖版本。发布工作流以 ``full: true`` 调用 Full CI，在发布前安装并诊断每个配方。
 
-执行 ``check --resolve`` 时，Linux 配方默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本）。配方可用 ``manylinux`` 提高基线；例如 RoboDojo 为 Isaac Sim 5.1 的 wheel 使用 ``manylinux = "2_35"``。对 ``robotwin-sim`` 使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个配方解析失败时会报告错误并继续检查其余配方。
+执行 ``check --resolve`` 时，Linux 配方默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本）。配方可用 ``manylinux`` 提高基线；例如 RoboDojo 为 Isaac Sim 5.1 的 wheel 使用 ``manylinux = "2_35"``。对包含 cuRobo 构建的配置使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个配方解析失败时会报告错误并继续检查其余配方。
 
 运行产物会在 ``run.json`` 中记录当前配方、指纹 hash、源码 commit 和组件名。
 

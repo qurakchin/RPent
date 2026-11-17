@@ -26,7 +26,7 @@ Use Linux and Python 3.11. This guide uses two machines:
 * **Inference machine**: runs the Pi0.5 VLA service on an NVIDIA GPU.
 
 Use the same RPent code and RLinf commit on both machines. Prepare both checkouts
-first, then install the ``yam-real`` profile on each machine as described below:
+first, then install the YAM environment on each machine as described below:
 
 .. code-block:: bash
 
@@ -34,19 +34,17 @@ first, then install the ``yam-real`` profile on each machine as described below:
    git clone --branch main https://github.com/RLinf/RLinf.git /path/to/RLinf
    git -C /path/to/RLinf checkout --detach 196d40b6dec6f7a4063edee31cfeaa6ca0ee435a
 
-On a fresh checkout where ``rpent-install`` is not installed yet, bootstrap it as
-described in :doc:`../get_started/installation`.
-
 **Control machine installation**
 
-Install the ``yam-real`` profile from :doc:`../get_started/installation` into
-``.venv-yam-real``, then add RLinf, the i2rt SDK and the required build
-dependencies:
+Create ``.venv-yam-real`` from the YAM compatibility extra, then add RLinf, the
+i2rt SDK and the required build dependencies:
 
 .. code-block:: bash
 
    cd /path/to/RPent
+   uv venv .venv-yam-real --python 3.11
    source .venv-yam-real/bin/activate
+   uv pip install -e ".[yam]"
    uv pip install --torch-backend cpu \
      --build-constraints /path/to/RLinf/requirements/embodied/installs/profiles/yam-build-constraints.txt \
      -e /path/to/RLinf \
@@ -56,8 +54,8 @@ dependencies:
 **Inference machine installation**
 
 On the inference machine, use RLinf's installer to install YAM and OpenPI
-dependencies into ``.venv-yam-real``, then install the ``yam-real`` profile from
-:doc:`../get_started/installation` into the same environment:
+dependencies into ``.venv-yam-real``, then install the YAM compatibility extra
+into the same environment:
 
 .. code-block:: bash
 
@@ -66,6 +64,7 @@ dependencies into ``.venv-yam-real``, then install the ``yam-real`` profile from
      --venv /path/to/RPent/.venv-yam-real --install-rlinf
    cd /path/to/RPent
    source .venv-yam-real/bin/activate
+   uv pip install -e ".[yam]"
    uv pip check
 
 If system dependencies are already installed, append ``--no-root`` to the installer

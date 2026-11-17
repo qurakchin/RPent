@@ -23,7 +23,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 * **控制机**：连接双臂的 CAN 接口和三路 RealSense 相机，运行 ENV 服务及 RPent。
 * **推理机**：使用 NVIDIA GPU 运行 Pi0.5 VLA 服务。
 
-两台机器使用同一份 RPent 代码和相同的 RLinf 提交。先准备两份仓库，再按下文在两台机器上安装 ``yam-real`` 配方：
+两台机器使用同一份 RPent 代码和相同的 RLinf 提交。先准备两份仓库，再按下文在两台机器上安装 YAM 环境：
 
 .. code-block:: bash
 
@@ -31,16 +31,16 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
    git clone --branch main https://github.com/RLinf/RLinf.git /path/to/RLinf
    git -C /path/to/RLinf checkout --detach 196d40b6dec6f7a4063edee31cfeaa6ca0ee435a
 
-新检出的仓库还没有 ``rpent-install`` 时，按 :doc:`../get_started/installation` 引导。
-
 **控制机安装**
 
-在控制机按 :doc:`../get_started/installation` 把 ``yam-real`` 配方安装到 ``.venv-yam-real``，再补充 RLinf、i2rt SDK 和对应的构建依赖：
+在控制机先创建 ``.venv-yam-real`` 并安装 YAM 兼容 extra，再补充 RLinf、i2rt SDK 和对应的构建依赖：
 
 .. code-block:: bash
 
    cd /path/to/RPent
+   uv venv .venv-yam-real --python 3.11
    source .venv-yam-real/bin/activate
+   uv pip install -e ".[yam]"
    uv pip install --torch-backend cpu \
      --build-constraints /path/to/RLinf/requirements/embodied/installs/profiles/yam-build-constraints.txt \
      -e /path/to/RLinf \
@@ -49,7 +49,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 
 **推理机安装**
 
-在推理机先用 RLinf 的安装脚本把 YAM 和 OpenPI 依赖装进 ``.venv-yam-real``，再按 :doc:`../get_started/installation` 把 ``yam-real`` 配方安装到同一环境：
+在推理机先用 RLinf 的安装脚本把 YAM 和 OpenPI 依赖装进 ``.venv-yam-real``，再把 YAM 兼容 extra 安装到同一环境：
 
 .. code-block:: bash
 
@@ -58,6 +58,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
      --venv /path/to/RPent/.venv-yam-real --install-rlinf
    cd /path/to/RPent
    source .venv-yam-real/bin/activate
+   uv pip install -e ".[yam]"
    uv pip check
 
 已安装系统依赖时，可在安装命令末尾加上 ``--no-root``。

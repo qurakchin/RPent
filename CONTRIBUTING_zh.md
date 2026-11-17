@@ -45,8 +45,10 @@ source .venv-dev/bin/activate
 # 开发 robot 时，在该配方自己的虚拟环境中加装测试依赖。
 # 不同配方的依赖约束不同，不能共用同一个虚拟环境。
 rpent-install install libero-pro --venv .venv-libero-pro --dev      # LIBERO
-rpent-install install robocasa-sim --venv .venv-robocasa-sim --dev  # RoboCasa
-rpent-install install robotwin-sim --venv .venv-robotwin-sim --dev  # RoboTwin
+
+# 暂不包含在本次安装重构中的机器人仍用兼容 extra 安装，并追加 test extra。
+uv pip install -e ".[robocasa,test]"  # RoboCasa
+uv pip install -e ".[robotwin,test]"  # RoboTwin
 
 # 安装并启用仓库 hooks。
 uv pip install pre-commit==4.6.2
