@@ -2,8 +2,6 @@ schema = 1
 name = "libero-sim"
 python = "3.11"
 platform = "linux-x86_64"
-# Compatibility alias: the extra name predates the profile rename.
-extra = "libero"
 description = "LIBERO simulation with Pi0.5 and SAM 3.0."
 
 [components.libero]

@@ -80,10 +80,11 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      yam/
    components/
      models/         # 模型服务，每个子目录一个可安装组件
-     toolkits/       # 带独立评估语料的工具包
    installs/
      profiles/       # 受支持的安装目标
      deps/           # 纯依赖组件清单
+   scripts/
+     rpent-install.sh  # 在全新检出中引导安装器
 
 环境发现与接入
 ---------------------

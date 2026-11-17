@@ -44,7 +44,6 @@ def make_component(tmp_path):
         kind = values.pop("kind", "robot")
         directory = {
             "model": Path("components") / "models",
-            "toolkit": Path("components") / "toolkits",
         }.get(kind, Path("robots"))
         return Component(
             name=name,
@@ -89,8 +88,6 @@ def make_profile(tmp_path):
             extra_index_urls=tuple(values.pop("extra_index_urls", ())),
             index_strategy=values.pop("index_strategy", None),
             core=values.pop("core", True),
-            generate_extra=values.pop("generate_extra", False),
-            extra=values.pop("extra", None),
             description=None,
             manylinux=values.pop("manylinux", "2_31"),
         )

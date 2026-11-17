@@ -87,7 +87,6 @@ def repo(tmp_path, write_toml):
         name = "dev"
         python = "{major}.{minor}"
         platform = "{runtime_platform()}"
-        extra = "test"
         dependencies = ["pytest"]
 
         [components]

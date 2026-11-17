@@ -1,7 +1,7 @@
 Installation
 ============
 
-RPent installs a named environment profile, not a list of extras. Each profile
+RPent installs a named environment profile. Each profile
 in ``installs/profiles/`` selects components and their placement; each component declares
 its own dependencies in ``component.toml``. ``rpent-install`` creates the virtual
 environment, installs exactly that recipe, runs an import probe for every
@@ -42,19 +42,18 @@ From a checkout, install the profile into its own virtual environment:
    source .venv-libero-pro/bin/activate
 
 On a fresh checkout the ``rpent-install`` console script does not exist yet.
-Bootstrap it without installing RPent first:
+``scripts/rpent-install.sh`` bootstraps it without installing RPent first:
 
 .. code-block:: bash
 
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m rpent.cli.install install libero-pro --venv .venv-libero-pro
+   ./scripts/rpent-install.sh install libero-pro --venv .venv-libero-pro
    source .venv-libero-pro/bin/activate
 
 ``rpent-install`` runs from a checkout. The wheel published to PyPI contains
 only the core ``rpent`` package; ``robots/``, ``components/`` with their
 ``component.toml`` manifests, and ``installs/profiles/`` ship only with the
 source checkout and sdist. A non-editable ``pip install rpent`` provides the
-CLI; run a specific robot, model service, or toolkit from a source checkout,
+CLI; run a specific robot or model service from a source checkout,
 where ``rpent-install`` can find the profiles.
 
 Each profile gets its own virtual environment. Profiles pin different
@@ -94,7 +93,7 @@ Profiles
      - Contents
    * - ``minimal``
      - 3.11
-     - Core RPent only; used to verify CLI and robot discovery without extras.
+     - Core RPent only; used to verify CLI and robot discovery without robot dependencies.
    * - ``dev``
      - 3.11
      - Test and lint dependencies; add it to another profile with
@@ -122,9 +121,9 @@ Profiles
 Install commands
 ----------------
 
-Each profile has one install command below. On a fresh checkout, prefix the
-command with ``uv run --no-project --python 3.11 --with packaging -- python -m
-rpent.cli.install`` as shown above.
+Each profile has one install command below. On a fresh checkout, run it
+through ``./scripts/rpent-install.sh`` instead of ``rpent-install``, as shown
+above.
 
 .. code-block:: bash
 
@@ -177,16 +176,6 @@ resolution is reported without stopping checks of the remaining profiles.
 
 Run artifacts record the active profile, fingerprint hash, source commit, and
 component names in ``run.json``.
-
-Compatibility extras
---------------------
-
-``rpent-install extras`` generates ``[project.optional-dependencies]`` and
-``[tool.uv].conflicts`` in ``pyproject.toml`` from the same manifests and
-profiles. They keep ``pip install -e ".[libero-pro]"`` working for one release;
-do not edit that block by hand. ``rpent-install extras --check`` fails when the
-block is stale. Profiles are the supported interface; use extras only for
-migration.
 
 See each simulator or robot page for platform preparation, checkpoints, and
 assets.

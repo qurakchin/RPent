@@ -28,35 +28,33 @@ jobs:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Check the component layout
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install check-layout
+        run: ./scripts/rpent-install.sh check-layout
       - name: Check every profile
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install check --all
-      - name: Check generated extras
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install extras --check
+        run: ./scripts/rpent-install.sh check --all
       - name: Check the runner partition
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install matrix --check
+        run: ./scripts/rpent-install.sh matrix --check
 
   unit:
-    name: Unit, contract and failure-path tests
+    name: Unit, contract and failure-path tests (${{ matrix.python }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # Every component manifest supports these minors; a single interpreter
+        # would leave the declared range unverified.
+        python: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Pin the profile's Python
-        run: uv python install 3.11
+        run: uv python install ${{ matrix.python }}
+      - name: Create the environment with the matrix Python
+        # The profile names its recommended interpreter; creating the venv here
+        # makes the matrix leg the one that runs, without a second install path.
+        run: uv venv --python ${{ matrix.python }} .venv
       - name: Install the test environment from the profile
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install install "${{ inputs.profile }}" --venv .venv
+        run: ./scripts/rpent-install.sh install "${{ inputs.profile }}" --venv .venv
       - name: Run the selected tests
         shell: bash
         env:
@@ -68,8 +66,9 @@ jobs:
           if [[ ${#paths[@]} -eq 0 ]]; then
             paths=(tests/unit_tests)
           fi
-          .venv/bin/python -m pytest "${paths[@]}" -v \
-            --junitxml="$RUNNER_TEMP/junit.xml"
+          .venv/bin/python -m coverage run --source=rpent,robots \
+            -m pytest "${paths[@]}" -v --junitxml="$RUNNER_TEMP/junit.xml"
+          .venv/bin/python -m coverage report -m
       - name: Report skipped tests
         if: always()
         shell: bash
@@ -111,10 +110,8 @@ jobs:
       - name: Pin the profile's Python
         run: uv python install 3.11
       - name: Install the minimal environment from the profile
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install install minimal --venv .venv-minimal
-      - name: Check CLI and robot discovery without robot extras
+        run: ./scripts/rpent-install.sh install minimal --venv .venv-minimal
+      - name: Check CLI and robot discovery without robot dependencies
         run: |
           .venv-minimal/bin/python -c "
           import rpent
@@ -126,6 +123,4 @@ jobs:
           .venv-minimal/bin/rpent --help >/dev/null
           .venv-minimal/bin/rpent-install list >/dev/null
       - name: Doctor the minimal environment
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install doctor --venv .venv-minimal
+        run: ./scripts/rpent-install.sh doctor --venv .venv-minimal

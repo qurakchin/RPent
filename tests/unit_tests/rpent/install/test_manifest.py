@@ -302,7 +302,7 @@ def test_component_rejects_missing_override(write_toml):
         load_component(path)
 
 
-def test_profile_reads_components_and_disables_generated_extra(write_toml):
+def test_profile_reads_components(write_toml):
     path = write_toml(
         "installs/profiles/alpha.toml",
         """
@@ -310,7 +310,6 @@ def test_profile_reads_components_and_disables_generated_extra(write_toml):
         name = "alpha"
         python = "3.10"
         platform = "linux-x86_64"
-        extra = false
         description = "test profile"
 
         dependencies = ["pytest"]
@@ -328,8 +327,6 @@ def test_profile_reads_components_and_disables_generated_extra(write_toml):
     profile = load_profile(path)
 
     assert profile.python == "3.10"
-    assert profile.generate_extra is False
-    assert profile.extra is None
     assert profile.components["alpha"].profile == "alpha-model"
     assert profile.components["alpha"].variant == "pro"
     assert profile.dependencies == ("pytest",)

@@ -16,5 +16,5 @@
 
 Each service is declared by its ``component.toml`` and builds on the contracts,
 clients and facades in ``rpent/models/``. This package must not import
-``robots`` or ``components.toolkits``.
+``robots`` or a sibling service.
 """

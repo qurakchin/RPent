@@ -20,16 +20,17 @@ with documentation instead of assuming either is correct.
   the repository checks exposed through `rpent-install`.
 - `robots/<name>/`: each robot or simulator slice, owning native translation
   and its differentiated features.
-- `components/models/<name>/` and `components/toolkits/<name>/`: installable
-  model services and toolkits.
+- `components/models/<name>/`: installable model services.
 - `installs/profiles/` and `installs/deps/`: supported install recipes and
   dependency-only manifests.
+- `scripts/`: checkout-level launchers; `scripts/rpent-install.sh` bootstraps
+  the installer without installing RPent.
 - `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
 
 The dependency direction is `robots/` → `components/` → `rpent/`: the core
-discovers components by name and never imports them statically, and toolkits
-and model services do not import each other.
+discovers components by name and never imports them statically, and model
+services do not import each other.
 
 ## Development principles
 
@@ -45,7 +46,7 @@ and model services do not import each other.
   internal control flow direct, avoid repeated checks of established state,
   and preserve useful errors. Make resource ownership and cleanup explicit.
 - Keep optional simulator/model imports at their use sites so basic imports,
-  robot discovery, and CLI help work without every robot extra installed.
+  robot discovery, and CLI help work without every robot package installed.
 - Follow neighboring code for naming and structure, use the project logger,
   and follow CONTRIBUTING's type annotation and docstring conventions.
 - Write prose about current behavior and non-obvious constraints. Keep review

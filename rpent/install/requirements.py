@@ -43,13 +43,6 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 #: by an older input mode from one whose inputs drifted.
 REQUIREMENTS_SCHEMA = 5
 
-#: ``[tool.uv]`` entries that do not change an installation's contents.
-#: ``conflicts`` only constrains extra combinations in the generated
-#: compatibility block, and ``rpent-install`` installs requirement files rather
-#: than extras.
-_UV_IGNORED_SETTINGS = ("conflicts",)
-
-
 def read_core_dependencies(root: Path) -> tuple[str, ...]:
     """Return ``[project].dependencies`` from the checkout's pyproject.toml."""
     path = root / "pyproject.toml"
@@ -75,8 +68,7 @@ def read_uv_settings(root: Path) -> dict[str, Any]:
     """Return the ``[tool.uv]`` settings that apply to installs in this checkout.
 
     ``uv`` reads these settings from the project it runs in, so they decide how
-    a requirement file resolves. The generated ``conflicts`` list is excluded:
-    it constrains extra combinations, which the installer does not use.
+    a requirement file resolves.
     """
     path = root / "pyproject.toml"
     try:
@@ -90,9 +82,7 @@ def read_uv_settings(root: Path) -> dict[str, Any]:
     settings = tool.get("uv") if isinstance(tool, dict) else None
     if not isinstance(settings, dict):
         return {}
-    return {
-        key: value for key, value in settings.items() if key not in _UV_IGNORED_SETTINGS
-    }
+    return dict(settings)
 
 
 def override_files(resolution: Resolution, root: Path) -> list[tuple[str, Path]]:

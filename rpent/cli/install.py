@@ -16,7 +16,7 @@
 
 Supported targets are the named profiles in ``installs/profiles/``. Component
 names are accepted by ``install`` as a development diagnostic only. The
-``check-layout``, ``extras``, ``matrix``, and ``affected`` subcommands give CI
+``check-layout``, ``matrix``, and ``affected`` subcommands give CI
 one entry point for the checks it runs before or beside an installation.
 """
 
@@ -26,7 +26,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from rpent.install import affected, extras, layout, matrix
+from rpent.install import affected, layout, matrix
 from rpent.install.compile import resolve_profile
 from rpent.install.discovery import Catalog, discover
 from rpent.install.doctor import FAIL, check_installation, inspect_installation
@@ -179,14 +179,6 @@ def command_check_layout(args: argparse.Namespace) -> int:
     return layout.main(["--root", str(args.root)])
 
 
-def command_extras(args: argparse.Namespace) -> int:
-    """Regenerate or verify the generated compatibility extras."""
-    argv = ["--write"] if args.write else ["--check"]
-    if args.pyproject is not None:
-        argv.extend(["--pyproject", str(args.pyproject)])
-    return extras.main(argv, root=args.root)
-
-
 def command_matrix(args: argparse.Namespace) -> int:
     """Print one runner's profile matrix or check the partition."""
     argv = ["--check"] if args.check else ["--runner", args.runner]
@@ -270,21 +262,6 @@ def build_parser() -> argparse.ArgumentParser:
         "check-layout", help="check repository layout and import boundaries"
     )
     layout_check.set_defaults(handler=command_check_layout)
-
-    extras_check = subcommands.add_parser(
-        "extras", help="regenerate or verify the compatibility extras"
-    )
-    extras_group = extras_check.add_mutually_exclusive_group()
-    extras_group.add_argument(
-        "--write", action="store_true", help="rewrite the generated block"
-    )
-    extras_group.add_argument(
-        "--check",
-        action="store_true",
-        help="fail when pyproject.toml is out of date (default)",
-    )
-    extras_check.add_argument("--pyproject", type=Path, help="pyproject.toml to use")
-    extras_check.set_defaults(handler=command_extras)
 
     matrix_check = subcommands.add_parser(
         "matrix", help="print one runner's profiles or check the partition"
