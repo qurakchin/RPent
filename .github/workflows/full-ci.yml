@@ -66,10 +66,8 @@ jobs:
             # Nightly and manual runs, and a release call with `full: true`,
             # cover every supported profile on the runner its authored
             # partition assigns it to.
-            hosted=$(uv run --no-project --python 3.11 --with packaging -- \
-              python -m rpent.cli.install matrix --runner hosted)
-            gpu=$(uv run --no-project --python 3.11 --with packaging -- \
-              python -m rpent.cli.install matrix --runner gpu)
+            hosted=$(./scripts/rpent-install.sh matrix --runner hosted)
+            gpu=$(./scripts/rpent-install.sh matrix --runner gpu)
             e2e='["libero","robocasa","robotwin"]'
           fi
           {

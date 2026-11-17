@@ -97,21 +97,9 @@ that reuses another slice's code: name the other robot, and make one of the
 two ``requires`` the other so the install closure includes both. Toolkits and
 model services share a contract instead of importing each other.
 
-The compatibility extras in ``pyproject.toml`` are generated from the manifests
-and profiles. Adding or renaming a component or profile therefore also requires
-regenerating that block, which is the one step of a new integration that does
-not live under ``robots/``:
-
-.. code-block:: bash
-
-   rpent-install extras --write
-
-The command checks by default and CI runs ``--check``, so a stale block fails
-the build; ``--write`` is the only mode that edits ``pyproject.toml``.
-
 ``__init__.py`` is the package entry point and must stay lazy. Robot discovery
 imports every package before the user selects one, so an eager import of a
-simulator or model package makes the whole CLI depend on every robot extra.
+simulator or model package makes the whole CLI depend on every robot package.
 Export the factories through ``__getattr__``:
 
 .. code-block:: python
@@ -601,6 +589,6 @@ errors, expected observation artifacts exist, and owned daemons have exited.
 Task success is not required for this bounded integration check.
 
 Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``. After
-installing the robot extra and preparing its GPU/checkpoint/assets resources,
+installing the robot's profile and preparing its GPU/checkpoint/assets resources,
 run ``pytest tests/e2e_tests/myrobot -v``. See ``tests/README.md`` and
 ``tests/e2e_tests/run_gpu_suite.sh`` for running GPU suites in clean environments.

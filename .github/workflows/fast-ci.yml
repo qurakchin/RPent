@@ -53,14 +53,11 @@ jobs:
           else
             base=$(git rev-parse HEAD~1)
           fi
-          scope_json=$(uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install affected --base "$base" --head HEAD)
+          scope_json=$(./scripts/rpent-install.sh affected --base "$base" --head HEAD)
           printf '%s' "$scope_json" > "$RUNNER_TEMP/scope.json"
           git diff --name-only --diff-filter=ACMRT "$base" HEAD > "$RUNNER_TEMP/changed.txt"
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install matrix --runner hosted > "$RUNNER_TEMP/hosted.json"
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install matrix --runner gpu > "$RUNNER_TEMP/gpu.json"
+          ./scripts/rpent-install.sh matrix --runner hosted > "$RUNNER_TEMP/hosted.json"
+          ./scripts/rpent-install.sh matrix --runner gpu > "$RUNNER_TEMP/gpu.json"
           SCOPE="$RUNNER_TEMP/scope.json" \
             CHANGED="$RUNNER_TEMP/changed.txt" \
             HOSTED="$RUNNER_TEMP/hosted.json" \

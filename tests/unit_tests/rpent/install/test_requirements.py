@@ -234,7 +234,7 @@ def test_requirements_hash_does_not_depend_on_how_the_checkout_is_named(
     )
 
 
-def test_requirements_hash_tracks_uv_settings_but_not_conflicts(
+def test_requirements_hash_tracks_uv_settings(
     make_component, make_profile, make_catalog, tmp_path, write_toml
 ):
     robot = make_component("alpha")
@@ -248,7 +248,6 @@ def test_requirements_hash_tracks_uv_settings_but_not_conflicts(
         [tool.uv]
         prerelease = "allow"
         extra-build-dependencies = {}
-        conflicts = [[{ extra = "a" }, { extra = "b" }]]
     """
     pyproject = write_toml("pyproject.toml", settings)
 
@@ -264,18 +263,6 @@ def test_requirements_hash_tracks_uv_settings_but_not_conflicts(
         encoding="utf-8",
     )
     assert baseline != requirements_sha256(resolution, root=tmp_path)
-
-    # `conflicts` is generated from component manifests and only constrains
-    # extra combinations, which `rpent-install` does not install from.
-    pyproject.write_text(
-        settings.replace(
-            'conflicts = [[{ extra = "a" }, { extra = "b" }]]',
-            'conflicts = [[{ extra = "a" }, { extra = "c" }]]',
-        ).strip()
-        + "\n",
-        encoding="utf-8",
-    )
-    assert baseline == requirements_sha256(resolution, root=tmp_path)
 
 
 def test_read_core_dependencies(write_toml, tmp_path):

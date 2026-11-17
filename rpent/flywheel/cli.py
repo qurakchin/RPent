@@ -94,7 +94,8 @@ def main() -> int:
         if exc.name != "lerobot":
             raise
         logger.error(
-            'LeRobot is required. Install it with: uv pip install -e ".[flywheel]"'
+            "LeRobot is required for trajectory export. Install it with a "
+            "profile that selects the flywheel variant; see the flywheel guide."
         )
         return 1
     except (OSError, ValueError) as exc:

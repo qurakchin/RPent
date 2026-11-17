@@ -54,7 +54,7 @@ Download SAM3 weights on the environment node if local segmentation is needed:
    export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
 
 Without this variable or ``--sam3-endpoint``, segmentation is unavailable;
-installing the extra alone does not download weights. VLA checkpoints are
+installing the profile alone does not download weights. VLA checkpoints are
 configured in :ref:`dual-franka-vla`.
 
 Calibration

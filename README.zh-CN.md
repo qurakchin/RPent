@@ -120,8 +120,7 @@ RPent 面向以下四类用户：
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # 默认推荐（LIBERO-PRO）：
-uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install libero-pro --venv .venv-libero-pro
+./scripts/rpent-install.sh install libero-pro --venv .venv-libero-pro
 source .venv-libero-pro/bin/activate
 
 # 暂不包含在本次安装重构中的机器人仍用兼容 extra 安装到各自环境，具体见各自指南。
@@ -130,7 +129,7 @@ uv pip install -e ".[robotwin]"    # RoboTwin
 uv pip install -e ".[franka]"      # Franka 与双臂 Franka
 ```
 
-`libero-pro` 是默认推荐配方。全部配方、兼容 extra 和诊断方法见
+`libero-pro` 是默认推荐配方。全部配方和诊断方法见
 [安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/installation.html)。
 
 RoboCasa 安装、任务 memory 与 Target50 协议参见

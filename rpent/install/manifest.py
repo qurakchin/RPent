@@ -38,9 +38,9 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
 SCHEMA = 1
-KINDS = ("robot", "toolkit", "model", "deps")
+KINDS = ("robot", "model", "deps")
 #: Kinds declared by ``component.toml`` inside the component's own directory.
-DIRECTORY_KINDS = ("robot", "toolkit", "model")
+DIRECTORY_KINDS = ("robot", "model")
 PLACEMENTS = ("in-env", "external-env", "remote")
 #: ``uv``'s multi-index strategies; see ``--index-strategy`` in ``uv pip compile``.
 INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
@@ -244,8 +244,6 @@ class Profile:
     extra_index_urls: tuple[str, ...]
     index_strategy: str | None
     core: bool
-    generate_extra: bool
-    extra: str | None
     description: str | None
     manylinux: str = "2_31"
     #: A development diagnostic built for one component rather than a profile
@@ -283,7 +281,7 @@ def load_deps_component(path: Path) -> Component:
     if kind != "deps":
         raise InstallConfigError(
             f"{path}: 'kind' must be 'deps'; use component.toml in a component "
-            "directory for robots, models and toolkits"
+            "directory for robots and models"
         )
     if "placement" in data or "default_placement" in data:
         raise InstallConfigError(
@@ -444,17 +442,6 @@ def load_profile(path: Path) -> Profile:
         components[component_name] = Selection(
             placement=placement, variant=variant, profile=external_profile
         )
-    extra_value = data.get("extra", name)
-    if extra_value is False:
-        generate_extra = False
-        extra = None
-    elif extra_value is True or isinstance(extra_value, str):
-        generate_extra = True
-        extra = name if extra_value is True else extra_value
-        if not extra:
-            raise InstallConfigError(f"{path}: 'extra' must be a non-empty string")
-    else:
-        raise InstallConfigError(f"{path}: 'extra' must be a string or false")
     core = data.get("core", True)
     if not isinstance(core, bool):
         raise InstallConfigError(f"{path}: 'core' must be a boolean")
@@ -480,8 +467,6 @@ def load_profile(path: Path) -> Profile:
         extra_index_urls=_string_list(data, "extra-index-urls", path),
         index_strategy=index_strategy,
         core=core,
-        generate_extra=generate_extra,
-        extra=extra,
         description=_optional_string(data, "description", path),
         manylinux=manylinux,
     )

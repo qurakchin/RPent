@@ -53,7 +53,6 @@ from rpent.install.resolve import resolve
 #: Component owner directories, longest prefix first.
 COMPONENT_ROOTS = (
     ("components/models", "model"),
-    ("components/toolkits", "toolkit"),
     ("robots", "robot"),
 )
 #: Tests every component group contributes to, relative to the repository root.
@@ -69,10 +68,10 @@ ROBOT_SHARED_TESTS = (
 PR_PILOT_PROFILES = ("minimal",)
 #: Paths whose change can alter every installation, so a PR installs every
 #: profile instead of the pilot set. Install data changes narrow their own
-#: profile set first; a path here in a mixed change still widens it. Packaging
-#: files outside ``rpent/`` and ``tests/`` already select every profile because
-#: no other path rule matches them.
-PR_ALL_PROFILE_PREFIXES = ("rpent/install/", "installs/", ".github/")
+#: profile set first; a path here in a mixed change still widens it. The
+#: checkout launcher decides how every environment bootstraps, so it widens
+#: the same way.
+PR_ALL_PROFILE_PREFIXES = ("rpent/install/", "installs/", ".github/", "scripts/")
 #: The repository's install data: the profiles, dependency-only manifests,
 #: and packaging settings that decide what each environment contains.
 INSTALL_DATA_PREFIXES = ("installs/",)
@@ -232,7 +231,7 @@ def _tests_for(kind: str, name: str, root: Path) -> list[str]:
     elif kind == "model":
         candidates = ["tests/unit_tests/components/models"]
     else:
-        candidates = ["tests/unit_tests/components/toolkits"]
+        candidates = []
     return [path for path in candidates if (root / path).exists()]
 
 

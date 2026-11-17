@@ -71,7 +71,7 @@ def test_component_kind_must_match_root(tmp_path, write_toml):
 
 def test_duplicate_component_names_are_rejected(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "robot")
-    _manifest(write_toml, "components/toolkits", "alpha", "toolkit")
+    _manifest(write_toml, "components/models", "alpha", "model")
 
     with pytest.raises(InstallConfigError, match="declared twice"):
         discover_components(tmp_path)
@@ -177,17 +177,17 @@ def test_imports_must_name_a_same_kind_component(tmp_path, write_toml):
 
 def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
     write_toml(
-        "components/toolkits/alpha/component.toml",
+        "components/models/alpha/component.toml",
         """
         schema = 1
         name = "alpha"
-        kind = "toolkit"
+        kind = "model"
         probe = "alpha"
         requires = ["beta"]
         imports = ["beta"]
         """,
     )
-    _manifest(write_toml, "components/toolkits", "beta", "toolkit", requires=["alpha"])
+    _manifest(write_toml, "components/models", "beta", "model", requires=["alpha"])
 
     with pytest.raises(InstallConfigError, match="imports is only for robot slices"):
         discover_components(tmp_path)

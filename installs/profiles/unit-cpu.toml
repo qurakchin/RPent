@@ -2,8 +2,6 @@ schema = 1
 name = "unit-cpu"
 python = "3.11"
 platform = "linux-x86_64"
-# Test environments are not a compatibility extra.
-extra = false
 description = "CPU-only unit tests: core, test tools, and the CPU Torch build."
 
 dependencies = [

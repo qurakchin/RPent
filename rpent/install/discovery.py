@@ -35,7 +35,6 @@ from rpent.utils.config import get_repo_root
 COMPONENT_ROOTS = (
     ("robots/*/component.toml", "robot"),
     ("components/models/*/component.toml", "model"),
-    ("components/toolkits/*/component.toml", "toolkit"),
     ("installs/deps/*.toml", "deps"),
 )
 
@@ -107,9 +106,9 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
 def _check_imports(components: dict[str, Component]) -> None:
     """Allow ``imports`` on robot slices, naming a co-installed robot.
 
-    Toolkits and model services share a contract instead of importing each
-    other's modules, so an ``imports`` entry on either is a manifest error
-    rather than a boundary the layout check has to honour.
+    Model services share a contract instead of importing each other's
+    modules, so an ``imports`` entry on one is a manifest error rather than
+    a boundary the layout check has to honour.
     """
     reverse = {
         other.name: set(other.requires)

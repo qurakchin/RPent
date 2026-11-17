@@ -1,7 +1,7 @@
 安装
 ====
 
-RPent 安装的是具名环境配方，而不是一组 extra。``installs/profiles/`` 中的每个配方选择组件及其放置方式，每个组件在 ``component.toml`` 中声明自己的依赖。``rpent-install`` 创建虚拟环境，只安装该配方的内容，对每个在本地安装的组件执行导入探针，并写入安装指纹。
+RPent 安装的是具名环境配方。``installs/profiles/`` 中的每个配方选择组件及其放置方式，每个组件在 ``component.toml`` 中声明自己的依赖。``rpent-install`` 创建虚拟环境，只安装该配方的内容，对每个在本地安装的组件执行导入探针，并写入安装指纹。
 
 环境要求
 --------
@@ -30,15 +30,14 @@ RPent 安装的是具名环境配方，而不是一组 extra。``installs/profil
    rpent-install install libero-pro --venv .venv-libero-pro
    source .venv-libero-pro/bin/activate
 
-新检出的仓库还没有 ``rpent-install`` 命令。可以先不安装 RPent，直接引导它：
+新检出的仓库还没有 ``rpent-install`` 命令。``scripts/rpent-install.sh`` 会先引导它，不需要预先安装 RPent：
 
 .. code-block:: bash
 
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m rpent.cli.install install libero-pro --venv .venv-libero-pro
+   ./scripts/rpent-install.sh install libero-pro --venv .venv-libero-pro
    source .venv-libero-pro/bin/activate
 
-``rpent-install`` 需要在源码检出中运行。发布到 PyPI 的 wheel 只包含核心 ``rpent`` 包；``robots/``、``components/`` 及其 ``component.toml``、``installs/profiles/`` 只随源码检出和 sdist 发布。非可编辑的 ``pip install rpent`` 只提供 CLI；运行具体的机器人、模型服务或工具包请使用源码检出（或 sdist），在 pip 安装的环境里 ``rpent-install`` 会报告找不到配方。
+``rpent-install`` 需要在源码检出中运行。发布到 PyPI 的 wheel 只包含核心 ``rpent`` 包；``robots/``、``components/`` 及其 ``component.toml``、``installs/profiles/`` 只随源码检出和 sdist 发布。非可编辑的 ``pip install rpent`` 只提供 CLI；运行具体的机器人或模型服务请使用源码检出（或 sdist），在 pip 安装的环境里 ``rpent-install`` 会报告找不到配方。
 
 每个配方使用自己的虚拟环境。不同配方对仿真器、机器人和模型运行时有不同的依赖约束，安装器会拒绝在已安装其他配方的环境中安装；请为它指定另一个 ``--venv``。不传 ``--venv`` 时，配方安装到源码目录下的 ``.rpent/venvs/<配方>``；``.rpent/`` 是本地状态、已被 git 忽略，之后的 ``install`` 和 ``doctor`` 会复用同一个环境。``core = false`` 的配方（例如 ``molmo-server``）不安装可编辑的 RPent，只包含该服务自己的依赖；启动时按 :doc:`../guides/flash` 的说明把源码目录放进 ``PYTHONPATH``。
 
@@ -58,7 +57,7 @@ Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 暂不包含在�
      - 内容
    * - ``minimal``
      - 3.11
-     - 仅核心 RPent，用于验证不安装扩展时的 CLI 和机器人发现。
+     - 仅核心 RPent，用于验证不安装机器人依赖时的 CLI 和机器人发现。
    * - ``dev``
      - 3.11
      - 测试和 lint 依赖；可用 ``rpent-install install <配方> --dev`` 附加到其他配方。
@@ -84,8 +83,7 @@ Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 暂不包含在�
 安装命令
 --------
 
-每个配方对应下面一条安装命令。新检出的仓库需要按上文先加上 ``uv run
---no-project --python 3.11 --with packaging -- python -m rpent.cli.install`` 前缀。
+每个配方对应下面一条安装命令。新检出的仓库用 ``./scripts/rpent-install.sh`` 代替命令开头的 ``rpent-install``，见上文。
 
 .. code-block:: bash
 
@@ -114,10 +112,5 @@ Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 暂不包含在�
 执行 ``check --resolve`` 时，Linux 配方默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本）。配方可用 ``manylinux`` 提高基线；例如 RoboDojo 为 Isaac Sim 5.1 的 wheel 使用 ``manylinux = "2_35"``。对包含 cuRobo 构建的配置使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个配方解析失败时会报告错误并继续检查其余配方。
 
 运行产物会在 ``run.json`` 中记录当前配方、指纹 hash、源码 commit 和组件名。
-
-兼容 extra
-----------
-
-``rpent-install extras`` 根据同一组清单和配方生成 ``pyproject.toml`` 中的 ``[project.optional-dependencies]`` 和 ``[tool.uv].conflicts``。它们让 ``pip install -e ".[libero-pro]"`` 在一个发布周期内继续可用；不要手工修改该区块。``rpent-install extras --check`` 在区块过期时失败。受支持的接口是配方，extra 只用于迁移。
 
 平台准备、checkpoint 和资产见各仿真器或机器人页面。
