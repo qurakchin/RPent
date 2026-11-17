@@ -277,8 +277,6 @@ test = [
     'pytest',
     'pytest-timeout',
 ]
-xpolicylab = [
-]
 yam = [
     'huggingface_hub>=0.24,<1',
     'imageio-ffmpeg',

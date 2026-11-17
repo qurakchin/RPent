@@ -260,7 +260,6 @@ LEGACY_COMPONENTS = frozenset(
         ("model", "molmo"),
         ("model", "openpi"),
         ("model", "sam3"),
-        ("model", "xpolicylab"),
     }
 )
 ERROR = "error"
