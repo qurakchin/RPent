@@ -44,8 +44,12 @@ appropriate extra with lazy imports.
    components when supported. Keep robot-specific result schemas in the
    robot's finalization hook and verify which entry points call it.
 6. Update the relevant installation extra, usage/development documentation,
-   and tests. Follow the actual runner and CI configuration when adding a new
-   supported test target; adding a directory alone does not wire it into CI.
+   and tests. Add a **Validation Status** section to the English and Chinese
+   robot pages using the wording in
+   [docs/STYLE_GUIDE.md](../../../docs/STYLE_GUIDE.md#validation-status), and
+   record only the tiers that were exercised. Follow the actual runner and CI
+   configuration when adding a new supported test target; adding a directory
+   alone does not wire it into CI.
 
 ## Validate and hand off
 

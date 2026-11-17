@@ -19,7 +19,9 @@ their current commands and prerequisites; reuse existing runners and fixtures.
   implementation details or creating a parallel test framework.
 - Documentation changes use [docs-check](../docs-check/SKILL.md). Dependency,
   optional-import, CLI, or robot-discovery changes also need the relevant
-  installation and startup checks in the affected environment.
+  installation and startup checks in the affected environment. Documentation
+  edits also run `python scripts/check_docs.py` and the Sphinx builds for both
+  languages when a Sphinx page or its inputs changed.
 - Env/VLA or runtime changes may need the real component and policy-chain
   tests documented in the test guide. Check GPU, assets, checkpoint, and
   platform prerequisites before launching them.
@@ -59,6 +61,13 @@ than treating them as ordinary automated checks.
 Record the revision or working diff, exact commands, relevant environment,
 results, artifact locations, and checks not run with reasons. Distinguish a
 failed check from unavailable prerequisites and from an untested path.
+
+Use the three tiers and evidence rules in
+[CONTRIBUTING.md](../../../CONTRIBUTING.md#validation-evidence) and the
+[pull request template](../../../.github/PULL_REQUEST_TEMPLATE.md). Record the
+revision, exact commands, environment, results, artifact locations, and checks
+not run with reasons. End with the limitations. A link to a CI workflow is not
+evidence that the workflow passed.
 
 An import or health check establishes less than a real component request.
 A bounded policy-chain check verifies action execution, recorded `finish`,

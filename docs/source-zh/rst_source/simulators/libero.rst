@@ -217,7 +217,7 @@ Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-Pro 需�
 RPent 在 LIBERO-PRO Task/Swap 上的统一模型对比及对应配置见 :doc:`../leaderboard/index`。
 
 :doc:`GPT-6 Astra 套件汇总 <../leaderboard/index>`
-记录全部八个完整套件及 800 个已核验回合：741 成功、59 失败，Overall 92.63%，配置为 Codex / GPT-6 Astra / low / reasoning。
+记录全部八个完整套件及 800 个已核验回合：741 成功、59 失败，Overall 92.63%，配置为 Codex / GPT-6 Astra / low / reasoning。这一汇总属于历史结果：使用原先两份冻结 memory 快照按 suite 分别评测；合并后的 Astra 发布版尚未重新评测，memory 生成于运行提交 ``014a0fa``，属于场景 seed 修复前版本。语料来源见 :doc:`../guides/memory`。
 
 Long 结果使用 `reproduce/libero <https://github.com/RLinf/RPent/tree/reproduce/libero>`_ 分支、``gpt-5.5`` 模型和 ``xhigh`` 推理强度：
 
@@ -296,3 +296,25 @@ Dashboard
 3. 如果可用工具需要调整（比如将 ``pi0_pick`` 改成 ``mymodel_pick``），相应更新 ``robots/libero/toolkit.py``。
 
 完整流程见 :doc:`../development/add_primitive`。
+
+验证状态
+--------
+
+.. list-table::
+   :header-rows: 1
+
+   * - 层级
+     - 状态
+     - 证据
+   * - 离线检查
+     - 仅 CPU
+     - ``pytest tests/unit_tests/robots/libero`` 在 ``unittest`` workflow 中运行。
+   * - 仿真集成
+     - 历史结果
+     - 「实验复现」中的运行覆盖全部八个 suite 和 800 次 episode，使用的是运行时 commit ``014a0fa`` 生成的冻结 memory 快照；合并后的发布版尚未重新评测。
+   * - Benchmark 成功率
+     - 历史结果
+     - Codex / GPT-6 Astra / low / reasoning 下为 741/800（Overall 92.63%），使用原先两份在运行时 commit ``014a0fa`` 生成、按 suite 分别评测的冻结 memory 快照；合并后的发布版尚未重新评测。来源与各 suite 明细见「实验复现」。
+   * - 真机
+     - 不适用
+     - 仅仿真集成。

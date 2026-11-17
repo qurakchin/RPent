@@ -2,3 +2,16 @@ SO-101
 ======
 
 Content coming soon.
+
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - All tiers
+     - Not applicable
+     - This page is a placeholder. The repository publishes no implementation, installation guide, or run result.

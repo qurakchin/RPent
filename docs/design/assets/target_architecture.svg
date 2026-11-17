@@ -1,0 +1,200 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1580" height="1530" viewBox="0 0 1580 1530" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, Helvetica, Arial, sans-serif">
+<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6.5" markerHeight="6.5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9aa5b4"/></marker></defs>
+<rect width="1580" height="1530" fill="#fff"/>
+<text x="790.0" y="44.0" text-anchor="middle" font-size="25" font-weight="700" fill="#111827">RPent 改造后的目标架构</text>
+<text x="790.0" y="70.0" text-anchor="middle" font-size="12.5" font-weight="400" fill="#6b7280">同一逻辑层的实现只有一份：通用能力在左，机器人专用在右；切片只保留 adapter、policy binding、领域片段</text>
+<rect x="392" y="84" width="15" height="15" rx="3.5" fill="#eef4fb" stroke="#1f5fa8" stroke-width="1.5"/>
+<text x="414.0" y="96.0" text-anchor="start" font-size="12" font-weight="400" fill="#374151">保留 / 原样</text>
+<rect x="520" y="84" width="15" height="15" rx="3.5" fill="#fff3e8" stroke="#c2410c" stroke-width="1.5"/>
+<text x="542.0" y="96.0" text-anchor="start" font-size="12" font-weight="400" fill="#374151">新增</text>
+<rect x="614" y="84" width="15" height="15" rx="3.5" fill="#eefaf1" stroke="#15803d" stroke-width="1.5"/>
+<text x="636.0" y="96.0" text-anchor="start" font-size="12" font-weight="400" fill="#374151">从切片上移</text>
+<rect x="754" y="84" width="15" height="15" rx="3.5" fill="#fffdfa" stroke="#b45309" stroke-width="1.5" stroke-dasharray="4 3"/>
+<text x="776.0" y="96.0" text-anchor="start" font-size="12" font-weight="400" fill="#374151">机器人专用（虚线）</text>
+<rect x="1070" y="130" width="502" height="1322" rx="12" fill="#fffdfa" stroke="#f0e2d2"/>
+<line x1="1070" y1="130" x2="1070" y2="1452" stroke="#e7cdb3" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="638.0" y="122.0" text-anchor="middle" font-size="14.5" font-weight="700" fill="#1f5fa8">通用 / 核心（全仓一份）</text>
+<text x="1321.0" y="122.0" text-anchor="middle" font-size="14.5" font-weight="700" fill="#b45309">机器人专用（每个切片实现）</text>
+<line x1="226" y1="132" x2="1050" y2="132" stroke="#dbe3ee" stroke-width="1.2"/>
+<line x1="1086" y1="132" x2="1556" y2="132" stroke="#f0dcc6" stroke-width="1.2"/>
+<rect x="24" y="146" width="186" height="92" rx="9" fill="#f8fafc" stroke="#c7cdd6" stroke-width="1.35"/>
+<text x="117.0" y="184.0" text-anchor="middle" font-size="14" font-weight="700" fill="#6b7280">Planner 运行时</text>
+<text x="117.0" y="202.0" text-anchor="middle" font-size="10.8" font-weight="400" fill="#6b7280">保持不变</text>
+<rect x="226.0" y="160.0" width="198.5" height="64.0" rx="8" fill="#f8fafc" stroke="#c7cdd6" stroke-width="1.35"/>
+<text x="325.2" y="187.8" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">claude_code</text>
+<text x="325.2" y="209.3" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">SDK · MCP</text>
+<rect x="434.5" y="160.0" width="198.5" height="64.0" rx="8" fill="#f8fafc" stroke="#c7cdd6" stroke-width="1.35"/>
+<text x="533.8" y="187.8" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">codex</text>
+<text x="533.8" y="209.3" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">SDK · MCP</text>
+<rect x="643.0" y="160.0" width="198.5" height="64.0" rx="8" fill="#f8fafc" stroke="#c7cdd6" stroke-width="1.35"/>
+<text x="742.2" y="187.8" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">api</text>
+<text x="742.2" y="209.3" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">pydantic-ai</text>
+<rect x="851.5" y="160.0" width="198.5" height="64.0" rx="8" fill="#f8fafc" stroke="#c7cdd6" stroke-width="1.35"/>
+<text x="950.8" y="187.8" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">flash</text>
+<text x="950.8" y="209.3" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">无 LLM</text>
+<text x="1321.0" y="196.0" text-anchor="middle" font-size="11.5" font-weight="400" fill="#b9a48f">— 无专用部分 —</text>
+<rect x="24" y="252" width="186" height="104" rx="9" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="117.0" y="296.0" text-anchor="middle" font-size="14" font-weight="700" fill="#c2410c">Prompt 拼装</text>
+<text x="117.0" y="314.0" text-anchor="middle" font-size="10.8" font-weight="400" fill="#6b7280">新增</text>
+<text x="117.0" y="332.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#9a3412">a_2</text>
+<rect x="226.0" y="266.0" width="268.0" height="76.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="360.0" y="299.9" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">片段库 fragments</text>
+<text x="360.0" y="321.4" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">base · mode（含 code）· 记忆协议</text>
+<rect x="504.0" y="266.0" width="268.0" height="76.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="638.0" y="299.9" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">assemble_prompt</text>
+<text x="638.0" y="321.4" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">固定顺序 · 来源追踪</text>
+<rect x="782.0" y="266.0" width="268.0" height="76.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="916.0" y="299.9" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">effective_prompt.md</text>
+<text x="916.0" y="321.4" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">+ prompt_sha256</text>
+<rect x="1086.0" y="262.0" width="470.0" height="84.0" rx="8" fill="#fffdfa" stroke="#b45309" stroke-width="1.35" stroke-dasharray="5 3"/>
+<text x="1321.0" y="300.0" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">机器人领域片段</text>
+<text x="1321.0" y="321.3" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">布局 · 坐标约定 · 任务族 · 失败模式（tool / code 两种模式共用）</text>
+<rect x="24" y="370" width="186" height="410" rx="9" fill="#eefaf1" stroke="#86c99d" stroke-width="1.35"/>
+<text x="117.0" y="566.0" text-anchor="middle" font-size="14" font-weight="700" fill="#15803d">工具与工具上下文</text>
+<text x="117.0" y="584.0" text-anchor="middle" font-size="10.8" font-weight="400" fill="#6b7280">工具族 · 上下文 · 会话状态</text>
+<text x="117.0" y="602.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#9a3412">a_3 a_4 a_6 a_7 a_8</text>
+<rect x="1086.0" y="380.0" width="470.0" height="135.0" rx="8" fill="#fffdfa" stroke="#b45309" stroke-width="1.35" stroke-dasharray="5 3"/>
+<text x="1321.0" y="436.6" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">PolicySkill binding</text>
+<text x="1321.0" y="457.9" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">encode · decode · judge</text>
+<text x="1321.0" y="471.7" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">chunk 语义 · 子指令能力</text>
+<rect x="1086.0" y="525.0" width="470.0" height="135.0" rx="8" fill="#fffdfa" stroke="#b45309" stroke-width="1.35" stroke-dasharray="5 3"/>
+<text x="1321.0" y="581.6" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">平台传输</text>
+<text x="1321.0" y="602.9" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">LingBot WebSocket · RLDX 会话</text>
+<text x="1321.0" y="616.7" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">重连 · endpoint · 切片配置</text>
+<rect x="226" y="370" width="824" height="410" rx="9" fill="#fff" stroke="#cfe6d6" stroke-width="1.2"/>
+<text x="242.0" y="690.0" text-anchor="start" font-size="11.5" font-weight="700" fill="#c2410c">Episode 会话</text>
+<rect x="226.0" y="698.0" width="268.0" height="68.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="360.0" y="727.9" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">uncertain 锁存</text>
+<text x="360.0" y="749.4" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">写拒绝 · 读放行 · 对账后可清除</text>
+<rect x="504.0" y="698.0" width="268.0" height="68.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="638.0" y="727.9" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">reconcile</text>
+<text x="638.0" y="749.4" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">只读查回执 · 永不重放</text>
+<rect x="782.0" y="698.0" width="268.0" height="68.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="916.0" y="727.9" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">RunOutcome</text>
+<text x="916.0" y="749.4" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">agent · task · accepted · retryable</text>
+<rect x="24" y="794" width="186" height="196" rx="9" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="117.0" y="884.0" text-anchor="middle" font-size="14" font-weight="700" fill="#c2410c">环境接入</text>
+<text x="117.0" y="902.0" text-anchor="middle" font-size="10.8" font-weight="400" fill="#6b7280">通用 utils + 切片 adapter</text>
+<text x="117.0" y="920.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#9a3412">a_5 a_6</text>
+<rect x="1086.0" y="804.0" width="470.0" height="83.0" rx="8" fill="#fffdfa" stroke="#b45309" stroke-width="1.35" stroke-dasharray="5 3"/>
+<text x="1321.0" y="834.6" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">EnvAdapter（切片实现）</text>
+<text x="1321.0" y="855.9" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">8 个方法 · 原生状态 / 相机 / 命令翻译</text>
+<text x="1321.0" y="869.7" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">不支持能力 → RequestRejected</text>
+<rect x="1086.0" y="897.0" width="470.0" height="83.0" rx="8" fill="#fffdfa" stroke="#b45309" stroke-width="1.35" stroke-dasharray="5 3"/>
+<text x="1321.0" y="927.6" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">能力声明 capabilities</text>
+<text x="1321.0" y="948.9" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">adapter.describe() · 已连接服务</text>
+<text x="1321.0" y="962.7" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">只读快照 · 写入 run.json</text>
+<rect x="226.0" y="804.0" width="407.0" height="52.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="429.5" y="824.4" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">EnvClient</text>
+<text x="429.5" y="841.4" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">身份 · sequence · 自动对账 · 版本校验</text>
+<rect x="643.0" y="804.0" width="407.0" height="52.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="846.5" y="824.4" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">EnvFacade</text>
+<text x="846.5" y="841.4" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">语义命令路由 · 生命周期 · 协议校验</text>
+<rect x="226.0" y="864.0" width="407.0" height="52.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="429.5" y="884.4" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">ReceiptLedger</text>
+<text x="429.5" y="901.4" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">内存 · 最近 N 条 · FIFO 淘汰 · 重启清空</text>
+<rect x="643.0" y="864.0" width="407.0" height="52.0" rx="8" fill="#eef4fb" stroke="#9dbcdd" stroke-width="1.35"/>
+<text x="846.5" y="884.4" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">RPC 传输</text>
+<text x="846.5" y="901.4" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">HTTP JSON · socket pickle · 进程隔离</text>
+<rect x="226.0" y="924.0" width="824.0" height="56.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="638.0" y="945.4" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">单环境视图（方案 b，只写一次）</text>
+<text x="638.0" y="962.4" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">num_envs=1 去 batch · seed 对齐 · chunk_step 统一</text>
+<rect x="24" y="1004" width="186" height="176" rx="9" fill="#eef4fb" stroke="#9dbcdd" stroke-width="1.35"/>
+<text x="117.0" y="1084.0" text-anchor="middle" font-size="14" font-weight="700" fill="#1f5fa8">执行后端</text>
+<text x="117.0" y="1102.0" text-anchor="middle" font-size="10.8" font-weight="400" fill="#6b7280">模型服务 + 原生环境</text>
+<text x="117.0" y="1120.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#9a3412">a_5</text>
+<rect x="226.0" y="1018.0" width="407.0" height="148.0" rx="8" fill="#eef4fb" stroke="#9dbcdd" stroke-width="1.35"/>
+<text x="429.5" y="1080.8" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">模型服务</text>
+<text x="429.5" y="1102.3" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">VLA / WAM / SAM3</text>
+<text x="429.5" y="1116.3" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">独立进程 · CUDA</text>
+<rect x="643.0" y="1018.0" width="407.0" height="148.0" rx="8" fill="#eef4fb" stroke="#9dbcdd" stroke-width="1.35"/>
+<text x="846.5" y="1080.8" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">ComponentStarter</text>
+<text x="846.5" y="1102.3" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">组件声明 → spawn / attach</text>
+<text x="846.5" y="1116.3" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">等待 · 逆序停止</text>
+<rect x="1086.0" y="1024.0" width="150.0" height="32" rx="7" fill="#fff" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="1161.0" y="1044.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#7c3f0a">RoboTwin</text>
+<rect x="1246.0" y="1024.0" width="150.0" height="32" rx="7" fill="#fff" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="1321.0" y="1044.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#7c3f0a">LIBERO</text>
+<rect x="1406.0" y="1024.0" width="150.0" height="32" rx="7" fill="#fff" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="1481.0" y="1044.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#7c3f0a">RoboCasa</text>
+<rect x="1086.0" y="1066.0" width="150.0" height="32" rx="7" fill="#fff" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="1161.0" y="1086.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#7c3f0a">RoboDojo</text>
+<rect x="1246.0" y="1066.0" width="150.0" height="32" rx="7" fill="#fff" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="1321.0" y="1086.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#7c3f0a">YAM</text>
+<rect x="1406.0" y="1066.0" width="150.0" height="32" rx="7" fill="#fff" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="1481.0" y="1086.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#7c3f0a">Franka</text>
+<rect x="1086.0" y="1108.0" width="150.0" height="32" rx="7" fill="#fff" stroke="#b45309" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="1161.0" y="1128.5" text-anchor="middle" font-size="11.5" font-weight="400" fill="#7c3f0a">dual_franka</text>
+<text x="1321.0" y="1170.0" text-anchor="middle" font-size="10.5" font-weight="400" fill="#a98a6c">原生仿真 / 真机 · 由各切片 adapter 接入</text>
+<rect x="24" y="1194" width="186" height="240" rx="9" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="117.0" y="1306.0" text-anchor="middle" font-size="14" font-weight="700" fill="#c2410c">产物与外部交互</text>
+<text x="117.0" y="1324.0" text-anchor="middle" font-size="10.8" font-weight="400" fill="#6b7280">系统边界</text>
+<text x="117.0" y="1342.0" text-anchor="middle" font-size="10.5" font-weight="700" fill="#9a3412">a_8</text>
+<rect x="1086.0" y="1204.0" width="470.0" height="105.0" rx="8" fill="#fffdfa" stroke="#b45309" stroke-width="1.35" stroke-dasharray="5 3"/>
+<text x="1321.0" y="1245.5" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">真机 operator / HIL</text>
+<text x="1321.0" y="1266.8" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">pause · resume · abort</text>
+<text x="1321.0" y="1280.6" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">TTY 门控 · 人工确认</text>
+<rect x="1086.0" y="1319.0" width="470.0" height="105.0" rx="8" fill="#fffdfa" stroke="#b45309" stroke-width="1.35" stroke-dasharray="5 3"/>
+<text x="1321.0" y="1360.5" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">切片数据导出</text>
+<text x="1321.0" y="1381.8" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">LeRobot · RLDS · 自定义格式</text>
+<text x="1321.0" y="1395.6" text-anchor="middle" font-size="10.4" font-weight="400" fill="#4b5563">按切片配置 · 数据集版本</text>
+<rect x="226" y="370" width="824" height="50" rx="9" fill="#eef4fb" stroke="#9dbcdd" stroke-width="1.3"/>
+<text x="638.0" y="391.0" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">Toolkit · _Scheduler · ToolResult v2</text>
+<text x="638.0" y="409.0" text-anchor="middle" font-size="10.6" font-weight="400" fill="#4b5563">按能力装配族 · readonly 并发 / 写者优先 · 四层结果 · 工具上下文：EnvState 步历史 / 历史帧 · finish / reset（a_7）</text>
+<rect x="226.0" y="430.0" width="407.0" height="74.0" rx="8" fill="#eefaf1" stroke="#86c99d" stroke-width="1.35"/>
+<text x="429.5" y="456.2" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">SceneFamily</text>
+<text x="429.5" y="477.4" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">view_env_state · geometry · query_world_map</text>
+<text x="429.5" y="491.1" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">geometry 内部：ground · segment · back-project · fit</text>
+<rect x="643.0" y="430.0" width="407.0" height="74.0" rx="8" fill="#eefaf1" stroke="#86c99d" stroke-width="1.35"/>
+<text x="846.5" y="456.2" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">MotionFamily</text>
+<text x="846.5" y="477.4" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">move_to · rotate_* · move_pose · set_gripper · release</text>
+<text x="846.5" y="491.1" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">vla_act runner → PolicySkill 工具（pi0_pick / wam_act / …）</text>
+<rect x="226.0" y="514.0" width="407.0" height="74.0" rx="8" fill="#eefaf1" stroke="#86c99d" stroke-width="1.35"/>
+<text x="429.5" y="540.1" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">MemoryFamily</text>
+<text x="429.5" y="561.4" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">分层记忆的受控读写 · 读取审计</text>
+<text x="429.5" y="575.0" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">recall / remember / corroborate · 证据与置信度</text>
+<rect x="643.0" y="514.0" width="407.0" height="74.0" rx="8" fill="#eefaf1" stroke="#86c99d" stroke-width="1.35"/>
+<text x="846.5" y="540.1" text-anchor="middle" font-size="13" font-weight="700" fill="#111827">FileFamily</text>
+<text x="846.5" y="561.4" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">list_dir · read / write_text_file</text>
+<text x="846.5" y="575.0" text-anchor="middle" font-size="10.3" font-weight="400" fill="#4b5563">限定输出目录</text>
+<rect x="226" y="602" width="824" height="60" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.3"/>
+<text x="242.0" y="623.0" text-anchor="start" font-size="13" font-weight="700" fill="#c2410c">CodePolicy runtime</text>
+<text x="376.0" y="623.0" text-anchor="start" font-size="10.4" font-weight="400" fill="#9ca3af" font-family="ui-monospace,Menlo,monospace">rpent/code_policy/</text>
+<text x="242.0" y="641.0" text-anchor="start" font-size="10.6" font-weight="400" fill="#4b5563">核心唯一接入（a_4）· 持久 Python cell · robo.&lt;tool&gt;(**kwargs) · 与 tool call 同一声明 / 同一结果 · 切片零改动</text>
+<text x="242.0" y="657.0" text-anchor="start" font-size="10.6" font-weight="400" fill="#4b5563">cell 墙钟上限 · 调用预算 · 中断只丢弃命名空间 · 不确定即停，不重跑 cell</text>
+<rect x="226" y="1194" width="824" height="240" rx="9" fill="#fff" stroke="#f0dcc6" stroke-width="1.2"/>
+<text x="230.0" y="1224.0" text-anchor="start" font-size="11.8" font-weight="700" fill="#9a3412">产物</text>
+<rect x="226.0" y="1232.0" width="198.5" height="60.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="325.2" y="1257.7" text-anchor="middle" font-size="12.2" font-weight="700" fill="#111827">run.json</text>
+<text x="325.2" y="1278.8" text-anchor="middle" font-size="10.2" font-weight="400" fill="#4b5563">manifest · sha256 · git</text>
+<rect x="434.5" y="1232.0" width="198.5" height="60.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="533.8" y="1257.7" text-anchor="middle" font-size="12.2" font-weight="700" fill="#111827">result.json</text>
+<text x="533.8" y="1278.8" text-anchor="middle" font-size="10.2" font-weight="400" fill="#4b5563">RunOutcome</text>
+<rect x="643.0" y="1232.0" width="198.5" height="60.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="742.2" y="1257.7" text-anchor="middle" font-size="12.2" font-weight="700" fill="#111827">transcript.json</text>
+<text x="742.2" y="1278.8" text-anchor="middle" font-size="10.2" font-weight="400" fill="#4b5563">单对象原子写</text>
+<rect x="851.5" y="1232.0" width="198.5" height="60.0" rx="8" fill="#fff3e8" stroke="#ea580c" stroke-width="1.35"/>
+<text x="950.8" y="1257.7" text-anchor="middle" font-size="12.2" font-weight="700" fill="#111827">events.jsonl</text>
+<text x="950.8" y="1278.8" text-anchor="middle" font-size="10.2" font-weight="400" fill="#4b5563">tool · step · rpc · cell</text>
+<text x="230.0" y="1326.0" text-anchor="start" font-size="11.8" font-weight="700" fill="#9a3412">外部交互</text>
+<rect x="226.0" y="1334.0" width="198.5" height="60.0" rx="8" fill="#eef4fb" stroke="#9dbcdd" stroke-width="1.35"/>
+<text x="325.2" y="1359.7" text-anchor="middle" font-size="12.2" font-weight="700" fill="#111827">CLI</text>
+<text x="325.2" y="1380.8" text-anchor="middle" font-size="10.2" font-weight="400" fill="#4b5563">run · 退出码</text>
+<rect x="434.5" y="1334.0" width="198.5" height="60.0" rx="8" fill="#eef4fb" stroke="#9dbcdd" stroke-width="1.35"/>
+<text x="533.8" y="1359.7" text-anchor="middle" font-size="12.2" font-weight="700" fill="#111827">Dashboard</text>
+<text x="533.8" y="1380.8" text-anchor="middle" font-size="10.2" font-weight="400" fill="#4b5563">事件总线订阅者 · operator</text>
+<rect x="643.0" y="1334.0" width="198.5" height="60.0" rx="8" fill="#eef4fb" stroke="#9dbcdd" stroke-width="1.35"/>
+<text x="742.2" y="1359.7" text-anchor="middle" font-size="12.2" font-weight="700" fill="#111827">Flywheel</text>
+<text x="742.2" y="1380.8" text-anchor="middle" font-size="10.2" font-weight="400" fill="#4b5563">episode → 训练数据</text>
+<rect x="851.5" y="1334.0" width="198.5" height="60.0" rx="8" fill="#eef4fb" stroke="#9dbcdd" stroke-width="1.35"/>
+<text x="950.8" y="1359.7" text-anchor="middle" font-size="12.2" font-weight="700" fill="#111827">Flash / recipe</text>
+<text x="950.8" y="1380.8" text-anchor="middle" font-size="10.2" font-weight="400" fill="#4b5563">回放 · 不调 LLM</text>
+<line x1="117" y1="239" x2="117" y2="251" stroke="#9aa5b4" stroke-width="1.8" marker-end="url(#ar)"/>
+<line x1="117" y1="357" x2="117" y2="369" stroke="#9aa5b4" stroke-width="1.8" marker-end="url(#ar)"/>
+<line x1="117" y1="781" x2="117" y2="793" stroke="#9aa5b4" stroke-width="1.8" marker-end="url(#ar)"/>
+<line x1="117" y1="991" x2="117" y2="1003" stroke="#9aa5b4" stroke-width="1.8" marker-end="url(#ar)"/>
+<line x1="117" y1="1181" x2="117" y2="1193" stroke="#9aa5b4" stroke-width="1.8" marker-end="url(#ar)"/>
+<text x="40.0" y="1442.0" text-anchor="start" font-size="11.6" font-weight="400" fill="#9a3412">安装边界（a_1）：component.toml（组件）→ envs/&lt;profile&gt;.toml（配方）→ rpent-install.json（安装指纹）</text>
+<rect x="24" y="1474" width="1532" height="40" rx="9" fill="#f8fafc" stroke="#d5dbe4" stroke-dasharray="5 4"/>
+<text x="40.0" y="1499.0" text-anchor="start" font-size="11.6" font-weight="400" fill="#374151">删除：切片内 env_client / env_server / rlinf_env、重复的通用动作与感知、切片代码模式 prompt、重复的通用 prompt 段落　　保留：真机运营 · HIL · Flash · flywheel · Dashboard · 分层记忆</text>
+</svg>

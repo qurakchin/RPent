@@ -15,7 +15,9 @@ the guidance below is not an exhaustive checklist or a quota of findings.
 - For a PR, use available GitHub tools or Git to read its description, live
   base repository/branch/SHA, exact head SHA, diff, checks, and review threads.
   Fetch those refs and the latest `RLinf/RPent` main. Verify remote URLs;
-  `origin` may be a contributor's fork.
+  `origin` may be a contributor's fork. Check the description against the
+  [pull request template](../../../.github/PULL_REQUEST_TEMPLATE.md): problem,
+  change, contract and migration, validation by tier, and limitations.
 - Use the verified base/head merge base to identify the PR's changes. Read
   full files and consumers at the head, then compare affected interfaces with
   current upstream main. Keep PR scope separate from later main refactors.
@@ -80,6 +82,16 @@ they materially affect the review.
   Assess whether added cases provide useful coverage and whether existing
   tests can be extended. Follow [AGENTS.md](../../../AGENTS.md) for test design
   and style; avoid speculative nits or issues already resolved by passing gates.
+- **Evidence and documentation status:** verify that validation claims match
+  what ran, use the tiers and status wording in
+  [CONTRIBUTING.md](../../../CONTRIBUTING.md) and
+  [docs/STYLE_GUIDE.md](../../../docs/STYLE_GUIDE.md#validation-status), and
+  state their limitations. A CI link is not a passed run. Check that simulator
+  and robot pages update their Validation Status section when support or
+  evidence changes, and that implemented design phases update
+  [docs/design/](../../../docs/design/README.md) status lines and mapping.
+  Documentation-only changes still need `python scripts/check_docs.py` and
+  path, command, and bilingual checks.
 
 Use [verify-change](../verify-change/SKILL.md) for relevant validation. Existing
 CI results and author reports are evidence with a scope; they do not establish

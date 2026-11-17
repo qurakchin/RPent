@@ -250,6 +250,11 @@ Task/Swap and the corresponding model configurations.
 The :doc:`GPT-6 Astra suite results <../leaderboard/index>`
 cover all eight complete suites and 800 verified episodes: 741 successes,
 59 failures, and 92.63% Overall, with Codex / GPT-6 Astra / low / reasoning.
+This aggregate is a historical result: it used the two original frozen memory
+snapshots, evaluated separately by suite. The merged Astra release has not
+been reevaluated, and memory was generated at runtime commit ``014a0fa``,
+before the scene-seed fix. See :doc:`../guides/memory` for the corpus
+provenance.
 
 The Long results use the `reproduce/libero
 <https://github.com/RLinf/RPent/tree/reproduce/libero>`_ branch with
@@ -357,3 +362,25 @@ client without touching the robot by:
    surface (e.g. ``pi0_pick`` → ``mymodel_pick``) needs to change.
 
 See :doc:`../development/add_primitive` for the full walkthrough.
+
+Validation Status
+-----------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - Tier
+     - Status
+     - Evidence
+   * - Offline checks
+     - CPU only
+     - ``pytest tests/unit_tests/robots/libero`` runs in the ``unittest`` workflow.
+   * - Simulator integration
+     - Historical result
+     - The Experiment Reproduction run covers all eight suites and 800 episodes on the frozen memory snapshots generated at runtime commit ``014a0fa``; the merged release has not been reevaluated.
+   * - Benchmark success
+     - Historical result
+     - 741/800 (92.63% Overall) with Codex / GPT-6 Astra / low / reasoning, measured on the two original frozen memory snapshots generated at runtime commit ``014a0fa`` and evaluated separately by suite. The merged release has not been reevaluated. See Experiment Reproduction for the provenance and suite breakdown.
+   * - Real robot
+     - Not applicable
+     - Simulator-only integration.
