@@ -22,7 +22,7 @@ from robots.yam.contracts import (
     vla_runtime_contract,
 )
 from robots.yam.evaluation import finalize_run
-from robots.yam.prompt_bundle import system_prompt, user_prompt
+from robots.yam.prompt_bundle import system_prompt, tool_sections, user_prompt
 from robots.yam.tasks import TASK_INSTRUCTIONS, resolve_task_language
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
@@ -86,7 +86,12 @@ def get_robot_spec() -> RobotSpec:
         supports_exploration=True,
         is_real_robot=True,
         finalize_run=finalize_run,
-        prompts=PromptBundle(system=system_prompt, user=user_prompt),
+        prompts=PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            tool_sections=tool_sections,
+            source="robots/yam/prompts",
+        ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,
         init_runtime=_init_runtime,

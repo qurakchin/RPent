@@ -276,6 +276,7 @@ exclude = ["tests*", "docs*", "examples*", "docker*", "toolkits*"]
 [tool.setuptools.package-data]
 "robots.robodojo" = ["guides/*.md"]
 "rpent.dashboard" = ["*.html", "static/*.css", "static/*.js"]
+"rpent.prompt" = ["fragments/*.md"]
 "robots.yam" = ["config/*.yaml", "config/*.json", "guides/*.md"]
 
 [tool.pytest.ini_options]

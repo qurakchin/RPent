@@ -17,8 +17,10 @@
 from __future__ import annotations
 
 import sys
+from argparse import ArgumentParser
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
+from unittest.mock import patch
 
 import gymnasium as gym
 import numpy as np
@@ -36,6 +38,27 @@ def test_franka_uses_rpent_owned_robot_config(fake_rlinf_realworld_modules):
     hardware = cfg.cluster.node_groups[0].hardware.configs[0]
     assert hardware["backend"] == "franky"
     assert hardware["realtime_config"] == "ignore"
+
+
+def test_franka_run_prompt_vars_include_the_memory_root(tmp_path: Path):
+    from robots.franka.robot_spec import get_robot_spec
+
+    spec = get_robot_spec()
+    parser = ArgumentParser()
+    spec.add_cli_args(parser, use_dashboard=False)
+    args = parser.parse_args(["--task-id", "1"])
+    args.output_dir = tmp_path
+    args.robot_name = "franka"
+    args.memory_dir = None
+    args.memory_profile = None
+    args.planner = "api"
+
+    with patch("robots.franka.robot_spec.validate_calibration_sources"):
+        config = spec.parse_config(args)
+
+    assert config.prompt_vars["memory_dir"] == str(
+        (Path(__file__).parents[4] / "memory/franka").resolve()
+    )
 
 
 def test_rpent_franka_registration_exists(fake_rlinf_realworld_modules):

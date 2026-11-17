@@ -61,8 +61,14 @@ from rpent.planner.base import (
     is_recoverable_agent_error,
 )
 from rpent.planner.check import BASE_URL_ENV_BY_PLANNER
+from rpent.prompt.assembly import build_robot_prompt, run_axes
+from rpent.prompt.prompt_artifacts import (
+    effective_prompt_markdown,
+    write_prompt_artifacts,
+)
 from rpent.robots import enumerate_robots, get_robot_spec, get_toolkit
 from rpent.session.planner_capture import end_planner_task, start_planner_task
+from rpent.utils.config import get_memory_dir
 from rpent.utils.logging import get_logger, init_output_dir
 
 logger = get_logger("agent")
@@ -196,6 +202,12 @@ def _build_argparser() -> argparse.ArgumentParser:
     # other config
     ap.add_argument("--output-dir", default=None)
     ap.add_argument(
+        "--dump-prompt",
+        action="store_true",
+        help="Render the robot's final prompt, print it, and exit without "
+        "starting a runtime or writing run artifacts.",
+    )
+    ap.add_argument(
         "--record-trajectory",
         action="store_true",
         help="Record task, planner, and tool trajectories with api, claude_code, or codex. "
@@ -309,6 +321,32 @@ def _handoff_message(
     )
 
 
+def _assemble_robot_prompt(
+    robot_spec,
+    *,
+    robot_name: str,
+    variables,
+    explore: bool,
+):
+    """Assemble this run's prompt and return it with the run axes behind it.
+
+    Dashboard runs assemble their prompt in :mod:`rpent.cli.dashboard`, so this
+    session path never carries the dashboard axis.
+    """
+    axes = run_axes(
+        explore=explore,
+        dashboard=False,
+        real_robot=bool(robot_spec.is_real_robot),
+    )
+    assembled = build_robot_prompt(
+        robot_spec.prompts,
+        robot_name=robot_name,
+        variables=variables,
+        axes=axes,
+    )
+    return assembled, axes
+
+
 def _start_continuation_session(
     args,
     *,
@@ -319,6 +357,8 @@ def _start_continuation_session(
     prompt_vars,
     session_number: int,
     session_max: int,
+    axes=(),
+    state_output_dir=None,
 ):
     """Build a fresh planner and prompts for an exploration handoff."""
     logger.info("=== handing off to agent %d/%d ===", session_number, session_max)
@@ -337,13 +377,16 @@ def _start_continuation_session(
         no_images=args.no_images,
         interactive=args.tui,
     )
-    system_prompt = prompt_bundle.render(
-        "system",
-        variables={
-            **prompt_vars,
-            "session_number": session_number,
-            "session_max": session_max,
-        },
+    variables = {
+        **prompt_vars,
+        "session_number": session_number,
+        "session_max": session_max,
+    }
+    assembled = build_robot_prompt(
+        prompt_bundle,
+        robot_name=args.robot_name,
+        variables=variables,
+        axes=axes,
     )
     session_message = _handoff_message(
         output_dir,
@@ -355,7 +398,15 @@ def _start_continuation_session(
         session_message += "\n\nOriginal operator task instruction:\n" + str(
             prompt_vars["initial_user_message"]
         )
-    return planner, system_prompt, session_message
+    write_prompt_artifacts(
+        state_output_dir or output_dir,
+        assembled=assembled,
+        robot_name=args.robot_name,
+        planner=args.planner,
+        axes=axes,
+        user_message=session_message,
+    )
+    return planner, assembled, session_message
 
 
 def main() -> int:
@@ -376,7 +427,11 @@ def main() -> int:
             parser.error("--robot is required")
     else:
         robot_spec = get_robot_spec(early.robot_name)
-        robot_spec.add_cli_args(parser, use_dashboard=early.dashboard)
+        # A dump renders only the prompt, so runtime resources such as an env
+        # endpoint stay optional just as they are for Dashboard control.
+        robot_spec.add_cli_args(
+            parser, use_dashboard=early.dashboard or early.dump_prompt
+        )
     parser.add_argument(
         "-h",
         "--help",
@@ -393,6 +448,10 @@ def main() -> int:
     )
     if args.dashboard and args.tui:
         parser.error("--dashboard and --tui cannot be used together")
+    if args.dump_prompt and args.dashboard:
+        parser.error("--dump-prompt cannot be used with --dashboard")
+    if args.dump_prompt and args.tui:
+        parser.error("--dump-prompt cannot be used with --tui")
     try:
         external_env_dashboard = (
             robot_spec.is_real_robot
@@ -415,7 +474,7 @@ def main() -> int:
                 f"{option} is not supported for this robot in the current mode. "
                 + guidance
             )
-        if sys.stdin is None or not sys.stdin.isatty():
+        if not args.dump_prompt and (sys.stdin is None or not sys.stdin.isatty()):
             parser.error("This robot requires a TTY for operator confirmation.")
     native_cli = args.tui and args.planner == "api"
     if args.base_url and args.planner in BASE_URL_ENV_BY_PLANNER:
@@ -442,7 +501,7 @@ def main() -> int:
     if args.explore and getattr(args, "explore_attempts_per_session", 0) < 0:
         parser.error("--explore-attempts-per-session must be nonnegative")
     if human_interactive_exploration and not args.dashboard:
-        if sys.stdin is None or not sys.stdin.isatty():
+        if not args.dump_prompt and (sys.stdin is None or not sys.stdin.isatty()):
             parser.error(
                 "Human-interactive exploration requires a TTY for operator reset/verdict feedback"
             )
@@ -482,14 +541,58 @@ def main() -> int:
 
     robot_name = args.robot_name
 
-    # mkdir + logging wiring (robot-side already picked the path).
+    prompt_bundle = robot_spec.prompts
+    if args.dump_prompt:
+        # Dumping renders the prompt for inspection only: it must not sync or
+        # create memory, and it leaves no run artifacts behind.
+        dump_vars = {**prompt_vars, "output_dir": output_dir}
+        dump_vars.setdefault("memory_dir", str(get_memory_dir(robot_name)))
+        assembled, axes = _assemble_robot_prompt(
+            robot_spec,
+            robot_name=robot_name,
+            variables=dump_vars,
+            explore=bool(getattr(args, "explore", False)),
+        )
+        if not any(
+            section["source"] == "rpent/prompt/fragments/memory_protocol.md"
+            for section in assembled.sections
+        ):
+            # A run prepares memory before assembly; the dump deliberately does
+            # not, so its memory sections describe only the local corpus.
+            print(
+                "warning: --dump-prompt skips memory preparation, so the memory "
+                "sections describe only the local corpus; the prompt recorded by "
+                "a run is authoritative.",
+                file=sys.stderr,
+            )
+        print(
+            effective_prompt_markdown(
+                assembled,
+                robot_name=robot_name,
+                planner=args.planner,
+                axes=axes,
+                user_message=assembled.user,
+            )
+        )
+        return 0
+
+    # mkdir + logging wiring (robot-side already picked the path). The dump
+    # above returns first so inspection leaves no directory or run.log behind.
     output_dir = init_output_dir(output_dir, verbose=args.verbose)
     logger.info("physical agent cmd: %s", shlex.join([sys.executable, *sys.argv]))
 
     prepare_run_memory(args, robot_spec, run_config)
 
-    dashboard_events = NullDashboardEventSink()
+    prompt_vars = {**prompt_vars, "output_dir": output_dir}
+    assembled, axes = _assemble_robot_prompt(
+        robot_spec,
+        robot_name=robot_name,
+        variables=prompt_vars,
+        explore=bool(getattr(args, "explore", False)),
+    )
+    system_prompt, user_msg = assembled.system, assembled.user
 
+    dashboard_events = NullDashboardEventSink()
     planner = build_planner(
         args.planner,
         output_dir=output_dir,
@@ -506,17 +609,6 @@ def main() -> int:
         no_images=args.no_images,
         interactive=args.tui,
     )
-    prompt_bundle = robot_spec.prompts
-    prompt_vars = {**prompt_vars, "output_dir": output_dir}
-    system_prompt = prompt_bundle.render(
-        "system",
-        variables=prompt_vars,
-    )
-    user_msg = prompt_bundle.render(
-        "user",
-        variables=prompt_vars,
-    )
-
     operator_input = None
     if human_interactive_exploration:
         from rpent.tools.human_in_the_loop import HumanInTheLoopInput
@@ -581,6 +673,7 @@ def main() -> int:
     environment_success: bool | None = None
     environment_metrics: dict = {}
     memory_manager: MemoryManager | None = None
+    first_prompt_sha: str | None = None
     try:
         if first_user_msg is not None:
             dashboard_events.emit(RunStartedEvent())
@@ -589,8 +682,13 @@ def main() -> int:
             if session_msg is None:
                 break
             environment_success, environment_metrics = None, {}
+            state_output_dir = output_dir
+            if getattr(args, "explore", False):
+                state_output_dir = (
+                    output_dir / "sessions" / f"session_{session_number:03d}"
+                )
             if session_number > 1:
-                planner, system_prompt, session_msg = _start_continuation_session(
+                planner, assembled, session_msg = _start_continuation_session(
                     args,
                     output_dir=output_dir,
                     recipe_tag=recipe_tag,
@@ -599,12 +697,20 @@ def main() -> int:
                     prompt_vars=prompt_vars,
                     session_number=session_number,
                     session_max=sessions,
+                    axes=axes,
+                    state_output_dir=state_output_dir,
                 )
-            state_output_dir = output_dir
-            if getattr(args, "explore", False):
-                state_output_dir = (
-                    output_dir / "sessions" / f"session_{session_number:03d}"
+                system_prompt = assembled.system
+            else:
+                write_prompt_artifacts(
+                    state_output_dir,
+                    assembled=assembled,
+                    robot_name=robot_name,
+                    planner=args.planner,
+                    axes=axes,
+                    user_message=session_msg,
                 )
+                first_prompt_sha = assembled.prompt_sha256
             if getattr(robot_spec, "supports_exploration", False):
                 toolkit = get_toolkit(
                     robot_name,
@@ -751,6 +857,7 @@ def main() -> int:
         "error": agent_error,
         "environment_success": environment_success,
         "stats": stats,
+        "prompt_sha256": first_prompt_sha or assembled.prompt_sha256,
         "messages": _serialize_messages(messages),
     }
     with open(transcript_path, "a") as f:
