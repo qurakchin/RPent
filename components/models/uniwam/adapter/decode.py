@@ -16,7 +16,7 @@
 
 import numpy as np
 
-from rpent.robots.components.am_contracts import WAMPrediction
+from rpent.models.contracts import WAMPrediction
 
 
 def decode_robotwin(actions: np.ndarray) -> WAMPrediction:

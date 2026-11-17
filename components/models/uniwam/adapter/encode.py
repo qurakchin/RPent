@@ -16,7 +16,7 @@
 
 import numpy as np
 
-from rpent.robots.components.am_contracts import WAMRequest
+from rpent.models.contracts import WAMRequest
 
 
 def encode_robotwin(request: WAMRequest) -> dict:

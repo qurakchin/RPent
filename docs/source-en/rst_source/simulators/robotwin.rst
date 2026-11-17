@@ -195,7 +195,7 @@ To reuse the model across tasks, start a standalone worker in the model environm
 
 .. code-block:: bash
 
-   python -m rpent.robots.components.uniwam.server \
+   python -m components.models.uniwam.server \
       --checkpoint /path/to/uniwam --port 8118
 
 For task runs, replace ``--am-checkpoint`` and ``--am-python`` with

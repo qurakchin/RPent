@@ -261,9 +261,9 @@ def test_incompatible_uniwam_checkpoint_is_rejected_before_launch(
     config[section][key] = value
     path.write_text(json.dumps(config))
     parser = argparse.ArgumentParser()
-    am_runtime.add_am_args(parser, platform="robotwin")
+    runtime.add_am_args(parser, platform="robotwin")
     with pytest.raises(ValueError, match="UniWAM checkpoint requires"):
-        am_runtime.select_am(
+        runtime.select_am(
             parser.parse_args(["--am-backend", "uniwam", "--am-checkpoint", str(root)]),
             "robotwin",
         )

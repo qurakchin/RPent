@@ -23,11 +23,11 @@ import numpy as np
 import pytest
 
 from components.models.fast_wam.server import FastWAMFacade, load_libero_policy
+from components.models.uniwam.server import UniWAMFacade
 from robots.libero.observation import physical_observation
 from robots.libero.wam_client import LiberoWAMClient
 from robots.robotwin.observation import physical_observation as robotwin_observation
 from robots.robotwin.wam_client import RoboTwinWAMClient, robotwin_request
-from rpent.robots.components.uniwam.server import UniWAMFacade
 
 torch = pytest.importorskip("torch")
 

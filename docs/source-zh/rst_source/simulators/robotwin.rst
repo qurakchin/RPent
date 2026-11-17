@@ -182,7 +182,7 @@ RPent 负责启动和清理模型进程。
 
 .. code-block:: bash
 
-   python -m rpent.robots.components.uniwam.server \
+   python -m components.models.uniwam.server \
       --checkpoint /path/to/uniwam --port 8118
 
 运行任务时，用 ``--am-endpoint http://127.0.0.1:8118`` 替换

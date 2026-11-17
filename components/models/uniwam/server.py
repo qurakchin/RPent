@@ -22,9 +22,9 @@ from typing import Any
 
 import numpy as np
 
-from rpent.robots.components.am_facade_base import BaseWAMFacade
-from rpent.robots.components.uniwam.adapter import make_adapter
-from rpent.robots.components.uniwam.runtime_config import validate_options
+from components.models.uniwam.adapter import make_adapter
+from components.models.uniwam.runtime_config import validate_options
+from rpent.models.facade import BaseWAMFacade
 
 
 class UniWAMFacade(BaseWAMFacade):
