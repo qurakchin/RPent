@@ -76,6 +76,12 @@ the generated requirements. ``--dry-run`` prints those requirements. When a
 profile places a component in an external environment, the installer prints
 the command that installs that environment; run it against the same checkout.
 
+The Franka, Dual Franka, YAM, RoboCasa, RoboDojo, and RoboTwin robots are not
+part of this install refactor yet. Install them from their compatibility extras
+in their own guides, for example ``uv pip install -e ".[franka]"``; see
+:doc:`../real_world_robots/franka`, :doc:`../real_world_robots/yam`, and the
+simulator guides.
+
 Profiles
 --------
 
@@ -106,21 +112,6 @@ Profiles
      - 3.11
      - LIBERO-PRO that attaches to Pi0.5 in the external ``openpi-server`` environment
        with ``--am-endpoint``.
-   * - ``franka-real`` / ``dual-franka-real``
-     - 3.11
-     - Real Franka hardware; dual-arm adds SAM 3.0.
-   * - ``robocasa-sim``
-     - 3.10
-     - RoboCasa365 with RLinf's RoboCasa and RLDX stack.
-   * - ``robotwin-sim``
-     - 3.11
-     - RoboTwin with LingBot-VLA and cuRobo.
-   * - ``robodojo-sim``
-     - 3.11
-     - RoboDojo with its RLinf fork and Isaac Sim runtime.
-   * - ``yam-real``
-     - 3.11
-     - YAM control and inference dependencies.
    * - ``molmo-server``
      - 3.11
      - Standalone Molmo server environment (``core = false``).
@@ -145,12 +136,6 @@ rpent.cli.install`` as shown above.
    rpent-install install libero-pro-flywheel --venv .venv-libero-pro-flywheel
    rpent-install install libero-pro-molmo --venv .venv-libero-pro-molmo
    rpent-install install libero-openpi-external --venv .venv-libero-openpi-external
-   rpent-install install franka-real --venv .venv-franka-real
-   rpent-install install dual-franka-real --venv .venv-dual-franka-real
-   rpent-install install robocasa-sim --venv .venv-robocasa-sim
-   rpent-install install robotwin-sim --venv .venv-robotwin-sim
-   rpent-install install robodojo-sim --venv .venv-robodojo-sim
-   rpent-install install yam-real --venv .venv-yam-real
    rpent-install install molmo-server --venv .venv-molmo-server
    rpent-install install sam3-server --venv .venv-sam3-server
    rpent-install install openpi-server --venv .venv-openpi-server
@@ -186,8 +171,8 @@ with ``full: true`` to install and diagnose every profile before publishing.
 For ``check --resolve``, Linux profiles target ``manylinux_2_31`` by default
 (glibc 2.31, Ubuntu 20.04 or newer). A profile can raise that baseline with
 ``manylinux``; RoboDojo uses ``manylinux = "2_35"`` for Isaac Sim 5.1 wheels.
-Checking ``robotwin-sim`` with ``--resolve`` needs a Linux host with
-``CUDA_HOME`` set because cuRobo builds metadata during resolution. A failed
+Checking a configuration that builds cuRobo with ``--resolve`` needs a Linux
+host with ``CUDA_HOME`` set because cuRobo builds metadata during resolution. A failed
 resolution is reported without stopping checks of the remaining profiles.
 
 Run artifacts record the active profile, fingerprint hash, source commit, and

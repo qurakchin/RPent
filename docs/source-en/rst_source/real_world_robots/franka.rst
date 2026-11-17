@@ -19,12 +19,13 @@ Install
 Install libfranka 0.19.0 first by following the `official quick-install guide
 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_.
 
-Install the ``franka-real`` profile from :doc:`../get_started/installation` into
-its own environment:
+Install the compatibility extra into its own environment:
 
 .. code-block:: bash
 
-   rpent-install install franka-real --venv .venv-franka-real
+   uv venv .venv-franka-real --python 3.11
+   source .venv-franka-real/bin/activate
+   uv pip install -e ".[franka]"
 
 It includes RLinf ``release/v0.4``, ``rpent-openpi``, and the Franka camera,
 gripper, and teleoperation dependencies. The included ``franky-control`` wheel

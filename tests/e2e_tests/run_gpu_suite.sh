@@ -21,7 +21,7 @@ unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX
 
 if [[ $# -ne 3 ]]; then
   echo "Usage: $0 <libero-pro|robocasa|robotwin> <output-dir> <venv-root>"
-  echo "Targets map to the libero-pro, robocasa-sim, and robotwin-sim profiles."
+  echo "Targets map to the libero-pro profile and the robocasa/robotwin extras."
   exit 2
 fi
 
@@ -243,20 +243,26 @@ install_test_runner() {
 
 run_in_clean_env() {
   local name=$1
-  local profile=$2
-  local test_dir=$3
-  local suite_output=$4
+  local python_version=$2
+  local extra=$3
+  local test_dir=$4
+  local suite_output=$5
   local venv_dir="$venv_root/$name"
 
-  # Install the runtime profile on a clean environment, then add only the
-  # test runner needed by this suite.
+  # Install the robot's compatibility extra, which the installer refactor does
+  # not migrate yet, on a clean environment.
   #
-  # Torch and torchvision version compatibility come from the profile's
-  # component manifests and their transitive package metadata. The CUDA wheel
+  # Torch and torchvision version compatibility must come from the selected
+  # public RPent extra and its transitive package metadata. The CUDA wheel
   # backend is the separate runner/install-policy input UV_TORCH_BACKEND.
   # Do not hide a dependency-contract failure with a workflow-only version pin.
-  run_rpent_install 3.11 install "$profile" --venv "$venv_dir"
-  install_test_runner "$venv_dir/bin/python"
+  timeout --foreground --kill-after=2m "$install_timeout" \
+    uv venv "$venv_dir" --python "$python_version"
+  timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
+    --python "$venv_dir/bin/python" \
+    --editable "${repo_root}[$extra,test]"
+  timeout --foreground --kill-after=2m "$install_timeout" \
+    uv pip check --python "$venv_dir/bin/python"
   (
     cd "$repo_root"
     run_gpu_pytest \
@@ -308,7 +314,7 @@ case "$target" in
     require_dir ROBOCASA_ASSETS_PATH
     export RPENT_RUN_ROBOCASA_INTEGRATION=1
     run_in_clean_env \
-      robocasa robocasa-sim tests/e2e_tests/robocasa "$output_dir/robocasa"
+      robocasa 3.10 robocasa tests/e2e_tests/robocasa "$output_dir/robocasa"
     ;;
   robotwin)
     require_dir LINGBOT_MODEL_PATH
@@ -318,7 +324,7 @@ case "$target" in
       exit 1
     fi
     run_in_clean_env \
-      robotwin robotwin-sim tests/e2e_tests/robotwin "$output_dir/robotwin"
+      robotwin 3.11 robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
     ;;
   *)
     echo "Unknown target: $target"

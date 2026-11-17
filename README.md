@@ -131,11 +131,11 @@ uv run --no-project --python 3.11 --with packaging -- \
   python -m rpent.cli.install install libero-pro --venv .venv-libero-pro
 source .venv-libero-pro/bin/activate
 
-# Other profiles use their own virtualenv:
-rpent-install install robocasa-sim --venv .venv-robocasa-sim          # RoboCasa
-rpent-install install robotwin-sim --venv .venv-robotwin-sim          # RoboTwin
-rpent-install install franka-real --venv .venv-franka-real            # Franka
-rpent-install install dual-franka-real --venv .venv-dual-franka-real  # Dual Franka
+# Robots outside this install refactor still install from their compatibility
+# extras into their own environment; see each robot guide.
+uv pip install -e ".[robocasa]"    # RoboCasa
+uv pip install -e ".[robotwin]"    # RoboTwin
+uv pip install -e ".[franka]"      # Franka and dual Franka
 ```
 
 `libero-pro` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every profile, compatibility extras, and diagnostics.
