@@ -5,7 +5,6 @@ probe = "robots.yam"
 python = ">=3.11,<3.12"
 platforms = ["linux-x86_64"]
 placement = ["in-env"]
-docs = "docs/source-en/rst_source/real_world_robots/yam.rst"
 
 dependencies = [
   # i2rt 1.1.2 requires click<8.2; huggingface-hub 2.x requires click>=8.4.

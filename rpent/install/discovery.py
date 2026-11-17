@@ -16,7 +16,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -100,7 +100,9 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
     _check_conflicts(components)
     _check_deps_consumers(components)
     _check_imports(components)
-    return _close_conflicts(components)
+    # ``env_conflicts`` stays as each manifest writes it: resolution checks the
+    # relation from both sides, so declaring a conflict once is enough.
+    return components
 
 
 def _check_imports(components: dict[str, Component]) -> None:
@@ -177,29 +179,6 @@ def _check_conflicts(components: dict[str, Component]) -> None:
                     f"{component.manifest_path}: env_conflicts names the component "
                     "itself"
                 )
-
-
-def _close_conflicts(components: dict[str, Component]) -> dict[str, Component]:
-    """Return components whose ``env_conflicts`` include the mirror declaration.
-
-    A manifest may name a conflicting component once; the effective relation is
-    symmetric, so the other side reports it without editing that manifest.
-    Manifests that already declare both sides keep their written order.
-    """
-    declared = {
-        name: set(component.env_conflicts) for name, component in components.items()
-    }
-    for name, others in list(declared.items()):
-        for other in others:
-            declared[other].add(name)
-    return {
-        name: (
-            component
-            if set(component.env_conflicts) == declared[name]
-            else replace(component, env_conflicts=tuple(sorted(declared[name])))
-        )
-        for name, component in components.items()
-    }
 
 
 def discover_profiles(root: Path | None = None) -> dict[str, Profile]:

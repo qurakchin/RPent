@@ -75,11 +75,14 @@ the generated requirements. ``--dry-run`` prints those requirements. When a
 profile places a component in an external environment, the installer prints
 the command that installs that environment; run it against the same checkout.
 
-The Franka, Dual Franka, YAM, RoboCasa, RoboDojo, and RoboTwin robots are not
-part of this install refactor yet. Install them from their compatibility extras
-in their own guides, for example ``uv pip install -e ".[franka]"``; see
+The Franka, Dual Franka, YAM, RoboCasa, RoboDojo, and RoboTwin robots declare
+component manifests, but no profile selects them yet. Their compatibility
+extras remain the documented install path — for example
+``uv pip install -e ".[franka]"`` in their own guides; see
 :doc:`../real_world_robots/franka`, :doc:`../real_world_robots/yam`, and the
-simulator guides.
+simulator guides. Installing one as a development environment with
+``rpent-install install <robot>`` also works, but it composes only that
+component and is not a supported runtime setup.
 
 Profiles
 --------
@@ -117,6 +120,10 @@ Profiles
    * - ``sam3-server`` / ``openpi-server``
      - 3.11
      - Single-capability diagnostic environments.
+   * - ``unit-cpu``
+     - 3.11
+     - CPU-only unit-test dependencies; installed once per supported Python
+       minor in CI.
 
 Install commands
 ----------------
@@ -138,6 +145,7 @@ above.
    rpent-install install molmo-server --venv .venv-molmo-server
    rpent-install install sam3-server --venv .venv-sam3-server
    rpent-install install openpi-server --venv .venv-openpi-server
+   rpent-install install unit-cpu --venv .venv-unit-cpu
 
 Diagnose an environment
 -----------------------
@@ -169,7 +177,7 @@ with ``full: true`` to install and diagnose every profile before publishing.
 
 For ``check --resolve``, Linux profiles target ``manylinux_2_31`` by default
 (glibc 2.31, Ubuntu 20.04 or newer). A profile can raise that baseline with
-``manylinux``; RoboDojo uses ``manylinux = "2_35"`` for Isaac Sim 5.1 wheels.
+``manylinux``.
 Checking a configuration that builds cuRobo with ``--resolve`` needs a Linux
 host with ``CUDA_HOME`` set because cuRobo builds metadata during resolution. A failed
 resolution is reported without stopping checks of the remaining profiles.

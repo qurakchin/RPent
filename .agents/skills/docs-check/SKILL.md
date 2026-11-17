@@ -39,8 +39,10 @@ HTML; a warning-free build does not establish correct rendering.
 - Match neighboring pages for headings, links, code blocks, and examples.
   Keep comments near their owning contract and avoid repeating the same rule
   across several files.
-- Robot, simulator, and guide pages install a named profile with
-  `rpent-install install <profile>`; that is the only supported install command.
+- Robot, simulator, and guide pages say how to install that slice: a named
+  profile (`rpent-install install <profile>`) where one covers it, and the
+  slice's compatibility extra otherwise. Check the page against the profiles
+  in `installs/profiles/` instead of assuming every slice has one.
 - Inspect prompts and tool descriptions as model inputs: check tool names,
   placeholders, actual rendered context, conflicting rules, and unnecessary
   repetition. Preserve behavioral instructions and distinguish prose cleanup

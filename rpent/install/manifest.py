@@ -196,7 +196,6 @@ class Component:
     dependencies: tuple[str, ...]
     optional: dict[str, tuple[str, ...]]
     overrides: tuple[Path, ...]
-    docs: str | None
     manifest_sha256: str
 
     @property
@@ -236,6 +235,10 @@ class Profile:
 
     name: str
     path: Path
+    #: Interpreter the installer creates the environment with. It is not a
+    #: supported range: components are checked against the interpreter an
+    #: environment actually runs, so ``--venv`` may reuse another supported
+    #: minor (the unit matrix installs one profile into 3.10-3.12 venvs).
     python: str
     platform: str
     components: dict[str, Selection]
@@ -244,7 +247,6 @@ class Profile:
     extra_index_urls: tuple[str, ...]
     index_strategy: str | None
     core: bool
-    description: str | None
     manylinux: str = "2_31"
     #: A development diagnostic built for one component rather than a profile
     #: declared in ``installs/profiles/``; nothing may present it as one.
@@ -374,7 +376,6 @@ def _component(
         dependencies=_dependency_list(data, "dependencies", path),
         optional=optional,
         overrides=overrides,
-        docs=_optional_string(data, "docs", path),
         manifest_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
     )
 
@@ -467,6 +468,5 @@ def load_profile(path: Path) -> Profile:
         extra_index_urls=_string_list(data, "extra-index-urls", path),
         index_strategy=index_strategy,
         core=core,
-        description=_optional_string(data, "description", path),
         manylinux=manylinux,
     )

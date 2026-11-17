@@ -310,7 +310,6 @@ def test_profile_reads_components(write_toml):
         name = "alpha"
         python = "3.10"
         platform = "linux-x86_64"
-        description = "test profile"
 
         dependencies = ["pytest"]
 

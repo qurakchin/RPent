@@ -44,7 +44,7 @@ from rpent.install.requirements import (
     read_core_dependencies,
     requirements_sha256,
 )
-from rpent.install.resolve import resolve
+from rpent.install.resolve import python_errors, resolve
 from rpent.utils.config import get_repo_root
 
 OK = "ok"
@@ -208,15 +208,13 @@ def check_installation(
         checks.append(Check(FAIL, f"no Python interpreter in {venv}"))
         return checks
     checks.append(Check(OK, f"python: {fingerprint.get('python', '?')}"))
-    expected_python = profile.python
-    if not str(fingerprint.get("python", "")).startswith(expected_python + "."):
-        checks.append(
-            Check(
-                FAIL,
-                f"profile {profile.name!r} requires Python {expected_python}, "
-                f"found {fingerprint.get('python', '?')}",
-            )
-        )
+    unsupported = python_errors(
+        str(fingerprint.get("python", "")),
+        (resolved.component for resolved in resolution.main_installed().values()),
+        owner=str(venv),
+    )
+    if unsupported:
+        checks.append(Check(FAIL, "\n".join(unsupported)))
     current_platform = runtime_platform()
     if profile.platform != current_platform:
         checks.append(

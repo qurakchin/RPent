@@ -43,6 +43,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 #: by an older input mode from one whose inputs drifted.
 REQUIREMENTS_SCHEMA = 5
 
+
 def read_core_dependencies(root: Path) -> tuple[str, ...]:
     """Return ``[project].dependencies`` from the checkout's pyproject.toml."""
     path = root / "pyproject.toml"

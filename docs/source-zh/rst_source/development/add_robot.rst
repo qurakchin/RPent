@@ -59,7 +59,6 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
    python = ">=3.10,<3.13"
    platforms = ["linux-x86_64"]
    placement = ["in-env"]
-   docs = "docs/source-zh/rst_source/real_world_robots/myrobot.rst"
 
    dependencies = ["my-simulator==1.2"]
 

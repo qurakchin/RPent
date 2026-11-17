@@ -495,3 +495,78 @@ def test_install_with_dev_includes_test_dependencies(repo, tmp_path, monkeypatch
     )
     assert fingerprint["include_dev"] is True
     assert "pytest" in (repo / fingerprint["requirements_file"]).read_text()
+
+
+def test_install_refuses_a_component_rejecting_the_interpreter(
+    repo, tmp_path, write_toml, monkeypatch
+):
+    write_toml(
+        "robots/beta/component.toml",
+        """
+        schema = 1
+        name = "beta"
+        kind = "robot"
+        probe = "json"
+        python = ">=3.10,<3.12"
+        """,
+    )
+    write_toml(
+        "installs/profiles/betaenv.toml",
+        f"""
+        schema = 1
+        name = "betaenv"
+        python = "3.11"
+        platform = "{runtime_platform()}"
+
+        [components.beta]
+        placement = "in-env"
+        """,
+    )
+    _fake_uv(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        "rpent.install.installer._python_version", lambda python: "3.12.1"
+    )
+
+    with pytest.raises(InstallError, match=r"requires Python >=3\.10,<3\.12"):
+        install("betaenv", root=repo, venv=tmp_path / "venv", verbose=False)
+
+    # The check runs before uv installs anything.
+    assert not (tmp_path / "uv-install-args").exists()
+
+
+def test_install_accepts_an_interpreter_inside_every_component_range(
+    repo, tmp_path, write_toml, monkeypatch
+):
+    # The profile pin names the interpreter used to create the venv; the
+    # components decide which interpreters can run the environment.
+    write_toml(
+        "installs/profiles/older.toml",
+        f"""
+        schema = 1
+        name = "older"
+        python = "3.11"
+        platform = "{runtime_platform()}"
+
+        [components.alpha]
+        placement = "in-env"
+        """,
+    )
+    write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "json"
+        python = ">=3.10,<3.14"
+        dependencies = ["numpy>=2"]
+        """,
+    )
+    _fake_uv(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        "rpent.install.installer._python_version", lambda python: "3.12.1"
+    )
+
+    fingerprint = install("older", root=repo, venv=tmp_path / "venv", verbose=False)
+
+    assert fingerprint["profile"] == "older"
