@@ -93,9 +93,6 @@ jobs:
           ):
               if not (robots / relative).is_file():
                   sys.exit(f"{relative} is missing from the source wheel")
-          geometry = package_root("components") / "toolkits/geometry/evaluation"
-          if not (geometry / "report_template.md").is_file():
-              sys.exit("the geometry report template is missing")
           PY
           "$RUNNER_TEMP/venv-editable/bin/python" - <<'PY'
           import importlib.util

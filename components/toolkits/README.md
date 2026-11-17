@@ -11,9 +11,5 @@ that boundary. A profile installs a toolkit with
 `rpent-install install <toolkit>` or includes it through another component's
 `requires`.
 
-`geometry/` is the shared localization toolkit: it selects and segments a
-target, back-projects the mask, and reports a world-frame estimate, together
-with a frozen CPU evaluation corpus. `rpent-install install geometry-eval` installs
-it with that corpus. Add another toolkit here only when the capability has an
-independent consumer and evaluation corpus; robot-specific behavior belongs
-under `robots/<robot>/`.
+Add a toolkit here only when the capability has an independent consumer and
+evaluation corpus; robot-specific behavior belongs under `robots/<robot>/`.

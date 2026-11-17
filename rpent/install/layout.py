@@ -253,7 +253,6 @@ LEGACY_COMPONENTS = frozenset(
         ("robot", "robodojo"),
         ("robot", "robotwin"),
         ("robot", "yam"),
-        ("toolkit", "geometry"),
         ("model", "apxinf"),
         ("model", "cosmos3"),
         ("model", "cosmos_policy"),

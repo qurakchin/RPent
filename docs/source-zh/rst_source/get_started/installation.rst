@@ -90,9 +90,6 @@ RPent 安装的是具名环境配方，而不是一组 extra。``installs/profil
    * - ``molmo-server``
      - 3.11
      - 独立的 Molmo 服务环境（``core = false``）。
-   * - ``geometry-eval``
-     - 3.11
-     - 几何工具包及其冻结的 CPU 评测语料。
    * - ``sam3-server`` / ``openpi-server``
      - 3.11
      - 单能力诊断环境。
@@ -120,7 +117,6 @@ RPent 安装的是具名环境配方，而不是一组 extra。``installs/profil
    rpent-install install robodojo-sim --venv .venv-robodojo-sim
    rpent-install install yam-real --venv .venv-yam-real
    rpent-install install molmo-server --venv .venv-molmo-server
-   rpent-install install geometry-eval --venv .venv-geometry-eval
    rpent-install install sam3-server --venv .venv-sam3-server
    rpent-install install openpi-server --venv .venv-openpi-server
 
