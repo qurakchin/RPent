@@ -16,9 +16,14 @@ Install
 
 Install RPent on both Linux control nodes with matching code, Python, Ray and
 RLinf versions. Nodes running VLA or SAM3 locally need an NVIDIA GPU.
-Install the ``dual-franka-real`` profile as described in
-:doc:`../get_started/installation`; it includes both Franka arms and local
-SAM 3.0.
+Install the Franka and SAM 3.0 compatibility extras into their own environment;
+they include both Franka arms and local SAM 3.0:
+
+.. code-block:: bash
+
+   uv venv .venv-dual-franka-real --python 3.11
+   source .venv-dual-franka-real/bin/activate
+   uv pip install -e ".[franka,sam3]"
 
 If Python package downloads are slow, set the
 `Tsinghua PyPI mirror <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_

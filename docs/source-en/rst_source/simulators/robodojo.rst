@@ -79,10 +79,18 @@ Installation and Resources
 For NVIDIA driver recommendations, see the `Isaac Sim 5.1 system requirements
 <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html>`_.
 The host also needs the CUDA toolkit/NVCC and a compiler toolchain to build
-cuRobo. Install the ``robodojo-sim`` profile as described in
-:doc:`../get_started/installation`. The profile installs the RoboDojo runtime,
-SAM 3.0, and Pi0.5; its component manifest supplies the NVIDIA package index
-and the RoboDojo requirements override.
+cuRobo. Install the RoboDojo compatibility extras with their requirements
+override:
+
+.. code-block:: bash
+
+   uv venv .venv-robodojo-sim --python 3.11
+   source .venv-robodojo-sim/bin/activate
+   uv pip install -e ".[robodojo-sim,sam3]" \
+     --extra-index-url https://pypi.nvidia.com \
+     --override robots/robodojo/requirements/robodojo-override.txt
+
+The extras install the RoboDojo runtime, SAM 3.0, and Pi0.5.
 
 .. note::
 
@@ -203,7 +211,7 @@ links to existing resources:
 Install the model dependencies using the pinned project's
 `inference environment instructions
 <https://github.com/roboterax/video-prediction-policy-2/blob/72c17acf022494ff63617be86079bb92e92f5bf8/docs/robodojo.md#policy-environment>`_.
-These dependencies are separate from the ``robodojo-sim`` profile. When they are
+These dependencies are separate from the ``robodojo-sim`` extra. When they are
 compatible with the RPent environment, ``VPP2_MODEL_PATH`` enables automatic
 local startup; ``--am-checkpoint`` overrides it. The local server loads the
 full model on one GPU. It defaults to RPent's Python interpreter; use
@@ -258,7 +266,7 @@ links to existing resources:
 
 Install the model dependencies using the pinned project's
 `inference environment instructions <https://github.com/XPolicyLab/XPolicyLab/blob/562c14cf08b9e6e411e7d76f192740afced77160/policy/Awomo05/README.md>`__.
-These dependencies are separate from the ``robodojo-sim`` profile. When the model
+These dependencies are separate from the ``robodojo-sim`` extra. When the model
 dependencies are compatible with the RPent environment,
 ``AWOMO05_MODEL_PATH`` enables automatic local startup; ``--am-checkpoint``
 overrides it. The local server loads the full model on one GPU. It defaults

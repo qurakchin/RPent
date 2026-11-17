@@ -38,12 +38,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: CPU-only profiles: installable on a hosted runner within its disk and time
 #: limits.
-HOSTED = ("dev", "minimal", "unit-cpu", "yam-real")
+HOSTED = ("dev", "minimal", "unit-cpu")
 
 #: Profiles that resolve CUDA packages; they need the embodied GPU runner.
 GPU = (
-    "dual-franka-real",
-    "franka-real",
     "libero-openpi-external",
     "libero-plus",
     "libero-pro",
@@ -52,9 +50,6 @@ GPU = (
     "libero-sim",
     "molmo-server",
     "openpi-server",
-    "robocasa-sim",
-    "robodojo-sim",
-    "robotwin-sim",
     "sam3-server",
 )
 

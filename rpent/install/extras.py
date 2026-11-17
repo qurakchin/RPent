@@ -52,7 +52,6 @@ EXTRA_ALIASES = {"robodojo-sim": "robodojo"}
 LEGACY_EXTRAS = (
     "cosmos3",
     "cosmos_policy",
-    "dual-franka",
     "fast_wam",
     "franka",
     "libero",
