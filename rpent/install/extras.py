@@ -55,7 +55,6 @@ LEGACY_EXTRAS = (
     "dual-franka",
     "fast_wam",
     "franka",
-    "geometry-eval",
     "libero",
     "libero-openpi-external",
     "libero-plus",

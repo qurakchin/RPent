@@ -38,7 +38,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: CPU-only profiles: installable on a hosted runner within its disk and time
 #: limits.
-HOSTED = ("dev", "geometry-eval", "minimal", "unit-cpu", "yam-real")
+HOSTED = ("dev", "minimal", "unit-cpu", "yam-real")
 
 #: Profiles that resolve CUDA packages; they need the embodied GPU runner.
 GPU = (

@@ -63,11 +63,10 @@ ROBOT_SHARED_TESTS = (
     "tests/unit_tests/robots/test_tool_schema_contracts.py",
     "tests/unit_tests/robots/test_toolkit_contracts.py",
 )
-#: Profiles a pull request installs when a change affects the core. They cover
-#: the core-only environment and the CPU toolkit without pulling the full GPU
-#: matrix into every core edit; nightly and release runs still install every
-#: profile.
-PR_PILOT_PROFILES = ("geometry-eval", "minimal")
+#: Profiles a pull request installs when a change affects the core. The
+#: core-only environment proves the change without pulling the full GPU matrix
+#: into every core edit; nightly and release runs still install every profile.
+PR_PILOT_PROFILES = ("minimal",)
 #: Paths whose change can alter every installation, so a PR installs every
 #: profile instead of the pilot set. Install data changes narrow their own
 #: profile set first; a path here in a mixed change still widens it. Packaging
@@ -190,10 +189,9 @@ def _pr_profiles(paths: list[str], profiles: dict[str, object]) -> tuple[str, ..
     A component change never reaches this helper: its profile set is already
     the resolution closure. For a core change, installing every GPU profile
     proves little beyond what nightly proves and costs a self-hosted runner
-    slot, so the PR installs the core-only and CPU toolkit profiles. The
-    installer, workflows, packaging, and a mixed change that still names one of
-    them keep the full set; install data on its own narrows before this helper
-    runs.
+    slot, so the PR installs the core-only profile. The installer, workflows,
+    packaging, and a mixed change that still names one of them keep the full
+    set; install data on its own narrows before this helper runs.
     """
     available = tuple(sorted(profiles))
     if not paths:

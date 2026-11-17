@@ -101,7 +101,7 @@ def _run(root):
 
 def test_missing_component_manifest_is_reported(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
-    (tmp_path / "components" / "toolkits" / "geometry").mkdir(parents=True)
+    (tmp_path / "components" / "toolkits" / "alpha_toolkit").mkdir(parents=True)
 
     result = _run(tmp_path)
 
@@ -165,9 +165,9 @@ def test_relative_sibling_model_import_is_reported(tmp_path, write_toml):
 
 def test_relative_toolkit_import_of_a_robot_is_reported(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
-    _component(write_toml, "components/toolkits", "geometry", "toolkit")
+    _component(write_toml, "components/toolkits", "alpha_toolkit", "toolkit")
     _write(
-        tmp_path / "components" / "toolkits" / "geometry" / "core.py",
+        tmp_path / "components" / "toolkits" / "alpha_toolkit" / "core.py",
         "from ....robots.alpha import spec\n",
     )
 
@@ -326,13 +326,13 @@ def test_pre_migration_slice_names_only_warn(tmp_path, write_toml):
 def test_model_toolkit_and_core_imports_are_rejected(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
     _component(write_toml, "components/models", "sam3", "model")
-    _component(write_toml, "components/toolkits", "geometry", "toolkit")
+    _component(write_toml, "components/toolkits", "alpha_toolkit", "toolkit")
     _write(
         tmp_path / "components" / "models" / "sam3" / "client.py",
         "from robots.alpha import robot_spec\n",
     )
     _write(
-        tmp_path / "components" / "toolkits" / "geometry" / "tool.py",
+        tmp_path / "components" / "toolkits" / "alpha_toolkit" / "tool.py",
         "import robots\n",
     )
     _write(
@@ -365,13 +365,13 @@ def test_bare_alias_is_reported_once(tmp_path, write_toml):
 
 def test_models_and_toolkits_must_not_import_each_other(tmp_path, write_toml):
     _component(write_toml, "components/models", "sam3", "model")
-    _component(write_toml, "components/toolkits", "geometry", "toolkit")
+    _component(write_toml, "components/toolkits", "alpha_toolkit", "toolkit")
     _write(
         tmp_path / "components" / "models" / "sam3" / "client.py",
-        "from components.toolkits.geometry import tool\n",
+        "from components.toolkits.alpha_toolkit import tool\n",
     )
     _write(
-        tmp_path / "components" / "toolkits" / "geometry" / "tool.py",
+        tmp_path / "components" / "toolkits" / "alpha_toolkit" / "tool.py",
         "from components.models.sam3 import client\n",
     )
 
@@ -379,7 +379,7 @@ def test_models_and_toolkits_must_not_import_each_other(tmp_path, write_toml):
 
     assert result.returncode == 1
     assert "model 'sam3' must not import components.toolkits" in result.stdout
-    assert "toolkit 'geometry' must not import components.models" in result.stdout
+    assert "toolkit 'alpha_toolkit' must not import components.models" in result.stdout
 
 
 def test_model_contracts_may_name_robots(tmp_path, write_toml):

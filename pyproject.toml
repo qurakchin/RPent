@@ -135,8 +135,6 @@ franka = [
     'rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0',
     'websockets',
 ]
-geometry-eval = [
-]
 libero = [
     'einops>=0.8.0',
     'mujoco==3.3.0',
@@ -360,10 +358,8 @@ include-package-data = true
 # Component manifests are runtime data: discovery reads them from installed
 # packages, so every component package must ship its component.toml. The other
 # entries are files the installed package opens by path: the dashboard
-# frontend, robot defaults and evaluation manifests, and the geometry report
-# template.
+# frontend, and robot defaults and evaluation manifests.
 "*" = ["component.toml"]
-"components.toolkits.geometry.evaluation" = ["*.md"]
 "robots.dual_franka" = ["config/*.yaml"]
 "robots.franka" = ["config/*.yaml"]
 "robots.libero" = ["guides/*.md"]

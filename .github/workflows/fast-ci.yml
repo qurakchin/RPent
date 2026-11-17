@@ -29,7 +29,6 @@ jobs:
       hosted: ${{ steps.scope.outputs.hosted }}
       gpu: ${{ steps.scope.outputs.gpu }}
       e2e: ${{ steps.scope.outputs.e2e }}
-      toolkit: ${{ steps.scope.outputs.toolkit }}
       docs: ${{ steps.scope.outputs.docs }}
       package: ${{ steps.scope.outputs.package }}
       needs_full: ${{ steps.scope.outputs.needs_full }}
@@ -105,7 +104,6 @@ jobs:
               "hosted": [p for p in selected if p in hosted],
               "gpu": [p for p in selected if p in gpu],
               "e2e": e2e,
-              "toolkit": scope["full"] or "geometry" in scope["components"],
               "docs": scope["docs"],
               # A component change can only be proven by installing its
               # closure from its profile, which `full ci` does. Install data
@@ -149,7 +147,6 @@ jobs:
       hosted: ${{ needs.changes.outputs.hosted }}
       gpu: ${{ needs.changes.outputs.gpu }}
       e2e: ${{ needs.changes.outputs.e2e }}
-      toolkit: ${{ needs.changes.outputs.toolkit == 'true' }}
 
   # Single stable status check for rulesets. It runs even when every leg was
   # skipped (a docs-only change), so the required check is never left pending.
