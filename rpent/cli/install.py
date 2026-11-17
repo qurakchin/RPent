@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""``rpent-install``: inspect, check, install, lock, and diagnose environments.
+"""``rpent-install``: inspect, check, install, and diagnose environments.
 
 Supported targets are the named profiles in ``installs/profiles/``. Component
 names are accepted by ``install`` as a development diagnostic only. The
@@ -27,13 +27,12 @@ import sys
 from pathlib import Path
 
 from rpent.install import affected, extras, layout, matrix
+from rpent.install.compile import resolve_profile
 from rpent.install.discovery import Catalog, discover
 from rpent.install.doctor import FAIL, check_installation, inspect_installation
 from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.fingerprint import current_venv
 from rpent.install.installer import find_uv, install, resolve_install_target
-from rpent.install.lock import lock_profiles, resolve_profile
-from rpent.install.lock_coverage import lock_problems
 from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import Resolution, resolve
 from rpent.utils.config import get_repo_root
@@ -81,16 +80,15 @@ def command_check(args: argparse.Namespace) -> int:
             continue
         core = read_core_dependencies(args.root) if profile.core else ()
         resolution = resolve(profile, catalog, core_dependencies=core)
-        problems = lock_problems(profile, resolution, args.root, core_dependencies=core)
-        if not resolution.ok or problems:
+        if not resolution.ok:
             failed = True
             print(f"profile {name}: FAIL")
-            for error in [*resolution.errors, *problems]:
+            for error in resolution.errors:
                 print(f"  {error}")
             continue
         if uv is not None:
             try:
-                lock_text = resolve_profile(profile, catalog, root=args.root, uv=uv)
+                resolved_text = resolve_profile(profile, catalog, root=args.root, uv=uv)
             except InstallError as exc:
                 failed = True
                 print(f"profile {name}: FAIL")
@@ -98,7 +96,7 @@ def command_check(args: argparse.Namespace) -> int:
                 continue
             pinned = sum(
                 1
-                for line in lock_text.splitlines()
+                for line in resolved_text.splitlines()
                 if line and not line.startswith((" ", "#"))
             )
             print(f"profile {name}: ok, uv resolved {pinned} requirements")
@@ -121,18 +119,6 @@ def command_install(args: argparse.Namespace) -> int:
         verbose=True,
     )
     return 0
-
-
-def command_lock(args: argparse.Namespace) -> int:
-    """Compile or verify profile locks."""
-    if args.all:
-        targets: list[str] = []
-    else:
-        targets = args.profiles
-        if not targets:
-            print("pass a profile name or --all", file=sys.stderr)
-            return 2
-    return lock_profiles(targets, root=args.root, check=args.check)
 
 
 def _parse_endpoints(values: list[str]) -> dict[str, str]:
@@ -261,14 +247,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true", help="print requirements only"
     )
     installer.set_defaults(handler=command_install)
-
-    lock = subcommands.add_parser("lock", help="compile or verify dependency locks")
-    lock.add_argument("profiles", nargs="*")
-    lock.add_argument("--all", action="store_true", help="lock every profile")
-    lock.add_argument(
-        "--check", action="store_true", help="fail when a lock is out of date"
-    )
-    lock.set_defaults(handler=command_lock)
 
     doctor = subcommands.add_parser("doctor", help="diagnose an installed venv")
     doctor.add_argument("--venv", type=Path)

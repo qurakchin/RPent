@@ -161,7 +161,7 @@ def test_installer_change_installs_every_profile_in_a_pull_request(
         },
     )
 
-    scope = affected.affected_scope(["rpent/install/lock.py"], catalog, tmp_path)
+    scope = affected.affected_scope(["rpent/install/installer.py"], catalog, tmp_path)
 
     assert scope.full
     assert scope.tests == ("tests/unit_tests",)
@@ -184,7 +184,6 @@ def _install_data_catalog(make_component, make_profile, make_catalog):
             "alpha": make_profile(
                 "alpha",
                 {"alpha": Selection()},
-                lock="installs/locks/alpha.lock",
             ),
             "minimal": make_profile("minimal", {}),
         },
@@ -213,17 +212,6 @@ def test_deps_change_reaches_the_profiles_that_require_it(
     catalog = _install_data_catalog(make_component, make_profile, make_catalog)
 
     scope = affected.affected_scope(["installs/deps/shared.toml"], catalog, tmp_path)
-
-    assert scope.tests == ("tests/unit_tests/installs",)
-    assert scope.profiles == ("alpha",)
-
-
-def test_lock_change_reaches_the_profile_that_reads_it(
-    tmp_path, make_component, make_profile, make_catalog
-):
-    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
-
-    scope = affected.affected_scope(["installs/locks/alpha.lock"], catalog, tmp_path)
 
     assert scope.tests == ("tests/unit_tests/installs",)
     assert scope.profiles == ("alpha",)

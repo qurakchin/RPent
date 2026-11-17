@@ -2,7 +2,6 @@ schema = 1
 name = "unit-cpu"
 python = "3.11"
 platform = "linux-x86_64"
-lock = "installs/locks/unit-cpu.lock"
 # Test environments are not a compatibility extra.
 extra = false
 description = "CPU-only unit tests: core, test tools, and the CPU Torch build."
@@ -20,9 +19,6 @@ dependencies = [
 ]
 
 extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
-# The PyTorch index mirrors Torch's dependencies but publishes no upload times.
-# With uv's default strategy those shadows hide packages such as sympy from
-# `--exclude-newer`, so resolution fails even though PyPI lists them. The
-# fall-through strategy keeps the first index authoritative and only uses the
-# extra index for versions PyPI does not have, like `torch==2.6.0+cpu`.
+# Allow resolution to fall through between PyPI and the PyTorch index when
+# the first index does not provide a compatible version, such as the CPU build.
 index-strategy = "unsafe-first-match"

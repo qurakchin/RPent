@@ -20,7 +20,6 @@ from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import Selection
 from rpent.install.requirements import (
     REQUIREMENTS_SCHEMA,
-    dependency_requirements_text,
     environment_dependencies,
     read_core_dependencies,
     render_requirements,
@@ -95,17 +94,6 @@ def test_core_can_be_disabled(make_component, make_profile, make_catalog):
     )
 
 
-def test_dependency_requirements_text_has_only_requirement_lines(resolution):
-    text = dependency_requirements_text(
-        resolution, "alpha", core_dependencies=("packaging",)
-    )
-
-    assert text.splitlines()[0] == "packaging"
-    assert all(not line.startswith("#") for line in text.splitlines())
-    assert "numpy>=2" in text
-    assert "transformers" not in text
-
-
 def test_requirements_hash_tracks_manifests_and_options(
     resolution, make_component, make_profile, make_catalog, tmp_path
 ):
@@ -167,32 +155,6 @@ def test_requirements_inputs_record_deps_environment_membership(
     assert "env" not in inputs["profile"]["components"]["rlinf"]
 
 
-def test_requirements_hash_tracks_the_lock_it_reads(
-    make_component, make_profile, make_catalog, tmp_path, write_toml
-):
-    robot = make_component("alpha", dependencies=["numpy>=2"])
-    profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
-    )
-    resolution = resolve(profile, make_catalog([robot], {"alpha": profile}))
-    lock = write_toml("installs/locks/alpha.lock", "numpy==2.0.0")
-
-    baseline = requirements_sha256(resolution, root=tmp_path, reproducible=True)
-    inputs = requirements_inputs(resolution, root=tmp_path, reproducible=True)
-    assert inputs["lock_sha256"] is not None
-    assert baseline == requirements_sha256(resolution, root=tmp_path, reproducible=True)
-
-    lock.write_text("numpy==2.1.0\n", encoding="utf-8")
-    assert baseline != requirements_sha256(resolution, root=tmp_path, reproducible=True)
-
-    # `--dev` and component diagnostics install from generated requirements,
-    # so recompiling the lock must not change their hash.
-    without_lock = requirements_sha256(resolution, root=tmp_path)
-    lock.write_text("numpy==2.2.0\n", encoding="utf-8")
-    assert requirements_inputs(resolution, root=tmp_path)["lock_sha256"] is None
-    assert without_lock == requirements_sha256(resolution, root=tmp_path)
-
-
 def test_requirements_hash_tracks_component_overrides(
     make_component, make_profile, make_catalog, tmp_path, write_toml
 ):
@@ -221,46 +183,36 @@ def test_requirement_file_hashes_ignore_comments_and_blank_lines(
 ):
     override = write_toml("robots/alpha/requirements/override.txt", "numpy<2")
     robot = make_component("alpha", dependencies=["numpy>=2"], overrides=[override])
-    profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
-    )
+    profile = make_profile("alpha", {"alpha": Selection()})
     resolution = resolve(profile, make_catalog([robot], {"alpha": profile}))
-    lock = write_toml("installs/locks/alpha.lock", "numpy==2.0.0")
 
-    baseline = requirements_sha256(resolution, root=tmp_path, reproducible=True)
+    baseline = requirements_sha256(resolution, root=tmp_path)
 
     # uv ignores comments and blank lines, so editing them cannot change what
     # a reinstall produces.
-    lock.write_text("\n# keep this pin in sync with the simulator\nnumpy==2.0.0\n")
     override.write_text("# pinned for the simulator stack\nnumpy<2\n")
-    assert baseline == requirements_sha256(resolution, root=tmp_path, reproducible=True)
+    assert baseline == requirements_sha256(resolution, root=tmp_path)
 
-    lock.write_text("# keep this pin in sync with the simulator\nnumpy==2.0.1\n")
-    assert baseline != requirements_sha256(resolution, root=tmp_path, reproducible=True)
+    override.write_text("numpy<3\n")
+    assert baseline != requirements_sha256(resolution, root=tmp_path)
 
 
-@pytest.mark.parametrize("corrupt", ["lock", "override"])
 def test_requirement_file_that_is_not_utf8_is_a_configuration_error(
-    make_component, make_profile, make_catalog, tmp_path, corrupt
+    make_component, make_profile, make_catalog, tmp_path
 ):
     override = tmp_path / "robots/alpha/requirements/override.txt"
     override.parent.mkdir(parents=True)
     override.write_text("numpy<2\n", encoding="utf-8")
     robot = make_component("alpha", dependencies=["numpy>=2"], overrides=[override])
-    profile = make_profile(
-        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
-    )
+    profile = make_profile("alpha", {"alpha": Selection()})
     resolution = resolve(profile, make_catalog([robot], {"alpha": profile}))
-    lock = tmp_path / "installs/locks/alpha.lock"
-    lock.parent.mkdir(parents=True)
-    lock.write_text("numpy==2.0.0\n", encoding="utf-8")
 
     # uv rejects a requirement file it cannot decode, so recording it as an
     # absent input would hide the problem behind a drift report.
-    (lock if corrupt == "lock" else override).write_bytes(b"numpy\n\xff\n")
+    override.write_bytes(b"numpy\n\xff\n")
 
     with pytest.raises(InstallConfigError, match="not UTF-8"):
-        requirements_inputs(resolution, root=tmp_path, reproducible=True)
+        requirements_inputs(resolution, root=tmp_path)
 
 
 def test_requirements_hash_does_not_depend_on_how_the_checkout_is_named(

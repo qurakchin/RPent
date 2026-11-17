@@ -31,7 +31,7 @@ jobs:
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m rpent.cli.install check-layout
-      - name: Check every profile and its lock coverage
+      - name: Check every profile
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m rpent.cli.install check --all
@@ -53,21 +53,7 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Pin the profile's Python
         run: uv python install 3.11
-      - name: Read the environment cache key
-        id: key
-        run: echo "lock=$(sha256sum installs/locks/${{ inputs.profile }}.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      # The prebuilt environment is reproducible from the selected profile's
-      # lock, so the cache key is that lock's hash plus the interpreter and
-      # platform. `unit-cpu` supplies CPU Torch for the tests that import model
-      # servers; `dev` alone deliberately has no Torch.
-      - name: Restore the prebuilt environment
-        id: env
-        uses: actions/cache@v4
-        with:
-          path: .venv
-          key: rpent-${{ inputs.profile }}-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
-      - name: Build the prebuilt environment from the lock
-        if: steps.env.outputs.cache-hit != 'true'
+      - name: Install the test environment from the profile
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m rpent.cli.install install "${{ inputs.profile }}" --venv .venv
@@ -124,17 +110,7 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Pin the profile's Python
         run: uv python install 3.11
-      - name: Read the environment cache key
-        id: key
-        run: echo "lock=$(sha256sum installs/locks/minimal.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      - name: Restore the minimal environment
-        id: env
-        uses: actions/cache@v4
-        with:
-          path: .venv-minimal
-          key: rpent-minimal-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
-      - name: Build the minimal environment from the lock
-        if: steps.env.outputs.cache-hit != 'true'
+      - name: Install the minimal environment from the profile
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m rpent.cli.install install minimal --venv .venv-minimal

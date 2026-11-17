@@ -32,5 +32,5 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 @pytest.fixture(scope="module")
 def catalog() -> Catalog:
-    """Load the checked-in components, profiles and locks once per module."""
+    """Load the checked-in components and profiles once per module."""
     return discover(REPO_ROOT)

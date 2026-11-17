@@ -176,57 +176,6 @@ def test_dev_installation_is_not_reported_as_stale(tmp_path, write_toml, monkeyp
     assert not any("out of date" in check.message for check in checks)
 
 
-def test_lock_edited_after_install_makes_the_environment_stale(
-    tmp_path, write_toml, monkeypatch
-):
-    write_toml(
-        "installs/profiles/alpha.toml",
-        f"""
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "{runtime_platform()}"
-        core = false
-        lock = "installs/locks/alpha.lock"
-        """,
-    )
-    lock = write_toml("installs/locks/alpha.lock", "packaging==24.0")
-    resolution = resolve_install_target("alpha", discover(tmp_path), root=tmp_path)
-    venv = _venv(tmp_path)
-    write_fingerprint(
-        venv,
-        {
-            "schema": REQUIREMENTS_SCHEMA,
-            "profile": "alpha",
-            "python": "3.11.9",
-            "include_dev": False,
-            "reproducible": True,
-            "requirements_sha256": requirements_sha256(
-                resolution, root=tmp_path, reproducible=True
-            ),
-        },
-    )
-
-    def _missing_uv():
-        raise InstallError("uv missing")
-
-    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
-
-    checks = check_installation(venv, root=tmp_path)
-    assert any(
-        check.status == OK and "installation inputs unchanged" in check.message
-        for check in checks
-    )
-
-    # The manifest did not change, so only the lock hash can notice this.
-    lock.write_text("packaging==25.0\n", encoding="utf-8")
-    checks = check_installation(venv, root=tmp_path)
-
-    assert any(
-        check.status == FAIL and "out of date" in check.message for check in checks
-    )
-
-
 def test_component_installation_uses_the_recorded_interpreter(
     tmp_path, write_toml, monkeypatch
 ):
