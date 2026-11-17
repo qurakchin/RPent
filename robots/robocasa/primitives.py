@@ -21,7 +21,7 @@ import numpy as np
 from pydantic import Field
 
 from robots.robocasa.rldx_skill import RLDXSkill
-from rpent.tools import ToolResult, tool
+from rpent.tools import ToolResult, tool, unexecuted
 
 OSC_POS_SCALE = 0.05  # action 1.0 -> 0.05 m target delta
 OSC_ROT_SCALE = 0.5  # action 1.0 -> 0.5 rad
@@ -618,13 +618,14 @@ class RoboCasaPrimitives:
     def reset(self) -> ToolResult:
         """Restart the episode (new layout / object placement sampled). Arm and base calibration are invalidated on reset. DISABLED in no-reset / matched evaluation — the policy must solve the scene in one shot. Only available in EXPLORE mode when RLDX_ALLOW_RESET is enabled."""
         if not self._allow_reset:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": (
                         "reset is DISABLED in this run (no-reset/matched evaluation). "
                         "Solve the scene in one shot; do not restart the episode."
                     )
-                }
+                },
+                status="rejected",
             )
         # EXPLORE MODE: restart the episode for a fresh attempt. New layout/
         # object placement sampled; arm/base calibration is invalidated.

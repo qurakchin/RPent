@@ -30,6 +30,7 @@ from robots.robotwin.robot_spec import (
     RoboTwinActionType,
 )
 from rpent.robots.components.env_client_base import BaseEnvClient
+from rpent.tools.execution import mark_write_issued
 from rpent.utils.rpc import RpcClient
 
 
@@ -124,6 +125,7 @@ class RoboTwinEnvClient(BaseEnvClient):
 
     def reset(self) -> tuple[dict[str, Any], dict[str, Any]]:
         """Reset to the TaskRun seed and validate the native result."""
+        mark_write_issued("reset")
         self._history_complete = False
         result = self._client.call("env.reset", timeout_s=self._TIMEOUT_S["env.reset"])
         observation, info = self._require_result_tuple(result, 2, "env.reset")
@@ -160,6 +162,7 @@ class RoboTwinEnvClient(BaseEnvClient):
             raise ValueError("RoboTwin common action must be a single action")
         flat = flat[0]
         self._require_common_active()
+        mark_write_issued("step")
         history_complete = self._history_complete
         self._history_complete = False  # A failed RPC may still have moved the robot.
         result = self._client.call(
@@ -195,6 +198,7 @@ class RoboTwinEnvClient(BaseEnvClient):
         ):
             raise ValueError("env.chunk_step does not support return_all_frames=True")
         self._require_common_active()
+        mark_write_issued("chunk_step")
         history_complete = self._history_complete
         self._history_complete = False
         result = self._client.call(

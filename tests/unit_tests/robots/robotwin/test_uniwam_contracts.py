@@ -24,6 +24,7 @@ import pytest
 
 from robots.robotwin.env_client import RoboTwinEnvClient
 from robots.robotwin.primitives import RoboTwinPrimitives
+from robots.robotwin.skills.policy import RoboTwinSkillBinding, wam_act
 
 
 class FeedbackRPC:
@@ -171,10 +172,11 @@ def test_analytic_intervention_is_in_next_policy_request(backend):
         policy_kind="wam",
         policy_backend=backend,
     )
-    primitives.wam_act(max_chunks=1)
+    binding = RoboTwinSkillBinding(primitives)
+    wam_act(binding=binding, max_chunks=1)
     primitives.apply_qpos_updates([{"arm": "left", "gripper": 1.0}])
-    primitives.wam_act(prompt="a proposed subtask", max_chunks=2)
-    result = primitives.wam_act(max_chunks=1)
+    wam_act(binding=binding, prompt="a proposed subtask", max_chunks=2)
+    result = wam_act(binding=binding, max_chunks=1)
     np.testing.assert_array_equal(histories[1][:, 0], np.arange(2, 18))
     np.testing.assert_array_equal(histories[2][:, 0], np.arange(18, 34))
     np.testing.assert_array_equal(histories[3][:, 0], np.arange(34, 50))

@@ -27,6 +27,24 @@ OUTPUT = BulletList(
     ]
 )
 
+RESULT_FIELDS = """Every tool result carries `call_ok` and `execution_status`.
+`call_ok` only means the call was valid and the framework handled it; it never
+means the action succeeded. `execution_status` is `completed`, `partial`,
+`not_started`, `rejected`, or `unknown`. `no_execution` appears only when the
+call produced no physical action, and `execution_uncertain` appears only when
+an interrupted call may have outlived the request and must be verified before
+retrying."""
+
+# Only hosts that register the shared ``MotionTools`` family report these
+# fields; the bundle adds this section alongside RESULT_FIELDS.
+MOTION_RESULT_FIELDS = """Motion results also report `stop_reason`,
+`stop_evidence`, and `pose_error`. For motion tools `stop_reason` is `arrived`,
+`stalled`, `diverging`, `unsafe_motion`, `planning_rejected`, `max_steps`, or
+`episode_over`; `max_steps` means the native step budget is exhausted. Other
+tools may report their own `stop_reason` values; judge those by `completed` and
+`execution_status`. Judge motion by these fields and a fresh observation, not
+by `call_ok`."""
+
 USER = {
     "Task": """
     - suite:   {{suite}}

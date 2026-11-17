@@ -43,7 +43,7 @@ def test_prompts_render_with_memory_relative_paths():
         "memory/robotwin/task-specific/robotwin_beat_block_hammer_demo_randomized_s0_recipe.jsonl"
         in system
     )
-    assert "memory/robotwin/MEMORY.md" in system
+    assert "Call recall with the task name" in system
     assert "task: beat_block_hammer" in user
     assert "seed: 100000" in user
     assert "task_config: demo_randomized" in user
@@ -75,6 +75,7 @@ def test_uniwam_prompt_selects_wam_tool_and_memory_for_mode(mode):
     assert "wam_act" in system + user
     assert "lingbot_act" not in system + user
     if mode == "eval":
-        assert "shared-memory/MEMORY.md" in system
+        # Memory is reached through recall; file tools do not expose the corpus.
+        assert "Call recall with the task name" in system
     else:
         assert "shared-memory/inbox/wip/" in system

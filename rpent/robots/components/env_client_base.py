@@ -22,6 +22,7 @@ from typing import Any
 import numpy as np
 
 from rpent.robots.components.action_spec import validate_action
+from rpent.tools.execution import mark_write_issued
 
 
 class BaseEnvClient:
@@ -69,6 +70,7 @@ class BaseEnvClient:
     def reset(self):
         """Reset the env and return the initial obs. Also updates the
         ``self.last_obs`` cache."""
+        mark_write_issued("reset")
         self.last_obs = self._client.call(
             "env.reset",
             timeout_s=self._TIMEOUT_S["env.reset"],
@@ -84,6 +86,7 @@ class BaseEnvClient:
         With ``capture=True``, supporting backends return execution details
         with the original tuple under ``result``. The cache uses that tuple.
         """
+        mark_write_issued("step")
         result = self._client.call(
             "env.step",
             args=(flat_action,),
@@ -107,6 +110,7 @@ class BaseEnvClient:
         renders agentview per step (high-density video); ``False`` renders only
         the final obs (fast).
         """
+        mark_write_issued("chunk_step")
         result = self._client.call(
             "env.chunk_step",
             args=(flat_actions,),

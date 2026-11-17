@@ -362,7 +362,7 @@ class YamPrimitives:
                 "completed": False,
                 "requested_steps": 0,
                 "executed_steps": 0,
-                "stop_reason": "plan_failed",
+                "stop_reason": "planning_rejected",
                 "success": False,
                 "planning_attempts": planning_attempts,
                 "plan_status": planned.get("status"),

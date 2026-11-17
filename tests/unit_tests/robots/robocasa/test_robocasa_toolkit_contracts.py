@@ -35,6 +35,9 @@ from rpent.tools.common import CommonTools
 from rpent.utils import templates
 
 COMMON_TOOLS = {"read_text_file", "write_text_file", "list_dir", "finish"}
+# File writes and the terminal halt are not readonly; they opt out of the
+# observation capture instead.
+READONLY_COMMON_TOOLS = COMMON_TOOLS - {"write_text_file", "finish"}
 
 EXPECTED_TOOLS = COMMON_TOOLS | {
     "move_to",
@@ -145,11 +148,20 @@ def test_toolkit_constructs_and_classifies_tools_with_a_fake(
     )
 
     assert _tool_names(robot_toolkit) == EXPECTED_TOOLS
-    assert _readonly_names(robot_toolkit) == COMMON_TOOLS | {
+    assert _readonly_names(robot_toolkit) == READONLY_COMMON_TOOLS | {
         "view_env_state",
         "back_project_batch",
         "query_world_map",
     }
+    write_text_file = next(
+        item for item in robot_toolkit.list_tools() if item.name == "write_text_file"
+    )
+    assert write_text_file.readonly is False
+    assert write_text_file.captures_state is False
+    finish = next(item for item in robot_toolkit.list_tools() if item.name == "finish")
+    assert finish.readonly is False
+    assert finish.concurrent is True
+    assert finish.captures_state is False
     assert dumped == fake_single_arm_primitives.instances
     primitive = fake_single_arm_primitives.instances[0]
     assert primitive.reset_calls == (1 if mode == "evaluation" else 0)
@@ -235,12 +247,14 @@ def test_optional_reading_preserves_no_reset(
     elif reading == "complete":
         for name in memory.selection.selected:
             read(path=str(root / name))
-    result = robot_toolkit.execute_tool("reset", {}).data
+    result = robot_toolkit.execute_tool("reset", {})
     if allow_reset:
-        assert result["reset"] is True
+        assert result.data["reset"] is True
         assert resets == ["env", "vla"]
     else:
-        assert "reset is DISABLED" in result["error"]
+        assert "reset is DISABLED" in result.data["error"]
+        assert result.no_execution is True
+        assert result.execution_status == "rejected"
         assert resets == []
 
 
@@ -258,21 +272,46 @@ def test_exploration_attempt_budget_and_solved_guards():
     def inner(**kwargs):
         return ToolResult(data=kwargs)
 
-    assert (
-        robot_toolkit._guarded_finish(inner, status="stuck").data["error"]
-        == "finish refused"
-    )
+    finish_refusal = robot_toolkit._guarded_finish(inner, status="stuck")
+    assert finish_refusal.data["error"] == "finish refused"
+    # A refusal must not look like an execution that reached the host.
+    assert finish_refusal.no_execution is True
+    assert finish_refusal.execution_status == "rejected"
     assert robot_toolkit._reset_episode().data["attempt"] == 2
-    assert robot_toolkit._reset_episode().data["error"] == "reset refused"
+    budget_refusal = robot_toolkit._reset_episode()
+    assert budget_refusal.data["error"] == "reset refused"
+    assert budget_refusal.no_execution is True
+    assert budget_refusal.execution_status == "rejected"
     assert resets == [1]
     assert robot_toolkit._guarded_finish(inner, status="stuck").data == {
         "status": "stuck"
     }
     records.append(SimpleNamespace(extras={"success": True}))
-    assert robot_toolkit._reset_episode().data["error"] == "reset refused"
+    solved_refusal = robot_toolkit._reset_episode()
+    assert solved_refusal.data["error"] == "reset refused"
+    assert solved_refusal.execution_status == "rejected"
     assert robot_toolkit._guarded_finish(inner, status="success").data == {
         "status": "success"
     }
+
+
+def test_world_query_refusals_report_no_execution() -> None:
+    from robots.robocasa import tools as robocasa_tools
+
+    no_trace = robocasa_tools.query_world_map(state=SimpleNamespace())
+    assert no_trace.data["error"] == "no state trace available"
+    assert no_trace.no_execution is True
+    assert no_trace.execution_status == "not_started"
+
+    record = SimpleNamespace(step_idx=0, artifacts=[])
+    missing_map = SimpleNamespace(get=lambda step: record, load=Mock())
+    result = robocasa_tools.query_world_map(state=missing_map)
+    assert result.data["error"] == (
+        "agentview low-resolution world map not found for step 0"
+    )
+    assert result.no_execution is True
+    assert result.execution_status == "not_started"
+    missing_map.load.assert_not_called()
 
 
 def test_exploration_recipe_exports_only_winning_attempt(tmp_path):

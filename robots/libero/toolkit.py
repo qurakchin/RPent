@@ -32,7 +32,7 @@ from robots.libero import tools as libero_tools
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
 from rpent.session.env_capture import CapturingEnvClient
-from rpent.tools import ToolResult, iter_tools
+from rpent.tools import ToolResult, iter_tools, unexecuted
 from rpent.tools.base import tool
 from rpent.tools.direct_action import direct_action_tool
 from rpent.tools.toolkit import Toolkit
@@ -143,14 +143,15 @@ class LiberoToolkit(Toolkit):
     def _wam_finish(self, inner: Any, **kwargs: Any) -> ToolResult:
         """Require native task success before accepting a success claim."""
         if kwargs.get("status") == "success" and not self.solved():
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": "finish refused: success requires native terminated=true",
                     "terminated": self._primitives.env.terminated,
                     "truncated": self._primitives.env.truncated,
                     "reason": "Inspect the current state. Continue if the episode is "
                     "active; report failure if it was truncated.",
-                }
+                },
+                status="rejected",
             )
         return inner(**kwargs)
 
@@ -159,11 +160,12 @@ class LiberoToolkit(Toolkit):
         budget = self._attempts_per_session
         if budget and not self.solved() and self._session_attempt < budget:
             remaining = budget - self._session_attempt
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": "finish refused",
                     "reason": f"This session has {remaining} of its {budget} attempts left and the task is not solved. Archive this attempt, call `reset`, and try another approach.",
-                }
+                },
+                status="rejected",
             )
         return inner(**kwargs)
 
@@ -176,11 +178,12 @@ class LiberoToolkit(Toolkit):
         """
         budget = self._attempts_per_session
         if budget and self._session_attempt >= budget:
-            return ToolResult(
-                data={
+            return unexecuted(
+                {
                     "error": "reset refused",
                     "reason": f"This session's attempt budget is spent ({budget} attempts). Archive the attempt, update the handoff notes, and call `finish` so the next session can continue.",
-                }
+                },
+                status="rejected",
             )
         self._attempt += 1
         self._session_attempt += 1

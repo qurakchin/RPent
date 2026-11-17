@@ -19,6 +19,7 @@ from __future__ import annotations
 import numpy as np
 
 from robots.franka.env_client import FrankaEnvClient
+from rpent.tools.execution import track_execution
 
 
 class FakeRpcClient:
@@ -38,6 +39,25 @@ class FakeRpcClient:
         payload = kwargs or {}
         self.calls.append((method, args, payload, timeout_s))
         return {"method": method, **payload}
+
+
+def test_write_calls_are_marked_before_the_rpc():
+    client = FrankaEnvClient(FakeRpcClient())
+
+    with track_execution() as trace:
+        client.reset()
+        client.move_delta([0.01, 0.0, 0.0])
+        client.rotate_delta([0.0, 0.0, 0.1])
+        client.set_gripper(open=True)
+        client.chunk_step(np.zeros((1, 7), dtype=np.float64))
+
+    assert trace.writes == [
+        "reset",
+        "move_delta",
+        "rotate_delta",
+        "set_gripper",
+        "chunk_step",
+    ]
 
 
 def test_franka_client_uses_explicit_env_methods():

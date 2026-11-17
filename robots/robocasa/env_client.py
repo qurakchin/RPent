@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from rpent.robots.components.env_client_base import BaseEnvClient
+from rpent.tools.execution import mark_write_issued
 
 if TYPE_CHECKING:
     from rpent.utils.rpc import RpcClient
@@ -55,12 +56,14 @@ class RoboCasaEnvClient(BaseEnvClient):
 
     # ---- state accessors ----
     def reset(self):
+        mark_write_issued("reset")
         self.last_obs = self._client.call(
             "env.reset", timeout_s=self._TIMEOUT_S["env.reset"]
         )
         return self.last_obs
 
     def step(self, flat_action):
+        mark_write_issued("step")
         result = self._client.call(
             "env.step", args=(flat_action,), timeout_s=self._TIMEOUT_S["env.step"]
         )

@@ -22,6 +22,7 @@ from robots.robodojo.prompts import evaluate as evaluate_parts
 from robots.robodojo.prompts import explore as explore_parts
 from robots.robodojo.prompts import user as user_parts
 from robots.robodojo.prompts.policy import POLICY_PROMPTS
+from rpent.prompt.common import RESULT_FIELDS
 from rpent.prompt.utils import PromptNode
 
 
@@ -30,8 +31,10 @@ def system_prompt(
 ) -> PromptNode:
     """Select the RoboDojo evaluation or exploration system prompt."""
     if (variables or {}).get("mode") == "explore":
-        return explore_parts.system_prompt(variables)
-    return evaluate_parts.system_prompt(variables)
+        prompt = explore_parts.system_prompt(variables)
+    else:
+        prompt = evaluate_parts.system_prompt(variables)
+    return {**prompt, "TOOL RESULTS": RESULT_FIELDS}
 
 
 def user_prompt(

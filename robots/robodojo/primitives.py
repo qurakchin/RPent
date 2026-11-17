@@ -29,6 +29,7 @@ from robots.robodojo.env_client import ActionRejected, ExecutionSyncError
 from robots.robodojo.tasks import validate_instruction
 from rpent.session.env_capture import CapturingEnvClient
 from rpent.tools import ToolResult, tool
+from rpent.tools.motion_tools import motion_result
 from rpent.tools.toolkit import ToolCancelled
 from rpent.utils.logging import get_logger
 
@@ -295,7 +296,7 @@ class RoboDojoPrimitives:
             ),
         )
         result["instruction"] = instruction
-        return ToolResult(data=result)
+        return motion_result(result)
 
     @tool
     def awomo05_act(
@@ -322,7 +323,7 @@ class RoboDojoPrimitives:
             instruction=self._awomo05_instruction,
             infer=infer,
         )
-        return ToolResult(data=result)
+        return motion_result(result)
 
     def _awomo05_execution_event(self, event: dict) -> None:
         """Consume each confirmed observation once, without maintaining model history."""
@@ -379,13 +380,13 @@ class RoboDojoPrimitives:
         planned = self.env.plan_arm_path(arm, [*xyz, *quat])
         self._check_cancelled()
         if planned["status"] != "Success":
-            return ToolResult(
-                data={
+            return motion_result(
+                {
                     "success": False,
                     "completed": False,
                     "requested_steps": 0,
                     "executed_steps": 0,
-                    "stop_reason": "plan_failed",
+                    "stop_reason": "planning_rejected",
                     "plan_status": planned["status"],
                 }
             )
@@ -406,7 +407,7 @@ class RoboDojoPrimitives:
             )
         except Exception as exc:
             result["feedback_error"] = str(exc)
-        return ToolResult(data=result)
+        return motion_result(result)
 
     @tool
     def rotate_wrist(
@@ -460,7 +461,7 @@ class RoboDojoPrimitives:
             result["gripper_val"] = self.env.get_motion_state()[f"{arm}_gripper"]
         except Exception as exc:
             result["feedback_error"] = str(exc)
-        return ToolResult(data=result)
+        return motion_result(result)
 
     @tool
     def release(
@@ -480,7 +481,9 @@ class RoboDojoPrimitives:
         self._last_obs = None
         return {"success": True}
 
-    @tool(readonly=True)
+    # Concurrent shares admission with readonly calls. The halt is not a read,
+    # so the unset execution layer reports it as completed.
+    @tool(concurrent=True, captures_state=False)
     def finish(self, *, status: str, summary: str) -> ToolResult:
         """Stop the run; the environment, not the requested status, judges task success."""
         try:
@@ -492,7 +495,7 @@ class RoboDojoPrimitives:
                     "status": "error",
                     "summary": summary,
                     "runtime_error": str(exc),
-                }
+                },
             )
         success = native.get("success")
         reported = (
@@ -510,5 +513,5 @@ class RoboDojoPrimitives:
                 "requested_success": status.lower() == "success",
                 "success": success,
                 "episode_status": native,
-            }
+            },
         )

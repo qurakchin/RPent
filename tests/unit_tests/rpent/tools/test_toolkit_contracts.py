@@ -126,7 +126,9 @@ def test_toolkit_registers_common_specs_with_fresh_placeholder_substitution(
 
 def test_common_file_tools_dispatch_offline_without_capturing_robot_state(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr("rpent.tools.file_tools.get_output_dir", lambda: tmp_path)
     toolkit = _ContractToolkit(tmp_path / "state")
     text_file = tmp_path / "files" / "note.txt"
 
@@ -263,6 +265,28 @@ def test_common_file_tools_enforce_memory_manager_boundaries(
     assert exploration.capture_calls == []
 
 
+def test_file_writes_are_limited_to_the_run_output_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output_dir = tmp_path / "run"
+    monkeypatch.setattr("rpent.tools.file_tools.get_output_dir", lambda: output_dir)
+    toolkit = _ContractToolkit(tmp_path / "state")
+
+    inside = toolkit.execute_tool(
+        "write_text_file",
+        {"path": str(output_dir / "recipe.jsonl"), "content": "{}"},
+    )
+    outside = toolkit.execute_tool(
+        "write_text_file",
+        {"path": str(tmp_path / "source.py"), "content": "changed"},
+    )
+
+    assert inside.data["bytes_written"] == 2
+    assert "outside the run output directory" in outside.data["error"]
+    assert not (tmp_path / "source.py").exists()
+
+
 @pytest.mark.parametrize(
     "arguments,error_types",
     [
@@ -319,6 +343,37 @@ def test_readonly_declarations_bind_methods_and_execution_guards(
     assert calls == [{"prefix": "pre-", "value": "bound"}]
     assert toolkit.capture_calls == []
     assert toolkit.events.events == []
+
+
+def test_iter_tools_resolves_one_declaration_per_tool_name() -> None:
+    class Base:
+        @tool(name="shared", readonly=True)
+        def declared(self) -> ToolResult:
+            """Base declaration."""
+            return ToolResult(data={})
+
+    class Derived(Base):
+        @tool(name="shared", readonly=True)
+        def _replacement(self) -> ToolResult:
+            """Derived declaration."""
+            return ToolResult(data={})
+
+    class Later:
+        @tool(name="shared", readonly=True)
+        def other(self) -> ToolResult:
+            """Later declaration."""
+            return ToolResult(data={})
+
+    derived = list(iter_tools(Derived))
+    assert [declaration.name for declaration in derived] == ["shared"]
+    assert derived[0].description == "Derived declaration."
+
+    # The first owner keeps a name it declared; later owners only contribute
+    # names that are still unclaimed.
+    first_owner = list(iter_tools(Derived, Later))
+    assert [declaration.description for declaration in first_owner] == [
+        "Derived declaration."
+    ]
 
 
 def test_internal_resource_binding_is_not_a_model_argument(
@@ -548,6 +603,7 @@ def test_toolkit_cooperatively_cancels_and_cleans_up_active_operation(
 def test_common_file_read_waits_for_write_without_state_capture(tmp_path, monkeypatch):
     from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
+    monkeypatch.setattr("rpent.tools.file_tools.get_output_dir", lambda: tmp_path)
     toolkit = _ContractToolkit(tmp_path)
     path = tmp_path / "audit.json"
     path.write_text("old")
@@ -653,3 +709,66 @@ def test_capture_exception_preserves_original_error(
         action_error or "failed to capture state after move: camera offline"
     )
     assert result.data["state_capture_error"] == "camera offline"
+
+
+def test_file_tools_leave_the_memory_corpus_to_the_memory_family(tmp_path) -> None:
+    memory = MemoryManager(
+        tmp_path / "memory",
+        memory_access="inbox_write",
+        inbox_cell_tag="cell",
+    )
+    published = memory.root / "global" / "note.md"
+    published.parent.mkdir(parents=True)
+    published.write_text("published")
+    inbox = memory.root / "_internal" / "inbox" / "cell" / "draft.md"
+    inbox.parent.mkdir(parents=True)
+    tools = common.CommonTools(
+        memory=memory,
+        output_dir=tmp_path / "out",
+        allow_memory=False,
+    )
+
+    with pytest.raises(PermissionError, match="recall"):
+        tools.read_text_file(str(published))
+    with pytest.raises(PermissionError, match="recall"):
+        tools.write_text_file(str(inbox), "draft")
+    with pytest.raises(PermissionError, match="recall"):
+        tools.list_dir(str(memory.root))
+    assert not inbox.exists()
+
+
+class _MemoryFamilyToolkit(_ContractToolkit):
+    owns_memory_tools = True
+
+
+def test_memory_owning_toolkit_points_file_tools_at_the_memory_family(
+    tmp_path,
+) -> None:
+    memory = MemoryManager(tmp_path / "memory")
+    # A corpus-browsing description must not survive on tools that refuse it.
+    memory.file_tool_description = " CORPUS BROWSING"
+    toolkit = _MemoryFamilyToolkit(tmp_path, memory=memory)
+
+    for name in ("read_text_file", "write_text_file", "list_dir"):
+        description = toolkit._tools[name].description
+        assert "cannot access the memory corpus" in description
+        assert "recall" in description
+        assert "remember" in description
+        assert "corroborate" in description
+        assert "draft findings with the memory tools" not in description
+        assert "CORPUS BROWSING" not in description
+
+
+def test_file_tool_descriptions_do_not_promise_unregistered_memory_tools(
+    tmp_path,
+) -> None:
+    toolkit = _ContractToolkit(tmp_path)
+
+    for name in ("read_text_file", "write_text_file", "list_dir"):
+        description = toolkit._tools[name].description
+        assert "Published memory is read-only" in description
+        assert "draft findings with the memory tools" not in description
+        assert not any(
+            tool_name in description
+            for tool_name in ("recall", "remember", "corroborate")
+        )

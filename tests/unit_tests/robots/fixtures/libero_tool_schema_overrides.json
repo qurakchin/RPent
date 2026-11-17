@@ -1,0 +1,11 @@
+{
+  "move_to": {
+    "description": "Scripted EEF servo to a world-frame XYZ target via the OSC controller. Holds orientation unless target_yaw is supplied; then both position and yaw must converge. Use rotate_pitch or move_pose for pitch changes. gripper: -1 = open, +1 = close. NEVER command a single move_to with |Δxy| > 0.30 — OSC flips IK and the run corrupts; split long traversal into 2-3 mid waypoints at carry z.",
+    "properties": {
+      "yaw_tol": {
+        "type": "number",
+        "description": "Positive finite yaw tolerance, rad (default 0.02)"
+      }
+    }
+  }
+}
