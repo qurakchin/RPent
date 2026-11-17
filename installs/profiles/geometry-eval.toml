@@ -1,8 +1,0 @@
-schema = 1
-name = "geometry-eval"
-python = "3.11"
-platform = "linux-x86_64"
-description = "Geometry toolkit with its frozen CPU evaluation corpus."
-
-[components.geometry]
-variant = "eval"

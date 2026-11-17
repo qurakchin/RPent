@@ -124,9 +124,6 @@ Profiles
    * - ``molmo-server``
      - 3.11
      - Standalone Molmo server environment (``core = false``).
-   * - ``geometry-eval``
-     - 3.11
-     - Geometry toolkit with its frozen CPU evaluation corpus.
    * - ``sam3-server`` / ``openpi-server``
      - 3.11
      - Single-capability diagnostic environments.
@@ -155,7 +152,6 @@ rpent.cli.install`` as shown above.
    rpent-install install robodojo-sim --venv .venv-robodojo-sim
    rpent-install install yam-real --venv .venv-yam-real
    rpent-install install molmo-server --venv .venv-molmo-server
-   rpent-install install geometry-eval --venv .venv-geometry-eval
    rpent-install install sam3-server --venv .venv-sam3-server
    rpent-install install openpi-server --venv .venv-openpi-server
 

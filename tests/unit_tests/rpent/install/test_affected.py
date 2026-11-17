@@ -127,7 +127,7 @@ def test_unmapped_path_selects_every_component_and_profile(
         assert scope.pr_profiles == ("alpha",)
 
 
-def test_core_change_installs_the_pilot_profiles_in_a_pull_request(
+def test_core_change_installs_the_pilot_profile_in_a_pull_request(
     tmp_path, make_component, make_profile, make_catalog
 ):
     alpha = make_component("alpha")
@@ -135,7 +135,7 @@ def test_core_change_installs_the_pilot_profiles_in_a_pull_request(
         components=[alpha],
         profiles={
             "alpha": make_profile("alpha", {"alpha": Selection()}),
-            "geometry-eval": make_profile("geometry-eval", {}),
+            "cpu-sample": make_profile("cpu-sample", {}),
             "libero-sim": make_profile("libero-sim", {}),
             "minimal": make_profile("minimal", {}),
         },
@@ -145,8 +145,8 @@ def test_core_change_installs_the_pilot_profiles_in_a_pull_request(
         scope = affected.affected_scope([path], catalog, tmp_path)
 
         assert scope.full
-        assert scope.profiles == ("alpha", "geometry-eval", "libero-sim", "minimal")
-        assert scope.pr_profiles == ("geometry-eval", "minimal")
+        assert scope.profiles == ("alpha", "cpu-sample", "libero-sim", "minimal")
+        assert scope.pr_profiles == ("minimal",)
 
 
 def test_installer_change_installs_every_profile_in_a_pull_request(
@@ -156,7 +156,7 @@ def test_installer_change_installs_every_profile_in_a_pull_request(
     catalog = make_catalog(
         components=[alpha],
         profiles={
-            "geometry-eval": make_profile("geometry-eval", {}),
+            "cpu-sample": make_profile("cpu-sample", {}),
             "libero-sim": make_profile("libero-sim", {}),
         },
     )
@@ -165,7 +165,7 @@ def test_installer_change_installs_every_profile_in_a_pull_request(
 
     assert scope.full
     assert scope.tests == ("tests/unit_tests",)
-    assert scope.pr_profiles == ("geometry-eval", "libero-sim")
+    assert scope.pr_profiles == ("cpu-sample", "libero-sim")
 
 
 def _install_data_catalog(make_component, make_profile, make_catalog):
@@ -323,7 +323,7 @@ def test_runner_filter_narrows_both_profile_sets(tmp_path, write_toml, capsys):
         dependencies = []
         """,
     )
-    for name in ("geometry-eval", "libero-sim", "minimal"):
+    for name in ("cpu-sample", "libero-sim", "minimal"):
         write_toml(
             f"installs/profiles/{name}.toml",
             f"""
