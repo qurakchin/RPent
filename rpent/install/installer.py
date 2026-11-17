@@ -261,8 +261,6 @@ def component_profile(
         extra_index_urls=(),
         index_strategy=None,
         core=True,
-        generate_extra=False,
-        extra=None,
         description=f"development diagnostic environment for {component_name}",
         synthetic=True,
     )

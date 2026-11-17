@@ -16,7 +16,7 @@
 
 Components declare their packages in ``component.toml``; importing them
 directly at the point of use keeps core imports working without every robot
-extra installed. This guard replaces local ``try: import ... except
+package installed. This guard replaces local ``try: import ... except
 ImportError: ... = None`` fallbacks with one actionable message::
 
     torch = require("sam3", "torch")

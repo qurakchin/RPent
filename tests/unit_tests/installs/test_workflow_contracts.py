@@ -21,6 +21,7 @@ with the repository install data because the workflows are the readers of that
 data.
 """
 
+import os
 from pathlib import Path
 
 import yaml
@@ -189,3 +190,14 @@ def test_unit_workflow_defaults_to_the_cpu_profile():
     assert "if" not in minimal
     assert "install minimal --venv .venv-minimal" in minimal["run"]
     assert _step(workflow, "unit", "Report skipped tests")["if"] == "always()"
+
+
+def test_workflows_bootstrap_the_installer_through_the_launcher():
+    # The bootstrap interpreter and its extra dependency live in one place, so a
+    # change reaches the workflows, the pre-commit hook, and the GPU suite
+    # together instead of drifting between copies.
+    launcher = REPO_ROOT / "scripts" / "rpent-install.sh"
+    assert launcher.is_file()
+    assert os.access(launcher, os.X_OK)
+    for path in [*WORKFLOWS.glob("*.yml"), REPO_ROOT / ".pre-commit-config.yaml"]:
+        assert "--no-project" not in path.read_text(encoding="utf-8"), path.name

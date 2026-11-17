@@ -7,4 +7,5 @@ recursive-include robots *.py *.toml *.md *.yaml *.yml *.json *.txt *.cpp *.html
 recursive-include components *.py *.toml *.md *.yaml *.yml *.json *.txt
 recursive-include installs *.toml
 recursive-include tests *.py *.toml *.md *.json *.yaml *.txt *.sh
+recursive-include scripts *.sh
 recursive-include docs *.rst *.md *.py *.txt *.yaml *.yml *.svg *.png *.css *.js

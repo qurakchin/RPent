@@ -35,8 +35,7 @@ tests/
     │   ├── robocasa/
     │   └── robotwin/
     └── components/
-        ├── models/        # model services
-        └── toolkits/      # toolkits and their contracts
+        └── models/        # model services
 ```
 
 Directories that do not yet have tests do not need empty placeholders. Add
@@ -47,16 +46,14 @@ them when the first test for that module lands.
 - Mirror core modules under `tests/unit_tests/rpent/`. For example, tests for
   `rpent.utils.rpc` belong in `tests/unit_tests/rpent/utils/rpc/`.
 - Mirror robot slices under `tests/unit_tests/robots/<name>/`, model services
-  under `tests/unit_tests/components/models/`, and toolkits under
-  `tests/unit_tests/components/toolkits/`.
+  under `tests/unit_tests/components/models/`.
 - Place cross-layer tests with the primary contract owner. Registry and config
   contracts belong to `rpent/robots/`; slice toolkit and schema contracts
   belong to `robots/`; installer units belong to `rpent/install/`.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
   `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
-  `installs/{profiles,deps}/`, the authored runner partition, the
-  compatibility extras and conflicts in the root `pyproject.toml`, and the
+  `installs/{profiles,deps}/`, the authored runner partition, and the
   workflows that consume them. Do not read the real install data from
   `tests/unit_tests/rpent/install/`; the test path would otherwise hide which
   layer owns the failure. `installs/` is not a Python package, so the test
@@ -89,8 +86,7 @@ deliberately omits. CI runs this suite in the `unit-cpu` profile, which installs
 CPU Torch from the PyTorch CPU index:
 
 ```bash
-uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install unit-cpu --venv .venv-unit-cpu
+./scripts/rpent-install.sh install unit-cpu --venv .venv-unit-cpu
 .venv-unit-cpu/bin/python -m pytest tests/unit_tests -v
 ```
 
@@ -100,12 +96,12 @@ RoboCasa separates simulator checks, model component checks and the full call ch
 
 | Tests | Coverage | Requirements |
 | --- | --- | --- |
-| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | RoboCasa extra, assets and GPU/EGL; no model weights or planner credentials |
+| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | RoboCasa profile, assets and GPU/EGL; no model weights or planner credentials |
 | `test_components.py` | Environment observations over RPC and RLDX inference | Model checkpoint, assets and GPU/EGL |
 | `test_policy_chain.py` | CLI → tools → RLDX → simulator action → `finish` | Model checkpoint, assets and GPU/EGL; local scripted planner |
 
 To check simulator installation and interfaces independently, install the
-RoboCasa extra and assets, then run:
+RoboCasa profile and assets, then run:
 
 ```bash
 RPENT_RUN_ROBOCASA_INTEGRATION=1 \

@@ -63,7 +63,7 @@ described above. Installable components that are not robots live under
 
 The dependency direction is fixed: ``robots/`` → ``components/`` → ``rpent/``.
 The core discovers components by name and never imports them statically, and
-toolkits and model services do not import each other.
+model services do not import each other.
 
 .. code-block:: text
 
@@ -90,10 +90,11 @@ toolkits and model services do not import each other.
      yam/
    components/
      models/         # Model services, one installable component each
-     toolkits/       # Toolkits with their own evaluation corpus
    installs/
      profiles/       # Supported install targets
      deps/           # Dependency-only component manifests
+   scripts/
+     rpent-install.sh  # Bootstrap the installer from a fresh checkout
 
 Environment Discovery
 ---------------------

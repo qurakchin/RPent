@@ -127,8 +127,7 @@ RPent is built for four kinds of users:
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # Recommended default (LIBERO-PRO):
-uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install libero-pro --venv .venv-libero-pro
+./scripts/rpent-install.sh install libero-pro --venv .venv-libero-pro
 source .venv-libero-pro/bin/activate
 
 # Robots outside this install refactor still install from their compatibility
@@ -138,7 +137,7 @@ uv pip install -e ".[robotwin]"    # RoboTwin
 uv pip install -e ".[franka]"      # Franka and dual Franka
 ```
 
-`libero-pro` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every profile, compatibility extras, and diagnostics.
+`libero-pro` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every profile and diagnostics.
 
 For RoboCasa setup, task memory, and the Target50 protocol, see the
 [RoboCasa guide](https://rpent.readthedocs.io/en/latest/rst_source/simulators/robocasa.html).

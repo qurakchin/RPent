@@ -22,7 +22,7 @@ repos:
       # boundary violation from reaching a pull request.
       - id: check-layout
         name: check the repository layout
-        entry: uv run --no-project --python 3.11 --with packaging -- python -m rpent.cli.install check-layout
+        entry: ./scripts/rpent-install.sh check-layout
         language: system
         pass_filenames: false
         always_run: true

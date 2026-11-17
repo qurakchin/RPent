@@ -43,7 +43,7 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
      --local_dir ./checkpoints/sam3
    export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
 
-未设置该变量或 ``--sam3-endpoint`` 时，分割功能不可用；仅安装 extra 不会下载权重。VLA checkpoint 配置见 :ref:`dual-franka-vla`。
+未设置该变量或 ``--sam3-endpoint`` 时，分割功能不可用；仅安装配方不会下载权重。VLA checkpoint 配置见 :ref:`dual-franka-vla`。
 
 标定
 ----

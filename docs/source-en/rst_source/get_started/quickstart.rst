@@ -22,8 +22,7 @@ Create the LIBERO-PRO environment and activate it:
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m rpent.cli.install install libero-pro --venv .venv-libero-pro
+   ./scripts/rpent-install.sh install libero-pro --venv .venv-libero-pro
    source .venv-libero-pro/bin/activate
 
 The profile pins Python, the RLinf revision, Pi0.5, SAM 3.0, and the LIBERO
