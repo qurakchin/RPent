@@ -32,7 +32,7 @@ from robots.robotwin.prompt_bundle import system_prompt, user_prompt
 from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
+from rpent.models.backends import (
     WAM_BACKENDS,
     add_am_args,
     select_am,

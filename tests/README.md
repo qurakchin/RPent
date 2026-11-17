@@ -19,19 +19,23 @@ tests/
 │   ├── robocasa/
 │   └── robotwin/
 └── unit_tests/
-    ├── rpent/             # tests for the core rpent package
+    ├── rpent/             # tests for the core package
     │   ├── cli/
     │   ├── dashboard/
+    │   ├── install/       # manifests, resolution, locks, layout, CI scope
     │   ├── memory/
     │   ├── planner/
     │   ├── robots/
     │   ├── session/
     │   ├── tools/
     │   └── utils/
-    └── robots/           # tests for the top-level robot extensions
-        ├── libero/
-        ├── robocasa/
-        └── robotwin/
+    ├── robots/<name>/     # tests for one robot slice
+    │   ├── libero/
+    │   ├── robocasa/
+    │   └── robotwin/
+    └── components/
+        ├── models/        # model services
+        └── toolkits/      # toolkits and their contracts
 ```
 
 Directories that do not yet have tests do not need empty placeholders. Add
@@ -41,11 +45,12 @@ them when the first test for that module lands.
 
 - Mirror core modules under `tests/unit_tests/rpent/`. For example, tests for
   `rpent.utils.rpc` belong in `tests/unit_tests/rpent/utils/rpc/`.
-- Mirror top-level robot extensions under `tests/unit_tests/robots/`. Put
-  robot-specific coverage in that directory's `<robot>/` child.
+- Mirror robot slices under `tests/unit_tests/robots/<name>/`, model services
+  under `tests/unit_tests/components/models/`, and toolkits under
+  `tests/unit_tests/components/toolkits/`.
 - Place cross-layer tests with the primary contract owner. Registry and config
-  contracts belong to `rpent/robots/`; extension toolkit and schema contracts
-  belong to `robots/`.
+  contracts belong to `rpent/robots/`; slice toolkit and schema contracts
+  belong to `robots/`; install and layout checks belong to `rpent/install/`.
 - Keep one-off fakes in the test module that uses them. Put shared fixtures in
   the nearest `conftest.py`: use `tests/conftest.py` only for suite-wide
   fixtures and a module directory's `conftest.py` for local fixtures.
@@ -65,6 +70,16 @@ Run the complete suite with:
 
 ```bash
 pytest tests/unit_tests -v
+```
+
+The tests that import model servers need Torch, which the `dev` profile
+deliberately omits. CI runs this suite in the `unit-cpu` profile, which installs
+CPU Torch from the PyTorch CPU index:
+
+```bash
+uv run --no-project --python 3.11 --with packaging -- \
+  python -m rpent.cli.install install unit-cpu --venv .venv-unit-cpu
+.venv-unit-cpu/bin/python -m pytest tests/unit_tests -v
 ```
 
 ## RoboCasa environment smoke tests

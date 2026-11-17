@@ -40,7 +40,7 @@ from robots.robocasa.prompt_bundle import (
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
+from rpent.models.backends import (
     add_am_args,
     select_am,
 )

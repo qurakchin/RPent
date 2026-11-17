@@ -37,25 +37,25 @@ planner、robot 或 tool 集成，都能帮助项目持续发展。
 ### 第 2 步：搭建开发环境
 
 ```bash
-# 创建并启用隔离环境。
-uv venv --python 3.11
-source .venv/bin/activate
+# 创建并启用开发环境。
+uv run --no-project --python 3.11 --with packaging -- \
+  python -m rpent.cli.install install dev --venv .venv-dev
+source .venv-dev/bin/activate
 
-# 安装源码检出和轻量测试依赖。
-uv pip install -e ".[test]"
-
-# 开发 robot 时，改为选择对应的测试环境。
-uv pip install -e ".[test,libero-pro]"  # LIBERO
-uv pip install -e ".[test,robocasa]"    # RoboCasa
-uv pip install -e ".[test,robotwin]"    # RoboTwin
+# 开发 robot 时，在该配方自己的虚拟环境中加装测试依赖。
+# 不同配方的依赖锁定不同，不能共用同一个虚拟环境。
+rpent-install install libero-pro --venv .venv-libero-pro --dev      # LIBERO
+rpent-install install robocasa-sim --venv .venv-robocasa-sim --dev  # RoboCasa
+rpent-install install robotwin-sim --venv .venv-robotwin-sim --dev  # RoboTwin
 
 # 安装并启用仓库 hooks。
 uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-以上命令是不同选择；只安装当前改动涉及的 robot extra。各环境的具体配置见
-[安装指南](docs/source-zh/rst_source/get_started/quickstart.rst)。
+以上 robot 命令是不同选择；只安装当前改动涉及的配方，未从 `dev` 配方开始时加
+`--dev`。各环境的具体配置见
+[安装指南](docs/source-zh/rst_source/get_started/installation.rst)。
 
 ### 第 3 步：开发
 
@@ -63,7 +63,7 @@ pre-commit install
 
 - **保持改动聚焦。** 新功能、无关重构和全仓库清理通常应该拆成不同的 Pull
   Request。
-- **按模块职责放置代码。** 优先复用现有实现。具体机器人或仿真环境的接入代码放在对应的 `robots/<name>/` 目录中；通用能力放在职责相符的公共模块中。
+- **按模块职责放置代码。** 优先复用现有实现。具体机器人或仿真环境的接入代码放在对应的 `robots/<name>/` 目录中，模型服务放在 `components/models/<name>/`，工具包放在 `components/toolkits/<name>/`；通用能力放在职责相符的公共模块中。安装配方、纯依赖组件和依赖锁放在 `installs/`。
 - **修改共享模块、类和方法时检查职责与影响。** 确认改动符合原有职责，优先使用合适的现有扩展点，避免将环境专用逻辑或上层依赖放入底层公共组件。检查受影响的调用方、子类和后端，包括不使用新功能的实现；即使接口签名不变，也要核对行为、状态和生命周期是否改变。是否修改公共层应根据共享需求判断，不能只看功能大小。
 - **可选依赖只在使用处导入。** 例如，只在实际使用 RoboCasa 的代码中导入
   `robosuite`，不要在模块加载时导入。这样即使没有安装所有模拟器，

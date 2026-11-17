@@ -320,7 +320,6 @@ class RoboTwinToolkit(Toolkit):
         return self._primitives.status().get("eval_success") is True
 
     def _step(self, name: str, **kwargs) -> ToolResult:
-
         self.raise_if_cancelled()
         return getattr(self._primitives, name)(**kwargs)
 

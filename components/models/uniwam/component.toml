@@ -1,0 +1,14 @@
+schema = 1
+name = "uniwam"
+kind = "model"
+probe = "components.models.uniwam.server"
+python = ">=3.10,<3.13"
+platforms = ["linux-x86_64"]
+placement = ["external-env", "remote"]
+default_placement = "external-env"
+docs = "docs/source-en/rst_source/simulators/robotwin.rst"
+
+# The official UniWAM policy, its checkpoints and the RoboTwin deployment tree
+# are supplied by the operator; the RPent worker only rebuilds per-request
+# history and runs the policy in the model environment.
+dependencies = []
