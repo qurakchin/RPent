@@ -98,7 +98,36 @@ pytest tests/unit_tests/rpent/cli/test_main_contracts.py -k xxx -x
 - 遵循[文档风格指南](docs/STYLE_GUIDE.md)；
 - 中英文文档都覆盖该功能时，保持 `docs/source-en/` 和 `docs/source-zh/` 一致；
 - 公共 API 发生变化时，更新 docstring 和示例；
-- 安装、快速开始或对外展示的功能发生变化时，更新 README。
+- 安装、快速开始或对外展示的功能发生变化时，更新 README；
+- 设计阶段落地时，更新 [`docs/design/`](docs/design/README.md) 中对应文档的状态行和已实施范围。
+
+### 验证证据
+
+按实际运行的层级描述证据。Pull Request 模板为每个层级提供一个段落：
+
+| 层级 | 写入内容 |
+| --- | --- |
+| CPU | 离线单元测试、契约测试、schema 测试、prompt 快照和 lint 检查。 |
+| 仿真 | 真实仿真器上的冒烟、组件或策略链路运行。写明目标、任务／seed 和输出目录。 |
+| 真机 | 硬件或操作员控制的诊断。写明机器人、配置以及这次运行证明了什么。 |
+
+每个层级都遵守以下规则：
+
+- 给出命令或产物路径以及观察到的结果，不要只写「测试通过」；
+- 某个层级不适用或没有运行时，写「未运行」和原因；
+- 不要把一次运行外推成成功率或「支持」某个配置；
+- 论文或第三方结果标为「外部结果」，它们不是本仓库记录下来的验证；
+- 区分「执行动作并记录 `finish` 的集成链路」与「原生任务成功」；
+- 行为保持不变的重构，应比较受影响的 schema、prompt、反馈和默认值，而不是用测试通过代替等价性证据；
+- 共享工具或感知改动，附同一冻结语料上的前后对比，并写明语料版本；
+- 依赖或安装改动，写明平台、Python 版本、依赖组和安装结果；
+- 明确写出局限：这次验证没有证明什么。
+
+[PR 模板](.github/PULL_REQUEST_TEMPLATE.md)是描述格式的权威来源。缺少
+`Limitations` 段落即视为证据不完整，即使所有检查都通过。
+
+文档中新增或更新验证结论时，使用[文档风格指南](docs/STYLE_GUIDE.md#validation-status)
+中的状态词。
 
 ### 第 5 步：提交并创建 Pull Request
 
@@ -133,17 +162,13 @@ docs(robotwin): clarify runtime setup
 
 Pull Request 标题使用相同格式。scope 保持小写，description 应简短且具体。
 
-将分支推送到自己的 fork，然后向 `RLinf/RPent:main` 创建 Pull Request。建议在
-Pull Request 描述中包含：
-
-- 问题及为什么需要该改动；
-- 实现方案的简要总结；
-- 存在相关 issue 时添加链接（`Fixes #123` 或 `Refs #123`）；
-- 兼容性变化、迁移方式、新依赖和运行时影响；
-- 实际运行的自动化检查；
-- 手动完成的 GPU、模拟器、服务或真实机器人验证。
+将分支推送到自己的 fork，然后向 `RLinf/RPent:main` 创建 Pull Request。请填写
+[Pull Request 模板](.github/PULL_REQUEST_TEMPLATE.md)的每个段落：问题、改动、契约与
+迁移、分层验证和局限。存在相关 issue 时添加链接（`Fixes #123` 或 `Refs #123`）。
 
 标记为可供 review 前，请先自行检查完整 diff。
+
+维护者准备正式发布时，按[发布清单](docs/releasing.md)执行。
 
 ## 2. 项目红线
 

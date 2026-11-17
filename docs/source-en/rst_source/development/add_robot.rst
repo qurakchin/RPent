@@ -530,7 +530,8 @@ recorded in the transcript, ``states.json`` contains the action without
 errors, expected observation artifacts exist, and owned daemons have exited.
 Task success is not required for this bounded integration check.
 
-Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``. After
-installing the robot extra and preparing its GPU/checkpoint/assets resources,
-run ``pytest tests/e2e_tests/myrobot -v``. See ``tests/README.md`` and
+Run ``pytest -v`` against the new package's offline tests (for example,
+``tests/unit_tests/robots/myrobot``). After installing the robot extra and
+preparing its GPU/checkpoint/assets resources, run ``pytest -v`` against
+``tests/e2e_tests/myrobot``. See ``tests/README.md`` and
 ``tests/e2e_tests/run_gpu_suite.sh`` for running GPU suites in clean environments.

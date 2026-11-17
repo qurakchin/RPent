@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="860" viewBox="0 0 1500 860" font-family="PingFang SC, Microsoft YaHei, Noto Sans CJK SC, Helvetica, Arial, sans-serif">
+<rect width="1500" height="860" fill="#fff"/>
+<text x="750.0" y="42" text-anchor="middle" font-size="25" font-weight="700" fill="#111827">单个机器人切片：改造前后的构成</text>
+<text x="750.0" y="68" text-anchor="middle" font-size="13" fill="#6b7280">以 RoboTwin 为例，约 4.0k 行 → 目标 ≤1.0k 行。柱高按行数等比，右侧标注每块的去向</text>
+<rect x="90" y="86" width="14" height="14" rx="3" fill="#eef4fb" stroke="#1f5fa8" stroke-width="1.6"/>
+<text x="112" y="98" font-size="12.5" fill="#374151">保留在切片 / 核心</text>
+<rect x="320" y="86" width="14" height="14" rx="3" fill="#fff3e8" stroke="#c2410c" stroke-width="1.6"/>
+<text x="342" y="98" font-size="12.5" fill="#374151">新增或重写</text>
+<rect x="550" y="86" width="14" height="14" rx="3" fill="#eefaf1" stroke="#15803d" stroke-width="1.6"/>
+<text x="572" y="98" font-size="12.5" fill="#374151">上移到核心</text>
+<rect x="780" y="86" width="14" height="14" rx="3" fill="#f6f7f9" stroke="#6b7280" stroke-width="1.6"/>
+<text x="802" y="98" font-size="12.5" fill="#374151">删除</text>
+<text x="90" y="128" font-size="15" font-weight="700" fill="#b91c1c">改造前 · ≈4.0k 行 / 18 个文件</text>
+<rect x="90" y="140" width="330" height="113.63" rx="4" fill="#eef4fb" stroke="#1f5fa8" stroke-width="1.1"/>
+<text x="100" y="201.815" font-size="11.5" fill="#111827">robot_spec.py</text>
+<text x="410" y="201.815" text-anchor="end" font-size="11" font-weight="700" fill="#1f5fa8">746</text>
+<rect x="90" y="255.63" width="330" height="79.84" rx="4" fill="#fff3e8" stroke="#c2410c" stroke-width="1.1"/>
+<text x="100" y="300.55" font-size="11.5" fill="#111827">primitives.py</text>
+<text x="410" y="300.55" text-anchor="end" font-size="11" font-weight="700" fill="#c2410c">528</text>
+<rect x="90" y="337.47" width="330" height="64.185" rx="4" fill="#fff3e8" stroke="#c2410c" stroke-width="1.1"/>
+<text x="100" y="374.5625" font-size="11.5" fill="#111827">tools.py</text>
+<text x="410" y="374.5625" text-anchor="end" font-size="11" font-weight="700" fill="#c2410c">427</text>
+<rect x="90" y="403.65500000000003" width="330" height="60.0" rx="4" fill="#f6f7f9" stroke="#6b7280" stroke-width="1.1"/>
+<text x="100" y="438.65500000000003" font-size="11.5" fill="#111827">rlinf_env.py</text>
+<text x="410" y="438.65500000000003" text-anchor="end" font-size="11" font-weight="700" fill="#6b7280">400</text>
+<rect x="90" y="465.65500000000003" width="330" height="59.69" rx="4" fill="#f6f7f9" stroke="#6b7280" stroke-width="1.1"/>
+<text x="100" y="500.5" font-size="11.5" fill="#111827">env_server.py</text>
+<text x="410" y="500.5" text-anchor="end" font-size="11" font-weight="700" fill="#6b7280">398</text>
+<rect x="90" y="527.345" width="330" height="53.49" rx="4" fill="#f6f7f9" stroke="#6b7280" stroke-width="1.1"/>
+<text x="100" y="559.09" font-size="11.5" fill="#111827">toolkit.py</text>
+<text x="410" y="559.09" text-anchor="end" font-size="11" font-weight="700" fill="#6b7280">358</text>
+<rect x="90" y="582.835" width="330" height="49.15" rx="4" fill="#fff3e8" stroke="#c2410c" stroke-width="1.1"/>
+<text x="100" y="612.4100000000001" font-size="11.5" fill="#111827">prompts/</text>
+<text x="410" y="612.4100000000001" text-anchor="end" font-size="11" font-weight="700" fill="#c2410c">385</text>
+<rect x="90" y="633.985" width="330" height="32.565" rx="4" fill="#f6f7f9" stroke="#6b7280" stroke-width="1.1"/>
+<text x="100" y="655.2675" font-size="11.5" fill="#111827">env_client.py</text>
+<text x="410" y="655.2675" text-anchor="end" font-size="11" font-weight="700" fill="#6b7280">223</text>
+<rect x="90" y="668.55" width="330" height="48.065" rx="4" fill="#eefaf1" stroke="#15803d" stroke-width="1.1"/>
+<text x="100" y="697.5825" font-size="11.5" fill="#111827">vla_client/server/wam</text>
+<text x="410" y="697.5825" text-anchor="end" font-size="11" font-weight="700" fill="#15803d">323</text>
+<text x="1010" y="128" font-size="15" font-weight="700" fill="#15803d">改造后 · ≤1.0k 行 / 5 个文件</text>
+<rect x="1010" y="140" width="400" height="206.79999999999998" rx="4" fill="#eef4fb" stroke="#1f5fa8" stroke-width="1.1"/>
+<text x="1020" y="249.39999999999998" font-size="12" fill="#111827">adapter（原生翻译）</text>
+<text x="1400" y="249.39999999999998" text-anchor="end" font-size="11.5" font-weight="700" fill="#1f5fa8">400</text>
+<rect x="1010" y="350.79999999999995" width="400" height="127.75" rx="4" fill="#fff3e8" stroke="#c2410c" stroke-width="1.1"/>
+<text x="1020" y="420.67499999999995" font-size="12" fill="#111827">PolicySkill binding</text>
+<text x="1400" y="420.67499999999995" text-anchor="end" font-size="11.5" font-weight="700" fill="#c2410c">250</text>
+<rect x="1010" y="482.54999999999995" width="400" height="59.24" rx="4" fill="#fff3e8" stroke="#c2410c" stroke-width="1.1"/>
+<text x="1020" y="518.17" font-size="12" fill="#111827">配置 + 能力声明</text>
+<text x="1400" y="518.17" text-anchor="end" font-size="11.5" font-weight="700" fill="#c2410c">120</text>
+<rect x="1010" y="545.79" width="400" height="75.05" rx="4" fill="#fff3e8" stroke="#c2410c" stroke-width="1.1"/>
+<text x="1020" y="589.3149999999999" font-size="12" fill="#111827">领域 prompt（两种调用模式共用）</text>
+<text x="1400" y="589.3149999999999" text-anchor="end" font-size="11.5" font-weight="700" fill="#c2410c">150</text>
+<rect x="1010" y="624.8399999999999" width="400" height="38.16" rx="4" fill="#fff3e8" stroke="#c2410c" stroke-width="1.1"/>
+<text x="1020" y="649.92" font-size="12" fill="#111827">原生特有工具</text>
+<text x="1400" y="649.92" text-anchor="end" font-size="11.5" font-weight="700" fill="#c2410c">80</text>
+<line x1="446" y1="197.815" x2="984" y2="197.815" stroke="#1f5fa8" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="715.0" y="192.815" text-anchor="middle" font-size="11.5" fill="#1f5fa8">→ 声明式 ComponentStarter + config 模型</text>
+<line x1="446" y1="296.55" x2="984" y2="296.55" stroke="#c2410c" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="715.0" y="291.55" text-anchor="middle" font-size="11.5" fill="#c2410c">→ 拆成 PolicySkill binding</text>
+<line x1="446" y1="370.5625" x2="984" y2="370.5625" stroke="#c2410c" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="715.0" y="365.5625" text-anchor="middle" font-size="11.5" fill="#c2410c">→ 并入 Motion / Scene / Memory 族</text>
+<line x1="446" y1="434.65500000000003" x2="984" y2="434.65500000000003" stroke="#6b7280" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="715.0" y="429.65500000000003" text-anchor="middle" font-size="11.5" fill="#6b7280">× 删除（并入 adapter）</text>
+<line x1="446" y1="496.5" x2="984" y2="496.5" stroke="#6b7280" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="715.0" y="491.5" text-anchor="middle" font-size="11.5" fill="#6b7280">× 删除（并入 adapter）</text>
+<line x1="446" y1="555.09" x2="984" y2="555.09" stroke="#6b7280" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="715.0" y="550.09" text-anchor="middle" font-size="11.5" fill="#6b7280">× 删除（注册/守卫上移）</text>
+<line x1="446" y1="608.4100000000001" x2="984" y2="608.4100000000001" stroke="#c2410c" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="715.0" y="603.4100000000001" text-anchor="middle" font-size="11.5" fill="#c2410c">→ 片段库 + 工具族贡献，只留领域约定</text>
+<line x1="446" y1="651.2674999999999" x2="984" y2="651.2674999999999" stroke="#6b7280" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="715.0" y="646.2674999999999" text-anchor="middle" font-size="11.5" fill="#6b7280">× 删除（协议契约负责）</text>
+<line x1="446" y1="693.5825" x2="984" y2="693.5825" stroke="#15803d" stroke-width="1" stroke-dasharray="3 4"/>
+<text x="715.0" y="688.5825" text-anchor="middle" font-size="11.5" fill="#15803d">→ 并入 binding，保留平台传输</text>
+<rect x="60" y="748" width="1380" height="86" rx="8" fill="#f9fafb" stroke="#d1d5db"/>
+<text x="82" y="776" font-size="12.5" fill="#374151">其余 6 个切片同样收敛：接入部分 ≤1.2k 行；Flash、记忆策略、benchmark 评测、真机运营与安全属于差异化功能，单列且不设压缩目标。</text>
+<text x="82" y="800" font-size="12.5" fill="#374151">整仓估算（基线 01e9cb3，不含 #340）：robots/ 35.7k → 约 17k 行；rpent/ 18.1k → 约 21.8k 行；切片文件 125 → 约 70。核心新增几乎全是契约、工具族、结果与产物。</text>
+<text x="82" y="824" font-size="11.5" fill="#9ca3af">行数为设计阶段估算，实施后按 a_global 的口径重新统计：只算 .py，不含测试与 __init__。</text>
+</svg>

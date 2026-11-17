@@ -425,3 +425,25 @@ RoboDojo 场景还会引用 NVIDIA 提供的三维模型、材质和贴图。这
 这会将 RoboDojo 匹配的 5.0 在线资源地址改为本地路径。它并不代表所有 Isaac Sim 资源均可离线使用；\
 若仍有其他在线资源加载失败（例如 ``Assets/Isaac/5.1`` 路径），需另外准备对应版本的资产并配置本地加载，\
 见 `NVIDIA 本地资产说明 <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/install_faq.html#isaac-sim-setup-assets-content-pack>`_。
+
+验证状态
+--------
+
+.. list-table::
+   :header-rows: 1
+
+   * - 层级
+     - 状态
+     - 证据
+   * - 离线检查
+     - 仅 CPU
+     - ``pytest tests/unit_tests/robots/robodojo`` 在 ``unittest`` workflow 中运行。
+   * - 仿真集成
+     - 未验证
+     - 仓库提供了 opt-in 检查，但没有记录运行结果。运行 ``RPENT_RUN_ROBODOJO_INTEGRATION=1 pytest tests/e2e_tests/robodojo/test_environment_smoke.py`` 可验证仿真路径。
+   * - Benchmark 成功率
+     - 未验证
+     - 尚未发布多 seed 的 RoboDojo 成绩。
+   * - 真机
+     - 不适用
+     - 仅仿真集成。
