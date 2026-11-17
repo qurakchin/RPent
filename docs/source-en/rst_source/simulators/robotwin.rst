@@ -80,35 +80,26 @@ Installation
 
 RoboTwin requires Python 3.11. The host must already provide a compatible
 CUDA toolkit/NVCC, a compiler toolchain, and the system GL/EGL/Vulkan
-libraries that SAPIEN depends on. Create an environment and install the
-RoboTwin dependency set:
+libraries that SAPIEN depends on. Install the ``robotwin-sim`` profile as
+described in :doc:`../get_started/installation`. You do not need to run the
+RLinf installer or clone RoboTwin separately.
+
+For networks closer to Chinese mirrors, set uv's index environment variables
+before running that install command:
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   uv venv --python 3.11 .venv-robotwin
-   source .venv-robotwin/bin/activate
-   uv pip install -e ".[robotwin]"
-
-You do not need to run the RLinf installer or clone RoboTwin separately.
-
-For networks closer to Chinese mirrors:
-
-.. code-block:: bash
-
-   uv pip install -e ".[robotwin]" \
-      --default-index https://mirrors.aliyun.com/pypi/simple \
-      --index https://pypi.tuna.tsinghua.edu.cn/simple
+   export UV_DEFAULT_INDEX=https://mirrors.aliyun.com/pypi/simple
+   export UV_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
 
 .. note::
 
-   ``.[robotwin]`` uses SAPIEN 3.0.0b1. Other versions can change simulator
+   The ``robotwin-sim`` profile uses SAPIEN 3.0.0b1. Other versions can change simulator
    observations and reduce model performance.
 
 .. note::
 
-   The RoboTwin and LingBot runtimes in ``.[robotwin]`` are installed from
+   The RoboTwin and LingBot runtimes in the ``robotwin-sim`` profile are installed from
    released PyPI packages. cuRobo is still built from a GitHub official tag,
    so the installation needs access to GitHub even when a PyPI mirror is
    configured.

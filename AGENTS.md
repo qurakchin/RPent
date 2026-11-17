@@ -7,15 +7,29 @@ with documentation instead of assuming either is correct.
 
 ## Repository map
 
+- `rpent/`: core contracts, scheduling, and model bases. `rpent/env/` and
+  `rpent/models/` hold the environment and model-side contracts, clients,
+  facades, backends, and platform helpers that every slice uses.
 - `rpent/planner/`, `rpent/session/`, and `rpent/prompt/`: planner adapters,
   execution sessions, and shared prompt construction.
 - `rpent/tools/` and `rpent/memory/`: tool execution, observations, and memory.
-- `rpent/robots/`: robot discovery, descriptors, shared runtime, and Env/VLA
-  components. `robots/<robot>/` owns each concrete integration.
+- `rpent/robots/`: robot discovery, descriptors, and shared runtime.
 - `rpent/cli/`, `rpent/dashboard/`, and `rpent/evaluation/`: entry points,
   interactive execution, and run results.
+- `rpent/install/`: component manifests, resolution, locks, fingerprints, and
+  the repository checks exposed through `rpent-install`.
+- `robots/<name>/`: each robot or simulator slice, owning native translation
+  and its differentiated features.
+- `components/models/<name>/` and `components/toolkits/<name>/`: installable
+  model services and toolkits.
+- `installs/profiles/`, `installs/deps/`, and `installs/locks/`: supported
+  install recipes, dependency-only manifests, and one lock per profile.
 - `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
+
+The dependency direction is `robots/` → `components/` → `rpent/`: the core
+discovers components by name and never imports them statically, and toolkits
+and model services do not import each other.
 
 ## Development principles
 
