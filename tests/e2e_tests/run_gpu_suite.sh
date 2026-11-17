@@ -248,9 +248,8 @@ run_in_clean_env() {
   local suite_output=$4
   local venv_dir="$venv_root/$name"
 
-  # Install from the profile's lock and add only the test runner. `--dev`
-  # resolves generated requirements instead of the lock, and reproducing a
-  # clean machine from the lock is what this suite exists to prove.
+  # Install the runtime profile on a clean environment, then add only the
+  # test runner needed by this suite.
   #
   # Torch and torchvision version compatibility come from the profile's
   # component manifests and their transitive package metadata. The CUDA wheel

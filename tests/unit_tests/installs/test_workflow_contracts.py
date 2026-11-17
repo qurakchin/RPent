@@ -112,7 +112,7 @@ def test_fast_ci_checks_the_package_for_packaging_changes():
 
     # ``setup.py`` chooses the packages in the wheel and sdist, so it changes
     # what the package job has to verify.
-    assert '{"pyproject.toml", "uv.lock", "setup.py", "MANIFEST.in"}' in script
+    assert '{"pyproject.toml", "setup.py", "MANIFEST.in"}' in script
 
 
 def test_full_ci_does_not_run_on_tags():
@@ -125,10 +125,9 @@ def test_full_ci_does_not_run_on_tags():
     assert set(triggers) == {"schedule", "workflow_dispatch", "workflow_call"}
 
 
-def test_full_ci_lock_check_gates_a_release():
+def test_full_ci_covers_all_profiles_for_a_release():
     workflow = _workflow("full-ci.yml")
 
-    assert workflow["jobs"]["locks"]["if"] == "inputs.full == true"
     assert workflow["jobs"]["unit"]["with"]["profile"] == "unit-cpu"
     called = _step(workflow, "scope", "Select the profiles and suites")["run"]
     assert '"$EVENT" == "workflow_call" && "$CALLED_FULL" != "true"' in called
@@ -181,8 +180,12 @@ def test_unit_workflow_defaults_to_the_cpu_profile():
     # ``dev`` deliberately has no Torch; the CPU profile supplies it so the
     # full unit suite can import model servers.
     assert inputs["profile"]["default"] == "unit-cpu"
-    cache_key = _step(workflow, "unit", "Restore the prebuilt environment")["with"][
-        "key"
-    ]
-    assert "inputs.profile" in cache_key
+    install = _step(workflow, "unit", "Install the test environment from the profile")
+    assert "if" not in install
+    assert 'install "${{ inputs.profile }}" --venv .venv' in install["run"]
+    minimal = _step(
+        workflow, "minimal-imports", "Install the minimal environment from the profile"
+    )
+    assert "if" not in minimal
+    assert "install minimal --venv .venv-minimal" in minimal["run"]
     assert _step(workflow, "unit", "Report skipped tests")["if"] == "always()"

@@ -75,7 +75,7 @@ PR_PILOT_PROFILES = ("geometry-eval", "minimal")
 #: no other path rule matches them.
 PR_ALL_PROFILE_PREFIXES = ("rpent/install/", "installs/", ".github/")
 #: The repository's install data: the profiles, dependency-only manifests,
-#: locks and packaging settings that decide what each environment contains.
+#: and packaging settings that decide what each environment contains.
 INSTALL_DATA_PREFIXES = ("installs/",)
 INSTALL_DATA_ROOT_FILES = ("pyproject.toml",)
 #: Repository contract tests read that data. Installer unit tests live under
@@ -152,9 +152,9 @@ def _profiles_requiring(name: str, catalog: Catalog) -> list[str] | None:
 def _profiles_for_install_data(paths: list[str], catalog: Catalog) -> tuple[str, ...]:
     """Return the profiles whose installation reads ``paths``, or all of them.
 
-    A profile names itself, a lock names the profile that declares it, and a
-    deps manifest names the profiles whose closure installs it. Packaging
-    settings feed every profile, and an unrecognised file widens the answer
+    A profile names itself, and a deps manifest names the profiles whose
+    closure installs it. Packaging settings feed every profile, and an
+    unrecognised file widens the answer
     rather than guessing which environments it reaches.
     """
     every = tuple(sorted(catalog.profiles))
@@ -174,15 +174,6 @@ def _profiles_for_install_data(paths: list[str], catalog: Catalog) -> tuple[str,
             if name not in catalog.profiles:
                 return every
             selected.add(name)
-        elif area == "locks" and suffix == ".lock" and len(parts) == 3:
-            declared = [
-                name
-                for name, profile in catalog.profiles.items()
-                if profile.lock == path
-            ]
-            if not declared:
-                return every
-            selected.update(declared)
         elif area == "deps" and suffix == ".toml" and len(parts) == 3:
             required = _profiles_requiring(stem[: -len(suffix)], catalog)
             if required is None:
@@ -219,7 +210,7 @@ def affected_components(paths: list[str], catalog: Catalog) -> set[str] | None:
     """Return the components ``paths`` touch, or ``None`` when all can change.
 
     ``None`` means the change is not confined to a known component: the core,
-    the installer, a profile, a lock, or an unowned path.
+    the installer, a profile, or an unowned path.
     """
     names: set[str] = set()
     for path in paths:

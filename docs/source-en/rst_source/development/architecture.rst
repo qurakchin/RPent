@@ -59,7 +59,7 @@ Repository Layout
 Shared execution, contracts, and model bases live under ``rpent/``. Each
 package under ``robots/`` supplies the environment-specific implementation
 described above. Installable components that are not robots live under
-``components/``, and the install recipes and locks live under ``installs/``.
+``components/``, and the install recipes live under ``installs/``.
 
 The dependency direction is fixed: ``robots/`` → ``components/`` → ``rpent/``.
 The core discovers components by name and never imports them statically, and
@@ -79,7 +79,7 @@ toolkits and model services do not import each other.
      tools/          # Toolkit and shared tool behavior
      memory/         # Memory permissions, merge, and indexing
      evaluation/     # Evaluation result support
-     install/        # Manifests, resolution, locks, fingerprints, checks
+     install/        # Manifests, resolution, fingerprints, checks
    robots/<name>/    # Slice: native translation and differentiated features
      libero/
      robocasa/
@@ -94,7 +94,6 @@ toolkits and model services do not import each other.
    installs/
      profiles/       # Supported install targets
      deps/           # Dependency-only component manifests
-     locks/          # One lock per profile
 
 Environment Discovery
 ---------------------

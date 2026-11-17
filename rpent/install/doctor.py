@@ -176,9 +176,6 @@ def check_installation(
         root=repo_root,
         core_dependencies=core,
         include_dev=include_dev,
-        # An installation that did not read the lock does not depend on it, so
-        # recompiling the lock must not make a `--dev` or diagnostic venv stale.
-        reproducible=bool(fingerprint.get("reproducible", False)),
     )
     recorded_schema = fingerprint.get("schema")
     if recorded_schema != REQUIREMENTS_SCHEMA:
@@ -199,7 +196,7 @@ def check_installation(
             Check(
                 FAIL,
                 "environment is out of date with its recorded inputs (manifests, "
-                f"lock, overrides, or [tool.uv]); rerun "
+                f"overrides, or [tool.uv]); rerun "
                 f"`rpent-install install {name} --venv {venv}`",
             )
         )

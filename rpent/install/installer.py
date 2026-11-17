@@ -37,7 +37,6 @@ from rpent.install.fingerprint import (
     source_state,
     write_fingerprint,
 )
-from rpent.install.lock_coverage import lock_problems
 from rpent.install.manifest import Component, Profile, Selection
 from rpent.install.requirements import (
     REQUIREMENTS_SCHEMA,
@@ -261,7 +260,6 @@ def component_profile(
         index_url=None,
         extra_index_urls=(),
         index_strategy=None,
-        lock=None,
         core=True,
         generate_extra=False,
         extra=None,
@@ -346,15 +344,6 @@ def install(
             "external_environments": sorted(external),
         }
 
-    # A lock is only a guarantee while it still covers the manifests. Check
-    # before touching the virtualenv so a stale lock fails fast with the
-    # command that regenerates it. `--dev` appends packages the lock does not
-    # contain, so it installs from the generated requirements instead.
-    if not include_dev:
-        problems = lock_problems(profile, resolution, repo_root, core_dependencies=core)
-        if problems:
-            raise InstallError("\n".join(problems))
-
     existing = read_fingerprint(destination)
     if existing is not None:
         existing_kind = existing.get("install_kind", "profile")
@@ -396,19 +385,12 @@ def install(
             f"rerun `rpent-install install {target}`"
         )
 
-    # Install the profile's lock when it exists so a checkout with a lock gets
-    # the same versions everywhere. A lock covers only the profile closure, so
-    # `--dev` (which appends the dev profile's packages) resolves from the
-    # generated requirements instead.
-    lock = repo_root / profile.lock if profile.lock else None
-    using_lock = lock is not None and lock.is_file() and not include_dev
-    install_from = lock if using_lock else requirements_path
     install_command = [uv, "pip", "install", "--python", str(python)]
     install_command.extend(index_options(profile))
     for resolved in resolution.main_installed().values():
         for override in resolved.component.overrides:
             install_command.extend(["--override", str(override)])
-    install_command.extend(["-r", str(install_from)])
+    install_command.extend(["-r", str(requirements_path)])
     if verbose:
         print(f"$ {' '.join(install_command)}")
     # uv discovers ``[tool.uv]`` by walking up from its working directory, so
@@ -445,9 +427,6 @@ def install(
         # instead so `doctor` can rebuild the same synthetic profile.
         "profile": profile.name if install_kind == "profile" else None,
         "component": profile.name if install_kind == "component" else None,
-        # Only a lock pins the transitive closure; `--dev` and component
-        # diagnostics install resolved versions that a later run may change.
-        "reproducible": using_lock,
         "python": _python_version(python),
         "platform": runtime_platform(),
         "source_commit": commit,
@@ -475,7 +454,6 @@ def install(
             root=repo_root,
             core_dependencies=core,
             include_dev=include_dev,
-            reproducible=using_lock,
         ),
         "include_dev": include_dev,
         "freeze_sha256": freeze_sha256(frozen),
@@ -484,7 +462,6 @@ def install(
             environment: str(path.relative_to(repo_root))
             for environment, path in external_requirements.items()
         },
-        "lock": str(lock.relative_to(repo_root)) if using_lock else None,
         "installed_at": datetime.now(timezone.utc)
         .replace(microsecond=0)
         .isoformat()

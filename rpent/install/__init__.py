@@ -17,7 +17,7 @@
 A component is an install boundary: one directory, one ``component.toml``, one
 import probe, and its direct dependencies. A profile in ``installs/profiles/<name>.toml``
 composes components into one supported environment. Installed environments
-carry ``rpent-install.json`` with the profile, component manifests, lock, and
+carry ``rpent-install.json`` with the profile, component manifests, and package
 freeze hashes used by ``rpent-install doctor`` and run artifacts.
 """
 

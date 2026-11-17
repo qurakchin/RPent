@@ -47,7 +47,7 @@ INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
 _PYTHON_MINOR = re.compile(r"^\d+\.\d+$")
 _MANYLINUX = re.compile(r"^\d+_\d+$")
 #: A git dependency must name an immutable ref. Branches move, which makes a
-#: lock compiled yesterday install different code tomorrow.
+#: dependency declaration install different code tomorrow.
 _FULL_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _VERSION_TAG = re.compile(r"^v?\d+(?:\.\d+)*(?:[-+][0-9A-Za-z.-]+)?$")
 
@@ -129,7 +129,7 @@ def _check_git_dependency(requirement: str, path: Path) -> None:
         return
     raise InstallConfigError(
         f"{path}: dependency {requirement!r} pins git ref {ref!r}; use a "
-        "40-character commit or a version tag so the lock cannot change when "
+        "40-character commit or a version tag so the dependency cannot change when "
         "the branch moves"
     )
 
@@ -243,7 +243,6 @@ class Profile:
     index_url: str | None
     extra_index_urls: tuple[str, ...]
     index_strategy: str | None
-    lock: str | None
     core: bool
     generate_extra: bool
     extra: str | None
@@ -252,10 +251,6 @@ class Profile:
     #: A development diagnostic built for one component rather than a profile
     #: declared in ``installs/profiles/``; nothing may present it as one.
     synthetic: bool = False
-
-    def relative_lock(self) -> Path | None:
-        """Return the declared lock path relative to the repository root."""
-        return Path(self.lock) if self.lock else None
 
 
 def load_component(path: Path) -> Component:
@@ -484,7 +479,6 @@ def load_profile(path: Path) -> Profile:
         index_url=index_url,
         extra_index_urls=_string_list(data, "extra-index-urls", path),
         index_strategy=index_strategy,
-        lock=_optional_string(data, "lock", path),
         core=core,
         generate_extra=generate_extra,
         extra=extra,
