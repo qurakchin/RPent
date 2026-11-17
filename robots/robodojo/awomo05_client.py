@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 
 from robots.robodojo.access import ARX_X5_JOINT_FIELDS, CAMERAS
-from rpent.robots.components.am_client_base import BaseVLAClient
+from rpent.models.client import BaseVLAClient
 
 REPLAN_STEPS = 8
 

@@ -1,0 +1,17 @@
+schema = 1
+name = "yam"
+kind = "robot"
+probe = "robots.yam"
+python = ">=3.11,<3.12"
+platforms = ["linux-x86_64"]
+placement = ["in-env"]
+docs = "docs/source-en/rst_source/real_world_robots/yam.rst"
+
+dependencies = [
+  # i2rt 1.1.2 requires click<8.2; huggingface-hub 2.x requires click>=8.4.
+  "huggingface_hub>=0.24,<1",
+  "omegaconf>=2.3,<3",
+  "mujoco>=3.2,<4",
+  "pyrealsense2>=2.55,<3",
+  "imageio-ffmpeg",
+]

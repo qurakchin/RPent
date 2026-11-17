@@ -2,9 +2,9 @@
 
 RPent keeps fast, offline unit tests under `unit_tests`. Real-simulator smoke
 tests, model component and policy-chain tests, and explicit real-robot
-diagnostics belong under `e2e_tests`. Unit tests mirror the production module
-they exercise; GPU tests are grouped by robot stack. Environment smoke tests
-can run without model checkpoints.
+diagnostics belong under `e2e_tests`. Unit tests mirror the production module or
+repository data they exercise; GPU tests are grouped by robot stack.
+Environment smoke tests can run without model checkpoints.
 
 ## Directory layout
 
@@ -15,25 +15,28 @@ tests/
 │   ├── common.py         # shared assertions and runtime lifecycle helpers
 │   ├── run_gpu_suite.sh  # clean-environment entry point for one robot stack
 │   ├── dual_franka/      # opt-in real-robot VLA diagnostic console
-│   ├── efe/
 │   ├── libero/
 │   ├── robocasa/
 │   └── robotwin/
 └── unit_tests/
-    ├── rpent/             # tests for the core rpent package
+    ├── rpent/             # tests for the core package
     │   ├── cli/
     │   ├── dashboard/
+    │   ├── install/       # installer units; synthetic manifests and temp repos
     │   ├── memory/
     │   ├── planner/
     │   ├── robots/
     │   ├── session/
     │   ├── tools/
     │   └── utils/
-    └── robots/           # tests for the top-level robot extensions
-        ├── efe/
-        ├── libero/
-        ├── robocasa/
-        └── robotwin/
+    ├── installs/          # contracts over the real checked-in install data
+    ├── robots/<name>/     # tests for one robot slice
+    │   ├── libero/
+    │   ├── robocasa/
+    │   └── robotwin/
+    └── components/
+        ├── models/        # model services
+        └── toolkits/      # toolkits and their contracts
 ```
 
 Directories that do not yet have tests do not need empty placeholders. Add
@@ -43,11 +46,23 @@ them when the first test for that module lands.
 
 - Mirror core modules under `tests/unit_tests/rpent/`. For example, tests for
   `rpent.utils.rpc` belong in `tests/unit_tests/rpent/utils/rpc/`.
-- Mirror top-level robot extensions under `tests/unit_tests/robots/`. Put
-  robot-specific coverage in that directory's `<robot>/` child.
+- Mirror robot slices under `tests/unit_tests/robots/<name>/`, model services
+  under `tests/unit_tests/components/models/`, and toolkits under
+  `tests/unit_tests/components/toolkits/`.
 - Place cross-layer tests with the primary contract owner. Registry and config
-  contracts belong to `rpent/robots/`; extension toolkit and schema contracts
-  belong to `robots/`.
+  contracts belong to `rpent/robots/`; slice toolkit and schema contracts
+  belong to `robots/`; installer units belong to `rpent/install/`.
+- Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
+  exercises `rpent/install/` with temporary fixtures and synthetic manifests;
+  `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
+  `installs/{profiles,deps,locks}/`, the authored runner partition, the
+  compatibility extras and conflicts in the root `pyproject.toml`, and the
+  workflows that consume them. Do not read the real install data from
+  `tests/unit_tests/rpent/install/`; the test path would otherwise hide which
+  layer owns the failure. `installs/` is not a Python package, so the test
+  directory mirrors the repository-level data rather than a `rpent/` module.
+  Both groups use only the core and `dev` dependencies, and `fast ci` runs them
+  in the `dev` profile.
 - Keep one-off fakes in the test module that uses them. Put shared fixtures in
   the nearest `conftest.py`: use `tests/conftest.py` only for suite-wide
   fixtures and a module directory's `conftest.py` for local fixtures.
@@ -67,6 +82,16 @@ Run the complete suite with:
 
 ```bash
 pytest tests/unit_tests -v
+```
+
+The tests that import model servers need Torch, which the `dev` profile
+deliberately omits. CI runs this suite in the `unit-cpu` profile, which installs
+CPU Torch from the PyTorch CPU index:
+
+```bash
+uv run --no-project --python 3.11 --with packaging -- \
+  python -m rpent.cli.install install unit-cpu --venv .venv-unit-cpu
+.venv-unit-cpu/bin/python -m pytest tests/unit_tests -v
 ```
 
 ## RoboCasa environment smoke tests
@@ -100,31 +125,6 @@ See the RoboCasa usage guide in
 [English](../docs/source-en/rst_source/simulators/robocasa.rst#environment-smoke-tests)
 or [Chinese](../docs/source-zh/rst_source/simulators/robocasa.rst#environment-smoke-tests)
 for setup and test prerequisites.
-
-## EFE task runs
-
-The EFE unit tests under `tests/unit_tests/robots/efe/` run offline. They cover
-the service client, tools and skills, the prompt bundle, the robot spec, and
-the Harbor adapter contract.
-
-`tests/unit_tests/robots/efe/test_cli_loopback.py` covers EFE through the
-generic `rpent --robot efe` CLI: the real MCP HTTP transport on loopback, a
-scripted planner, the EFE toolkit, and the CLI transcript and result files. It
-needs no simulator, container, or model.
-
-`tests/e2e_tests/efe/test_policy_chain.py` runs one real EFE trial through
-Harbor and Docker. It needs one task directory, a reachable model endpoint, and
-the `harbor` and `docker` CLIs on `PATH`:
-
-```bash
-RPENT_EFE_TASK_PATH=/path/to/efe/tasks/<task> \
-RPENT_EFE_MODEL=<model> \
-  pytest tests/e2e_tests/efe/test_policy_chain.py -v
-```
-
-Without `RPENT_EFE_TASK_PATH`, the case skips. The test checks that the trial
-produces `result.json`, verifier rewards, `efe-result.json`, and the generic CLI
-transcript; a zero verifier reward is still a completed run.
 
 ## Embodied GPU E2E tests
 
