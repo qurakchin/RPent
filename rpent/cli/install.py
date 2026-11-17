@@ -28,18 +28,14 @@ from pathlib import Path
 
 from rpent.install import affected, layout, matrix
 from rpent.install.compile import resolve_profile
-from rpent.install.discovery import Catalog, discover
+from rpent.install.discovery import discover
 from rpent.install.doctor import FAIL, check_installation, inspect_installation
 from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.fingerprint import current_venv
-from rpent.install.installer import find_uv, install, resolve_install_target
+from rpent.install.installer import find_uv, install
 from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import Resolution, resolve
 from rpent.utils.config import get_repo_root
-
-
-def _resolution(target: str, catalog: Catalog, root: Path) -> Resolution:
-    return resolve_install_target(target, catalog, root=root)
 
 
 def _describe_environment(resolution: Resolution, environment: str) -> str:

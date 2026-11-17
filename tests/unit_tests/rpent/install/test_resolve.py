@@ -240,8 +240,9 @@ def test_python_and_platform_ranges_are_checked(
 def test_declared_conflict_in_one_environment_is_reported(
     make_component, make_profile, make_catalog
 ):
+    # One side naming the other is enough; resolution checks both directions.
     alpha = make_component("alpha", env_conflicts=["beta"])
-    beta = make_component("beta", env_conflicts=["alpha"])
+    beta = make_component("beta")
     profile = make_profile("shared", {"alpha": Selection(), "beta": Selection()})
     catalog = _catalog(make_catalog, alpha, beta)
 

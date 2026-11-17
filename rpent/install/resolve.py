@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
@@ -243,12 +244,31 @@ def _format_conflict(
     )
 
 
-def _check_component_range(resolved: ResolvedComponent, profile: Profile) -> list[str]:
-    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+def python_errors(
+    version: str,
+    components: Iterable[Component],
+    *,
+    owner: str = "this environment",
+) -> list[str]:
+    """Return errors for components that do not support the Python ``version``.
 
+    A profile's ``python`` only picks the interpreter the installer creates the
+    environment with; what must hold is that every component placed in the
+    environment supports the interpreter it actually runs, so ``install`` and
+    ``doctor`` check the recorded version here while ``resolve`` makes the same
+    check against the declared one before anything is installed.
+    """
+    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+    from packaging.version import InvalidVersion, Version
+
+    try:
+        parsed = Version(version)
+    except InvalidVersion:
+        return []
     errors: list[str] = []
-    component = resolved.component
-    if component.python is not None:
+    for component in sorted(components, key=lambda item: item.name):
+        if component.python is None:
+            continue
         try:
             supported = SpecifierSet(component.python)
         except InvalidSpecifier as exc:
@@ -256,13 +276,20 @@ def _check_component_range(resolved: ResolvedComponent, profile: Profile) -> lis
                 f"{component.manifest_path}: invalid python range "
                 f"{component.python!r}: {exc}"
             )
-        else:
-            if not supported.contains(profile.python, prereleases=True):
-                errors.append(
-                    f"component {component.name!r} requires Python "
-                    f"{component.python}, but profile {profile.name!r} uses "
-                    f"{profile.python}"
-                )
+            continue
+        if not supported.contains(parsed, prereleases=True):
+            errors.append(
+                f"component {component.name!r} requires Python "
+                f"{component.python}, but {owner} uses {version}"
+            )
+    return errors
+
+
+def _check_component_range(resolved: ResolvedComponent, profile: Profile) -> list[str]:
+    component = resolved.component
+    errors = python_errors(
+        profile.python, [component], owner=f"profile {profile.name!r}"
+    )
     if component.platforms and profile.platform not in component.platforms:
         errors.append(
             f"component {component.name!r} supports "
@@ -349,8 +376,8 @@ def resolve(
             elif external is None:
                 resolution.errors.append(
                     f"component {name!r} uses external environment {env!r}, but "
-                    f"installs/profiles/{env}.toml does not exist; add the profile or set "
-                    f"'env' to an existing one"
+                    f"installs/profiles/{env}.toml does not exist; add the profile or "
+                    f"set 'profile' to an existing one"
                 )
             elif name not in external.components:
                 resolution.errors.append(

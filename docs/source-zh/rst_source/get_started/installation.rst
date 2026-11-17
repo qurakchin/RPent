@@ -43,7 +43,7 @@ RPent 安装的是具名环境配方。``installs/profiles/`` 中的每个配方
 
 重复执行会复用环境并修复过期安装。安装器根据配方和组件清单生成 requirements，再由 ``uv pip install`` 解析安装。清单中的直接依赖版本约束和 Git revision 仍然生效；随着上游发布新版本，不同时间全新安装的传递依赖版本可能不同。``--dev`` 将测试依赖追加到生成的 requirements，``--dry-run`` 只打印这些 requirements。配方把组件放到外部环境时，安装器会打印该环境的安装命令；请在同一个源码目录中执行。
 
-Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 暂不包含在本次安装重构中，请按各自指南使用兼容 extra 安装，例如 ``uv pip install -e ".[franka]"``；参见 :doc:`../real_world_robots/franka`、:doc:`../real_world_robots/yam` 以及对应仿真器指南。
+Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 已经声明组件清单，但暂时没有配方选择它们。它们的安装方式仍是各自指南中的兼容 extra，例如 ``uv pip install -e ".[franka]"``；参见 :doc:`../real_world_robots/franka`、:doc:`../real_world_robots/yam` 以及对应仿真器指南。也可以用 ``rpent-install install <机器人>`` 装成开发用的单组件环境，但那不是受支持的运行时部署方式。
 
 配方
 ----
@@ -79,6 +79,9 @@ Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 暂不包含在�
    * - ``sam3-server`` / ``openpi-server``
      - 3.11
      - 单能力诊断环境。
+   * - ``unit-cpu``
+     - 3.11
+     - 仅 CPU 的单元测试依赖；CI 在每个受支持的 Python 次版本上各装一次。
 
 安装命令
 --------
@@ -98,6 +101,7 @@ Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 暂不包含在�
    rpent-install install molmo-server --venv .venv-molmo-server
    rpent-install install sam3-server --venv .venv-sam3-server
    rpent-install install openpi-server --venv .venv-openpi-server
+   rpent-install install unit-cpu --venv .venv-unit-cpu
 
 环境诊断
 --------
@@ -109,7 +113,7 @@ Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 暂不包含在�
 
 ``doctor`` 将安装指纹与每项记录在案的安装输入比较（清单、组件 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查 Python 和平台，运行 ``uv pip check`` 与组件探针，并可用 ``--endpoint molmo=host:port`` 探测外部 endpoint。``uv`` 的解析在仓库根目录进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内；指纹还记录写入时使用的输入模式，由旧版 ``rpent-install`` 安装的 venv 会报告为需要重装，而不是环境已漂移。开发时也可以用 ``rpent-install install <组件>`` 单独安装一个组件；它的指纹记录 ``install_kind = "component"`` 及安装时使用的解释器，``doctor`` 会用这个解释器重建诊断配方，而不是用当前运行检查的解释器。``inspect`` 打印指纹及其 hash。``doctor`` 还会比较当前安装包集合与记录的 freeze hash。这些检查用于发现环境变化，不会固定将来解析出的依赖版本。发布工作流以 ``full: true`` 调用 Full CI，在发布前安装并诊断每个配方。
 
-执行 ``check --resolve`` 时，Linux 配方默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本）。配方可用 ``manylinux`` 提高基线；例如 RoboDojo 为 Isaac Sim 5.1 的 wheel 使用 ``manylinux = "2_35"``。对包含 cuRobo 构建的配置使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个配方解析失败时会报告错误并继续检查其余配方。
+执行 ``check --resolve`` 时，Linux 配方默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本）。配方可用 ``manylinux`` 提高基线。对包含 cuRobo 构建的配置使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个配方解析失败时会报告错误并继续检查其余配方。
 
 运行产物会在 ``run.json`` 中记录当前配方、指纹 hash、源码 commit 和组件名。
 

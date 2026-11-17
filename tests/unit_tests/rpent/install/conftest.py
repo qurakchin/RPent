@@ -65,7 +65,6 @@ def make_component(tmp_path):
             dependencies=tuple(values.pop("dependencies", ())),
             optional=values.pop("optional", {}),
             overrides=tuple(values.pop("overrides", ())),
-            docs=None,
             manifest_sha256=values.pop("manifest_sha256", name),
         )
 
@@ -88,7 +87,6 @@ def make_profile(tmp_path):
             extra_index_urls=tuple(values.pop("extra_index_urls", ())),
             index_strategy=values.pop("index_strategy", None),
             core=values.pop("core", True),
-            description=None,
             manylinux=values.pop("manylinux", "2_31"),
         )
 

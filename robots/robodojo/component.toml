@@ -10,7 +10,6 @@ requires = ["sam3", "openpi"]
 env_conflicts = ["franka", "dual_franka", "robotwin", "rlinf"]
 placement = ["in-env"]
 overrides = ["requirements/robodojo-override.txt"]
-docs = "docs/source-en/rst_source/simulators/robodojo.rst"
 
 dependencies = [
   "rlinf @ git+https://github.com/littleZ05/RLinf.git@91e0c6e361eff9371e2423a4183602481ae95ee5",

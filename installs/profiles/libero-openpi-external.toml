@@ -2,7 +2,6 @@ schema = 1
 name = "libero-openpi-external"
 python = "3.11"
 platform = "linux-x86_64"
-description = "LIBERO-PRO that attaches to Pi0.5 running in the openpi environment."
 
 [components.libero]
 variant = "pro"

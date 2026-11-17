@@ -7,7 +7,6 @@ platforms = ["linux-x86_64"]
 requires = ["rlinf"]
 env_conflicts = ["franka", "dual_franka", "robotwin"]
 placement = ["in-env"]
-docs = "docs/source-en/rst_source/simulators/robocasa.rst"
 
 dependencies = [
   "rpent-robocasa365 @ git+https://github.com/RLinf/robocasa.git@2692d8fc5fd86708a1b2028dcbce892ec418a9e7",

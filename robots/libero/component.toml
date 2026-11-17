@@ -10,7 +10,6 @@ requires = ["rlinf", "openpi", "sam3"]
 env_conflicts = ["franka", "dual_franka", "robotwin"]
 placement = ["in-env"]
 variant_required = true
-docs = "docs/source-en/rst_source/simulators/libero.rst"
 
 [optional]
 # The variants differ in the simulator package they install, so every profile

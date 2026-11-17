@@ -41,8 +41,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Every component manifest supports these minors; a single interpreter
-        # would leave the declared range unverified.
+        # The unit profile composes no components; this matrix is what covers
+        # the core package's declared range, so each minor installs the same
+        # dependency set and runs the same suite.
         python: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v7
@@ -61,7 +62,7 @@ jobs:
           TESTS: ${{ inputs.tests }}
         run: |
           mapfile -t paths < <(
-            python3 -c 'import json, os; print("\n".join(json.loads(os.environ["TESTS"] or "[]")))'
+            python3 -c 'import json, os; [print(path) for path in json.loads(os.environ["TESTS"] or "[]")]'
           )
           if [[ ${#paths[@]} -eq 0 ]]; then
             paths=(tests/unit_tests)

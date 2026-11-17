@@ -44,7 +44,7 @@ from rpent.install.requirements import (
     render_requirements,
     requirements_sha256,
 )
-from rpent.install.resolve import Resolution, resolve
+from rpent.install.resolve import Resolution, python_errors, resolve
 from rpent.utils.config import get_repo_root
 
 #: Per-checkout state: generated requirements and per-profile virtualenvs.
@@ -261,7 +261,6 @@ def component_profile(
         extra_index_urls=(),
         index_strategy=None,
         core=True,
-        description=f"development diagnostic environment for {component_name}",
         synthetic=True,
     )
 
@@ -381,6 +380,18 @@ def install(
         raise InstallError(
             f"{destination} exists but has no Python interpreter; remove it and "
             f"rerun `rpent-install install {target}`"
+        )
+    interpreter = _python_version(python)
+    unsupported = python_errors(
+        interpreter,
+        (resolved.component for resolved in resolution.main_installed().values()),
+        owner=str(destination),
+    )
+    if unsupported:
+        raise InstallError(
+            "\n".join(unsupported)
+            + f"\nremove {destination} and rerun `rpent-install install {target}` "
+            "with a matching interpreter"
         )
 
     install_command = [uv, "pip", "install", "--python", str(python)]

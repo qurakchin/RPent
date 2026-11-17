@@ -83,7 +83,6 @@ current file for each role until that migration lands.
    python = ">=3.10,<3.13"
    platforms = ["linux-x86_64"]
    placement = ["in-env"]
-   docs = "docs/source-en/rst_source/real_world_robots/myrobot.rst"
 
    dependencies = ["my-simulator==1.2"]
 

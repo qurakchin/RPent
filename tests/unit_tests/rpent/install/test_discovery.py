@@ -84,16 +84,6 @@ def test_conflicts_must_reference_known_components(tmp_path, write_toml):
         discover_components(tmp_path)
 
 
-def test_one_sided_conflicts_are_closed_symmetrically(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["beta"])
-    _manifest(write_toml, "robots", "beta", "robot")
-
-    components = discover_components(tmp_path)
-
-    assert components["alpha"].env_conflicts == ("beta",)
-    assert components["beta"].env_conflicts == ("alpha",)
-
-
 def test_conflicts_must_not_name_the_component_itself(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "robot", conflicts=["alpha"])
 

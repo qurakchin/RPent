@@ -5,7 +5,6 @@ platform = "linux-x86_64"
 # The model server runs from this interpreter with PYTHONPATH pointing at the
 # RPent checkout, so RPent and its core dependencies stay out of the resolver.
 core = false
-description = "Molmo visual grounding in a standalone environment."
 
 [components.molmo]
 placement = "in-env"

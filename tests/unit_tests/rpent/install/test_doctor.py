@@ -324,3 +324,170 @@ def test_probe_endpoint_reports_reachable_and_unreachable():
         host, port = probe.getsockname()
     message = _probe_endpoint(f"{host}:{port}")
     assert "not reachable" in message
+
+
+def _profiles_with_beta(write_toml, beta_toml):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
+        """,
+    )
+    write_toml(
+        "installs/profiles/other.toml",
+        f"""
+        schema = 1
+        name = "other"
+        python = "3.11"
+        platform = "{runtime_platform()}"
+        core = false
+
+        [components.beta]
+        placement = "in-env"
+        """,
+    )
+    write_toml("robots/beta/component.toml", beta_toml)
+
+
+def _profile_checks(tmp_path, write_toml, monkeypatch, profile_toml, python):
+    write_toml("installs/profiles/alpha.toml", profile_toml)
+    venv = _venv(tmp_path)
+    resolution = resolve_install_target("alpha", discover(tmp_path), root=tmp_path)
+    assert resolution.ok
+    write_fingerprint(
+        venv,
+        {
+            "schema": REQUIREMENTS_SCHEMA,
+            "profile": "alpha",
+            "python": python,
+            "include_dev": False,
+            "requirements_sha256": requirements_sha256(resolution, root=tmp_path),
+        },
+    )
+
+    def _missing_uv():
+        raise InstallError("uv missing")
+
+    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
+    return check_installation(venv, root=tmp_path)
+
+
+def test_profile_installation_reports_a_component_rejecting_the_interpreter(
+    tmp_path, write_toml, monkeypatch
+):
+    _profiles_with_beta(
+        write_toml,
+        """
+        schema = 1
+        name = "beta"
+        kind = "robot"
+        probe = "json"
+        python = ">=3.10,<3.12"
+        """,
+    )
+
+    checks = _profile_checks(
+        tmp_path,
+        write_toml,
+        monkeypatch,
+        f"""
+        schema = 1
+        name = "alpha"
+        python = "3.11"
+        platform = "{runtime_platform()}"
+        core = false
+
+        [components.beta]
+        placement = "in-env"
+        """,
+        "3.12.1",
+    )
+
+    assert any(
+        check.status == FAIL
+        and "component 'beta' requires Python >=3.10,<3.12" in check.message
+        and "3.12.1" in check.message
+        for check in checks
+    )
+
+
+def test_profile_python_is_the_creation_interpreter_not_a_support_range(
+    tmp_path, write_toml, monkeypatch
+):
+    # CI creates each matrix environment with its own minor version while the
+    # filled-in profile keeps the pin it was written with. The recorded
+    # interpreter only has to satisfy the installed components.
+    _profiles_with_beta(
+        write_toml,
+        """
+        schema = 1
+        name = "beta"
+        kind = "robot"
+        probe = "json"
+        python = ">=3.10,<3.13"
+        """,
+    )
+
+    checks = _profile_checks(
+        tmp_path,
+        write_toml,
+        monkeypatch,
+        f"""
+        schema = 1
+        name = "alpha"
+        python = "3.11"
+        platform = "{runtime_platform()}"
+        core = false
+
+        [components.beta]
+        placement = "in-env"
+        """,
+        "3.12.1",
+    )
+
+    assert any(
+        check.status == OK and check.message == "python: 3.12.1" for check in checks
+    )
+    assert not any("requires Python" in check.message for check in checks)
+
+
+def test_external_environment_components_are_checked_against_their_own_python(
+    tmp_path, write_toml, monkeypatch
+):
+    _profiles_with_beta(
+        write_toml,
+        """
+        schema = 1
+        name = "beta"
+        kind = "robot"
+        probe = "json"
+        python = ">=3.10,<3.12"
+        placement = ["in-env", "external-env"]
+        """,
+    )
+
+    checks = _profile_checks(
+        tmp_path,
+        write_toml,
+        monkeypatch,
+        f"""
+        schema = 1
+        name = "alpha"
+        python = "3.11"
+        platform = "{runtime_platform()}"
+        core = false
+
+        [components.beta]
+        placement = "external-env"
+        profile = "other"
+        """,
+        "3.12.1",
+    )
+
+    assert not any("requires Python" in check.message for check in checks)
+    assert any(
+        check.status == WARN and "external component 'beta'" in check.message
+        for check in checks
+    )

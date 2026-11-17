@@ -30,7 +30,8 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         required=True,
         help="Local corpus root; point it at the corpus of the robot or "
-        "simulator you are maintaining.",
+        "simulator you are maintaining, for example memory/<robot>. The former "
+        "implicit default was removed, so pass it explicitly.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 

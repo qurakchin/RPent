@@ -14,7 +14,6 @@ env_conflicts = [
   "molmo",
 ]
 placement = ["in-env"]
-docs = "docs/source-en/rst_source/simulators/robotwin.rst"
 
 dependencies = [
   "rlinf-robotwin-runtime==0.1.3",
