@@ -70,9 +70,16 @@ def make_primitive(robot, action_size=None):
         }
 
     def call(method, **kwargs):
+        if robot == "robotwin":
+            if method == "env.get_env_meta":
+                return {"seed": 0}
+            if method == "env.reset":
+                return obs, {**info, "instruction": "test task"}
         return specs if method == "env.get_action_spec" else step_result
 
     env._client = SimpleNamespace(call=Mock(side_effect=call))
+    if robot == "robotwin":
+        env = client_cls(env._client, expected_meta={"seed": 0})
     env.last_obs = obs
     env.last_reset_info = {}
     if robot != "robocasa":
@@ -91,7 +98,25 @@ def make_primitive(robot, action_size=None):
         env.render_camera = lambda **kwargs: obs["main_images"]
     else:
         from robots.robotwin.primitives import RoboTwinPrimitives
+        from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES
 
+        # The real client copies these from the server handshake in ``__init__``;
+        # this fake is built with ``__new__``, so declare the same contract here.
+        env.server_meta = {
+            "task_name": "test_task",
+            "extensions": {
+                "render_camera": {
+                    "camera_names": list(ROBOTWIN_CAMERA_NAMES),
+                    "metric_depth": True,
+                },
+                "get_camera_meta": True,
+            },
+        }
+        env.execution_capabilities = {
+            "reset": True,
+            "step": True,
+            "chunk_step": True,
+        }
         primitive = RoboTwinPrimitives(
             env=env, model=None, seed=0, check_cancelled=lambda: None
         )

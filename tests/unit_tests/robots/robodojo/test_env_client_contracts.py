@@ -11,10 +11,19 @@ from robots.robodojo.env_client import (
     ExecutionSyncError,
 )
 from robots.robodojo.primitives import RoboDojoPrimitives
+from rpent.tools.execution import track_execution
 
 
 def action():
     return [0.1] * 12 + [0.25, 0.75]
+
+
+def test_action_rpcs_are_marked_as_writes(boundary):
+    with track_execution() as trace:
+        boundary.env.step(action())
+        boundary.env.step_joint_update("left", gripper=0.2)
+
+    assert trace.writes == ["step", "step_joint_update"]
 
 
 def feedback(events):
@@ -70,7 +79,7 @@ def test_validation_and_plan_failure_do_not_damage_history(boundary):
     b.agent.plan_arm_path = lambda *a: {"status": "Failed"}
     primitive = RoboDojoPrimitives(env=b.env, check_cancelled=lambda: None)
     result = primitive.move_to(arm="right", xyz=[0, 0, 1.01]).data
-    assert result["stop_reason"] == "plan_failed"
+    assert result["stop_reason"] == "planning_rejected"
     b.env.require_policy_ready()
     assert not b.applied
     assert not any(e["kind"] == "reset" for e in events)

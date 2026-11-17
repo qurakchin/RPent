@@ -34,21 +34,81 @@ from pydantic_core import core_schema
 ParamsT = ParamSpec("ParamsT")
 MAX_TOOL_TEXT_BYTES = 60000
 
+#: Mirror of ``EnvReceipt.status`` that the framework copies into a result.
+#: ``completed`` and ``partial`` mean the environment received the request;
+#: ``rejected`` and ``not_started`` mean no physical action occurred;
+#: ``unknown`` means the request may have outlived the call.
+ExecutionStatus = Literal["completed", "partial", "rejected", "not_started", "unknown"]
+EXECUTION_STATUSES: tuple[ExecutionStatus, ...] = (
+    "completed",
+    "partial",
+    "rejected",
+    "not_started",
+    "unknown",
+)
+
 
 @dataclass
 class ToolResult:
-    """Tool payload and PNG images; errors stay in the payload's ``error`` key."""
+    """Domain payload, images, and the framework's call/execution layers.
+
+    ``data`` holds the domain result. The remaining fields describe the call:
+
+    - ``call_ok``: the framework delivered and validated the call. It never
+      means that the requested action succeeded.
+    - ``error``: a structured framework error whose ``code`` separates
+      validation, refusal, execution failure, and uncertainty.
+    - ``no_execution``: shorthand for "no physical action was attempted".
+      It is set for validation failures, refusals, ``rejected`` receipts, and
+      ``not_started`` receipts.
+    - ``execution_uncertain``: a state-changing request may have outlived the
+      call. It mirrors the episode's latch in a_6.
+    - ``execution_status``: the original ``EnvReceipt.status``. Tools leave it
+      as ``None``; :class:`~rpent.tools.toolkit.Toolkit` fills it after
+      dispatch. A handler that leaves it unset reports ``completed`` unless it
+      produced no execution or is declared readonly, which report
+      ``not_started``. When result encoding fails, the toolkit keeps the
+      would-be receipt status under ``data["reported_execution_status"]`` so
+      the diagnostic survives the failure.
+    """
 
     data: dict[str, Any] = field(default_factory=dict)
     images: list[bytes] = field(default_factory=list)
+    image_labels: list[str] = field(default_factory=list)
+    call_ok: bool = True
+    error: dict[str, Any] | None = None
+    no_execution: bool = False
+    execution_uncertain: bool = False
+    execution_status: ExecutionStatus | None = None
 
     @property
     def is_error(self) -> bool:
-        return self.data.get("error") is not None
+        return (
+            not self.call_ok
+            or self.error is not None
+            or self.data.get("error") is not None
+        )
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a shallow copy of the public JSON payload."""
-        return dict(self.data)
+        """Return the planner-facing payload with explicit result layers.
+
+        Domain keys stay at the top level for backward compatibility. The
+        framework layers are added only when they carry information, except
+        ``call_ok``, which is always explicit.
+        """
+        payload = dict(self.data)
+        payload["call_ok"] = self.call_ok
+        if self.error is not None:
+            payload["error"] = dict(self.error)
+        if self.no_execution:
+            payload["no_execution"] = True
+        if self.execution_uncertain:
+            payload["execution_uncertain"] = True
+        if self.execution_status is not None:
+            payload["execution_status"] = self.execution_status
+        if self.image_labels:
+            payload["image_labels"] = list(self.image_labels)
+        return payload
 
     def to_text(self) -> str:
         """Encode the original tool payload without truncating internal state."""
@@ -63,13 +123,34 @@ class ToolResult:
 
 
 def tool_error(code: str, message: str, **details: Any) -> ToolResult:
-    """Build a structured tool error with a code, message, and optional details."""
+    """Build a structured tool error that did not reach execution.
+
+    Domain tools use this for requests rejected before any environment write,
+    such as a missing artifact view.
+    """
+    error = {"code": code, "message": message, **details}
     return ToolResult(
-        data={
-            "error": {"code": code, "message": message, **details},
-            "success": False,
-        }
+        data={"error": error, "success": False},
+        call_ok=False,
+        error=error,
+        no_execution=True,
+        execution_status="not_started",
     )
+
+
+def unexecuted(
+    data: dict[str, Any],
+    *,
+    status: ExecutionStatus = "not_started",
+) -> ToolResult:
+    """Return a domain result for a request that stopped before any action.
+
+    The payload keeps its original keys (usually ``error``) so the planner reads
+    the same text as before, while the execution layers record that the host
+    never acted. Use ``rejected`` for a refusal and ``not_started`` for a
+    request that failed validation or found its input unavailable.
+    """
+    return ToolResult(data=data, no_execution=True, execution_status=status)
 
 
 class _ToolJsonSchema(GenerateJsonSchema):
@@ -132,6 +213,8 @@ class Tool(Generic[ParamsT]):
     handler: Callable[ParamsT, ToolResult]
     _input_schema: dict[str, Any]
     readonly: bool = False
+    concurrent: bool = False
+    captures_state: bool = True
     _unbound_method: bool = False
     action_source: Literal["tool_computed", "direct"] = "tool_computed"
 
@@ -163,6 +246,8 @@ def tool(
     *,
     name: str | None = None,
     readonly: bool = False,
+    concurrent: bool = False,
+    captures_state: bool = True,
     exclude: tuple[str, ...] = (),
     json_schema_extra: dict[str, Any] | None = None,
 ) -> Any:
@@ -172,8 +257,18 @@ def tool(
     constraints become part of the generated schema; advertise defaults explicitly
     with Field(json_schema_extra={"default": ...}). A leading
     self is bound by Python and excluded from model inputs. Use
-    @tool(readonly=True) to allow concurrent readonly calls and skip Toolkit's
-    automatic observation capture. Other calls execute exclusively.
+    @tool(readonly=True) for a call that only reads the environment: such calls
+    share the scheduler and skip Toolkit's automatic observation capture, and a
+    result that leaves the execution layer unset reports no execution. Other
+    calls execute exclusively and report completed unless the handler says
+    otherwise.
+
+    Use @tool(concurrent=True) for a call that does not change the environment
+    but is not a read, such as the terminal finish: it shares admission with
+    readonly calls while still reporting its own execution layer. Use
+    @tool(captures_state=False) for a non-read-only call that leaves the
+    environment unchanged, such as a file or memory write, so Toolkit records no
+    state transition for it.
 
     name overrides the published tool name. exclude names internal resources
     supplied by the caller. Parameters without defaults are required.
@@ -187,6 +282,8 @@ def tool(
             namespace,
             tool_name=name,
             readonly=readonly,
+            concurrent=concurrent,
+            captures_state=captures_state,
             json_schema_extra=json_schema_extra,
         )
     return _declare_tool(
@@ -195,6 +292,8 @@ def tool(
         namespace,
         tool_name=name,
         readonly=readonly,
+        concurrent=concurrent,
+        captures_state=captures_state,
         json_schema_extra=json_schema_extra,
     )
 
@@ -206,6 +305,8 @@ def _declare_tool(
     *,
     tool_name: str | None,
     readonly: bool,
+    concurrent: bool,
+    captures_state: bool,
     json_schema_extra: dict[str, Any] | None,
 ) -> Tool:
     parameters = dict(inspect.signature(function).parameters)
@@ -254,7 +355,7 @@ def _declare_tool(
         schema_generator=_ToolJsonSchema,
     ).tool_def
     input_schema = definition.parameters_json_schema
-    input_schema.pop("additionalProperties", None)
+    input_schema.setdefault("additionalProperties", False)
     input_schema.update(json_schema_extra or {})
     fields: dict[str, Any] = {}
     for name, parameter in parameters.items():
@@ -280,6 +381,8 @@ def _declare_tool(
         handler=function,
         _input_schema=input_schema,
         readonly=readonly,
+        concurrent=concurrent,
+        captures_state=captures_state,
         _unbound_method=unbound_method,
     )
 
@@ -289,7 +392,13 @@ def iter_tools(*owners: Any) -> Iterator[Tool]:
 
     Instance tools are bound to their owner. Inherited methods are included unless
     overridden; properties and other descriptors are not evaluated during discovery.
+    An attribute in a derived class shadows a base attribute with the same name;
+    declarations that share a tool name under different attribute names resolve the
+    same way, keeping the most derived one. Owners are visited in order and the
+    first declaration of a tool name owns it, matching ``add_tool``'s default
+    where replacement is explicit.
     """
+    declarations: dict[str, Tool] = {}
     for owner in owners:
         cls = owner if isinstance(owner, type) else type(owner)
         members: dict[str, Any] = {}
@@ -297,6 +406,11 @@ def iter_tools(*owners: Any) -> Iterator[Tool]:
             members.update(vars(base))
         if not isinstance(owner, type):
             members.update(getattr(owner, "__dict__", {}))
+        own: dict[str, Tool] = {}
         for attribute, value in members.items():
             if isinstance(value, Tool):
-                yield getattr(owner, attribute)
+                declaration = getattr(owner, attribute)
+                own[declaration.name] = declaration
+        for name, declaration in own.items():
+            declarations.setdefault(name, declaration)
+    yield from declarations.values()

@@ -34,7 +34,8 @@ from pydantic import ValidationError
 from rpent.dashboard.events import DashboardEventSink, StepRecordEvent
 from rpent.session import Payload
 from rpent.session.env_capture import current_tool_call
-from rpent.tools.base import Tool, ToolResult, iter_tools
+from rpent.tools.base import ExecutionStatus, Tool, ToolResult, iter_tools, tool
+from rpent.tools.execution import ExecutionTrace, track_execution
 from rpent.utils.logging import get_logger
 from rpent.utils.templates import substitute
 
@@ -47,13 +48,13 @@ if TYPE_CHECKING:
 
 @dataclass(eq=False)
 class _ToolOperation:
-    readonly: bool
+    shared: bool
     cancel_event: threading.Event = field(default_factory=threading.Event)
     done: bool = False
 
 
 class _Scheduler:
-    """Share readonly calls; run queued exclusive calls in arrival order.
+    """Share concurrent calls; run queued exclusive calls in arrival order.
 
     A plain RWLock only provides mutual exclusion. Tool calls also need ordered
     writers, cancellation of queued and active calls, and pause/close with drain.
@@ -67,13 +68,13 @@ class _Scheduler:
         self.paused = False
         self.closed = False
 
-    def acquire(self, *, readonly: bool) -> _ToolOperation:
+    def acquire(self, *, shared: bool) -> _ToolOperation:
         with self.condition:
             if self.closed:
                 raise ToolCancelled("Toolkit is closed.")
             if self.paused:
                 raise ToolCancelled("Tool calls are paused.")
-            call = _ToolOperation(readonly=readonly)
+            call = _ToolOperation(shared=shared)
             self.pending.append(call)
             self.condition.notify_all()
             try:
@@ -81,13 +82,13 @@ class _Scheduler:
                     if call.cancel_event.is_set():
                         raise ToolCancelled("tool operation interrupted")
                     exclusive = next(
-                        (item for item in self.pending if not item.readonly), None
+                        (item for item in self.pending if not item.shared), None
                     )
                     if (
-                        readonly
+                        shared
                         and exclusive is None
-                        and all(item.readonly for item in self.active)
-                    ) or (not readonly and not self.active and call is exclusive):
+                        and all(item.shared for item in self.active)
+                    ) or (not shared and not self.active and call is exclusive):
                         self.pending.remove(call)
                         self.active.add(call)
                         return call
@@ -130,6 +131,45 @@ class ToolCancelled(Exception):
     """Raised when an environment reaches a safe cancellation boundary."""
 
 
+def _failure_result(
+    code: str,
+    message: str,
+    *,
+    data: dict[str, Any] | None = None,
+    no_execution: bool = True,
+    execution_uncertain: bool = False,
+    execution_status: ExecutionStatus = "not_started",
+) -> ToolResult:
+    """Build a framework-level failure with explicit execution layers."""
+    return ToolResult(
+        data=dict(data) if data is not None else {"error": message},
+        call_ok=False,
+        error={"code": code, "message": message},
+        no_execution=no_execution,
+        execution_uncertain=execution_uncertain,
+        execution_status=execution_status,
+    )
+
+
+def _framework_error_layers(
+    trace: ExecutionTrace,
+) -> tuple[bool, bool, ExecutionStatus]:
+    """Layers for a framework failure after the handler ran.
+
+    A write that was already issued may have reached the environment, so its
+    outcome is unknown even when result encoding fails afterwards. Without a
+    write, the framework can still assert that nothing executed.
+    """
+    if trace.issued:
+        return False, True, "unknown"
+    return True, False, "not_started"
+
+
+_MEMORY_TOOL_ACCESS_NOTE = (
+    " File tools cannot access the memory corpus; use recall, remember, or corroborate."
+)
+
+
 class Toolkit:
     """Base toolkit: registers common tools and dispatches tool calls.
 
@@ -140,6 +180,11 @@ class Toolkit:
     base class only contributes the common file/IO tools. Override
     :meth:`close` to release robot-side primitives / servers at the end of the run.
     """
+
+    # Hosts that register ``MemoryTools`` set this to True. The base file tools
+    # then stop reading or writing the memory corpus, leaving ``recall``,
+    # ``remember``, and ``corroborate`` as the only model-facing access path.
+    owns_memory_tools = False
 
     def __init__(
         self,
@@ -173,24 +218,85 @@ class Toolkit:
             raise ValueError(f"Tool already registered: {tool.name}")
         self._tools[tool.name] = tool
 
-    def add_tools(self, tools: Iterable[Tool]) -> None:
-        """Register declarations collected from explicitly chosen tool owners."""
-        for tool in tools:
-            self.add_tool(tool)
+    def add_tools(
+        self,
+        *owners: Any,
+        capabilities: Any = None,
+        config: Any = None,
+        caps: Any = None,
+        cfg: Any = None,
+    ) -> None:
+        """Register declarations from tool families and explicit tool iterables.
+
+        A family exposes ``tools(capabilities, config)`` and trims its
+        declarations to the capabilities the host actually connected. Passing
+        a plain iterable of declarations keeps the older registration path.
+
+        ``caps`` and ``cfg`` are aliases for ``capabilities`` and ``config``
+        used by the design documents. Supplying both names for one value is an
+        error rather than a silent precedence rule.
+        """
+        if caps is not None:
+            if capabilities is not None:
+                raise TypeError("pass either capabilities or caps, not both")
+            capabilities = caps
+        if cfg is not None:
+            if config is not None:
+                raise TypeError("pass either config or cfg, not both")
+            config = cfg
+        if capabilities is not None:
+            snapshot = getattr(capabilities, "as_dict", None)
+            logger.info(
+                "registering tool families with capabilities: %s",
+                snapshot() if callable(snapshot) else capabilities,
+            )
+        for owner in owners:
+            family = getattr(owner, "tools", None)
+            if callable(family) and not isinstance(owner, Tool):
+                for declaration in family(capabilities, config):
+                    self.add_tool(declaration)
+                continue
+            if isinstance(owner, (str, bytes)) or not isinstance(owner, Iterable):
+                raise TypeError(
+                    "add_tools expects a tool family or an iterable of Tool "
+                    f"declarations, got {type(owner).__name__}"
+                )
+            for declaration in owner:
+                self.add_tool(declaration)
 
     def _register_common_tools(self) -> None:
-        from rpent.tools.common import CommonTools
+        from rpent.tools.file_tools import FileTools
 
-        common = CommonTools(memory=self._memory)
+        files = FileTools(
+            memory=self._memory,
+            allow_memory=not self.owns_memory_tools,
+        )
         self._memory.check_layout()
-        for declaration in iter_tools(common):
-            if declaration.name in {"read_text_file", "list_dir"}:
-                declaration = replace(
-                    declaration,
-                    description=declaration.description
-                    + self._memory.file_tool_description,
-                )
+        for declaration in iter_tools(files):
+            description = declaration.description
+            if self.owns_memory_tools:
+                # The handlers refuse memory paths, so a description of
+                # browsing the corpus would contradict the note.
+                description += _MEMORY_TOOL_ACCESS_NOTE
+            elif declaration.name in {"read_text_file", "list_dir"}:
+                description += self._memory.file_tool_description
+            declaration = replace(declaration, description=description)
             self.add_tool(declaration)
+        self.add_tool(self.finish)
+
+    @tool(concurrent=True, captures_state=False)
+    def finish(self, status: str, summary: str) -> ToolResult:
+        """Call when the task is complete or unrecoverable. Halts the agent loop. Save any artifacts (recipe, audit) BEFORE calling finish.
+
+        Args:
+            status: Outcome, e.g. 'success', 'failure', or 'stuck'.
+            summary: Short natural-language summary of the run.
+        """
+        # A finishing call never changes the environment, so it shares admission
+        # with readonly calls instead of taking the exclusive channel. It is not
+        # read-only: the halt is the executed request, so the unset execution
+        # layer reports completed.
+        return ToolResult(data={"_finish": True, "status": status, "summary": summary})
 
     # ------------------------------------------------------------------
     # Planner-facing API
@@ -216,14 +322,22 @@ class Toolkit:
         )
 
     def execute_tool(self, name: str, input_dict: dict[str, Any]) -> ToolResult:
-        """Validate one call, execute it, and capture state for advancing tools."""
+        """Validate one call, execute it, and capture state for advancing tools.
+
+        The returned result fills the call/execution layers: parameters that
+        never reach a handler are ``call_ok=False, no_execution=True``; a
+        handler that raises after an environment client issued a write is
+        ``execution_uncertain``. Domain results stay in ``data``.
+        """
         tool = self._tools.get(name)
         if tool is None:
-            return ToolResult(data={"error": f"unknown tool: {name}"})
+            return _failure_result("unknown_tool", f"unknown tool: {name}")
         try:
             parameters = tool.args_schema.model_validate(input_dict, strict=True)
         except ValidationError as exc:
-            return ToolResult(
+            return _failure_result(
+                "validation",
+                f"bad arguments for {name}",
                 data={
                     "error": f"bad arguments for {name}",
                     "errors": exc.errors(
@@ -231,61 +345,114 @@ class Toolkit:
                         include_context=False,
                         include_input=False,
                     ),
-                }
+                },
             )
         kwargs = {
             field: getattr(parameters, field) for field in type(parameters).model_fields
         }
 
         try:
-            operation = self._scheduler.acquire(readonly=tool.readonly)
+            operation = self._scheduler.acquire(shared=tool.readonly or tool.concurrent)
         except ToolCancelled as exc:
-            return ToolResult(
-                data={"error": str(exc), "code": "tool_cancelled", "interrupted": True}
+            return _failure_result(
+                "cancelled",
+                str(exc),
+                data={"error": str(exc), "code": "tool_cancelled", "interrupted": True},
             )
 
         try:
             started = time.perf_counter()
             capture = current_tool_call.get()
-            try:
-                self.raise_if_cancelled()
-                if capture is not None:
-                    capture.start(action_source=tool.action_source)
-                native = tool(**kwargs)
-            except TypeError as exc:
-                native = ToolResult(
-                    data={
-                        "error": f"bad arguments for {name}: {exc}",
-                        "got": input_dict,
-                    }
+            with track_execution() as trace:
+                try:
+                    self.raise_if_cancelled()
+                    if capture is not None:
+                        capture.start(action_source=tool.action_source)
+                    native = tool(**kwargs)
+                except TypeError as exc:
+                    if trace.issued:
+                        message = (
+                            f"tool {name} failed after issuing a write: "
+                            f"TypeError: {exc}"
+                        )
+                        native = _failure_result(
+                            "execution_uncertain",
+                            message,
+                            data={"error": message, "got": input_dict},
+                            no_execution=False,
+                            execution_uncertain=True,
+                            execution_status="unknown",
+                        )
+                    else:
+                        native = _failure_result(
+                            "validation",
+                            f"bad arguments for {name}: {exc}",
+                            data={
+                                "error": f"bad arguments for {name}: {exc}",
+                                "got": input_dict,
+                            },
+                        )
+                except ToolCancelled as exc:
+                    native = _failure_result(
+                        "cancelled",
+                        str(exc),
+                        data={
+                            "error": str(exc),
+                            "code": "tool_cancelled",
+                            "interrupted": True,
+                        },
+                        no_execution=not trace.issued,
+                        execution_uncertain=trace.issued,
+                        execution_status="unknown" if trace.issued else "not_started",
+                    )
+                except Exception as exc:
+                    logger.exception("Tool %s failed", name)
+                    native = _failure_result(
+                        "execution_uncertain" if trace.issued else "execution_failed",
+                        str(exc),
+                        data={"error": str(exc), "traceback": traceback.format_exc()},
+                        no_execution=not trace.issued,
+                        execution_uncertain=trace.issued,
+                        execution_status="unknown" if trace.issued else "not_started",
+                    )
+
+            if native.execution_status is None:
+                # A call that explicitly produced no physical action must not
+                # be reported as executed. Read-only handlers never act, so
+                # they report the same layer as a refusal that stopped before
+                # any write unless the handler states otherwise.
+                native.execution_status = (
+                    "not_started"
+                    if native.no_execution or tool.readonly
+                    else "completed"
                 )
-            except ToolCancelled as exc:
-                native = ToolResult(
-                    data={
-                        "error": str(exc),
-                        "code": "tool_cancelled",
-                        "interrupted": True,
-                    }
-                )
-            except Exception as exc:
-                logger.exception("Tool %s failed", name)
-                native = ToolResult(
-                    data={"error": str(exc), "traceback": traceback.format_exc()}
-                )
+                if tool.readonly:
+                    native.no_execution = True
 
             if capture is not None and capture.started:
                 capture.result(
                     Payload(
                         format="rpent.tool_result",
                         format_version="1",
-                        data={"data": native.data, "images": native.images},
+                        data={
+                            "data": native.data,
+                            "images": native.images,
+                            "image_labels": native.image_labels,
+                            "call_ok": native.call_ok,
+                            "error": native.error,
+                            "no_execution": native.no_execution,
+                            "execution_uncertain": native.execution_uncertain,
+                            "execution_status": native.execution_status,
+                        },
                         completeness="complete",
                     )
                 )
 
-            if not tool.readonly:
+            if not tool.readonly and tool.captures_state:
                 elapsed_s = round(time.perf_counter() - started, 2)
-                result_dict = native.to_dict()
+                # State records keep the domain payload; the call/execution
+                # layers travel in the captured ``rpent.tool_result`` record.
+                result_dict = dict(native.data)
                 command = {"action": name, **input_dict}
                 record: StepRecord | None = None
                 try:
@@ -296,21 +463,43 @@ class Toolkit:
                     )
                 except Exception as exc:
                     logger.exception("State capture failed after %s", name)
+                    message = f"failed to capture state after {name}: {exc}"
                     native.data["state_capture_error"] = str(exc)
                     if not native.is_error:
-                        native.data["error"] = (
-                            f"failed to capture state after {name}: {exc}"
-                        )
+                        native.data["error"] = message
+                        native.error = {
+                            "code": (
+                                "execution_uncertain"
+                                if trace.issued
+                                else "execution_failed"
+                            ),
+                            "message": message,
+                        }
                     native.data.setdefault("traceback", traceback.format_exc())
+                    if trace.issued:
+                        # Missing after-state does not tell us how much of the
+                        # issued request ran, so the receipt is no longer
+                        # authoritative. Keep the reported value as evidence.
+                        if native.execution_status is not None:
+                            native.data.setdefault(
+                                "reported_execution_status", native.execution_status
+                            )
+                        native.no_execution = False
+                        native.execution_uncertain = True
+                        native.execution_status = "unknown"
                 else:
                     record = self._state.latest_record()
                     if native.is_error:
                         for key, value in native.data.items():
                             observed.data.setdefault(key, value)
-                        observed.data["error"] = native.data["error"]
-                    native = ToolResult(
+                        observed.data["error"] = native.data.get(
+                            "error", observed.data.get("error")
+                        )
+                    native = replace(
+                        native,
                         data=observed.data,
                         images=native.images + observed.images,
+                        image_labels=native.image_labels + observed.image_labels,
                     )
                 if record is not None:
                     self._publish_step(record)
@@ -318,14 +507,35 @@ class Toolkit:
             try:
                 json.dumps(native.to_dict(), allow_nan=False, default=str)
             except (TypeError, ValueError) as exc:
-                native = ToolResult(
-                    data={"error": f"Tool result serialization failed: {exc}"},
-                    images=native.images,
+                message = f"Tool result serialization failed: {exc}"
+                no_execution, uncertain, status = _framework_error_layers(trace)
+                reported_status = native.execution_status
+                native = replace(
+                    native,
+                    data={
+                        "error": message,
+                        "reported_execution_status": reported_status,
+                    },
+                    call_ok=False,
+                    error={
+                        "code": (
+                            "execution_uncertain"
+                            if trace.issued
+                            else "execution_failed"
+                        ),
+                        "message": message,
+                    },
+                    no_execution=no_execution,
+                    execution_uncertain=uncertain,
+                    execution_status=status,
                 )
             if capture is not None:
+                cancelled = native.error is not None and (
+                    native.error.get("code") == "cancelled"
+                )
                 capture.finish(
                     "cancelled"
-                    if native.data.get("code") == "tool_cancelled"
+                    if cancelled or native.data.get("code") == "tool_cancelled"
                     else "failed"
                     if native.is_error
                     else "completed",

@@ -22,7 +22,7 @@ Check the model, task, and runtime requirements before following the installatio
 
    .. grid-item-card:: Action Models
 
-      LingBot-VLA; Fast-WAM with a RoboTwin checkpoint.
+      LingBot-VLA (default), UniWAM, Fast-WAM.
 
    .. grid-item-card:: Planners
 
@@ -61,15 +61,17 @@ Observation and Action
 
 The table distinguishes planner tools, model inputs, and the environment’s success criterion.
 
+Planner tools include ``view_env_state``, ``query_world_map``, and ``geometry`` for state, saved world coordinates, and target localization; ``move_to``, ``rotate_wrist``, ``set_gripper``, and ``release`` for scripted motion; and ``lingbot_act`` or ``wam_act`` for the configured policy. ``render`` captures a fresh synchronized observation. Motion results report ``completed``, ``stop_reason``, ``stop_evidence``, ``pose_error``, and ``executed_steps``; ``completed`` means the planned waypoints ran, not that the task succeeded.
+
 .. list-table::
    :header-rows: 1
 
    * - Item
      - Description
    * - Observation
-     - Head and left/right wrist RGB views, depth/world coordinates for localization, and robot state. LingBot-VLA uses RGB views, robot state, and task text.
+     - Head and left/right wrist RGB views, depth/world coordinates for localization, and robot state. All three models use RGB views, robot state, and task text; UniWAM also uses recent joint-target feedback.
    * - Action
-     - The planner calls ``lingbot_act`` or motion primitives. The environment accepts 16-value end-effector actions (``ee``) or 14-value joint/gripper actions (``qpos``).
+     - The selected backend exposes ``lingbot_act`` or ``wam_act`` alongside motion primitives. The environment accepts 16-value end-effector actions (``ee``) or 14-value joint/gripper actions (``qpos``).
    * - Reward / success
      - Evaluate success using native ``TASK_ENV.eval_success``. Planner completion and episode timeouts are separate outcomes.
    * - Task prompt
@@ -143,6 +145,68 @@ Download the LingBot checkpoint and set its location:
 
 The checkpoint includes the default RoboTwin robot configuration.
 
+UniWAM Backend
+~~~~~~~~~~~~~~
+
+Select UniWAM with ``--am-backend uniwam``. The planner calls
+``wam_act(max_chunks=1)`` to execute 16 joint/gripper actions per chunk.
+Omit ``prompt`` to use the native task instruction, or pass a subtask instruction
+for that call.
+UniWAM uses recent action history to predict the next actions and supports
+RoboTwin evaluation, exploration and memory configuration.
+
+In a separate Python 3.11 model environment, install the policy dependencies
+following the official
+`UniWAM RoboTwin deployment guide <https://github.com/UniWAM/UniWAM/tree/8dcd3401bccda8c002fc558e356b975b1789eecd/inference/robotwin/uniwam>`_,
+then install RPent with ``pip install -e /path/to/RPent``.
+A verified dependency combination is Torch 2.6.0+cu124, torchvision 0.21.0+cu124,
+FlashAttention 2.7.4.post1, Transformers 4.57.3, Diffusers 0.35.1,
+DeepSpeed 0.16.9 and NumPy 1.26.4.
+
+Download the RoboTwin-clean history-flow checkpoint from the
+`UniWAM model collection <https://huggingface.co/collections/chenpyyy/uniwam>`_,
+plus `Wan2.2-TI2V-5B <https://huggingface.co/Wan-AI/Wan2.2-TI2V-5B>`_ and
+`Qwen3-VL-2B-Instruct <https://huggingface.co/Qwen/Qwen3-VL-2B-Instruct>`_.
+Arrange the resources as follows; existing directories can be symlinked:
+
+.. code-block:: text
+
+   uniwam/
+   ├── policy/                  # complete official inference/robotwin/uniwam directory
+   ├── checkpoint/
+   │   ├── config.json
+   │   └── pytorch_model/
+   ├── wan/                     # Wan2.2-TI2V-5B
+   └── vlm/                     # Qwen3-VL-2B-Instruct
+
+The checkpoint's ``config.json`` uses ``flow_source.mode: history`` and
+``history_length: 16``. UniWAM uses four denoising steps to generate each action chunk.
+
+After :doc:`configuring a planner <../guides/configure_planner>`, run from the
+RoboTwin environment:
+
+.. code-block:: bash
+
+   export UNIWAM_MODEL_PATH=/path/to/uniwam
+   export UNIWAM_PYTHON=/path/to/model-env/bin/python
+   rpent --robot robotwin --am-backend uniwam \
+      --am-checkpoint "$UNIWAM_MODEL_PATH" --am-python "$UNIWAM_PYTHON" \
+      --task-name beat_block_hammer --task-config demo_randomized --seed 100000 \
+      --planner codex --model gpt-5.5
+
+``--am-checkpoint`` selects the resource directory above; ``--am-python`` selects
+the model environment's interpreter. RPent starts and cleans up the model process.
+
+To reuse the model across tasks, start a standalone worker in the model environment:
+
+.. code-block:: bash
+
+   python -m rpent.robots.components.uniwam.server \
+      --checkpoint /path/to/uniwam --port 8118
+
+For task runs, replace ``--am-checkpoint`` and ``--am-python`` with
+``--am-endpoint http://127.0.0.1:8118``. The operator manages this worker's lifetime.
+
 Fast-WAM Configuration
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -160,7 +224,7 @@ required. From the simulator environment:
 
 ``wam_act(prompt=None, max_chunks=1)`` replaces ``lingbot_act``; each chunk
 executes the worker's configured ``execute_steps`` through ``action_type="qpos"``.
-WAM uses a required local memory manager and file tools, with a backend-specific
+Fast-WAM uses a required local memory manager and file tools, with a backend-specific
 directory that may be empty; ``--memory-dir`` selects a compatible local corpus.
 HF memory and exploration are unsupported. Native ``eval_success`` determines
 task success. The LingBot and HF memory workflows below apply to the VLA path.
@@ -248,10 +312,12 @@ Task Memory
 The published planner memory lives under ``robotwin/`` in the dataset. The HF
 profile syncs it to ``<RPent-clone-path>/memory/robotwin/`` for read-only use.
 
-``MEMORY.md`` indexes reusable experience across tasks, including
-perception cues, control heuristics, recovery strategies, parameter-selection
-guidance, and common failure modes. The planner can follow the index to read
-only the memory entries relevant to the current task or observed failure.
+Reusable experience is stored as notes under ``global/`` and
+``task-family/``, covering perception cues, control heuristics, recovery
+strategies, parameter-selection guidance, and common failure modes. The
+``recall`` tool searches note titles and bodies and returns matching notes with
+their confidence and paths; inspect a match before relying on it. ``MEMORY.md``
+remains an optional index for browsing the corpus.
 
 For each evaluation task, ``task-specific/<task>_s0.json`` is the semantic recipe
 distilled from a successful trajectory. It describes the phase-level goals,
@@ -276,8 +342,8 @@ must be localized again.
 
 An ``evidence_status`` of ``supported`` means the recipe is backed by a
 successful clean trajectory. An ``experimental`` recipe remains a weak prior.
-Start with ``MEMORY.md`` and read only the notes relevant to the current
-task and failure mode.
+Start with ``recall`` for the current task and observed failure, then read only
+the returned notes that apply.
 
 Exploration Mode
 ----------------
@@ -297,7 +363,9 @@ with at most five attempts per session by default:
 ``reset`` uses the environment's ordinary episode reset, so the planner
 re-runs perception after every reset. The runner exports only the winning
 commands after the final reset. Exploration memory is written to the current
-local inbox. Drafts are merged when the run completes normally without an agent
+local inbox. Use ``remember`` to draft reusable findings and ``corroborate`` to
+record whether the run confirmed or contradicted a published note. Drafts and
+corroborations are merged when the run completes normally without an agent
 execution error. Pass ``--no-auto-merge-memory`` to disable automatic merging.
 
 .. raw:: html

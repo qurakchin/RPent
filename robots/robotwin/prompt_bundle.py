@@ -21,6 +21,7 @@ from collections.abc import Mapping
 from robots.robotwin.prompts import evaluate as evaluate_parts
 from robots.robotwin.prompts import explore as explore_parts
 from robots.robotwin.prompts import user as user_parts
+from rpent.prompt.common import MOTION_RESULT_FIELDS, RESULT_FIELDS
 from rpent.prompt.utils import PromptNode
 
 
@@ -29,27 +30,52 @@ def system_prompt(
 ) -> PromptNode:
     """Return the RoboTwin system prompt for the selected run mode."""
     variables = variables or {}
+    if variables.get("policy_backend") == "uniwam":
+        from robots.robotwin.prompts.uniwam import evaluate
+
+        return (
+            explore_parts.system_prompt(
+                transfer=evaluate.TRANSFER, control=evaluate.CONTROL
+            )
+            if variables.get("mode") == "explore"
+            else evaluate.system_prompt()
+        )
+
     if (
         variables.get("mode", "eval") == "explore"
         and variables.get("policy_kind") != "wam"
     ):
-        return explore_parts.system_prompt()
-    return evaluate_parts.system_prompt(variables)
+        prompt = explore_parts.system_prompt()
+    else:
+        prompt = evaluate_parts.system_prompt(variables)
+    # RoboTwin is the only host that registers MotionTools, so only its prompt
+    # promises the motion stop fields.
+    return {
+        **prompt,
+        "TOOL RESULTS": f"{RESULT_FIELDS}\n{MOTION_RESULT_FIELDS}",
+    }
 
 
 def user_prompt(
     variables: Mapping[str, object] | None = None,
 ) -> PromptNode:
-    if (variables or {}).get("policy_kind") == "wam":
+    variables = variables or {}
+    is_uniwam = variables.get("policy_backend") == "uniwam"
+    if variables.get("policy_kind") == "wam" and not is_uniwam:
         return {
             "TASK": user_parts.WAM_TASK,
             "MEMORY": user_parts.WAM_MEMORY,
         }
+    checkpoint = (
+        "UniWAM RoboTwin history-flow"
+        if is_uniwam
+        else "RLinf/LingBot-VLA-RoboTwin-EEF-ckpt1500"
+    )
     prompt = {
-        "CELL": user_parts.CELL,
+        "CELL": user_parts.CELL + f"- checkpoint: {checkpoint}\n",
         "BEGIN": user_parts.BEGIN,
     }
-    if (variables or {}).get("mode", "eval") == "explore":
+    if variables.get("mode", "eval") == "explore":
         prompt["EXPLORE MODE"] = explore_parts.USER_MODE
     return prompt
 

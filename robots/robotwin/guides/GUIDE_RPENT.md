@@ -6,9 +6,11 @@ geometry, and compact execution rules needed to apply it.
 
 ## Registered tools
 
-- Resources: `list_dir`, `read_text_file`
-- Observation: `view_env_state`, `render`, `sample_world_xyz`, `query_world_map`
-- Control: `lingbot_act`, `move_to`, `rotate_wrist`, `set_gripper`, `release`
+- Resources: `list_dir`, `read_text_file`, `write_text_file`
+- Memory: `recall`, `remember`, `corroborate`
+- Observation: `view_env_state`, `render`, `geometry`, `query_world_map`
+- Control: the selected model's tool (`lingbot_act` for LingBot, `wam_act` for
+  UniWAM), `move_to`, `rotate_wrist`, `set_gripper`, `release`
 - Terminal: `finish`
 
 Use no legacy `command.json` protocol or direct Env/VLA client. Tool schemas are
@@ -22,10 +24,18 @@ authoritative. Head views identify objects, distractors, destinations, global
 relations, and completed subgoals. Wrist views refine grasp, contact, insertion,
 and release geometry for the same head-selected candidate.
 
+`geometry` localizes one target in a named view. RoboTwin runs without a
+grounding service, so pass a `[row,col]` pixel measured on that view and ask for
+the quantities you need; a described `target` is rejected. It returns
+`pixel_rc`, per-field values with units and evidence status, `fit_accepted`, and
+`warnings`. Treat `status="partial"` or `fit_accepted=false` as a rejected
+measurement, not as a weak coordinate.
+
 World maps use `[row,col]`, contain world-frame `[x,y,z]` metres, and may contain
-NaN. Query the exact step/view/resolution whose RGB supplied the pixels. Sample
-several interior pixels and use robust geometry; an exposed surface point is not
-necessarily an object center. Re-observe after occlusion or physical change.
+NaN. Query the exact step/view whose RGB supplied the pixels. An exposed surface
+point is not necessarily an object center. Re-observe after occlusion or physical
+change. `call_ok` only reports that a call was valid; motion success comes from
+`completed`, `stop_reason`, `pose_error`, and the fresh observation.
 
 The aloha-agilex state is qpos14: six joints plus one normalized gripper value
 per arm. Gripper 0 is closed and 1 is open. `move_to` targets EEF pose; EEF and
@@ -34,9 +44,16 @@ Coordinates are world-frame metres and quaternions are `[qw,qx,qy,qz]`.
 
 ## VLA and primitives
 
-Every `lingbot_act` must use the full current task language and `use_length=50`.
-Use the same-task successful recipe's chunk cadence as a prior. Shorten to one
-chunk near contact, instability, or completion. Preserve useful continuous VLA
+For LingBot, every `lingbot_act` must use the full current task language and
+`use_length=50`. Use the same-task successful recipe's chunk cadence as a prior.
+
+For UniWAM, `wam_act(max_chunks=1)` uses the current task language by default.
+Pass `prompt` to specify a subtask for this call. Each chunk executes 16 qpos
+actions. State history includes analytic-tool actions
+and is maintained automatically. Choose the cadence from current progress;
+LingBot recipe chunk counts are not UniWAM timing.
+
+Shorten to one chunk near contact, instability, or completion. Preserve useful continuous VLA
 behavior for bimanual, articulated, hanging, insertion, and tool phases.
 
 Use `move_to` for verified free-space transport, staging, retreat, or one small
@@ -119,7 +136,7 @@ After failure, identify the first unmet gate and classify the blocker: wrong
 identity/destination, missed grasp, lost hold, planning/collision, insufficient
 contact, premature release, unstable placement, or incomplete relation. Change
 one meaningful variable and verify. Do not repeat the same ineffective analytic
-target or hand-written recovery twice. This limit does not cap `lingbot_act`:
+target or hand-written recovery twice. This limit does not cap model calls:
 VLA may be called repeatedly when the recipe, current contact, and recoverable
 physical state support continuation. Near success, fix only the remaining
 blocker instead of replaying the task.

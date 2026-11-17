@@ -21,13 +21,14 @@ from collections.abc import Mapping
 from robots.dual_franka.prompts import explore as explore_parts
 from robots.dual_franka.prompts import system as system_parts
 from robots.dual_franka.prompts import user as user_parts
+from rpent.prompt.common import RESULT_FIELDS
 from rpent.prompt.utils import Numbered, PromptNode
 
 
 def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
     """Assemble the dual-Franka system prompt."""
     if (variables or {}).get("mode") == "explore":
-        return explore_parts.system_prompt()
+        return {**explore_parts.system_prompt(), "TOOL RESULTS": RESULT_FIELDS}
     node: dict[str, object] = {
         "ROLE": system_parts.ROLE,
         "RUNTIME": system_parts.RUNTIME,
@@ -35,6 +36,7 @@ def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
         "CAMERA AND PROJECTION RULES": Numbered(system_parts.CAMERA_AND_PROJECTION),
         "VLA SEGMENT GATES": Numbered(system_parts.VLA_GATES),
         "WORKFLOW": Numbered(system_parts.WORKFLOW),
+        "TOOL RESULTS": RESULT_FIELDS,
     }
     return node
 

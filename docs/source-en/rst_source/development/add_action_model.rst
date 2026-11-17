@@ -32,9 +32,11 @@ The WAM execution path illustrates the platform/model boundary:
      -> <model>/adapter/encode.py -> predict_native -> adapter/decode.py
      -> action chunk -> platform env_client.chunk_step -> simulator
 
-``wam_act`` lives in LIBERO's ``tools.py`` and RoboTwin's ``primitives.py``.
-Both use ``@tool`` and return ``ToolResult(data=...)``. The existing platform
-toolkit owns registration, cancellation, state capture and recording.
+LIBERO declares ``wam_act`` in ``tools.py``. RoboTwin registers the shared
+``SkillTools`` family and binds it to the platform through ``skills/policy.py``.
+Both declare tools with ``@tool`` and return ``ToolResult(data=...)``. The
+existing platform toolkit owns registration, cancellation, state capture and
+recording.
 
 .. list-table:: Ownership
    :header-rows: 1
@@ -112,7 +114,7 @@ Add a VLA
 Because the model runs in its own process, adding a model-based
 primitive requires a few additional components:
 
-1. **Write ``vla_server.py``.** This process owns only the model weights
+1. **Write** ``vla_server.py``. This process owns only the model weights
    and CUDA context. Use
    :class:`rpent.robots.components.am_facade_base.BaseVLAFacade` as the base
    class, implement ``predict``, and register any additional model RPCs by
@@ -161,7 +163,7 @@ primitive requires a few additional components:
 4. **Register the declared tool in the toolkit.** Follow the
    same pattern as for a scripted primitive.
 
-5. **Wire the components together in ``robot_spec.py``.** The
+5. **Wire the components together in** ``robot_spec.py``. The
    robot's ``get_toolkit`` builds the toolkit with
    ``runtime_kwargs``:
 
@@ -218,7 +220,8 @@ Add a WAM
 ---------
 
 Cosmos Policy and Cosmos3 support LIBERO and LIBERO-Pro; Fast-WAM supports LIBERO,
-LIBERO-Pro and RoboTwin. Each model/platform pair requires a matching checkpoint.
+LIBERO-Pro and RoboTwin; UniWAM supports RoboTwin.
+Each model/platform pair requires a matching checkpoint.
 
 ``cosmos-policy`` uses NVIDIA's released ``Cosmos-Policy-LIBERO-Predict2-2B``
 checkpoint and official LIBERO inference API. ``cosmos3`` connects to a
@@ -235,6 +238,8 @@ at that boundary. These backends require different checkpoints.
 2. Register each supported platform in the model's ``ADAPTERS`` mapping
    using ``WAMAdapterSpec`` from ``am_facade_base.py``. The model metadata factory declares checkpoint
    identity, camera/state requirements, native control and executable chunk size.
+   Declare ``joint_target_history_shape`` if the model requires executed joint targets,
+   and validate the checkpoint's history settings at startup.
    Encode physical observations into model inputs; decode predictions into the
    declared platform action format.
 3. Reuse a platform's ``wam_client.py`` when its observation and control
@@ -261,6 +266,11 @@ Requests contain ``images``, ``state``, ``instruction``, ``embodiment`` and
 cameras and state dimensions, executable ``chunk_size``, backend/checkpoint
 identity and session settings. Predictions contain ``actions`` and may contain
 ``future_observation``, ``value`` and ``metadata``.
+When metadata declares ``joint_target_history_shape=(max_length, width)``, requests
+must include finite numeric ``joint_target_history`` with shape
+``[1..max_length, width]``, oldest first. UniWAM declares ``(16, 14)``;
+models without this declaration do not require history. The service validates
+history before encoding. History length is independent of action chunk size.
 An optional ``prediction_timeout_s`` supplies the client's request budget;
 without it, the default is 300 seconds. An explicit client timeout takes precedence.
 Cosmos3 advertises its native HTTP timeout plus 30 seconds for RPC overhead.
@@ -302,10 +312,11 @@ current Fast-WAM adapter uses qpos14. Cosmos Policy has no RoboTwin adapter.
 ``future_observation`` and ``value`` reserve space for model predictions.
 Separate forecasting/planning RPCs and planner consumption of predictions are
 not implemented. Every toolkit requires a ``MemoryManager`` and registers memory
-file tools. WAM uses local memory under the platform's memory root, in a
-subdirectory named after the backend; ``--memory-dir`` overrides that directory.
-The corpus may be empty. No compatible HF corpus is configured for WAM, and WAM
-evaluation currently excludes HF memory, Flash and exploration.
+file tools. Use ``--memory-dir`` to select the memory directory.
+
+UniWAM generates the next action chunk from the robot's recent executed actions.
+This history also includes actions executed through tools such as ``move_to``.
+See :doc:`../simulators/robotwin` for deployment instructions.
 
 .. _action-model-deployment:
 
