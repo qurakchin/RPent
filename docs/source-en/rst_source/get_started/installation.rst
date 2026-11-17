@@ -26,11 +26,10 @@ List and check profiles
 
 ``check`` reads manifests and profiles, computes the ``requires`` closure, and
 reports conflicting placements, duplicate pins, unsupported Python versions,
-platform mismatches, and declared locks that no longer cover the requirements.
-It downloads nothing. ``--resolve`` additionally compiles every profile that
-passes those checks with ``uv pip compile`` to prove the declared dependencies
-have a solution; it uses the same code path as ``lock`` and reads package
-metadata from the configured indexes.
+and platform mismatches. It downloads nothing. ``--resolve`` additionally
+uses ``uv pip compile`` to check that the declared dependencies have a solution.
+It reads package metadata from the configured indexes and discards the temporary
+compiled requirements after the check.
 
 Install a profile
 ------------------
@@ -68,12 +67,12 @@ checkout; ``.rpent/`` is local state and is ignored by git, so later
 install and contains only that service's dependencies; start it with the
 checkout on ``PYTHONPATH`` as shown in :doc:`../guides/flash`.
 
-Re-running the command reuses the environment and repairs a stale install. The
-installer uses the profile's lock when one exists and first checks that the
-lock still covers every direct requirement; a stale lock fails with the
-``rpent-install lock <profile>`` command that regenerates it. ``--dev`` appends the
-test packages, which the lock does not cover, and resolves the generated
-requirements instead. ``--dry-run`` prints the generated requirements. When a
+Re-running the command reuses the environment and repairs a stale install.
+The installer generates requirements from the profile and component manifests,
+then lets ``uv pip install`` resolve them. Direct version constraints and Git
+revisions remain in the manifests; transitive versions may differ between fresh
+installs as upstream packages change. ``--dev`` adds the test dependencies to
+the generated requirements. ``--dry-run`` prints those requirements. When a
 profile places a component in an external environment, the installer prints
 the command that installs that environment; run it against the same checkout.
 
@@ -160,18 +159,16 @@ rpent.cli.install`` as shown above.
    rpent-install install sam3-server --venv .venv-sam3-server
    rpent-install install openpi-server --venv .venv-openpi-server
 
-Diagnose and reproduce
-----------------------
+Diagnose an environment
+-----------------------
 
 .. code-block:: bash
 
    rpent-install doctor --venv .venv-libero-pro
    rpent-install inspect --venv .venv-libero-pro
-   rpent-install lock --all
-   rpent-install lock --all --check
 
 ``doctor`` compares the stored fingerprint with every recorded installation
-input (the manifests, the lock the install read, the component override files,
+input (the manifests, the component override files,
 and the repository's ``[tool.uv]`` settings), checks Python and platform, runs
 ``uv pip check`` and the component probes, and can
 probe external endpoints with ``--endpoint molmo=host:port``. ``uv`` resolves
@@ -182,29 +179,20 @@ input mode it was written with, so a venv installed by an older ``rpent-install`
 is reported as needing a reinstall rather than as drifted. A single
 component can be installed for development with
 ``rpent-install install <component>``; its fingerprint records
-``install_kind = "component"``, ``reproducible = false``, and the interpreter
+``install_kind = "component"`` and the interpreter
 it used, and ``doctor`` rebuilds that diagnostic profile with the recorded
 interpreter rather than the one running the check. ``inspect`` prints the
-fingerprint and its hash. ``lock`` compiles ``installs/locks/<profile>.lock``
-with ``uv pip compile`` and records the upstream cutoff as an
-``# exclude_newer`` header. ``--check`` recompiles at that recorded instant and
-fails when the result differs from the committed lock, so it reports changed
-manifests or a different resolver rather than packages released since. The
-publish workflow calls Full CI with ``full: true``, whose lock job recompiles
-every profile on the embodied runner; it gates a release, not a pull request.
-``install`` and ``check`` verify the cheaper invariant before installing: every
-direct requirement is still covered by the lock, its pin still satisfies the
-manifest, and the lock satisfies every component override. Linux locks
-target the ``manylinux_2_31`` baseline by default (glibc 2.31, Ubuntu 20.04 or
-newer), because current GPU wheels are not published for older baselines. A
-profile whose components need a newer baseline sets ``manylinux``; for example
-RoboDojo uses ``manylinux = "2_35"`` for Isaac Sim 5.1 wheels. ``lock --all``
-reports a profile that cannot resolve on the current host and continues with
-the rest; the ``robotwin-sim`` lock needs a Linux host with ``CUDA_HOME`` set
-because cuRobo builds metadata during resolution. Regenerate locks with a
-current ``uv``: an older release can resolve different versions for the same
-inputs, so its output disagrees with the committed lock. The release job pins
-the ``uv`` version that generated the locks; bump it in the same relock change.
+fingerprint and its hash. ``doctor`` also compares the installed package set
+with its recorded freeze hash. These checks detect environment changes; they
+do not pin future dependency resolution. The publish workflow calls Full CI
+with ``full: true`` to install and diagnose every profile before publishing.
+
+For ``check --resolve``, Linux profiles target ``manylinux_2_31`` by default
+(glibc 2.31, Ubuntu 20.04 or newer). A profile can raise that baseline with
+``manylinux``; RoboDojo uses ``manylinux = "2_35"`` for Isaac Sim 5.1 wheels.
+Checking ``robotwin-sim`` with ``--resolve`` needs a Linux host with
+``CUDA_HOME`` set because cuRobo builds metadata during resolution. A failed
+resolution is reported without stopping checks of the remaining profiles.
 
 Run artifacts record the active profile, fingerprint hash, source commit, and
 component names in ``run.json``.

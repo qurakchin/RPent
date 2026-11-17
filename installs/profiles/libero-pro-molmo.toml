@@ -2,7 +2,6 @@ schema = 1
 name = "libero-pro-molmo"
 python = "3.11"
 platform = "linux-x86_64"
-lock = "installs/locks/libero-pro-molmo.lock"
 description = "LIBERO-PRO with Molmo grounding in its own external environment."
 
 [components.libero]

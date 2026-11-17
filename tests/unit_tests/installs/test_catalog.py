@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The checked-in components, profiles and locks agree with each other."""
+"""The checked-in components and profiles agree with each other."""
 
-from rpent.install.lock_coverage import lock_problems
 from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import resolve
 
@@ -37,26 +36,7 @@ def test_every_profile_selects_known_components(catalog):
 
 def test_every_profile_resolves(catalog):
     for name, profile in sorted(catalog.profiles.items()):
-        resolution = resolve(profile, catalog)
-
-        assert resolution.ok, f"profile {name!r}: {'; '.join(resolution.errors)}"
-
-
-def test_every_profile_declares_the_lock_it_ships(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
-        assert profile.lock == f"installs/locks/{name}.lock"
-        assert (catalog.root / profile.lock).is_file()
-
-
-def test_every_lock_covers_its_profile(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
         core = read_core_dependencies(catalog.root) if profile.core else ()
         resolution = resolve(profile, catalog, core_dependencies=core)
-        problems = lock_problems(
-            profile,
-            resolution,
-            catalog.root,
-            core_dependencies=core,
-        )
 
-        assert not problems, f"profile {name!r}: {'; '.join(problems)}"
+        assert resolution.ok, f"profile {name!r}: {'; '.join(resolution.errors)}"

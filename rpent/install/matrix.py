@@ -21,7 +21,7 @@ nowhere. ``--check`` compares the table with ``installs/profiles/*.toml`` and
 fails when a profile is missing or no longer exists, which makes adding a
 profile also a decision about where it is installed.
 
-Hosted runners install the profiles whose lock pulls no CUDA packages; the GPU
+Hosted runners install the profiles whose dependencies pull no CUDA packages; the GPU
 runner installs everything that does.
 """
 

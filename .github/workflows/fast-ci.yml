@@ -1,10 +1,8 @@
 name: Fast CI
 
-# Every pull request and every push to main. The environment is prebuilt and
-# cached from a profile lock, so this level proves the change matches the
-# manifests and breaks no affected contract — not that a clean machine can
-# install RPent. `full ci` proves that, and is called here only for the profiles
-# a pull request affects.
+# Every pull request and every push to main. Unit checks install the selected
+# CPU test profile and run affected contracts. `full ci` installs the affected
+# runtime profiles and exercises their integration suites.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
@@ -110,11 +108,11 @@ jobs:
               "toolkit": scope["full"] or "geometry" in scope["components"],
               "docs": scope["docs"],
               # A component change can only be proven by installing its
-              # closure from the lock, which `full ci` does. Install data
+              # closure from its profile, which `full ci` does. Install data
               # narrows the profile set rather than emptying it.
               "needs_full": bool(scope["components"] or scope["profiles"]),
               "package": any(
-                  path in {"pyproject.toml", "uv.lock", "setup.py", "MANIFEST.in"}
+                  path in {"pyproject.toml", "setup.py", "MANIFEST.in"}
                   for path in changed
               ),
           }

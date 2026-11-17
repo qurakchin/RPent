@@ -55,7 +55,7 @@ them when the first test for that module lands.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
   `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
-  `installs/{profiles,deps,locks}/`, the authored runner partition, the
+  `installs/{profiles,deps}/`, the authored runner partition, the
   compatibility extras and conflicts in the root `pyproject.toml`, and the
   workflows that consume them. Do not read the real install data from
   `tests/unit_tests/rpent/install/`; the test path would otherwise hide which

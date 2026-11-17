@@ -72,7 +72,7 @@ Follow these conventions while developing:
   environment in its `robots/<name>/` directory, model services in
   `components/models/<name>/`, and toolkits in `components/toolkits/<name>/`.
   Place shared functionality in common modules with matching responsibilities.
-  Install recipes, dependency-only components, and locks live under
+  Install recipes and dependency-only components live under
   `installs/`.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
@@ -98,7 +98,7 @@ Follow these conventions while developing:
   update the tests and explain why. Unit tests must run offline on an ordinary
   CPU machine; use fakes when model or service output is needed. Installer
   units use synthetic manifests under `tests/unit_tests/rpent/install/`;
-  contracts over the checked-in components, profiles, locks, and packaging
+  contracts over the checked-in components, profiles, and packaging
   extras belong in `tests/unit_tests/installs/`.
 - **Follow the project style.** Pre-commit handles Ruff formatting and linting.
   Public Python APIs should have type hints and Google-style docstrings, and

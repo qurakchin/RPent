@@ -15,8 +15,8 @@
 """Render deterministic requirements files and installation input hashes.
 
 An installation is identified by the hash of every input that decides what it
-contains: the profile, the component manifests, the lock the install reads, the
-override files its components apply, and the repository's ``[tool.uv]``
+contains: the profile, the component manifests, the override files its
+components apply, and the repository's ``[tool.uv]``
 resolution settings. Requirement files are hashed by the lines uv reads, so
 editing a comment does not make an installation look stale.
 """
@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import Any
 
 from rpent.install.errors import InstallConfigError
-from rpent.install.manifest import Profile
 from rpent.install.resolve import Resolution
 
 try:  # Python 3.11+
@@ -42,7 +41,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 #: changes meaning or the repository layout moves the files the inputs name, not
 #: merely when one is added: ``doctor`` uses it to tell an installation recorded
 #: by an older input mode from one whose inputs drifted.
-REQUIREMENTS_SCHEMA = 4
+REQUIREMENTS_SCHEMA = 5
 
 #: ``[tool.uv]`` entries that do not change an installation's contents.
 #: ``conflicts`` only constrains extra combinations in the generated
@@ -153,22 +152,6 @@ def _requirement_lines_sha256(text: str) -> str:
     return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
 
 
-def _lock_sha256(profile: Profile, root: Path, *, reproducible: bool) -> str | None:
-    """Return the hash of the lock the installation read, if it read one.
-
-    ``--dev`` and component diagnostics install from generated requirements
-    instead, so they have no lock input.
-    """
-    if not reproducible or profile.lock is None:
-        return None
-    text = read_requirement_text(root / profile.lock)
-    if text is None:
-        # A deleted lock makes the inputs hash change, which is exactly the
-        # drift it should report.
-        return None
-    return _requirement_lines_sha256(text)
-
-
 def _override_inputs(resolution: Resolution, root: Path) -> list[dict[str, str]]:
     """Return the override files an installation applies, with their hashes."""
     entries: list[dict[str, str]] = []
@@ -246,13 +229,10 @@ def requirements_inputs(
     root: Path,
     core_dependencies: tuple[str, ...] = (),
     include_dev: bool = False,
-    reproducible: bool = False,
 ) -> dict[str, Any]:
     """Return the canonical inputs whose hash identifies an installation.
 
-    ``root`` locates the lock and override files, and ``reproducible`` says
-    whether the installation reads the lock; a ``--dev`` or component
-    diagnostic installation does not, so its contents do not depend on it.
+    ``root`` locates component override files and repository uv settings.
     """
     # Override paths are recorded relative to ``root``. Resolving it here makes
     # that relative form independent of how the caller spelled the checkout.
@@ -282,8 +262,8 @@ def requirements_inputs(
             "name": profile.name,
             "python": profile.python,
             "platform": profile.platform,
-            # The glibc baseline decides which wheel tags uv may select, so two
-            # installations that differ only here are different environments.
+            # Record the target used by dependency resolution checks with
+            # the rest of the profile configuration.
             "manylinux": profile.manylinux,
             "components": components,
             "dependencies": sorted(profile.dependencies),
@@ -293,10 +273,7 @@ def requirements_inputs(
         },
         "core_dependencies": sorted(core_dependencies),
         "include_dev": include_dev,
-        # The lock and the override files are install inputs that no manifest
-        # hash covers: recompiling a lock or editing an override changes what a
-        # reinstall would produce, so `doctor` has to be able to see it.
-        "lock_sha256": _lock_sha256(profile, root, reproducible=reproducible),
+        # Override contents can change without changing the manifest.
         "overrides": _override_inputs(resolution, root),
         "uv_settings": read_uv_settings(root),
     }
@@ -308,7 +285,6 @@ def requirements_sha256(
     root: Path,
     core_dependencies: tuple[str, ...] = (),
     include_dev: bool = False,
-    reproducible: bool = False,
 ) -> str:
     """Hash every input that determines what the installation contains."""
     payload = json.dumps(
@@ -317,31 +293,8 @@ def requirements_sha256(
             root=root,
             core_dependencies=core_dependencies,
             include_dev=include_dev,
-            reproducible=reproducible,
         ),
         sort_keys=True,
         separators=(",", ":"),
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
-
-def dependency_requirements_text(
-    resolution: Resolution,
-    environment: str,
-    *,
-    core_dependencies: tuple[str, ...] = (),
-) -> str:
-    """Return only requirement lines, without comments or blank lines.
-
-    Used by ``rpent-install lock`` to feed ``uv pip compile``.
-    """
-    return (
-        "\n".join(
-            environment_dependencies(
-                resolution,
-                environment,
-                core_dependencies=core_dependencies,
-            )
-        )
-        + "\n"
-    )

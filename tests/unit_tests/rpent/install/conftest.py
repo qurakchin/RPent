@@ -88,7 +88,6 @@ def make_profile(tmp_path):
             index_url=values.pop("index_url", None),
             extra_index_urls=tuple(values.pop("extra_index_urls", ())),
             index_strategy=values.pop("index_strategy", None),
-            lock=values.pop("lock", None),
             core=values.pop("core", True),
             generate_extra=values.pop("generate_extra", False),
             extra=values.pop("extra", None),
