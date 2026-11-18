@@ -36,7 +36,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
    * - 组件
      - 职责
    * - Planner
-     - 选择工具、维护模型交互并返回 ``PlannerResult``。``api`` 使用 Pydantic AI 原生循环，并通过 Harness 的滑动窗口裁剪历史；``claude_code`` 和 ``codex`` 使用各自的 SDK。LIBERO Flash 执行保存的计划。
+     - 选择工具、维护模型交互并返回 ``PlannerResult``。``api`` 使用 Pydantic AI 原生循环，并通过 Harness 的滑动窗口裁剪历史；``claude_code`` 和 ``codex`` 使用各自的 SDK，``gemini_cli`` 使用 ACP。LIBERO Flash 执行保存的计划。
    * - Prompt 拼装
      - 按共享片段、运行轴契约、工具说明、机器人领域和记忆的顺序拼装，渲染两种角色，并记录每段来源与 prompt 哈希。
    * - Toolkit

@@ -131,7 +131,7 @@ def test_policy_family_logs_an_undeclared_backend(caplog) -> None:
 def test_geometry_family_logs_which_capability_is_missing(caplog) -> None:
     family = GeometryTools(provider=SimpleNamespace())
 
-    with caplog.at_level("INFO", logger="components.toolkits.geometry"):
+    with caplog.at_level("INFO", logger="rpent.components.toolkits.geometry"):
         assert family.tools(Capabilities(depth_views=("head",))) == ()
 
     assert "geometry tool omitted" in caplog.text
