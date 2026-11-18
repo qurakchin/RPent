@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compile per-profile dependency locks with ``uv pip compile``.
+"""Compile per-target dependency locks with ``uv pip compile``.
 
 ``python -m tests.tooling.lock`` is the maintainer entry point; the compile
 mechanics live here so the installer, ``check --resolve``, and the lock tool
@@ -28,36 +28,43 @@ from pathlib import Path
 from rpent.install.discovery import Catalog
 from rpent.install.errors import InstallError
 from rpent.install.installer import index_options, run_command
-from rpent.install.manifest import Profile
+from rpent.install.manifest import Target
 from rpent.install.requirements import (
     read_core_dependencies,
     render_requirements,
 )
-from rpent.install.resolve import resolve
+from rpent.install.resolve import python_accepted, resolve
 
 # Pin the manylinux baseline instead of uv's default glibc 2.17 target: current
 # GPU wheels are published for newer baselines (rerun-sdk for manylinux_2_31,
 # Isaac Sim for manylinux_2_35), so a 2.17 baseline cannot resolve them. A
-# profile raises its baseline with `manylinux` when its components need it.
-PLATFORM_TAGS = {
-    "linux-x86_64": "x86_64-manylinux_{baseline}",
-    "linux-aarch64": "aarch64-manylinux_{baseline}",
-    "darwin-arm64": "aarch64-apple-darwin",
-    "darwin-x86_64": "x86_64-apple-darwin",
-}
+# target raises its baseline with `manylinux` when its components need it.
+# RPent installs only on linux-x86_64, so the tag has no per-target variant.
+PLATFORM_TAG = "x86_64-manylinux_{baseline}"
 
 #: Every lock records the upstream cutoff it was compiled with. ``--check``
 #: recompiles at the same instant, so a lock only drifts when its declared
 #: inputs change rather than whenever an upstream project publishes a release.
 LOCK_TIMESTAMP_PREFIX = "# exclude_newer = "
+#: A lock also records the Python minor it resolved for, so an install picks
+#: the same interpreter even when the target's request is a range.
+LOCK_PYTHON_PREFIX = "# python = "
+
+
+def _header_value(text: str, prefix: str) -> str | None:
+    for line in text.splitlines():
+        if not line.startswith("#"):
+            break
+        if line.startswith(prefix):
+            return line[len(prefix) :].strip()
+    return None
 
 
 def lock_timestamp(text: str) -> str | None:
     """Return the ``exclude_newer`` timestamp declared by a lock, if valid."""
-    first = text.splitlines()[0] if text else ""
-    if not first.startswith(LOCK_TIMESTAMP_PREFIX):
+    value = _header_value(text, LOCK_TIMESTAMP_PREFIX)
+    if value is None:
         return None
-    value = first[len(LOCK_TIMESTAMP_PREFIX) :].strip()
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
@@ -65,6 +72,11 @@ def lock_timestamp(text: str) -> str | None:
     if parsed.tzinfo is None:
         return None
     return value
+
+
+def lock_python(text: str) -> str | None:
+    """Return the Python minor a lock was compiled for, if it records one."""
+    return _header_value(text, LOCK_PYTHON_PREFIX)
 
 
 def new_lock_timestamp() -> str:
@@ -77,46 +89,51 @@ def new_lock_timestamp() -> str:
     )
 
 
-def lock_path(root: Path, profile: Profile) -> Path:
-    """Return the profile's declared or conventional lock path."""
-    return profile.lock_file(root)
+def lock_path(root: Path, target: Target) -> Path:
+    """Return the target's declared or conventional lock path."""
+    return target.lock_file(root)
 
 
-def compile_profile(
-    profile: Profile,
+def compile_target(
+    target: Target,
     catalog: Catalog,
     *,
     root: Path,
     uv: str,
     output: Path,
     exclude_newer: str | None = None,
+    python: str | None = None,
 ) -> str:
-    """Compile one profile's lock into ``output`` and return the lock text.
+    """Compile one target's lock into ``output`` and return the lock text.
 
     ``exclude_newer`` pins the upstream cutoff. ``lock --check`` reads it from
     the existing lock, so the recompiled body is comparable even after a
     release lands upstream; ``lock`` writes the current instant.
+
+    ``python`` is the minor the existing lock records. Reusing it keeps a
+    target on the interpreter its checked-in lock was verified with until a
+    constraint stops accepting it, instead of silently upgrading every
+    environment when a newer minor is supported.
     """
     resolution = resolve(
-        profile,
+        target,
         catalog,
-        core_dependencies=read_core_dependencies(root) if profile.core else (),
+        core_dependencies=read_core_dependencies(root) if target.core else (),
     )
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
-    platform_template = PLATFORM_TAGS.get(profile.platform)
-    if platform_template is None:
-        raise InstallError(
-            f"profile {profile.name!r} uses unknown platform {profile.platform!r}; "
-            f"known: {', '.join(sorted(PLATFORM_TAGS))}"
-        )
-    platform_tag = platform_template.format(baseline=profile.manylinux)
+    if resolution.python is None:
+        raise InstallError("\n".join(resolution.errors))
+    chosen_python = resolution.python
+    if python is not None and python_accepted(resolution, python):
+        chosen_python = python
+    platform_tag = PLATFORM_TAG.format(baseline=target.manylinux)
     requirements = render_requirements(
         resolution,
-        core_dependencies=read_core_dependencies(root) if profile.core else (),
+        core_dependencies=read_core_dependencies(root) if target.core else (),
     )
     with tempfile.TemporaryDirectory(prefix="rpent-lock-") as directory:
-        source = Path(directory) / f"{profile.name}.txt"
+        source = Path(directory) / f"{target.name}.txt"
         source.write_text(requirements, encoding="utf-8")
         command = [
             uv,
@@ -124,14 +141,14 @@ def compile_profile(
             "compile",
             str(source),
             "--python-version",
-            profile.python,
+            chosen_python,
             "--python-platform",
             platform_tag,
             "--no-header",
             "--no-annotate",
             "--output-file",
             str(output),
-            *index_options(profile),
+            *index_options(target),
         ]
         if exclude_newer is not None:
             command.extend(["--exclude-newer", exclude_newer])
@@ -146,25 +163,27 @@ def compile_profile(
         # checkout rather than wherever the CLI was invoked.
         run_command(command, capture=True, cwd=root)
     text = output.read_text(encoding="utf-8")
+    header = f"{LOCK_PYTHON_PREFIX}{chosen_python}\n"
     if exclude_newer is not None:
-        text = f"{LOCK_TIMESTAMP_PREFIX}{exclude_newer}\n{text}"
-        output.write_text(text, encoding="utf-8")
+        header += f"{LOCK_TIMESTAMP_PREFIX}{exclude_newer}\n"
+    text = f"{header}{text}"
+    output.write_text(text, encoding="utf-8")
     return text
 
 
-def resolve_profile(
-    profile: Profile,
+def resolve_target(
+    target: Target,
     catalog: Catalog,
     *,
     root: Path,
     uv: str,
 ) -> str:
-    """Compile ``profile`` into a temporary file and return the uv output.
+    """Compile ``target`` into a temporary file and return the uv output.
 
     ``tests.tooling.check --resolve`` uses this to prove that the declared
-    dependencies have a solution; it delegates to :func:`compile_profile` so
+    dependencies have a solution; it delegates to :func:`compile_target` so
     there is only one resolver.
     """
     with tempfile.TemporaryDirectory(prefix="rpent-resolve-") as directory:
-        output = Path(directory) / f"{profile.name}.txt"
-        return compile_profile(profile, catalog, root=root, uv=uv, output=output)
+        output = Path(directory) / f"{target.name}.txt"
+        return compile_target(target, catalog, root=root, uv=uv, output=output)

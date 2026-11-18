@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The lock tool writes every profile's lock and reports drift."""
+"""The lock tool writes every target's lock and reports drift."""
 
 import os
 import stat
@@ -36,34 +36,22 @@ def repo(tmp_path, write_toml):
     write_toml(
         "robots/alpha/component.toml",
         """
-        schema = 1
+        schema = 2
         name = "alpha"
         kind = "robot"
         probe = "json"
-        platforms = ["linux-x86_64"]
+        python = "3.11"
+        lock = "installs/locks/alpha.lock"
         dependencies = ["numpy>=2"]
         """,
     )
     write_toml(
-        "installs/profiles/alpha.toml",
+        "tests/targets/tool-beta.toml",
         """
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "linux-x86_64"
-        lock = "installs/locks/alpha.lock"
-
-        [components.alpha]
-        placement = "in-env"
-        """,
-    )
-    write_toml(
-        "tests/profiles/tool-beta.toml",
-        """
-        schema = 1
+        schema = 2
+        kind = "target"
         name = "tool-beta"
         python = "3.11"
-        platform = "linux-x86_64"
         core = false
         dependencies = ["packaging"]
 
@@ -113,7 +101,7 @@ def test_write_records_the_resolved_requirements(repo, fake_uv, capsys):
     text = destination.read_text(encoding="utf-8")
     assert "packaging" in text
     assert "numpy>=2" in text
-    assert text.startswith(LOCK_TIMESTAMP_PREFIX)
+    assert text.startswith("# python = 3.11\n")
     assert lock_timestamp(text) is not None
     assert "locked alpha: installs/locks/alpha.lock" in capsys.readouterr().out
     arguments = _arguments(fake_uv)
@@ -152,11 +140,12 @@ def test_write_resolves_override_files_against_the_checkout(repo, fake_uv, write
     write_toml(
         "robots/alpha/component.toml",
         """
-        schema = 1
+        schema = 2
         name = "alpha"
         kind = "robot"
         probe = "json"
-        platforms = ["linux-x86_64"]
+        python = "3.11"
+        lock = "installs/locks/alpha.lock"
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
@@ -171,17 +160,17 @@ def test_write_resolves_override_files_against_the_checkout(repo, fake_uv, write
     assert os.path.isabs(value)
 
 
-def test_all_uses_the_default_lock_path_beside_the_profile(repo, fake_uv):
+def test_all_uses_the_default_lock_path_beside_the_target(repo, fake_uv):
     assert lock.main(["--all"], root=repo) == 0
 
     assert (repo / "installs/locks/alpha.lock").is_file()
     assert (repo / "tests/locks/tool-beta.lock").is_file()
 
 
-def test_unknown_profile_is_reported(repo, fake_uv, capsys):
+def test_unknown_target_is_reported(repo, fake_uv, capsys):
     assert lock.main(["missing"], root=repo) == 1
 
-    assert "unknown profile 'missing'" in capsys.readouterr().err
+    assert "unknown target 'missing'" in capsys.readouterr().err
 
 
 def test_check_passes_for_an_unchanged_lock(repo, fake_uv, capsys):
@@ -249,21 +238,20 @@ def test_all_reports_failures_and_continues(repo, fake_uv, write_toml, capsys):
     write_toml(
         "robots/gamma/component.toml",
         """
-        schema = 1
+        schema = 2
         name = "gamma"
         kind = "robot"
         probe = "json"
-        platforms = ["solaris"]
+        python = ">=3.12"
         """,
     )
     write_toml(
-        "installs/profiles/gamma.toml",
+        "installs/targets/gamma-env.toml",
         """
-        schema = 1
-        name = "gamma"
+        schema = 2
+        kind = "target"
+        name = "gamma-env"
         python = "3.11"
-        platform = "solaris"
-        lock = "installs/locks/gamma.lock"
 
         [components.gamma]
         placement = "in-env"
@@ -273,6 +261,6 @@ def test_all_reports_failures_and_continues(repo, fake_uv, write_toml, capsys):
     assert lock.main(["--all"], root=repo) == 1
 
     output = capsys.readouterr().out
-    assert "lock gamma: FAIL" in output
-    assert "unknown platform 'solaris'" in output
+    assert "lock gamma-env: FAIL" in output
+    assert "no supported version" in output
     assert (repo / "installs/locks/alpha.lock").is_file()

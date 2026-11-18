@@ -1,12 +1,16 @@
-schema = 1
+schema = 2
 name = "molmo"
 kind = "model"
 probe = "components.models.molmo.server"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
+# The model server runs from this interpreter with PYTHONPATH pointing at the
+# RPent checkout, so RPent and its core dependencies stay out of the resolver.
+core = false
+extra = "molmo"
+description = "Molmo visual grounding in a standalone environment."
 placement = ["in-env", "remote"]
 # Molmo's model code needs transformers >=4.57, while RoboTwin's stack is pinned
-# to 4.51.3. Install Molmo in its own profile and connect over RPC; placing both
+# to 4.51.3. Install Molmo in its own environment and connect over RPC; placing both
 # in one environment is rejected before installation.
 env_conflicts = ["robotwin"]
 docs = "docs/source-en/rst_source/guides/flash.rst"

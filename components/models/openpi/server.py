@@ -43,7 +43,7 @@ logger = get_logger("pi05_vla_server")
 
 # The OpenPI policy runtime owns Torch and OmegaConf; loading them through the
 # component guard keeps the failure actionable when the server starts outside
-# its profile.
+# its target.
 torch = require("openpi", "torch")
 OmegaConf = require("openpi", "omegaconf").OmegaConf
 

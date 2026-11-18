@@ -23,9 +23,8 @@ from rpent.install.snapshot import installation_snapshot, record_run_environment
 def _fingerprint():
     return {
         "schema": 1,
-        "profile": "minimal",
+        "target": "minimal",
         "python": "3.11.14",
-        "platform": "linux-x86_64",
         "components": {"rlinf": {"placement": "in-env"}},
         "source_commit": "abc123",
         "source_dirty": False,
@@ -38,13 +37,13 @@ def test_snapshot_of_a_venv_without_a_fingerprint(tmp_path):
 
     snapshot = installation_snapshot(venv)
 
-    assert snapshot["profile"] is None
+    assert snapshot["target"] is None
     assert snapshot["install_sha256"] is None
     assert snapshot["venv"] == str(venv.resolve())
     assert snapshot["components"] == []
 
 
-def test_snapshot_identifies_the_installed_profile(tmp_path):
+def test_snapshot_identifies_the_installed_target(tmp_path):
     venv = tmp_path / "venv"
     venv.mkdir()
     fingerprint = _fingerprint()
@@ -52,7 +51,7 @@ def test_snapshot_identifies_the_installed_profile(tmp_path):
 
     snapshot = installation_snapshot(venv)
 
-    assert snapshot["profile"] == "minimal"
+    assert snapshot["target"] == "minimal"
     assert snapshot["install_sha256"] == fingerprint_sha256(fingerprint)
     assert snapshot["components"] == ["rlinf"]
     assert snapshot["source_commit"] == "abc123"
@@ -72,7 +71,7 @@ def test_record_merges_into_an_existing_run_manifest(tmp_path):
     record = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
     assert record["task"] == "open the drawer"
     assert record["started_at"] == "then"
-    assert record["environment"]["profile"] == "minimal"
+    assert record["environment"]["target"] == "minimal"
 
 
 def test_record_creates_the_manifest_and_is_idempotent(tmp_path):

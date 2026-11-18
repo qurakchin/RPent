@@ -7,9 +7,9 @@ and exposes a small set of tools to the planner.
 
 Toolkits run in the RPent process family. They may depend on core contracts, but
 must not import `robots.*` or another toolkit; `python -m tests.tooling.layout` enforces
-that boundary. `rpent-install` installs profiles, not individual components: a
-profile selects the toolkit with `[components.<name>]`, or another component
-that the profile installs requires it.
+that boundary. Every component is installable under its own name, so
+`rpent-install install geometry` installs the toolkit alone; a compound target
+selects it with `[components.<name>]` or pulls it in through `requires`.
 
 `geometry/` is the shared localization toolkit: it selects and segments a
 target, back-projects the mask, and reports a world-frame estimate, together

@@ -1,10 +1,8 @@
-schema = 1
+schema = 2
 name = "fast_wam"
 kind = "model"
 probe = "components.models.fast_wam.server"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
-placement = ["in-env"]
 docs = "docs/source-en/rst_source/development/add_action_model.rst"
 
 # Model weights and the Fast-WAM runtime are supplied by the deployment; the

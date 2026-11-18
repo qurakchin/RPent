@@ -1,0 +1,11 @@
+schema = 2
+kind = "target"
+name = "sim-libero_pro"
+python = "3.11"
+
+lock = "installs/locks/sim-libero_pro.lock"
+extra = "sim-libero-pro"
+description = "LIBERO-PRO simulation for adapter development, e2e, and data collection."
+
+[components.libero]
+variant = "pro"

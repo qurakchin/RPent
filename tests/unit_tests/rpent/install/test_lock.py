@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""One resolver compiles profile locks, records their cutoff, and resolves."""
+"""One resolver compiles target locks, records their cutoff, and resolves."""
 
 import os
 import stat
@@ -22,12 +22,14 @@ import pytest
 from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.lock import (
+    LOCK_PYTHON_PREFIX,
     LOCK_TIMESTAMP_PREFIX,
-    compile_profile,
+    compile_target,
     lock_path,
+    lock_python,
     lock_timestamp,
     new_lock_timestamp,
-    resolve_profile,
+    resolve_target,
 )
 from rpent.install.manifest import Selection
 
@@ -45,49 +47,25 @@ def repo(tmp_path, write_toml):
     write_toml(
         "robots/alpha/component.toml",
         """
-        schema = 1
+        schema = 2
         name = "alpha"
         kind = "robot"
         probe = "json"
-        platforms = ["linux-x86_64"]
-        dependencies = ["numpy>=2"]
-        """,
-    )
-    write_toml(
-        "installs/profiles/alpha.toml",
-        """
-        schema = 1
-        name = "alpha"
         python = "3.11"
-        platform = "linux-x86_64"
         lock = "installs/locks/alpha.lock"
-
-        [components.alpha]
-        placement = "in-env"
+        dependencies = ["numpy>=2"]
         """,
     )
     write_toml(
         "robots/beta/component.toml",
         """
-        schema = 1
+        schema = 2
         name = "beta"
         kind = "robot"
         probe = "json"
-        platforms = ["linux-x86_64"]
-        """,
-    )
-    write_toml(
-        "installs/profiles/beta.toml",
-        """
-        schema = 1
-        name = "beta"
         python = "3.11"
-        platform = "linux-x86_64"
         manylinux = "2_35"
         lock = "installs/locks/beta.lock"
-
-        [components.beta]
-        placement = "in-env"
         """,
     )
     return tmp_path
@@ -126,9 +104,9 @@ def _arguments(fake_uv):
     return (fake_uv.parent / "uv-args").read_text(encoding="utf-8").splitlines()
 
 
-def test_lock_path_uses_declaration_or_convention(make_profile, tmp_path):
-    declared = make_profile("alpha", lock="custom/alpha.lock")
-    conventional = make_profile("beta")
+def test_lock_path_uses_declaration_or_convention(make_target, tmp_path):
+    declared = make_target("alpha", lock="custom/alpha.lock")
+    conventional = make_target("beta")
 
     assert lock_path(tmp_path, declared) == tmp_path / "custom/alpha.lock"
     assert lock_path(tmp_path, conventional) == tmp_path / "installs/locks/beta.lock"
@@ -153,8 +131,8 @@ def test_compile_writes_the_resolved_requirements(repo, fake_uv):
     output.parent.mkdir(parents=True, exist_ok=True)
     cutoff = new_lock_timestamp()
 
-    text = compile_profile(
-        catalog.profiles["alpha"],
+    text = compile_target(
+        catalog.targets["alpha"],
         catalog,
         root=repo,
         uv=str(fake_uv),
@@ -164,27 +142,29 @@ def test_compile_writes_the_resolved_requirements(repo, fake_uv):
 
     assert "packaging" in text
     assert "numpy>=2" in text
-    assert text.startswith(LOCK_TIMESTAMP_PREFIX)
+    assert text.startswith(f"{LOCK_PYTHON_PREFIX}3.11\n")
+    assert lock_python(text) == "3.11"
     assert lock_timestamp(text) == cutoff
     assert output.read_text(encoding="utf-8") == text
     arguments = _arguments(fake_uv)
     assert arguments[arguments.index("--exclude-newer") + 1] == cutoff
 
 
-def test_compile_without_a_cutoff_writes_no_header(repo, fake_uv):
+def test_compile_without_a_cutoff_writes_only_the_python_header(repo, fake_uv):
     catalog = discover(repo)
     output = repo / "installs/locks/alpha.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    text = compile_profile(
-        catalog.profiles["alpha"],
+    text = compile_target(
+        catalog.targets["alpha"],
         catalog,
         root=repo,
         uv=str(fake_uv),
         output=output,
     )
 
-    assert not text.startswith(LOCK_TIMESTAMP_PREFIX)
+    assert text.startswith(LOCK_PYTHON_PREFIX)
+    assert LOCK_TIMESTAMP_PREFIX not in text
     assert "--exclude-newer" not in _arguments(fake_uv)
 
 
@@ -196,8 +176,8 @@ def test_compile_runs_in_the_checkout(repo, fake_uv, monkeypatch):
     output = repo / "installs/locks/alpha.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    compile_profile(
-        catalog.profiles["alpha"], catalog, root=repo, uv=str(fake_uv), output=output
+    compile_target(
+        catalog.targets["alpha"], catalog, root=repo, uv=str(fake_uv), output=output
     )
 
     assert (repo / "uv-pwd").read_text(encoding="utf-8").splitlines() == [
@@ -213,11 +193,11 @@ def test_compile_resolves_override_files_against_the_checkout(
     write_toml(
         "robots/alpha/component.toml",
         """
-        schema = 1
+        schema = 2
         name = "alpha"
         kind = "robot"
         probe = "json"
-        platforms = ["linux-x86_64"]
+        python = "3.11"
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
@@ -227,8 +207,8 @@ def test_compile_resolves_override_files_against_the_checkout(
     output = repo / "installs/locks/alpha.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    compile_profile(
-        catalog.profiles["alpha"], catalog, root=repo, uv=str(fake_uv), output=output
+    compile_target(
+        catalog.targets["alpha"], catalog, root=repo, uv=str(fake_uv), output=output
     )
 
     arguments = _arguments(fake_uv)
@@ -237,13 +217,13 @@ def test_compile_resolves_override_files_against_the_checkout(
     assert os.path.isabs(value)
 
 
-def test_compile_uses_the_profile_manylinux_baseline(repo, fake_uv):
+def test_compile_uses_the_target_manylinux_baseline(repo, fake_uv):
     catalog = discover(repo)
     output = repo / "installs/locks/beta.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    compile_profile(
-        catalog.profiles["beta"], catalog, root=repo, uv=str(fake_uv), output=output
+    compile_target(
+        catalog.targets["beta"], catalog, root=repo, uv=str(fake_uv), output=output
     )
 
     arguments = _arguments(fake_uv)
@@ -252,30 +232,28 @@ def test_compile_uses_the_profile_manylinux_baseline(repo, fake_uv):
     )
 
 
-def test_compile_rejects_an_unknown_platform(
-    tmp_path, make_component, make_profile, make_catalog, fake_uv
+def test_compile_rejects_a_python_request_no_supported_minor_satisfies(
+    tmp_path, make_component, make_target, make_catalog, fake_uv
 ):
-    component = make_component("alpha", platforms=("solaris",))
-    profile = make_profile(
+    component = make_component("alpha", python=">=3.10,<3.11")
+    target = make_target(
         "alpha",
         components={"alpha": Selection(placement="in-env")},
-        platform="solaris",
+        python="3.12",
         core=False,
     )
-    catalog = make_catalog([component], {"alpha": profile})
+    catalog = make_catalog([component], {"alpha": target})
 
-    with pytest.raises(InstallError, match="unknown platform 'solaris'"):
-        compile_profile(
-            profile, catalog, root=tmp_path, uv=str(fake_uv), output=tmp_path / "x"
+    with pytest.raises(InstallError, match="no supported version"):
+        compile_target(
+            target, catalog, root=tmp_path, uv=str(fake_uv), output=tmp_path / "x"
         )
 
 
-def test_resolve_profile_compiles_without_writing_a_lock(repo, fake_uv):
+def test_resolve_target_compiles_without_writing_a_lock(repo, fake_uv):
     catalog = discover(repo)
 
-    text = resolve_profile(
-        catalog.profiles["alpha"], catalog, root=repo, uv=str(fake_uv)
-    )
+    text = resolve_target(catalog.targets["alpha"], catalog, root=repo, uv=str(fake_uv))
 
     assert "numpy>=2" in text
     assert not (repo / "installs/locks/alpha.lock").exists()

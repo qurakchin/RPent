@@ -12,24 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Map changed paths to the components, tests and profiles they can affect.
+"""Map changed paths to the components, tests and targets they can affect.
 
 `fast ci` narrows which tests a pull request runs and `full ci` narrows which
-profiles it installs from the same answer, so the two levels cannot drift: a
-path under a component directory names that component; the affected profiles
+targets it installs from the same answer, so the two levels cannot drift: a
+path under a component directory names that component; the affected targets
 are the ones whose resolution closure contains it, and the affected tests are
 the suites that mirror it.
 
 A path outside every component directory belongs to the core, the installer, or
-the profiles themselves, so it can change every installation. An unknown
+the target files themselves, so it can change every installation. An unknown
 component name is treated the same way rather than silently ignored. The answer
-then names every component, every profile, and the whole unit suite. When no
+then names every component, every target, and the whole unit suite. When no
 path is given there is nothing to narrow the answer with, so the same happens.
 
 Changes confined to the repository's install data are narrower: they decide
 which environment can be built rather than how a component behaves, so they
-select the repository contract tests and the profiles that read the changed
-files. Unrecognised install data widens back to every profile.
+select the repository contract tests and the targets that read the changed
+files. Unrecognised install data widens back to every target.
 
 Narrowing is fail-open throughout: a change no test directory covers, or a
 component whose tests do not exist yet, widens the scope instead of reporting a
@@ -62,27 +62,27 @@ ROBOT_SHARED_TESTS = (
     "tests/unit_tests/robots/test_tool_schema_contracts.py",
     "tests/unit_tests/robots/test_toolkit_contracts.py",
 )
-#: Profiles a pull request installs when a change affects the core. They cover
+#: Targets a pull request installs when a change affects the core. They cover
 #: the core-only environment and the CPU toolkit without pulling the full GPU
 #: matrix into every core edit; nightly and release runs still install every
-#: profile.
-PR_PILOT_PROFILES = ("minimal", "sim-robotwin", "tool-geometry")
+#: target.
+PR_PILOT_TARGETS = ("minimal", "robotwin", "tool-geometry")
 #: Paths whose change can alter every installation, so a PR installs every
-#: profile instead of the pilot set. Install data changes narrow their own
-#: profile set first; a path here in a mixed change still widens it. Packaging
-#: files outside ``rpent/`` and ``tests/`` already select every profile because
+#: target instead of the pilot set. Install data changes narrow their own
+#: target set first; a path here in a mixed change still widens it. Packaging
+#: files outside ``rpent/`` and ``tests/`` already select every target because
 #: no other path rule matches them.
-PR_ALL_PROFILE_PREFIXES = (
+PR_ALL_TARGET_PREFIXES = (
     "rpent/install/",
     "installs/",
     "tests/tooling/",
     ".github/",
 )
-#: The repository's install data: the profiles, dependency-only manifests,
+#: The repository's install data: the target files, dependency-only manifests,
 #: locks and packaging settings that decide what each environment contains.
-#: User profiles and test profiles share the same discovery and schema, so a
-#: change under either directory narrows to the profile that reads it.
-INSTALL_DATA_PREFIXES = ("installs/", "tests/profiles/", "tests/locks/")
+#: User and test targets share the same discovery and schema, so a change under
+#: either directory narrows to the target that reads it.
+INSTALL_DATA_PREFIXES = ("installs/", "tests/targets/", "tests/locks/")
 INSTALL_DATA_ROOT_FILES = ("pyproject.toml",)
 #: Repository contract tests read that data. Installer unit tests live under
 #: ``tests/unit_tests/rpent/install/`` and use synthetic manifests, so the two
@@ -96,14 +96,14 @@ class Scope:
 
     components: tuple[str, ...]
     tests: tuple[str, ...]
-    profiles: tuple[str, ...]
+    targets: tuple[str, ...]
     #: True when nothing narrowed the answer to part of the repository.
     full: bool
-    #: Profiles a pull request installs. For a component change this equals
-    #: ``profiles``; for a core change it is the pilot set, while ``profiles``
-    #: stays complete for nightly and release runs. Installer and profile
+    #: Targets a pull request installs. For a component change this equals
+    #: ``targets``; for a core change it is the pilot set, while ``targets``
+    #: stays complete for nightly and release runs. Installer and target
     #: changes keep the full set because they can alter any environment.
-    pr_profiles: tuple[str, ...] = ()
+    pr_targets: tuple[str, ...] = ()
     #: True when every changed path is prose, so only the docs check applies.
     docs: bool = False
 
@@ -136,36 +136,36 @@ def _is_install_data(path: str) -> bool:
     return path == INSTALL_DATA_TESTS or path.startswith(f"{INSTALL_DATA_TESTS}/")
 
 
-def _profiles_requiring(name: str, catalog: Catalog) -> list[str] | None:
-    """Return the profiles that install deps component ``name``.
+def _targets_requiring(name: str, catalog: Catalog) -> list[str] | None:
+    """Return the targets that install deps component ``name``.
 
-    ``None`` widens the answer when a profile cannot be resolved: ``check``
-    reports that profile separately, and CI must install it rather than skip it.
+    ``None`` widens the answer when a target cannot be resolved: ``check``
+    reports that target separately, and CI must install it rather than skip it.
     """
     if name not in catalog.components:
         return None
     found: list[str] = []
-    for profile_name, profile in sorted(catalog.profiles.items()):
+    for target_name, target in sorted(catalog.targets.items()):
         try:
-            resolution = resolve(profile, catalog)
+            resolution = resolve(target, catalog)
         except InstallConfigError:
             return None
         if name in resolution.components:
-            found.append(profile_name)
+            found.append(target_name)
     return found
 
 
-def _profiles_for_install_data(
+def _targets_for_install_data(
     paths: list[str], catalog: Catalog, root: Path
 ) -> tuple[str, ...]:
-    """Return the profiles whose installation reads ``paths``, or all of them.
+    """Return the targets whose installation reads ``paths``, or all of them.
 
-    A profile names itself, a lock names the profile that declares it, and a
-    deps manifest names the profiles whose closure installs it. Packaging
-    settings feed every profile, and an unrecognised file widens the answer
+    A target file names itself, a lock names the target that declares it, and a
+    deps manifest names the targets whose closure installs it. Packaging
+    settings feed every target, and an unrecognised file widens the answer
     rather than guessing which environments it reaches.
     """
-    every = tuple(sorted(catalog.profiles))
+    every = tuple(sorted(catalog.targets))
     selected: set[str] = set()
     for path in paths:
         if path in INSTALL_DATA_ROOT_FILES:
@@ -177,23 +177,23 @@ def _profiles_for_install_data(
         area = parts[1] if len(parts) > 1 else ""
         stem = parts[2] if len(parts) > 2 else ""
         suffix = Path(stem).suffix
-        if area == "profiles" and suffix == ".toml" and len(parts) == 3:
+        if area == "targets" and suffix == ".toml" and len(parts) == 3:
             name = stem[: -len(suffix)]
-            if name not in catalog.profiles:
+            if name not in catalog.targets:
                 return every
             selected.add(name)
         elif area == "locks" and suffix == ".lock" and len(parts) == 3:
-            target = (root / path).resolve()
+            lock = (root / path).resolve()
             declared = [
                 name
-                for name, profile in catalog.profiles.items()
-                if profile.lock_file(root).resolve() == target
+                for name, target in catalog.targets.items()
+                if target.lock_file(root).resolve() == lock
             ]
             if not declared:
                 return every
             selected.update(declared)
         elif area == "deps" and suffix == ".toml" and len(parts) == 3:
-            required = _profiles_requiring(stem[: -len(suffix)], catalog)
+            required = _targets_requiring(stem[: -len(suffix)], catalog)
             if required is None:
                 return every
             selected.update(required)
@@ -202,24 +202,23 @@ def _profiles_for_install_data(
     return tuple(sorted(selected))
 
 
-def _pr_profiles(paths: list[str], profiles: dict[str, object]) -> tuple[str, ...]:
-    """Return the profiles a pull request should install for ``paths``.
+def _pr_targets(paths: list[str], targets: dict[str, object]) -> tuple[str, ...]:
+    """Return the targets a pull request should install for ``paths``.
 
-    A component change never reaches this helper: its profile set is already
-    the resolution closure. For a core change, installing every GPU profile
-    proves little beyond what nightly proves and costs a self-hosted runner
-    slot, so the PR installs the core-only and CPU toolkit profiles. The
-    installer, workflows, packaging, and a mixed change that still names one of
-    them keep the full set; install data on its own narrows before this helper
-    runs.
+    A component change never reaches this helper: its target set is already the
+    resolution closure. For a core change, installing every GPU target proves
+    little beyond what nightly proves and costs a self-hosted runner slot, so
+    the PR installs the core-only and CPU toolkit targets. The installer,
+    workflows, packaging, and a mixed change that still names one of them keep
+    the full set; install data on its own narrows before this helper runs.
     """
-    available = tuple(sorted(profiles))
+    available = tuple(sorted(targets))
     if not paths:
         return available
-    if any(path.startswith(PR_ALL_PROFILE_PREFIXES) for path in paths):
+    if any(path.startswith(PR_ALL_TARGET_PREFIXES) for path in paths):
         return available
     if all(path.startswith(("rpent/", "tests/")) for path in paths):
-        pilots = tuple(name for name in PR_PILOT_PROFILES if name in profiles)
+        pilots = tuple(name for name in PR_PILOT_TARGETS if name in targets)
         return pilots or available
     return available
 
@@ -228,7 +227,7 @@ def affected_components(paths: list[str], catalog: Catalog) -> set[str] | None:
     """Return the components ``paths`` touch, or ``None`` when all can change.
 
     ``None`` means the change is not confined to a known component: the core,
-    the installer, a profile, a lock, or an unowned path.
+    the installer, a target, a lock, or an unowned path.
     """
     names: set[str] = set()
     for path in paths:
@@ -257,64 +256,62 @@ def _tests_for(kind: str, name: str, root: Path) -> list[str]:
 
 
 def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
-    """Return the components, tests and profiles ``paths`` can change."""
+    """Return the components, tests and targets ``paths`` can change."""
     if paths and all(_is_docs(path) for path in paths):
-        return Scope(components=(), tests=(), profiles=(), full=False, docs=True)
+        return Scope(components=(), tests=(), targets=(), full=False, docs=True)
     if paths and all(_is_install_data(path) for path in paths):
         # Install data is repository-level: it changes which environment can be
         # built, not a component's behavior. The contract tests under
         # ``tests/unit_tests/installs/`` own the cross-file checks, and the
-        # profiles that read the changed files are the ones a pull request
+        # targets that read the changed files are the ones a pull request
         # installs.
-        profiles = _profiles_for_install_data(paths, catalog, root)
+        targets = _targets_for_install_data(paths, catalog, root)
         return Scope(
             components=(),
             tests=(INSTALL_DATA_TESTS,),
-            profiles=profiles,
+            targets=targets,
             full=False,
-            pr_profiles=profiles,
+            pr_targets=targets,
         )
     names = affected_components(paths, catalog)
     if names is None or not paths:
         return Scope(
             components=tuple(sorted(catalog.components)),
             tests=("tests/unit_tests",),
-            profiles=tuple(sorted(catalog.profiles)),
+            targets=tuple(sorted(catalog.targets)),
             full=True,
-            pr_profiles=_pr_profiles(paths, catalog.profiles),
+            pr_targets=_pr_targets(paths, catalog.targets),
         )
     kinds = {name: catalog.components[name].kind for name in sorted(names)}
     tests: set[str] = {path for path in SHARED_TESTS if (root / path).exists()}
     for name, kind in kinds.items():
         tests.update(_tests_for(kind, name, root))
-    profiles: list[str] = []
-    for name, profile in sorted(catalog.profiles.items()):
+    targets: list[str] = []
+    for name, target in sorted(catalog.targets.items()):
         try:
-            resolution = resolve(profile, catalog)
+            resolution = resolve(target, catalog)
         except InstallConfigError:
-            # An invalid profile is a configuration error `check` reports;
+            # An invalid target is a configuration error `check` reports;
             # installing it is the fastest way to surface it, so keep it.
-            profiles.append(name)
+            targets.append(name)
             continue
         if names & set(resolution.components):
-            profiles.append(name)
+            targets.append(name)
     if not tests:
         # A component with no tests yet must not shrink the suite to nothing.
         tests.add("tests/unit_tests")
     return Scope(
         components=tuple(kinds),
         tests=tuple(sorted(tests)),
-        profiles=tuple(profiles),
+        targets=tuple(targets),
         full=False,
-        pr_profiles=tuple(profiles),
+        pr_targets=tuple(targets),
     )
 
 
-def affected_profiles(
-    paths: list[str], catalog: Catalog, root: Path
-) -> tuple[str, ...]:
-    """Return the profiles whose closure contains what ``paths`` changed."""
-    return affected_scope(paths, catalog, root).profiles
+def affected_targets(paths: list[str], catalog: Catalog, root: Path) -> tuple[str, ...]:
+    """Return the targets whose closure contains what ``paths`` changed."""
+    return affected_scope(paths, catalog, root).targets
 
 
 def changed_paths(root: Path, base: str, head: str) -> list[str]:
@@ -337,7 +334,7 @@ def main(argv: list[str] | None = None, *, root: Path) -> int:
     """Print the affected scope as a JSON object."""
     parser = argparse.ArgumentParser(
         prog="python -m tests.tooling.affected",
-        description="Map changed paths to affected components, tests and profiles.",
+        description="Map changed paths to affected components, tests and targets.",
     )
     parser.add_argument(
         "paths",
@@ -350,7 +347,7 @@ def main(argv: list[str] | None = None, *, root: Path) -> int:
     parser.add_argument(
         "--runner",
         choices=sorted(MATRICES),
-        help="restrict the profiles to the ones one runner installs",
+        help="restrict the targets to the ones one runner installs",
     )
     args = parser.parse_args(argv)
     if args.paths and args.base:
@@ -363,8 +360,8 @@ def main(argv: list[str] | None = None, *, root: Path) -> int:
         allowed = set(MATRICES[args.runner])
         scope = replace(
             scope,
-            profiles=tuple(name for name in scope.profiles if name in allowed),
-            pr_profiles=tuple(name for name in scope.pr_profiles if name in allowed),
+            targets=tuple(name for name in scope.targets if name in allowed),
+            pr_targets=tuple(name for name in scope.pr_targets if name in allowed),
         )
     print(json.dumps(scope.as_dict()))
     return 0

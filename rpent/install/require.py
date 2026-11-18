@@ -40,36 +40,36 @@ def _install_hint(component: str) -> str:
     if fingerprint is None:
         return (
             f"install the environment that provides component {component!r}: "
-            f"run `rpent-install list` and install a profile that includes it"
+            f"run `rpent-install list` and install a target that includes it"
         )
-    profile = fingerprint.get("profile")
-    if not profile:
-        # A fingerprint written before profiles became the only install target
-        # records no profile; name the component without inventing one.
+    target = fingerprint.get("target")
+    if not target:
+        # A fingerprint written before targets became the only install unit
+        # records no target; name the component without inventing one.
         return (
             f"install the environment that provides component {component!r}: "
-            f"run `rpent-install list` and install a profile that includes it"
+            f"run `rpent-install list` and install a target that includes it"
         )
     placement = fingerprint.get("components", {}).get(component)
     if placement is None:
-        profiles = fingerprint.get("component_profiles", {}).get(component, [])
-        if profiles:
+        targets = fingerprint.get("component_targets", {}).get(component, [])
+        if targets:
             return (
-                f"component {component!r} is not part of profile {profile!r}; "
-                f"install one of the profiles that includes it: "
-                f"{', '.join(profiles)}"
+                f"component {component!r} is not part of target {target!r}; "
+                f"install one of the targets that includes it: "
+                f"{', '.join(targets)}"
             )
         return (
-            f"component {component!r} is not part of profile {profile!r}; "
-            "install a profile that includes it"
+            f"component {component!r} is not part of target {target!r}; "
+            "install a target that includes it"
         )
     if placement.get("placement") == "remote":
         return (
-            f"component {component!r} runs outside profile {profile!r}; install its "
-            "own profile on that host, then rerun "
-            f"`rpent-install install {profile}` to restore the client"
+            f"component {component!r} runs outside target {target!r}; install its "
+            "own target on that host, then rerun "
+            f"`rpent-install install {target}` to restore the client"
         )
-    return f"rerun `rpent-install install {profile}` to repair the environment"
+    return f"rerun `rpent-install install {target}` to repair the environment"
 
 
 def require(component: str, module: str) -> ModuleType:

@@ -41,7 +41,7 @@ def _component(write_toml, root, name, kind, *, requires=(), imports=()):
     manifest = write_toml(
         f"{root}/{name}/component.toml",
         f"""
-        schema = 1
+        schema = 2
         name = "{name}"
         kind = "{kind}"
         probe = "{name}"

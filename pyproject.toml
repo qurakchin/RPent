@@ -314,7 +314,7 @@ yam = [
 [tool.uv]
 prerelease = "allow"
 
-# Each profile pulls a separately pinned simulator or model runtime whose
+# Each target pulls a separately pinned simulator or model runtime whose
 # Torch, Transformers, Tokenizers, or Diffusers versions are mutually
 # incompatible with the others. Generated from component env_conflicts.
 conflicts = [
@@ -385,6 +385,8 @@ conflicts = [
 [tool.uv.extra-build-dependencies]
 # Build RoboTwin's Torch extensions against its runtime Torch version.
 # RoboDojo's fork skips Torch extension builds by default (CUROBO_USE_PYBIND=0).
+# The pin is repository-wide, so RoboDojo's index strategy has to keep
+# `torch==2.8.0` resolvable even though it never uses this build environment.
 nvidia-curobo = ["torch==2.8.0"]
 
 [tool.setuptools]

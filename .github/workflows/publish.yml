@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  # A release must prove the exact commit it publishes: every profile installs
+  # A release must prove the exact commit it publishes: every target installs
   # from its lock, the locks still match their manifests, and the full unit
   # suite runs in the CPU test environment. `full-ci` no longer runs on tags,
   # so this call is the single release gate and `build` cannot start without it.

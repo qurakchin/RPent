@@ -29,7 +29,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "For local Fast-WAM deployment; both files below are required.\n"
         "Append to your platform/task/planner command (replace example paths):\n"
         "  --am-backend fast-wam --am-checkpoint /models/fast-wam.pt \\\n"
-        "    --am-python /installs/profiles/fast-wam/bin/python \\\n"
+        "    --am-python /path/to/fast-wam/venv/bin/python \\\n"
         "    --fast-wam-config /models/worker.yaml \\\n"
         "    --fast-wam-dataset-stats /models/dataset_stats.json",
     )

@@ -1,9 +1,9 @@
-schema = 1
+schema = 2
 name = "openpi"
 kind = "model"
 probe = "openpi"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
+description = "Pi0.5 policy runtime used as a diagnostic environment."
 # Pi0.5 can run in the robot environment or as a separate service: the same
 # `pi05_vla_server` module serves calls from `rpent --am-endpoint`. External
 # placement keeps OpenPI's Torch/Transformers pins out of the robot env.

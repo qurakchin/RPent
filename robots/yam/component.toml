@@ -1,10 +1,10 @@
-schema = 1
+schema = 2
 name = "yam"
 kind = "robot"
 probe = "robots.yam"
 python = ">=3.11,<3.12"
-platforms = ["linux-x86_64"]
-placement = ["in-env"]
+extra = "yam"
+description = "Dual-arm YAM control dependencies without a policy model."
 docs = "docs/source-en/rst_source/real_world_robots/yam.rst"
 
 dependencies = [

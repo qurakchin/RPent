@@ -1,0 +1,10 @@
+schema = 2
+kind = "target"
+name = "minimal"
+python = "3.11"
+lock = "installs/locks/minimal.lock"
+# Compatibility extras are a migration aid; this target has no legacy extra.
+extra = false
+description = "Core RPent only: CLI, discovery, and planner imports without robot extras."
+
+[components]

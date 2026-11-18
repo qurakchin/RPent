@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 from rpent.install.discovery import Catalog
-from rpent.install.manifest import Component, Profile
+from rpent.install.manifest import Component, Target
 from rpent.utils import logging as run_logging
 from rpent.utils.rpc.http_rpc import HttpRpcClient, HttpRpcServer
 from rpent.utils.rpc.socket_rpc import SocketRpcClient, SocketRpcServer
@@ -115,7 +115,6 @@ def make_component(tmp_path):
             manifest=tmp_path / directory / name / "component.toml",
             probe=values.pop("probe", f"robots.{name}"),
             python=values.pop("python", None),
-            platforms=tuple(values.pop("platforms", ())),
             requires=tuple(values.pop("requires", ())),
             imports=tuple(values.pop("imports", ())),
             env_conflicts=tuple(values.pop("env_conflicts", ())),
@@ -133,15 +132,15 @@ def make_component(tmp_path):
 
 
 @pytest.fixture
-def make_profile(tmp_path):
-    """Build a profile without touching the filesystem."""
+def make_target(tmp_path):
+    """Build a target without touching the filesystem."""
 
     def _make(name, components=None, **values):
-        return Profile(
+        return Target(
             name=name,
-            path=tmp_path / "installs" / "profiles" / f"{name}.toml",
+            path=tmp_path / "installs" / "targets" / f"{name}.toml",
+            display_path=values.pop("display_path", f"installs/targets/{name}.toml"),
             python=values.pop("python", "3.11"),
-            platform=values.pop("platform", "linux-x86_64"),
             components=components or {},
             dependencies=tuple(values.pop("dependencies", ())),
             index_url=values.pop("index_url", None),
@@ -159,15 +158,15 @@ def make_profile(tmp_path):
 
 
 @pytest.fixture
-def make_catalog(tmp_path, make_component, make_profile):
-    """Build a catalog from component and profile mappings."""
+def make_catalog(tmp_path, make_component, make_target):
+    """Build a catalog from component and target mappings."""
 
-    def _make(components=(), profiles=None):
+    def _make(components=(), targets=None):
         component_map = {component.name: component for component in components}
         return Catalog(
             root=Path(tmp_path),
             components=component_map,
-            profiles=profiles or {},
+            targets=targets or {},
         )
 
     return _make

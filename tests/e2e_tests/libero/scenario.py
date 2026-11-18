@@ -42,19 +42,19 @@ from tests.e2e_tests.common import (
 
 VARIANT_CONFIG = {
     "standard": {
-        "profile": "sim-libero_standard",
+        "target": "sim-libero_standard",
         "suite": "libero_object",
         "task": 0,
         "asset_env": "LIBERO_ASSET_PATH",
     },
     "pro": {
-        "profile": "robot-libero_pro",
+        "target": "robot-libero_pro",
         "suite": "libero_object_swap",
         "task": 2,
         "asset_env": "LIBERO_PRO_ASSET_PATH",
     },
     "plus": {
-        "profile": "sim-libero_plus",
+        "target": "sim-libero_plus",
         "suite": "libero_object",
         "task": 0,
         "asset_env": "LIBERO_PLUS_ASSET_PATH",
@@ -279,7 +279,7 @@ class LiberoScenario:
         self.output_dir = prepare_suite(
             output_dir=output_dir,
             stack=f"libero-{variant}",
-            profile=config["profile"],
+            target=config["target"],
             details={
                 "task": {
                     "suite": self.args.suite,

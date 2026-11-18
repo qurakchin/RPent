@@ -10,8 +10,8 @@ on:
         required: false
         type: string
         default: ""
-      profile:
-        description: Install profile that supplies the test environment
+      target:
+        description: Install target that supplies the test environment
         required: false
         type: string
         default: "unit-cpu"
@@ -31,7 +31,7 @@ jobs:
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m tests.tooling.layout
-      - name: Check every profile and its lock coverage
+      - name: Check every target and its lock coverage
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m tests.tooling.check --all
@@ -51,17 +51,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Pin the profile's Python
+      - name: Pin the target's Python
         run: uv python install 3.11
       - name: Read the environment cache key
         id: key
         shell: bash
         run: |
-          # User and test profiles keep their locks beside their profiles.
-          lock="installs/locks/${{ inputs.profile }}.lock"
-          [[ -f "$lock" ]] || lock="tests/locks/${{ inputs.profile }}.lock"
+          # User and test targets keep their locks beside their targets.
+          lock="installs/locks/${{ inputs.target }}.lock"
+          [[ -f "$lock" ]] || lock="tests/locks/${{ inputs.target }}.lock"
           echo "lock=$(sha256sum "$lock" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      # The prebuilt environment is reproducible from the selected profile's
+      # The prebuilt environment is reproducible from the selected target's
       # lock, so the cache key is that lock's hash plus the interpreter and
       # platform. `unit-cpu` supplies CPU Torch for the tests that import model
       # servers; `dev` alone deliberately has no Torch.
@@ -70,12 +70,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .venv
-          key: rpent-${{ inputs.profile }}-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
+          key: rpent-${{ inputs.target }}-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
       - name: Build the prebuilt environment from the lock
         if: steps.env.outputs.cache-hit != 'true'
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install install "${{ inputs.profile }}" --venv .venv
+            python -m rpent.cli.install install "${{ inputs.target }}" --venv .venv
       - name: Run the selected tests
         shell: bash
         env:
@@ -127,7 +127,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Pin the profile's Python
+      - name: Pin the target's Python
         run: uv python install 3.11
       - name: Read the environment cache key
         id: key

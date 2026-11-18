@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""A declared lock must cover and satisfy the profile's direct requirements."""
+"""A declared lock must cover and satisfy the target's direct requirements."""
 
 import pytest
 
@@ -22,13 +22,13 @@ from rpent.install.manifest import Selection
 from rpent.install.resolve import resolve
 
 
-def _resolution(make_component, make_profile, make_catalog, dependencies):
+def _resolution(make_component, make_target, make_catalog, dependencies):
     component = make_component("alpha", dependencies=list(dependencies))
-    profile = make_profile(
+    target = make_target(
         "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
-    return profile, resolve(profile, catalog)
+    catalog = make_catalog(components=[component], targets={"alpha": target})
+    return target, resolve(target, catalog)
 
 
 def _write_lock(tmp_path, text):
@@ -50,46 +50,46 @@ def test_parse_lock_reads_pins_and_direct_urls():
     assert entries["openpi-client"].url is not None
 
 
-def test_profile_without_a_declared_lock_uses_the_default_path(
-    make_component, make_profile, make_catalog, tmp_path
+def test_target_without_a_declared_lock_uses_the_default_path(
+    make_component, make_target, make_catalog, tmp_path
 ):
     component = make_component("alpha", dependencies=["numpy>=2"])
-    profile = make_profile("alpha", {"alpha": Selection()})
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
-    resolution = resolve(profile, catalog)
+    target = make_target("alpha", {"alpha": Selection()})
+    catalog = make_catalog(components=[component], targets={"alpha": target})
+    resolution = resolve(target, catalog)
 
-    assert profile.lock is None
-    assert profile.lock_display() == "installs/locks/alpha.lock"
+    assert target.lock is None
+    assert target.lock_display() == "installs/locks/alpha.lock"
 
-    problems = lock_problems(profile, resolution, tmp_path)
+    problems = lock_problems(target, resolution, tmp_path)
 
     assert problems == [
-        "profile 'alpha' needs lock installs/locks/alpha.lock, but the file does "
+        "target 'alpha' needs lock installs/locks/alpha.lock, but the file does "
         "not exist; run `python -m tests.tooling.lock alpha`"
     ]
 
 
 def test_missing_declared_lock_is_reported(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
-    profile, resolution = _resolution(
-        make_component, make_profile, make_catalog, ["numpy>=2"]
+    target, resolution = _resolution(
+        make_component, make_target, make_catalog, ["numpy>=2"]
     )
 
-    problems = lock_problems(profile, resolution, tmp_path)
+    problems = lock_problems(target, resolution, tmp_path)
 
     assert problems == [
-        "profile 'alpha' needs lock installs/locks/alpha.lock, but the file does "
+        "target 'alpha' needs lock installs/locks/alpha.lock, but the file does "
         "not exist; run `python -m tests.tooling.lock alpha`"
     ]
 
 
 def test_lock_covering_the_requirements_is_accepted(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
-    profile, resolution = _resolution(
+    target, resolution = _resolution(
         make_component,
-        make_profile,
+        make_target,
         make_catalog,
         [
             "numpy>=2",
@@ -102,27 +102,27 @@ def test_lock_covering_the_requirements_is_accepted(
         "numpy==2.0.0\nrpent-openpi @ git+https://github.com/RLinf/openpi.git@abc123\n",
     )
 
-    assert lock_problems(profile, resolution, tmp_path) == []
+    assert lock_problems(target, resolution, tmp_path) == []
 
 
 def test_marker_requirement_for_the_target_must_be_in_the_lock(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
-    profile, resolution = _resolution(
+    target, resolution = _resolution(
         make_component,
-        make_profile,
+        make_target,
         make_catalog,
         ["pyrealsense2; sys_platform == 'linux'"],
     )
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    problems = lock_problems(profile, resolution, tmp_path)
+    problems = lock_problems(target, resolution, tmp_path)
 
     assert "does not cover 'pyrealsense2'" in problems[0]
 
 
-def test_lock_checks_only_the_marker_group_of_the_profile_python(
-    make_component, make_profile, make_catalog, tmp_path
+def test_lock_checks_only_the_marker_group_of_the_target_python(
+    make_component, make_target, make_catalog, tmp_path
 ):
     # Franka ships one wheel per supported minor; a 3.11 lock must carry the
     # cp311 line and must not be asked for the 3.10 or 3.12 ones.
@@ -135,8 +135,8 @@ def test_lock_checks_only_the_marker_group_of_the_profile_python(
         wheel.format(python=minor.replace(".", ""), minor=minor)
         for minor in ("3.10", "3.11", "3.12")
     ]
-    profile, resolution = _resolution(
-        make_component, make_profile, make_catalog, dependencies
+    target, resolution = _resolution(
+        make_component, make_target, make_catalog, dependencies
     )
     _write_lock(
         tmp_path,
@@ -144,126 +144,138 @@ def test_lock_checks_only_the_marker_group_of_the_profile_python(
         "cp311-cp311-manylinux_2_28_x86_64.whl\n",
     )
 
-    assert lock_problems(profile, resolution, tmp_path) == []
+    assert lock_problems(target, resolution, tmp_path) == []
 
     _write_lock(tmp_path, "numpy==2.0.0\n")
-    problems = lock_problems(profile, resolution, tmp_path)
+    problems = lock_problems(target, resolution, tmp_path)
 
     assert "does not cover 'franky-control'" in problems[0]
 
 
-def test_marker_that_the_profile_cannot_evaluate_is_reported(
-    make_component, make_profile, make_catalog, tmp_path
+def test_marker_that_the_target_cannot_evaluate_is_reported(
+    make_component, make_target, make_catalog, tmp_path
 ):
-    profile, resolution = _resolution(
+    target, resolution = _resolution(
         make_component,
-        make_profile,
+        make_target,
         make_catalog,
         ["tensorrt; platform_release >= '5.0'"],
     )
     _write_lock(tmp_path, "tensorrt==10.0.0\n")
 
-    problems = lock_problems(profile, resolution, tmp_path)
+    problems = lock_problems(target, resolution, tmp_path)
 
     assert "does not declare it" in problems[0]
     assert "platform_release" in problems[0]
 
 
-@pytest.mark.parametrize(
-    ("platform", "sys_platform", "machine"),
-    [
-        ("linux-x86_64", "linux", "x86_64"),
-        ("linux-aarch64", "linux", "aarch64"),
-        ("darwin-arm64", "darwin", "arm64"),
-        ("darwin-x86_64", "darwin", "x86_64"),
-    ],
-)
-def test_every_supported_platform_maps_to_its_marker_values(
+def test_the_linux_x86_64_marker_values_are_used(
     make_component,
-    make_profile,
+    make_target,
     make_catalog,
     tmp_path,
-    platform,
-    sys_platform,
-    machine,
 ):
     component = make_component(
         "alpha",
         dependencies=[
-            f"pyrealsense2; sys_platform == '{sys_platform}' "
-            f"and platform_machine == '{machine}'",
+            "pyrealsense2; sys_platform == 'linux' and platform_machine == 'x86_64'",
             "librealsense; sys_platform == 'windows'",
         ],
     )
-    profile = make_profile(
+    target = make_target(
         "alpha",
         {"alpha": Selection()},
         lock="installs/locks/alpha.lock",
-        platform=platform,
     )
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    catalog = make_catalog(components=[component], targets={"alpha": target})
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    problems = lock_problems(profile, resolve(profile, catalog), tmp_path)
+    problems = lock_problems(target, resolve(target, catalog), tmp_path)
 
-    # The first requirement is for this target and missing from the lock; the
-    # second belongs to another platform and must not be demanded.
+    # The first requirement applies to the installed platform and is missing
+    # from the lock; the second belongs to another platform and is not demanded.
     assert len(problems) == 1
     assert "pyrealsense2" in problems[0]
     assert "librealsense" not in problems[0]
 
 
-def test_unknown_profile_platform_is_reported(
-    make_component, make_profile, make_catalog, tmp_path
+def test_the_lock_python_minor_decides_which_markers_apply(
+    make_component, make_target, make_catalog, tmp_path
 ):
-    component = make_component("alpha", dependencies=["numpy>=2"])
-    profile = make_profile(
+    # A target may request a range; the resolver picks the newest minor, but
+    # the checked-in lock records the minor it was compiled for and coverage
+    # follows the lock rather than re-deciding on every machine.
+    component = make_component(
+        "alpha",
+        dependencies=["franky-control; python_version == '3.10'"],
+    )
+    target = make_target(
         "alpha",
         {"alpha": Selection()},
         lock="installs/locks/alpha.lock",
-        platform="windows-x86_64",
+        python=">=3.10,<3.13",
     )
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
-    resolution = resolve(profile, catalog)
+    catalog = make_catalog(components=[component], targets={"alpha": target})
+    resolution = resolve(target, catalog)
+    assert resolution.python == "3.12"
+
+    _write_lock(tmp_path, "# python = 3.10\nnumpy==2.0.0\n")
+    problems = lock_problems(target, resolution, tmp_path)
+    assert "does not cover 'franky-control'" in problems[0]
+
+    _write_lock(tmp_path, "# python = 3.12\nnumpy==2.0.0\n")
+    assert lock_problems(target, resolution, tmp_path) == []
+
+
+def test_a_lock_without_a_python_header_uses_the_resolved_minor(
+    make_component, make_target, make_catalog, tmp_path
+):
+    component = make_component(
+        "alpha", dependencies=["numpy>=2", "franky-control; python_version >= '3.11'"]
+    )
+    target = make_target(
+        "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
+    )
+    catalog = make_catalog(components=[component], targets={"alpha": target})
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    problems = lock_problems(profile, resolution, tmp_path)
+    problems = lock_problems(target, resolve(target, catalog), tmp_path)
 
-    assert "has no lock marker mapping" in problems[0]
+    assert "does not cover 'franky-control'" in problems[0]
 
 
 def test_lock_pin_that_violates_the_manifest_is_reported(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
-    profile, resolution = _resolution(
-        make_component, make_profile, make_catalog, ["numpy>=2.1"]
+    target, resolution = _resolution(
+        make_component, make_target, make_catalog, ["numpy>=2.1"]
     )
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    problems = lock_problems(profile, resolution, tmp_path)
+    problems = lock_problems(target, resolution, tmp_path)
 
     assert "pins numpy==2.0.0, which does not satisfy numpy>=2.1" in problems[0]
 
 
 def test_lock_missing_a_requirement_is_reported(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
-    profile, resolution = _resolution(
-        make_component, make_profile, make_catalog, ["numpy>=2", "packaging"]
+    target, resolution = _resolution(
+        make_component, make_target, make_catalog, ["numpy>=2", "packaging"]
     )
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    problems = lock_problems(profile, resolution, tmp_path)
+    problems = lock_problems(target, resolution, tmp_path)
 
     assert "does not cover 'packaging'" in problems[0]
 
 
 def test_lock_from_another_repository_is_reported(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
-    profile, resolution = _resolution(
+    target, resolution = _resolution(
         make_component,
-        make_profile,
+        make_target,
         make_catalog,
         ["rpent-openpi @ git+https://github.com/RLinf/openpi.git@rpent"],
     )
@@ -272,22 +284,22 @@ def test_lock_from_another_repository_is_reported(
         "rpent-openpi @ git+https://github.com/example/openpi.git@abc123\n",
     )
 
-    problems = lock_problems(profile, resolution, tmp_path)
+    problems = lock_problems(target, resolution, tmp_path)
 
     assert "but the manifest requires" in problems[0]
 
 
 @pytest.mark.parametrize("include_core", [True, False])
 def test_core_requirements_are_checked_only_when_requested(
-    make_component, make_profile, make_catalog, tmp_path, include_core
+    make_component, make_target, make_catalog, tmp_path, include_core
 ):
-    profile, resolution = _resolution(
-        make_component, make_profile, make_catalog, ["numpy>=2"]
+    target, resolution = _resolution(
+        make_component, make_target, make_catalog, ["numpy>=2"]
     )
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
     problems = lock_problems(
-        profile,
+        target,
         resolution,
         tmp_path,
         core_dependencies=("packaging>=24",) if include_core else (),
@@ -297,82 +309,82 @@ def test_core_requirements_are_checked_only_when_requested(
 
 
 def test_lock_satisfying_an_override_is_accepted(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
     override = tmp_path / "override.txt"
     override.write_text("# keep numpy below 3\nnumpy<3\n", encoding="utf-8")
     component = make_component(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
-    profile = make_profile(
+    target = make_target(
         "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    catalog = make_catalog(components=[component], targets={"alpha": target})
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    assert lock_problems(profile, resolve(profile, catalog), tmp_path) == []
+    assert lock_problems(target, resolve(target, catalog), tmp_path) == []
 
 
 def test_lock_violating_an_override_is_reported(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
     override = tmp_path / "override.txt"
     override.write_text("numpy<2\n", encoding="utf-8")
     component = make_component(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
-    profile = make_profile(
+    target = make_target(
         "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    catalog = make_catalog(components=[component], targets={"alpha": target})
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    problems = lock_problems(profile, resolve(profile, catalog), tmp_path)
+    problems = lock_problems(target, resolve(target, catalog), tmp_path)
 
     assert "does not satisfy override" in problems[0]
     assert "numpy==2.0.0" in problems[0]
 
 
-def test_marker_scoped_override_is_checked_against_the_profile_target(
-    make_component, make_profile, make_catalog, tmp_path
+def test_marker_scoped_override_is_checked_against_the_target(
+    make_component, make_target, make_catalog, tmp_path
 ):
-    # The lock holds the line for the profile's target, so the override is
+    # The lock holds the line for the target's target, so the override is
     # evaluated for that target rather than the host running the check.
     override = tmp_path / "override.txt"
     override.write_text('numpy<2; sys_platform == "linux"\n', encoding="utf-8")
     component = make_component(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
-    profile = make_profile(
+    target = make_target(
         "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    catalog = make_catalog(components=[component], targets={"alpha": target})
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    problems = lock_problems(profile, resolve(profile, catalog), tmp_path)
+    problems = lock_problems(target, resolve(target, catalog), tmp_path)
 
     assert "does not satisfy override" in problems[0]
 
 
 def test_marker_scoped_override_for_another_target_is_skipped(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
     override = tmp_path / "override.txt"
     override.write_text('numpy<1; sys_platform == "win32"\n', encoding="utf-8")
     component = make_component(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
-    profile = make_profile(
+    target = make_target(
         "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    catalog = make_catalog(components=[component], targets={"alpha": target})
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    assert lock_problems(profile, resolve(profile, catalog), tmp_path) == []
+    assert lock_problems(target, resolve(target, catalog), tmp_path) == []
 
 
 def test_override_for_a_package_outside_the_lock_is_ignored(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
     # uv applies an override only to a package the resolution requests, so an
     # optional dependency that is not locked is not a stale lock.
@@ -381,41 +393,41 @@ def test_override_for_a_package_outside_the_lock_is_ignored(
     component = make_component(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
-    profile = make_profile(
+    target = make_target(
         "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    catalog = make_catalog(components=[component], targets={"alpha": target})
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
-    assert lock_problems(profile, resolve(profile, catalog), tmp_path) == []
+    assert lock_problems(target, resolve(target, catalog), tmp_path) == []
 
 
 def test_lock_that_is_not_utf8_is_a_configuration_error(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
-    profile, resolution = _resolution(
-        make_component, make_profile, make_catalog, ["numpy>=2"]
+    target, resolution = _resolution(
+        make_component, make_target, make_catalog, ["numpy>=2"]
     )
     _write_lock(tmp_path, "numpy==2.0.0\n")
     (tmp_path / "installs/locks/alpha.lock").write_bytes(b"numpy==2.0.0\n\xff\n")
 
     with pytest.raises(InstallConfigError, match="not UTF-8"):
-        lock_problems(profile, resolution, tmp_path)
+        lock_problems(target, resolution, tmp_path)
 
 
 def test_override_that_is_not_utf8_is_a_configuration_error(
-    make_component, make_profile, make_catalog, tmp_path
+    make_component, make_target, make_catalog, tmp_path
 ):
     override = tmp_path / "override.txt"
     override.write_bytes(b"numpy<2\n\xff\n")
     component = make_component(
         "alpha", dependencies=["numpy>=2"], overrides=(override,)
     )
-    profile = make_profile(
+    target = make_target(
         "alpha", {"alpha": Selection()}, lock="installs/locks/alpha.lock"
     )
-    catalog = make_catalog(components=[component], profiles={"alpha": profile})
+    catalog = make_catalog(components=[component], targets={"alpha": target})
     _write_lock(tmp_path, "numpy==2.0.0\n")
 
     with pytest.raises(InstallConfigError, match="not UTF-8"):
-        lock_problems(profile, resolve(profile, catalog), tmp_path)
+        lock_problems(target, resolve(target, catalog), tmp_path)

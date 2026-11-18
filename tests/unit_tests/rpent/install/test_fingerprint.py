@@ -29,7 +29,7 @@ from rpent.install.fingerprint import (
 def test_fingerprint_round_trip_is_sorted_and_atomic(tmp_path):
     venv = tmp_path / ".venv"
     venv.mkdir()
-    fingerprint = {"profile": "alpha", "components": {"alpha": {"placement": "in-env"}}}
+    fingerprint = {"target": "alpha", "components": {"alpha": {"placement": "in-env"}}}
 
     path = write_fingerprint(venv, fingerprint)
 

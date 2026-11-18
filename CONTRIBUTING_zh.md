@@ -42,11 +42,11 @@ uv run --no-project --python 3.11 --with packaging -- \
   python -m rpent.cli.install install dev
 source .venvs/dev/bin/activate
 
-# 开发 robot 时，在该配方自己的环境中安装。不同配方的依赖锁定不同，
-# 不能共用同一个虚拟环境；每个配方都从自己的锁安装。
+# 开发 robot 时，在该目标自己的环境中安装。不同目标的依赖锁定不同，
+# 不能共用同一个虚拟环境；每个目标都从自己的锁安装。
 rpent-install install robot-libero_pro  # LIBERO
-rpent-install install sim-robocasa    # RoboCasa
-rpent-install install sim-robotwin    # RoboTwin
+rpent-install install robocasa        # RoboCasa
+rpent-install install robotwin        # RoboTwin
 
 # 锁不包含测试运行器，需要另外装进该 robot 环境。
 uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout
@@ -56,9 +56,9 @@ uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-以上 robot 命令是不同选择；只安装当前改动涉及的配方。各环境的具体配置见
+以上 robot 命令是不同选择；只安装当前改动涉及的目标。各环境的具体配置见
 [安装指南](docs/source-zh/rst_source/get_started/installation.rst)，各测试套件如何
-选择配方见[测试说明](tests/README.md#test-suite-structure)。
+选择目标见[测试说明](tests/README.md#test-suite-structure)。
 
 ### 第 3 步：开发
 
@@ -66,7 +66,7 @@ pre-commit install
 
 - **保持改动聚焦。** 新功能、无关重构和全仓库清理通常应该拆成不同的 Pull
   Request。
-- **按模块职责放置代码。** 优先复用现有实现。具体机器人或仿真环境的接入代码放在对应的 `robots/<name>/` 目录中，模型服务放在 `components/models/<name>/`，工具包放在 `components/toolkits/<name>/`；通用能力放在职责相符的公共模块中。安装配方、纯依赖组件和依赖锁放在 `installs/`。
+- **按模块职责放置代码。** 优先复用现有实现。具体机器人或仿真环境的接入代码放在对应的 `robots/<name>/` 目录中，模型服务放在 `components/models/<name>/`，工具包放在 `components/toolkits/<name>/`；通用能力放在职责相符的公共模块中。安装目标、纯依赖组件和依赖锁放在 `installs/`。
 - **修改共享模块、类和方法时检查职责与影响。** 确认改动符合原有职责，优先使用合适的现有扩展点，避免将环境专用逻辑或上层依赖放入底层公共组件。检查受影响的调用方、子类和后端，包括不使用新功能的实现；即使接口签名不变，也要核对行为、状态和生命周期是否改变。是否修改公共层应根据共享需求判断，不能只看功能大小。
 - **可选依赖只在使用处导入。** 例如，只在实际使用 RoboCasa 的代码中导入
   `robosuite`，不要在模块加载时导入。这样即使没有安装所有模拟器，
@@ -77,7 +77,7 @@ pre-commit install
   如果行为发生变化，请同步更新测试并说明原因。单测必须能在普通 CPU 机器上离线
   跑通；需要模型或服务输出时使用 fake。安装器单测放在
   `tests/unit_tests/rpent/install/`，使用合成清单；针对仓库内 `component.toml`、
-  配方、锁和打包 extras 的跨文件契约放在 `tests/unit_tests/installs/`。
+  目标、锁和打包 extras 的跨文件契约放在 `tests/unit_tests/installs/`。
 - **遵循项目代码风格。** pre-commit 负责 Ruff 格式化和 lint。公共 Python API 应有
   类型标注和 Google 风格 docstring，运行时信息应使用项目 logger，而不是 `print`。
 

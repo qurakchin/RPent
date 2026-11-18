@@ -12,18 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Validate every manifest, profile closure, and lock without installing.
+"""Validate every manifest, target closure, and lock without installing.
 
 Loading the catalog already rejects an invalid manifest, a duplicate component
-or profile name, a broken ``requires``/``imports``/``env_conflicts`` reference,
+or target name, a broken ``requires``/``imports``/``env_conflicts`` reference,
 and a deps component with a single consumer. This tool adds the checks that
-need a profile: its closure, placement, and variant selection resolve, and the
+need a target: its closure, placement, and variant selection resolve, and the
 declared lock still covers the resulting requirements.
 
 Usage::
 
     python -m tests.tooling.check --all
-    python -m tests.tooling.check sim-robotwin --resolve
+    python -m tests.tooling.check robotwin --resolve
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from pathlib import Path
 from rpent.install.discovery import Catalog, discover
 from rpent.install.errors import InstallError
 from rpent.install.installer import find_uv
-from rpent.install.lock import resolve_profile
+from rpent.install.lock import resolve_target
 from rpent.install.lock_coverage import lock_problems
 from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import resolve
@@ -43,68 +43,68 @@ from rpent.install.resolve import resolve
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
-def check_profile(
+def check_target(
     name: str,
     catalog: Catalog,
     root: Path,
     *,
     uv: str | None = None,
 ) -> list[str]:
-    """Return every problem with one profile, or an empty list."""
-    profile = catalog.profiles[name]
-    core = read_core_dependencies(root) if profile.core else ()
-    resolution = resolve(profile, catalog, core_dependencies=core)
+    """Return every problem with one target, or an empty list."""
+    target = catalog.targets[name]
+    core = read_core_dependencies(root) if target.core else ()
+    resolution = resolve(target, catalog, core_dependencies=core)
     problems = [*resolution.errors]
-    problems.extend(lock_problems(profile, resolution, root, core_dependencies=core))
+    problems.extend(lock_problems(target, resolution, root, core_dependencies=core))
     if problems or uv is None:
         return problems
     try:
-        lock_text = resolve_profile(profile, catalog, root=root, uv=uv)
+        lock_text = resolve_target(target, catalog, root=root, uv=uv)
     except InstallError as exc:
         return [str(exc)]
     pinned = sum(
         1 for line in lock_text.splitlines() if line and not line.startswith((" ", "#"))
     )
-    print(f"profile {name}: uv resolved {pinned} requirements")
+    print(f"target {name}: uv resolved {pinned} requirements")
     return []
 
 
 def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
-    """Check the named profiles, or every profile with ``--all``."""
+    """Check the named targets, or every target with ``--all``."""
     parser = argparse.ArgumentParser(
         prog="python -m tests.tooling.check",
-        description="Validate profiles and their locks without installing.",
+        description="Validate targets and their locks without installing.",
     )
-    parser.add_argument("profiles", nargs="*", help="profile names to check")
-    parser.add_argument("--all", action="store_true", help="check every profile")
+    parser.add_argument("targets", nargs="*", help="target names to check")
+    parser.add_argument("--all", action="store_true", help="check every target")
     parser.add_argument(
         "--resolve",
         action="store_true",
-        help="also compile each profile with uv to prove it resolves",
+        help="also compile each target with uv to prove it resolves",
     )
     args = parser.parse_args(argv)
     catalog = discover(root)
-    names = sorted(catalog.profiles) if args.all else args.profiles
+    names = sorted(catalog.targets) if args.all else args.targets
     if not names:
-        parser.error("pass a profile name or --all")
+        parser.error("pass a target name or --all")
     uv = find_uv() if args.resolve else None
     failed = False
     for name in names:
-        if name not in catalog.profiles:
-            known = ", ".join(sorted(catalog.profiles))
-            print(f"unknown profile {name!r}; known profiles: {known}", file=sys.stderr)
+        if name not in catalog.targets:
+            known = ", ".join(sorted(catalog.targets))
+            print(f"unknown target {name!r}; known targets: {known}", file=sys.stderr)
             failed = True
             continue
-        problems = check_profile(name, catalog, root, uv=uv)
+        problems = check_target(name, catalog, root, uv=uv)
         if problems:
             failed = True
-            print(f"profile {name}: FAIL")
+            print(f"target {name}: FAIL")
             for problem in problems:
                 print(f"  {problem}")
             continue
-        core = read_core_dependencies(root) if catalog.profiles[name].core else ()
-        resolution = resolve(catalog.profiles[name], catalog, core_dependencies=core)
-        print(f"profile {name}: ok")
+        core = read_core_dependencies(root) if catalog.targets[name].core else ()
+        resolution = resolve(catalog.targets[name], catalog, core_dependencies=core)
+        print(f"target {name}: ok")
         installed = ", ".join(sorted(resolution.main_installed())) or "(core only)"
         print(f"  installs: {installed}")
     return 1 if failed else 0

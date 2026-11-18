@@ -1,8 +1,8 @@
 # Overrides for the single-environment RoboDojo simulator stack.
 #
 # rlinf-robodojo-runtime pins Isaac Sim 5.1, the IsaacLab fork RoboDojo tracks,
-# and the runtime minimums those two bring. Eight of those pins disagree with the
-# agent stack or with rpent-openpi, so a plain resolve either fails or installs a
+# and the runtime minimums those two bring. These pins disagree with the agent
+# stack or with rpent-openpi, so a plain resolve either fails or installs a
 # combination that breaks at import time:
 #
 #   starlette==0.49.1 (isaaclab)      vs fastapi 0.115.7 needing <0.46
@@ -14,6 +14,7 @@
 #   pyperclip==1.8.0 (isaacsim-core)  vs pydantic-ai-slim[cli] needing >=1.9.0
 #   idna==3.10 (isaacsim-kernel)      vs pydantic-ai-slim needing >=3.18
 #   packaging==23.0 (isaacsim-core)   vs openai-codex needing >=26.2
+#   websockets==12.0 (isaacsim-kernel) vs google-genai needing >=13.0
 #
 # The robodojo component declares this file as an override, so
 # `rpent-install install robot-robodojo` applies it automatically and the rest of the
@@ -28,3 +29,6 @@ torch==2.7.0
 pyperclip>=1.9.0
 idna>=3.18
 packaging>=26.2
+websockets>=13.0
+# pywin32 is a Windows-only Isaac Sim dependency declared without a marker.
+pywin32==306 ; sys_platform == "win32"

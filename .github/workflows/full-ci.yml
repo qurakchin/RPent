@@ -1,11 +1,11 @@
 name: Full CI
 
 # Proves a clean machine can install from the locks and run: every selected
-# profile gets a fresh venv installed from its lock, doctored, and — where a
+# target gets a fresh venv installed from its lock, doctored, and — where a
 # simulator exists — exercised by the GPU suite. `fast ci` calls this workflow
-# with the profiles a pull request affects; nightly and manual runs select
-# every profile. The publish workflow calls it with `full: true`, which makes
-# this the release gate too: the same run installs every profile and recompiles
+# with the targets a pull request affects; nightly and manual runs select
+# every target. The publish workflow calls it with `full: true`, which makes
+# this the release gate too: the same run installs every target and recompiles
 # every lock.
 on:
   schedule:
@@ -15,17 +15,17 @@ on:
   workflow_call:
     inputs:
       full:
-        description: Install every profile and check every lock (release gate)
+        description: Install every target and check every lock (release gate)
         required: false
         type: boolean
         default: false
       hosted:
-        description: JSON array of profiles installed on a hosted runner
+        description: JSON array of targets installed on a hosted runner
         required: false
         type: string
         default: ""
       gpu:
-        description: JSON array of profiles installed on the embodied runner
+        description: JSON array of targets installed on the embodied runner
         required: false
         type: string
         default: ""
@@ -45,7 +45,7 @@ permissions:
 
 jobs:
   scope:
-    name: Select profiles
+    name: Select targets
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -56,7 +56,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Select the profiles and suites
+      - name: Select the targets and suites
         id: select
         shell: bash
         env:
@@ -75,7 +75,7 @@ jobs:
             toolkit=$CALLED_TOOLKIT
           else
             # Nightly and manual runs, and a release call with `full: true`,
-            # cover every supported profile on the runner its authored
+            # cover every supported target on the runner its authored
             # partition assigns it to.
             hosted=$(uv run --no-project --python 3.11 --with packaging -- \
               python -m tests.tooling.matrix --runner hosted)
@@ -96,7 +96,7 @@ jobs:
     uses: ./.github/workflows/unit.yml
     with:
       tests: "[]"
-      profile: unit-cpu
+      target: unit-cpu
 
   env:
     name: Environments

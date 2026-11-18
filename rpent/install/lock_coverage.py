@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Check that a profile's declared lock still satisfies its requirements.
+"""Check that a target's declared lock still satisfies its requirements.
 
-``tests.tooling.lock`` compiles a lock from the profile's requirement inputs, but
+``tests.tooling.lock`` compiles a lock from the target's requirement inputs, but
 the lock does not record that input. Install therefore verifies the cheap
 invariant directly: every direct requirement is present in the lock and the
 locked pin still satisfies it. A manifest that changes an unpinned or loosely
@@ -23,12 +23,12 @@ overrides are checked the same way: the lock must satisfy every constraint an
 override names, because editing an override changes no manifest requirement.
 
 Requirements guarded by an environment marker are evaluated against the
-profile's declared target, not the host: a lock holds only the line that
+target's declared target, not the host: a lock holds only the line that
 applies to the interpreter and platform it was compiled for, so a marker group
-for another target is not expected to be present. The profile pins a minor
-Python version, so ``python_full_version`` markers assume patch level ``0``;
-markers that test a value the profile does not declare are reported instead of
-being silently skipped.
+for another platform is not expected to be present. The lock records the Python
+minor it resolved for, so ``python_full_version`` markers assume patch level
+``0``; markers that test a value the lock target does not declare are reported
+instead of being silently skipped.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-from rpent.install.manifest import Profile
+from rpent.install.manifest import Target
 from rpent.install.requirements import (
     installed_dependencies,
     override_files,
@@ -49,47 +49,29 @@ from rpent.install.requirements import (
 )
 from rpent.install.resolve import Resolution
 
-#: Marker values derived from ``Profile.platform``. A platform outside this
-#: table cannot be mapped to a lock target, so the profile is reported instead
-#: of guessing at its markers.
-PLATFORM_MARKERS = {
-    "linux-x86_64": {
-        "sys_platform": "linux",
-        "platform_system": "Linux",
-        "platform_machine": "x86_64",
-    },
-    "linux-aarch64": {
-        "sys_platform": "linux",
-        "platform_system": "Linux",
-        "platform_machine": "aarch64",
-    },
-    "darwin-arm64": {
-        "sys_platform": "darwin",
-        "platform_system": "Darwin",
-        "platform_machine": "arm64",
-    },
-    "darwin-x86_64": {
-        "sys_platform": "darwin",
-        "platform_system": "Darwin",
-        "platform_machine": "x86_64",
-    },
+#: Marker values every lock is compiled for. RPent installs only on
+#: linux-x86_64, so there is one mapping rather than a table per target.
+LOCK_MARKERS = {
+    "sys_platform": "linux",
+    "platform_system": "Linux",
+    "platform_machine": "x86_64",
 }
 
 
-def _marker_environment(profile: Profile) -> tuple[dict[str, str] | None, str | None]:
-    """Return the marker values for the profile's target, or an error."""
-    values = PLATFORM_MARKERS.get(profile.platform)
-    if values is None:
+def _marker_environment(
+    target: Target, python: str | None
+) -> tuple[dict[str, str] | None, str | None]:
+    """Return the marker values for the target's locked Python minor."""
+    if python is None:
         return None, (
-            f"profile {profile.name!r} targets {profile.platform!r}, which has no "
-            f"lock marker mapping; use one of "
-            f"{', '.join(sorted(PLATFORM_MARKERS))}"
+            f"target {target.name!r} does not resolve to a Python version, so "
+            "its markers cannot be evaluated"
         )
-    python_full = f"{profile.python}.0"
+    python_full = f"{python}.0"
     return {
-        **values,
+        **LOCK_MARKERS,
         "os_name": "posix",
-        "python_version": profile.python,
+        "python_version": python,
         "python_full_version": python_full,
         "implementation_name": "cpython",
         "implementation_version": python_full,
@@ -128,9 +110,9 @@ def _marker_variables(marker: Marker) -> list[str]:
 def _marker_applies(
     requirement: Requirement, environment: dict[str, str]
 ) -> tuple[bool | None, str | None]:
-    """Return whether ``requirement`` applies to the profile target.
+    """Return whether ``requirement`` applies to the target target.
 
-    A marker that uses a variable the profile does not declare cannot be
+    A marker that uses a variable the target does not declare cannot be
     decided; report it rather than skipping the requirement, because skipping
     would let a missing package pass the coverage check. ``Marker.evaluate``
     fills unknown names from the host, so the variables are checked first.
@@ -140,15 +122,15 @@ def _marker_applies(
     if unknown:
         return None, (
             f"{requirement} uses marker {marker}, which needs "
-            f"{', '.join(unknown)}; the profile target does not declare it. "
-            "Extend PLATFORM_MARKERS or drop the marker"
+            f"{', '.join(unknown)}; the linux-x86_64 lock target does not "
+            "declare it. Drop the marker"
         )
     try:
         return marker.evaluate(environment), None
     except UndefinedEnvironmentName as exc:
         return None, (
-            f"{requirement} uses marker {marker}, which the profile target "
-            f"cannot evaluate ({exc}); extend PLATFORM_MARKERS or drop the marker"
+            f"{requirement} uses marker {marker}, which the target target "
+            f"cannot evaluate ({exc}); drop the marker"
         )
 
 
@@ -223,7 +205,7 @@ def _override_requirements(
 
 
 def _override_problems(
-    profile: Profile,
+    target: Target,
     resolution: Resolution,
     root: Path,
     entries: dict[str, Requirement],
@@ -253,54 +235,60 @@ def _override_problems(
         if requirement.url:
             if _url_base(str(requirement.url)) != _url_base(str(locked.url or "")):
                 problems.append(
-                    f"{profile.lock_display()} pins {package!r} from "
+                    f"{target.lock_display()} pins {package!r} from "
                     f"{locked.url or 'an index'}, but override {display} requires "
-                    f"{requirement.url}; run `python -m tests.tooling.lock {profile.name}`"
+                    f"{requirement.url}; run `python -m tests.tooling.lock {target.name}`"
                 )
             continue
         version = _locked_version(locked)
         if version is None:
             problems.append(
-                f"{profile.lock_display()} does not pin a version for {package!r}, which "
+                f"{target.lock_display()} does not pin a version for {package!r}, which "
                 f"override {display} constrains; run "
-                f"`python -m tests.tooling.lock {profile.name}`"
+                f"`python -m tests.tooling.lock {target.name}`"
             )
         elif requirement.specifier and not requirement.specifier.contains(
             version, prereleases=True
         ):
             problems.append(
-                f"{profile.lock_display()} pins {package}=={version}, which does not satisfy "
+                f"{target.lock_display()} pins {package}=={version}, which does not satisfy "
                 f"override {display} ({requirement}); run "
-                f"`python -m tests.tooling.lock {profile.name}`"
+                f"`python -m tests.tooling.lock {target.name}`"
             )
     return problems
 
 
 def lock_problems(
-    profile: Profile,
+    target: Target,
     resolution: Resolution,
     root: Path,
     *,
     core_dependencies: tuple[str, ...] = (),
 ) -> list[str]:
-    """Return every way the profile's lock disagrees with its requirements.
+    """Return every way the target's lock disagrees with its requirements.
 
     An undeclared lock is not a problem; a declared but missing or stale lock
     is.
     """
-    path = profile.lock_file(root)
-    display = profile.lock_display()
+    path = target.lock_file(root)
+    display = target.lock_display()
     if not path.is_file():
         return [
-            f"profile {profile.name!r} needs lock {display}, but the file does "
-            f"not exist; run `python -m tests.tooling.lock {profile.name}`"
+            f"target {target.name!r} needs lock {display}, but the file does "
+            f"not exist; run `python -m tests.tooling.lock {target.name}`"
         ]
     text = read_requirement_text(path)
     if text is None:
         return [f"cannot read {display}; check that it is a readable file"]
     entries = parse_lock(text)
     problems: list[str] = []
-    markers, marker_problem = _marker_environment(profile)
+    # The lock records the minor it was compiled for; a target that requests a
+    # range resolves to that minor on every machine. Imported lazily because
+    # ``lock`` imports the installer, which imports this module.
+    from rpent.install.lock import lock_python
+
+    python = lock_python(text) or resolution.python
+    markers, marker_problem = _marker_environment(target, python)
     if marker_problem is not None:
         problems.append(marker_problem)
     for value in installed_dependencies(
@@ -311,7 +299,7 @@ def lock_problems(
             continue
         if requirement.marker is not None:
             if markers is None:
-                # The profile problem above is the actionable one; do not add a
+                # The target problem above is the actionable one; do not add a
                 # second error per marker-scoped requirement.
                 continue
             applies, problem = _marker_applies(requirement, markers)
@@ -324,30 +312,30 @@ def lock_problems(
         locked = entries.get(package)
         if locked is None:
             problems.append(
-                f"{profile.lock_display()} does not cover {package!r} ({value}); "
-                f"run `python -m tests.tooling.lock {profile.name}`"
+                f"{target.lock_display()} does not cover {package!r} ({value}); "
+                f"run `python -m tests.tooling.lock {target.name}`"
             )
             continue
         if requirement.url:
             if _url_base(str(requirement.url)) != _url_base(str(locked.url or "")):
                 problems.append(
-                    f"{profile.lock_display()} pins {package!r} from "
+                    f"{target.lock_display()} pins {package!r} from "
                     f"{locked.url or 'an index'}, but the manifest requires "
-                    f"{requirement.url}; run `python -m tests.tooling.lock {profile.name}`"
+                    f"{requirement.url}; run `python -m tests.tooling.lock {target.name}`"
                 )
             continue
         version = _locked_version(locked)
         if version is None:
             problems.append(
-                f"{profile.lock_display()} does not pin a version for {package!r}; "
-                f"run `python -m tests.tooling.lock {profile.name}`"
+                f"{target.lock_display()} does not pin a version for {package!r}; "
+                f"run `python -m tests.tooling.lock {target.name}`"
             )
         elif requirement.specifier and not requirement.specifier.contains(
             version, prereleases=True
         ):
             problems.append(
-                f"{profile.lock_display()} pins {package}=={version}, which does not satisfy "
-                f"{value}; run `python -m tests.tooling.lock {profile.name}`"
+                f"{target.lock_display()} pins {package}=={version}, which does not satisfy "
+                f"{value}; run `python -m tests.tooling.lock {target.name}`"
             )
-    problems.extend(_override_problems(profile, resolution, root, entries, markers))
+    problems.extend(_override_problems(target, resolution, root, entries, markers))
     return problems

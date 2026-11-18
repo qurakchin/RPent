@@ -1,9 +1,10 @@
-schema = 1
+schema = 2
 name = "robotwin"
 kind = "robot"
 probe = "robots.robotwin"
 python = ">=3.11,<3.12"
-platforms = ["linux-x86_64"]
+extra = "robotwin"
+description = "RoboTwin simulation with LingBot-VLA and cuRobo."
 requires = ["rlinf"]
 env_conflicts = [
   "franka",
@@ -13,7 +14,6 @@ env_conflicts = [
   "robodojo",
   "molmo",
 ]
-placement = ["in-env"]
 docs = "docs/source-en/rst_source/simulators/robotwin.rst"
 
 dependencies = [

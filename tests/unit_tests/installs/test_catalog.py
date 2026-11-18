@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The checked-in components, profiles and locks agree with each other."""
+"""The checked-in components, targets and locks agree with each other."""
 
 from rpent.install.lock_coverage import lock_problems
 from rpent.install.requirements import read_core_dependencies
@@ -29,37 +29,37 @@ def test_every_component_manifest_lives_where_its_kind_declares_it(catalog):
         assert component.manifest == expected
 
 
-def test_every_profile_selects_known_components(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
-        missing = sorted(set(profile.components) - set(catalog.components))
-        assert not missing, f"profile {name!r} selects unknown components {missing}"
+def test_every_target_selects_known_components(catalog):
+    for name, target in sorted(catalog.targets.items()):
+        missing = sorted(set(target.components) - set(catalog.components))
+        assert not missing, f"target {name!r} selects unknown components {missing}"
 
 
-def test_every_profile_resolves(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
-        resolution = resolve(profile, catalog)
+def test_every_target_resolves(catalog):
+    for name, target in sorted(catalog.targets.items()):
+        resolution = resolve(target, catalog)
 
-        assert resolution.ok, f"profile {name!r}: {'; '.join(resolution.errors)}"
+        assert resolution.ok, f"target {name!r}: {'; '.join(resolution.errors)}"
 
 
-def test_every_profile_declares_the_lock_it_ships(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
+def test_every_target_declares_the_lock_it_ships(catalog):
+    for name, target in sorted(catalog.targets.items()):
         # An undeclared lock defaults to ``locks/<name>.lock`` beside the
-        # profile directory, so user and test profiles keep the same layout.
-        assert profile.lock_file(catalog.root).is_file(), (
-            f"profile {name!r} needs {profile.lock_display()}"
+        # target directory, so user and test targets keep the same layout.
+        assert target.lock_file(catalog.root).is_file(), (
+            f"target {name!r} needs {target.lock_display()}"
         )
 
 
-def test_every_lock_covers_its_profile(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
-        core = read_core_dependencies(catalog.root) if profile.core else ()
-        resolution = resolve(profile, catalog, core_dependencies=core)
+def test_every_lock_covers_its_target(catalog):
+    for name, target in sorted(catalog.targets.items()):
+        core = read_core_dependencies(catalog.root) if target.core else ()
+        resolution = resolve(target, catalog, core_dependencies=core)
         problems = lock_problems(
-            profile,
+            target,
             resolution,
             catalog.root,
             core_dependencies=core,
         )
 
-        assert not problems, f"profile {name!r}: {'; '.join(problems)}"
+        assert not problems, f"target {name!r}: {'; '.join(problems)}"

@@ -1,9 +1,9 @@
 name: Fast CI
 
 # Every pull request and every push to main. The environment is prebuilt and
-# cached from a profile lock, so this level proves the change matches the
+# cached from a target lock, so this level proves the change matches the
 # manifests and breaks no affected contract — not that a clean machine can
-# install RPent. `full ci` proves that, and is called here only for the profiles
+# install RPent. `full ci` proves that, and is called here only for the targets
 # a pull request affects.
 on:
   pull_request:
@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       tests: ${{ steps.scope.outputs.tests }}
-      profile: ${{ steps.scope.outputs.profile }}
+      target: ${{ steps.scope.outputs.target }}
       hosted: ${{ steps.scope.outputs.hosted }}
       gpu: ${{ steps.scope.outputs.gpu }}
       e2e: ${{ steps.scope.outputs.e2e }}
@@ -86,28 +86,28 @@ jobs:
           gpu = set(load("GPU"))
           suites = {"libero", "robocasa", "robotwin"}
           # A core change keeps `full` for nightly and release runs, but a PR
-          # installs only the pilot profiles. The install-instance paths keep
-          # the full set, so an installer or profile change still proves every
+          # installs only the pilot targets. The install-instance paths keep
+          # the full set, so an installer or target change still proves every
           # environment.
-          selected = scope.get("pr_profiles", scope["profiles"])
+          selected = scope.get("pr_targets", scope["targets"])
           if scope["full"]:
-              e2e = sorted(suites) if set(selected) == set(scope["profiles"]) else []
+              e2e = sorted(suites) if set(selected) == set(scope["targets"]) else []
           else:
               e2e = sorted(suites & set(scope["components"]))
           # The installer, tooling, and repository contract groups need only
           # the core and `dev` dependencies. Every other test path may import a
-          # model server, so it keeps the CPU Torch profile; an empty selection
-          # runs the whole suite and needs that profile too.
+          # model server, so it keeps the CPU Torch target; an empty selection
+          # runs the whole suite and needs that target too.
           dev_tests = {
               "tests/unit_tests/rpent/install",
               "tests/unit_tests/tooling",
               "tests/unit_tests/installs",
           }
           tests = set(scope["tests"])
-          profile = "dev" if tests and tests <= dev_tests else "unit-cpu"
+          target = "dev" if tests and tests <= dev_tests else "unit-cpu"
           values = {
               "tests": scope["tests"],
-              "profile": profile,
+              "target": target,
               "hosted": [p for p in selected if p in hosted],
               "gpu": [p for p in selected if p in gpu],
               "e2e": e2e,
@@ -115,8 +115,8 @@ jobs:
               "docs": scope["docs"],
               # A component change can only be proven by installing its
               # closure from the lock, which `full ci` does. Install data
-              # narrows the profile set rather than emptying it.
-              "needs_full": bool(scope["components"] or scope["profiles"]),
+              # narrows the target set rather than emptying it.
+              "needs_full": bool(scope["components"] or scope["targets"]),
               "package": any(
                   path in {"pyproject.toml", "uv.lock", "setup.py", "MANIFEST.in"}
                   for path in changed
@@ -133,7 +133,7 @@ jobs:
     uses: ./.github/workflows/unit.yml
     with:
       tests: ${{ needs.changes.outputs.tests }}
-      profile: ${{ needs.changes.outputs.profile }}
+      target: ${{ needs.changes.outputs.target }}
 
   package:
     name: Package

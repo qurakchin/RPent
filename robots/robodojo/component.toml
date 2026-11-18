@@ -1,13 +1,21 @@
-schema = 1
+schema = 2
 name = "robodojo"
 kind = "robot"
 probe = "robots.robodojo"
 python = ">=3.11,<3.12"
-platforms = ["linux-x86_64"]
+extra = false
+# Isaac Sim 5.1 wheels are published for glibc 2.35 and newer.
+manylinux = "2_35"
+extra-index-urls = ["https://pypi.nvidia.com"]
+# cuRobo's Torch extension build environment resolves `torch==2.8.0`, whose
+# `nvidia-cuda-nvrtc-cu12==12.8.93` pin only PyPI publishes. The default
+# strategy stops at the first index that has a package, so the NVIDIA index
+# hides that version and the build environment fails to resolve.
+index-strategy = "unsafe-best-match"
+description = "RoboDojo / Isaac Sim without a policy or segmentation model."
 # RoboDojo pins its own RLinf fork and an Isaac Sim stack that breaks the other
 # simulator runtimes and the regular RLinf release.
 env_conflicts = ["franka", "dual_franka", "robotwin", "rlinf"]
-placement = ["in-env"]
 overrides = ["requirements/robodojo-override.txt"]
 docs = "docs/source-en/rst_source/simulators/robodojo.rst"
 

@@ -40,9 +40,9 @@ def test_missing_module_names_component_and_install(monkeypatch):
     assert "rpent-install list" in message
 
 
-def test_remote_component_hint_names_its_own_profile(monkeypatch):
+def test_remote_component_hint_names_its_own_target(monkeypatch):
     fingerprint = {
-        "profile": "robot-libero_pro",
+        "target": "robot-libero_pro",
         "components": {"molmo": {"placement": "remote"}},
     }
     monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
@@ -51,13 +51,13 @@ def test_remote_component_hint_names_its_own_profile(monkeypatch):
     with pytest.raises(components.MissingComponentError) as error:
         components.require("molmo", "definitely_missing_rpent_module")
 
-    assert "runs outside profile 'robot-libero_pro'" in str(error.value)
+    assert "runs outside target 'robot-libero_pro'" in str(error.value)
     assert "rpent-install install robot-libero_pro" in str(error.value)
 
 
-def test_in_environment_component_repairs_its_profile(monkeypatch):
+def test_in_environment_component_repairs_its_target(monkeypatch):
     fingerprint = {
-        "profile": "alpha",
+        "target": "alpha",
         "components": {"sam3": {"placement": "in-env"}},
     }
     monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
@@ -69,22 +69,22 @@ def test_in_environment_component_repairs_its_profile(monkeypatch):
     assert "rerun `rpent-install install alpha`" in str(error.value)
 
 
-def test_component_outside_profile_points_to_a_development_install(monkeypatch):
-    fingerprint = {"profile": "alpha", "components": {}}
+def test_component_outside_target_points_to_a_development_install(monkeypatch):
+    fingerprint = {"target": "alpha", "components": {}}
     monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
     monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
 
     with pytest.raises(components.MissingComponentError) as error:
         components.require("sam3", "definitely_missing_rpent_module")
 
-    assert "is not part of profile 'alpha'" in str(error.value)
+    assert "is not part of target 'alpha'" in str(error.value)
 
 
-def test_missing_component_names_the_profiles_that_include_it(monkeypatch):
+def test_missing_component_names_the_targets_that_include_it(monkeypatch):
     fingerprint = {
-        "profile": "minimal",
+        "target": "minimal",
         "components": {},
-        "component_profiles": {"sam3": ["dev", "libero-pro", "sam3-server"]},
+        "component_targets": {"sam3": ["dev", "libero-pro", "sam3-server"]},
     }
     monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
     monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
@@ -93,16 +93,16 @@ def test_missing_component_names_the_profiles_that_include_it(monkeypatch):
         components.require("sam3", "definitely_missing_rpent_module")
 
     message = str(error.value)
-    assert "is not part of profile 'minimal'" in message
+    assert "is not part of target 'minimal'" in message
     assert "dev, libero-pro, sam3-server" in message
 
 
-def test_fingerprint_without_a_profile_falls_back_to_the_general_hint(monkeypatch):
+def test_fingerprint_without_a_target_falls_back_to_the_general_hint(monkeypatch):
     # A fingerprint written by the removed component install records
-    # ``profile: null``; the hint must not tell the user to install profile None.
+    # ``target: null``; the hint must not tell the user to install target None.
     fingerprint = {
         "install_kind": "component",
-        "profile": None,
+        "target": None,
         "component": "sam3",
         "components": {"sam3": {"placement": "in-env"}},
     }

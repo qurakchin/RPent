@@ -220,7 +220,7 @@ class RoboTwinScenario:
         self.output_dir = prepare_suite(
             output_dir=output_dir,
             stack="robotwin",
-            profile="sim-robotwin",
+            target="robotwin",
             details={
                 "task": {
                     "task_name": self.args.task_name,

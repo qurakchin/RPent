@@ -12,16 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Typed component manifests (``component.toml``) and profiles.
+"""Install manifests: code components and the targets users install.
 
-Profiles live at ``installs/profiles/<name>.toml`` for the environments users
-install, and at ``tests/profiles/<name>.toml`` for the ones that serve only
-tests and CI. Both use the same schema and discovery.
-
-Manifests own a component's packages. Profiles choose components, their
-placement, and an optional variant; they may add packages that belong to no
-component (the test and lint tools in ``dev``) but never repeat a component's
-declarations.
+One schema covers both. A directory component (``robots/``,
+``components/models/``, ``components/toolkits/``) declares the packages it owns
+and can be installed directly by name. A target is a manifest without code:
+``installs/targets/<name>.toml`` composes components, ``tests/targets/`` serves
+only tests and CI. Targets may add packages that belong to no component but
+never repeat a component's declarations.
 """
 
 from __future__ import annotations
@@ -30,27 +28,32 @@ import hashlib
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from rpent.install.errors import InstallConfigError
+
+if TYPE_CHECKING:
+    from packaging.specifiers import SpecifierSet
 
 try:  # Python 3.11+
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
-SCHEMA = 1
-KINDS = ("robot", "toolkit", "model", "deps")
+SCHEMA = 2
+KINDS = ("robot", "toolkit", "model", "deps", "target")
 #: Kinds declared by ``component.toml`` inside the component's own directory.
 DIRECTORY_KINDS = ("robot", "toolkit", "model")
-#: How a profile may place a component. ``remote`` means the profile installs
+#: How a target may place a component. ``remote`` means the target installs
 #: only the client and the contract; the service runs outside this repository.
-#: A service that needs its own environment is a separate profile, never a
+#: A service that needs its own environment is a separate target, never a
 #: second environment owned by this one.
 PLACEMENTS = ("in-env", "remote")
 #: ``uv``'s multi-index strategies; see ``--index-strategy`` in ``uv pip compile``.
 INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
-_PYTHON_MINOR = re.compile(r"^\d+\.\d+$")
+#: Python minors the repository supports, newest first. A requested range is
+#: resolved to the highest minor in this list that all components accept.
+PYTHON_MINORS = ("3.12", "3.11", "3.10")
 _MANYLINUX = re.compile(r"^\d+_\d+$")
 #: A git dependency must name an immutable ref. Branches move, which makes a
 #: lock compiled yesterday install different code tomorrow.
@@ -75,6 +78,68 @@ def _schema(data: dict[str, Any], path: Path) -> None:
     if schema != SCHEMA:
         raise InstallConfigError(
             f"{path}: unsupported schema {schema!r}; expected {SCHEMA}"
+        )
+
+
+#: Top-level keys each manifest kind may declare. A key outside the set is a
+#: typo or a leftover from an earlier field name; ignoring it would leave the
+#: manifest saying something the installer never reads.
+_ALLOWED_KEYS = {
+    "component": frozenset(
+        {
+            "schema",
+            "name",
+            "kind",
+            "probe",
+            "python",
+            "placement",
+            "variant",
+            "variant_required",
+            "requires",
+            "imports",
+            "env_conflicts",
+            "dependencies",
+            "optional",
+            "overrides",
+            "docs",
+            "extra",
+            "core",
+            "description",
+            "index-url",
+            "extra-index-urls",
+            "index-strategy",
+            "manylinux",
+            "lock",
+        }
+    ),
+    "target": frozenset(
+        {
+            "schema",
+            "name",
+            "kind",
+            "python",
+            "components",
+            "dependencies",
+            "extra",
+            "core",
+            "description",
+            "index-url",
+            "extra-index-urls",
+            "index-strategy",
+            "manylinux",
+            "lock",
+        }
+    ),
+}
+
+
+def _reject_unknown(data: dict[str, Any], path: Path, kind: str) -> None:
+    """Reject top-level fields the manifest kind does not define."""
+    unknown = sorted(set(data) - _ALLOWED_KEYS[kind])
+    if unknown:
+        raise InstallConfigError(
+            f"{path}: unknown {kind} field(s): {', '.join(unknown)}; "
+            f"expected one of {', '.join(sorted(_ALLOWED_KEYS[kind]))}"
         )
 
 
@@ -181,6 +246,94 @@ def _optional_groups(data: dict[str, Any], path: Path) -> dict[str, tuple[str, .
     return groups
 
 
+def python_specifier(value: str) -> "SpecifierSet":
+    """Return the PEP 440 specification a Python request denotes.
+
+    A bare version such as ``3.11`` means ``==3.11.*``: targets and components
+    mean the minor, not one patch release. A range is used as written.
+    """
+    from packaging.specifiers import SpecifierSet
+
+    text = value.strip()
+    if text[:1].isdigit():
+        text = f"=={text}.*"
+    return SpecifierSet(text)
+
+
+def _python_spec(data: dict[str, Any], path: Path, *, required: bool) -> str | None:
+    """Read a Python version request and reject malformed specifiers."""
+    from packaging.specifiers import InvalidSpecifier
+
+    value = _optional_string(data, "python", path)
+    if value is None:
+        if required:
+            raise InstallConfigError(
+                f"{path}: 'python' is required; write a version such as '3.11' "
+                "or a range such as '>=3.10,<3.13'"
+            )
+        return None
+    try:
+        python_specifier(value)
+    except InvalidSpecifier as exc:
+        raise InstallConfigError(
+            f"{path}: invalid 'python' request {value!r}: {exc}"
+        ) from exc
+    return value
+
+
+@dataclass(frozen=True)
+class TargetSettings:
+    """Install settings shared by components and targets."""
+
+    lock: str | None = None
+    core: bool = True
+    generate_extra: bool = True
+    extra: str | None = None
+    description: str | None = None
+    index_url: str | None = None
+    extra_index_urls: tuple[str, ...] = ()
+    index_strategy: str | None = None
+    manylinux: str = "2_31"
+
+
+def _target_settings(data: dict[str, Any], path: Path, name: str) -> TargetSettings:
+    extra_value = data.get("extra", name)
+    if extra_value is False:
+        generate_extra = False
+        extra = None
+    elif extra_value is True or isinstance(extra_value, str):
+        generate_extra = True
+        extra = name if extra_value is True else extra_value
+        if not extra:
+            raise InstallConfigError(f"{path}: 'extra' must be a non-empty string")
+    else:
+        raise InstallConfigError(f"{path}: 'extra' must be a string or false")
+    core = data.get("core", True)
+    if not isinstance(core, bool):
+        raise InstallConfigError(f"{path}: 'core' must be a boolean")
+    manylinux = data.get("manylinux", "2_31")
+    if not isinstance(manylinux, str) or not _MANYLINUX.match(manylinux):
+        raise InstallConfigError(
+            f"{path}: 'manylinux' must name a glibc baseline such as '2_31'"
+        )
+    index_strategy = _optional_string(data, "index-strategy", path)
+    if index_strategy is not None and index_strategy not in INDEX_STRATEGIES:
+        raise InstallConfigError(
+            f"{path}: 'index-strategy' must be one of {', '.join(INDEX_STRATEGIES)}"
+        )
+    return TargetSettings(
+        lock=_optional_string(data, "lock", path),
+        core=core,
+        generate_extra=generate_extra,
+        extra=extra,
+        description=_optional_string(data, "description", path),
+        index_url=_optional_string(data, "index-url", path),
+        extra_index_urls=_string_list(data, "extra-index-urls", path),
+        index_strategy=index_strategy,
+        manylinux=manylinux,
+    )
+
+
 @dataclass(frozen=True)
 class Component:
     """One install boundary declared by ``component.toml``."""
@@ -191,7 +344,6 @@ class Component:
     manifest: Path
     probe: str
     python: str | None
-    platforms: tuple[str, ...]
     requires: tuple[str, ...]
     imports: tuple[str, ...]
     env_conflicts: tuple[str, ...]
@@ -203,6 +355,7 @@ class Component:
     overrides: tuple[Path, ...]
     docs: str | None
     manifest_sha256: str
+    settings: TargetSettings = TargetSettings()
 
     @property
     def manifest_path(self) -> Path:
@@ -211,11 +364,11 @@ class Component:
 
     @property
     def default_placement(self) -> str:
-        """Return where a profile installs the component unless it says otherwise.
+        """Return where a target installs the component unless it says otherwise.
 
-        Profiles write ``placement`` only for ``remote`` components, so a
+        Targets write ``placement`` only for ``remote`` components, so a
         component that can be installed locally always defaults to the
-        profile's own environment.
+        target's own environment.
         """
         return "in-env" if "in-env" in self.placements else self.placements[0]
 
@@ -238,20 +391,20 @@ class Component:
 
 @dataclass(frozen=True)
 class Selection:
-    """How a profile places one component."""
+    """How a target places one component."""
 
     placement: str | None = None
     variant: str | None = None
 
 
 @dataclass(frozen=True)
-class Profile:
-    """One supported environment composed from components."""
+class Target:
+    """One install target: a component installed alone, or a composition."""
 
     name: str
     path: Path
+    display_path: str
     python: str
-    platform: str
     components: dict[str, Selection]
     dependencies: tuple[str, ...]
     index_url: str | None
@@ -263,30 +416,24 @@ class Profile:
     extra: str | None
     description: str | None
     manylinux: str = "2_31"
+    default_lock_dir: str = "installs/locks"
 
     @property
     def relative_path(self) -> str:
-        """Return the file path messages name, such as ``installs/profiles/x.toml``."""
-        return (
-            f"{self.path.parent.parent.name}/{self.path.parent.name}/{self.path.name}"
-        )
+        """Return the file path messages name, relative to the checkout."""
+        return self.display_path
 
     def lock_file(self, root: Path) -> Path:
-        """Return the declared or conventional lock path.
-
-        A profile that does not declare ``lock`` takes the ``locks/`` directory
-        beside the one its file lives in, so a test profile's lock stays under
-        ``tests/locks/`` rather than appearing next to the user profiles.
-        """
+        """Return the declared or conventional lock path."""
         if self.lock:
             return root / self.lock
-        return self.path.parent.parent / "locks" / f"{self.name}.lock"
+        return root / self.default_lock_dir / f"{self.name}.lock"
 
     def lock_display(self) -> str:
         """Return the lock path relative to the repository root, for messages."""
         if self.lock:
             return self.lock
-        return f"{self.path.parent.parent.name}/locks/{self.name}.lock"
+        return f"{self.default_lock_dir}/{self.name}.lock"
 
 
 def load_component(path: Path) -> Component:
@@ -302,6 +449,10 @@ def load_component(path: Path) -> Component:
     if kind == "deps":
         raise InstallConfigError(
             f"{path}: 'deps' components live at installs/deps/<name>.toml"
+        )
+    if kind == "target":
+        raise InstallConfigError(
+            f"{path}: 'target' manifests live at installs/targets/<name>.toml"
         )
     return _component(data, path, name=name, kind=kind)
 
@@ -349,13 +500,13 @@ def _component(
     kind: Any,
 ) -> Component:
     """Build a component from parsed data, validating shared fields."""
+    _reject_unknown(data, path, "component")
     if kind not in KINDS:
         raise InstallConfigError(f"{path}: 'kind' must be one of {', '.join(KINDS)}")
     probe = data.get("probe")
     if not isinstance(probe, str) or not probe:
         raise InstallConfigError(f"{path}: 'probe' must be a non-empty import path")
-    python = _optional_string(data, "python", path)
-    platforms = _string_list(data, "platforms", path)
+    python = _python_spec(data, path, required=False)
     placements: tuple[str, ...] = () if kind == "deps" else _placement_list(data, path)
     optional = _optional_groups(data, path)
     default_variant = _optional_string(data, "variant", path)
@@ -392,7 +543,6 @@ def _component(
         manifest=path,
         probe=probe,
         python=python,
-        platforms=platforms,
         requires=_string_list(data, "requires", path),
         imports=_string_list(data, "imports", path),
         env_conflicts=_string_list(data, "env_conflicts", path),
@@ -404,26 +554,11 @@ def _component(
         overrides=overrides,
         docs=_optional_string(data, "docs", path),
         manifest_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+        settings=_target_settings(data, path, name),
     )
 
 
-def load_profile(path: Path) -> Profile:
-    """Load and validate one environment profile."""
-    data = _read_toml(path)
-    _schema(data, path)
-    name = _name(data, path)
-    if path.stem != name:
-        raise InstallConfigError(
-            f"{path}: name {name!r} must match its file name {path.stem!r}"
-        )
-    python = data.get("python")
-    if not isinstance(python, str) or not _PYTHON_MINOR.match(python):
-        raise InstallConfigError(
-            f"{path}: 'python' must pin a minor version such as '3.11'"
-        )
-    platform = data.get("platform")
-    if not isinstance(platform, str) or not platform:
-        raise InstallConfigError(f"{path}: 'platform' must be a non-empty string")
+def _selections(data: dict[str, Any], path: Path) -> dict[str, Selection]:
     raw_components = data.get("components", {})
     if not isinstance(raw_components, dict):
         raise InstallConfigError(f"{path}: 'components' must be a table")
@@ -451,45 +586,72 @@ def load_profile(path: Path) -> Profile:
                 f"{path}: components.{component_name}.variant must be a string"
             )
         components[component_name] = Selection(placement=placement, variant=variant)
-    extra_value = data.get("extra", name)
-    if extra_value is False:
-        generate_extra = False
-        extra = None
-    elif extra_value is True or isinstance(extra_value, str):
-        generate_extra = True
-        extra = name if extra_value is True else extra_value
-        if not extra:
-            raise InstallConfigError(f"{path}: 'extra' must be a non-empty string")
-    else:
-        raise InstallConfigError(f"{path}: 'extra' must be a string or false")
-    core = data.get("core", True)
-    if not isinstance(core, bool):
-        raise InstallConfigError(f"{path}: 'core' must be a boolean")
-    manylinux = data.get("manylinux", "2_31")
-    if not isinstance(manylinux, str) or not _MANYLINUX.match(manylinux):
+    return components
+
+
+def _default_lock_dir(path: Path) -> str:
+    """Return the lock directory beside the target file's root."""
+    return f"{path.parent.parent.name}/locks"
+
+
+def load_target(path: Path) -> Target:
+    """Load and validate one target manifest."""
+    data = _read_toml(path)
+    _schema(data, path)
+    name = _name(data, path)
+    _reject_unknown(data, path, "target")
+    if path.stem != name:
         raise InstallConfigError(
-            f"{path}: 'manylinux' must name a glibc baseline such as '2_31'"
+            f"{path}: name {name!r} must match its file name {path.stem!r}"
         )
-    index_url = _optional_string(data, "index-url", path)
-    index_strategy = _optional_string(data, "index-strategy", path)
-    if index_strategy is not None and index_strategy not in INDEX_STRATEGIES:
-        raise InstallConfigError(
-            f"{path}: 'index-strategy' must be one of {', '.join(INDEX_STRATEGIES)}"
-        )
-    return Profile(
+    kind = data.get("kind")
+    if kind != "target":
+        raise InstallConfigError(f'{path}: target manifests declare kind = "target"')
+    python = _python_spec(data, path, required=True)
+    settings = _target_settings(data, path, name)
+    return Target(
         name=name,
         path=path,
+        display_path=f"{path.parent.parent.name}/{path.parent.name}/{path.name}",
         python=python,
-        platform=platform,
-        components=components,
+        components=_selections(data, path),
         dependencies=_dependency_list(data, "dependencies", path),
-        index_url=index_url,
-        extra_index_urls=_string_list(data, "extra-index-urls", path),
-        index_strategy=index_strategy,
-        lock=_optional_string(data, "lock", path),
-        core=core,
-        generate_extra=generate_extra,
-        extra=extra,
-        description=_optional_string(data, "description", path),
-        manylinux=manylinux,
+        index_url=settings.index_url,
+        extra_index_urls=settings.extra_index_urls,
+        index_strategy=settings.index_strategy,
+        lock=settings.lock,
+        core=settings.core,
+        generate_extra=settings.generate_extra,
+        extra=settings.extra,
+        description=settings.description,
+        manylinux=settings.manylinux,
+        default_lock_dir=_default_lock_dir(path),
+    )
+
+
+def target_from_component(component: Component) -> Target:
+    """Return the install target a component forms when installed by name."""
+    if component.python is None:
+        raise InstallConfigError(
+            f"{component.manifest_path}: a component installable on its own needs "
+            "'python'; add a version or a range"
+        )
+    settings = component.settings
+    return Target(
+        name=component.name,
+        path=component.manifest,
+        display_path=f"{component.path.name}/{component.manifest.name}",
+        python=component.python,
+        components={component.name: Selection()},
+        dependencies=(),
+        index_url=settings.index_url,
+        extra_index_urls=settings.extra_index_urls,
+        index_strategy=settings.index_strategy,
+        lock=settings.lock,
+        core=settings.core,
+        generate_extra=settings.generate_extra,
+        extra=settings.extra,
+        description=settings.description,
+        manylinux=settings.manylinux,
+        default_lock_dir="installs/locks",
     )

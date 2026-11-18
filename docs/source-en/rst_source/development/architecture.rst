@@ -92,9 +92,9 @@ toolkits and model services do not import each other.
      models/         # Model services, one installable component each
      toolkits/       # Toolkits with their own evaluation corpus
    installs/
-     profiles/       # Supported install targets
+     targets/        # Supported install targets
      deps/           # Dependency-only component manifests
-     locks/          # One lock per profile
+     locks/          # One lock per target
 
 Environment Discovery
 ---------------------

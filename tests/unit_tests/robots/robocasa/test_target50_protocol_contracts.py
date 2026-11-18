@@ -111,7 +111,7 @@ def test_target50_sources_match_manifest_and_documentation():
                 / "simulators"
                 / "robocasa.rst"
             ).read_text(encoding="utf-8")
-            assert "rpent-install install sim-robocasa" in guide
+            assert "rpent-install install robocasa" in guide
             assert '".[robocasa]"' not in guide
             assert "``rpent``" in guide
             assert "uv pip check" in guide

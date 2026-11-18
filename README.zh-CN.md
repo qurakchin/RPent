@@ -125,14 +125,14 @@ uv run --no-project --python 3.11 --with packaging -- \
   python -m rpent.cli.install install robot-libero_pro
 source .venvs/robot-libero_pro/bin/activate
 
-# 其他配方同样安装到 .venvs/<配方>：
-rpent-install install sim-robocasa   # RoboCasa
-rpent-install install sim-robotwin   # RoboTwin
-rpent-install install robot-franka     # Franka
+# 其他目标同样安装到 .venvs/<目标>：
+rpent-install install robocasa       # RoboCasa
+rpent-install install robotwin       # RoboTwin
+rpent-install install robot-franka   # Franka
 rpent-install install robot-dual_franka  # 双臂 Franka
 ```
 
-`robot-libero_pro` 是默认推荐配方。全部配方、兼容 extra 和诊断方法见
+`robot-libero_pro` 是默认推荐目标。全部目标、兼容 extra 和诊断方法见
 [安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/installation.html)。
 
 RoboCasa 安装、任务 memory 与 Target50 协议参见

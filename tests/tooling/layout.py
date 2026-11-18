@@ -78,7 +78,7 @@ ALLOWED_ROOT_FILES = (
 IGNORED_TOP_LEVEL = frozenset({"memory", "__pycache__"})
 #: Core subdirectories K5 does not scan, with the reason and the date by which
 #: the exception must be removed or renewed. Model-side wire contracts name the
-#: embodiment they control; the install tooling holds the authored profile
+#: embodiment they control; the install tooling holds the authored target
 #: partition and the published extra names. An expired entry is an error, so a
 #: temporary exception cannot become permanent by being forgotten.
 CORE_NAME_EXEMPTIONS = {
@@ -88,7 +88,7 @@ CORE_NAME_EXEMPTIONS = {
         date(2027, 6, 30),
     ),
     "rpent/install": (
-        "the authored profile partition and generated extra names are data, "
+        "the authored target partition and generated extra names are data, "
         "not scheduling logic",
         date(2027, 6, 30),
     ),

@@ -28,6 +28,7 @@ from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     FINGERPRINT_NAME,
+    SUPPORTED_PLATFORM,
     fingerprint_sha256,
     freeze_sha256,
     read_fingerprint,
@@ -36,7 +37,7 @@ from rpent.install.fingerprint import (
 from rpent.install.installer import (
     find_uv,
     probe_source,
-    profile_resolution,
+    target_resolution,
     venv_python,
 )
 from rpent.install.requirements import (
@@ -44,6 +45,7 @@ from rpent.install.requirements import (
     read_core_dependencies,
     requirements_sha256,
 )
+from rpent.install.resolve import python_accepted
 from rpent.utils.config import get_repo_root
 
 OK = "ok"
@@ -95,7 +97,7 @@ def _probe_endpoint(endpoint: str) -> str | None:
 def check_installation(
     venv: Path,
     *,
-    profile_name: str | None = None,
+    target_name: str | None = None,
     endpoints: dict[str, str] | None = None,
     root: Path | None = None,
 ) -> list[Check]:
@@ -110,24 +112,24 @@ def check_installation(
             Check(
                 FAIL,
                 f"{venv} has no {FINGERPRINT_NAME}; "
-                f"install it with `rpent-install install <profile> --venv {venv}`",
+                f"install it with `rpent-install install <target> --venv {venv}`",
             )
         ]
-    name = profile_name or fingerprint.get("profile")
+    name = target_name or fingerprint.get("target")
     if name is None:
-        return [*checks, Check(FAIL, "fingerprint records no profile")]
-    checks.append(Check(OK, f"profile: {name}"))
+        return [*checks, Check(FAIL, "fingerprint records no target")]
+    checks.append(Check(OK, f"target: {name}"))
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
     try:
-        resolution = profile_resolution(str(name), discover(repo_root), root=repo_root)
+        resolution = target_resolution(str(name), discover(repo_root), root=repo_root)
     except (InstallError, ValueError) as exc:
-        checks.append(Check(FAIL, f"cannot resolve profile {name!r}: {exc}"))
+        checks.append(Check(FAIL, f"cannot resolve target {name!r}: {exc}"))
         return checks
     if not resolution.ok:
         checks.append(Check(FAIL, "\n".join(resolution.errors)))
         return checks
-    profile = resolution.profile
-    core = read_core_dependencies(repo_root) if profile.core else ()
+    target = resolution.target
+    core = read_core_dependencies(repo_root) if target.core else ()
     expected_requirements = requirements_sha256(
         resolution,
         root=repo_root,
@@ -164,22 +166,22 @@ def check_installation(
         checks.append(Check(FAIL, f"no Python interpreter in {venv}"))
         return checks
     checks.append(Check(OK, f"python: {fingerprint.get('python', '?')}"))
-    expected_python = profile.python
-    if not str(fingerprint.get("python", "")).startswith(expected_python + "."):
+    installed_python = str(fingerprint.get("python", ""))
+    if not installed_python or not python_accepted(resolution, installed_python):
         checks.append(
             Check(
                 FAIL,
-                f"profile {profile.name!r} requires Python {expected_python}, "
+                f"target {target.name!r} requires Python {target.python}, "
                 f"found {fingerprint.get('python', '?')}",
             )
         )
     current_platform = runtime_platform()
-    if profile.platform != current_platform:
+    if current_platform != SUPPORTED_PLATFORM:
         checks.append(
             Check(
                 FAIL,
-                f"profile {profile.name!r} targets {profile.platform}, "
-                f"this host is {current_platform}",
+                f"this host is {current_platform}, but RPent installs only "
+                f"{SUPPORTED_PLATFORM}",
             )
         )
     else:
