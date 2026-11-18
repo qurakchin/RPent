@@ -14,7 +14,7 @@
 
 """Check that a profile's declared lock still satisfies its requirements.
 
-``rpent-install lock`` compiles a lock from the profile's requirement inputs, but
+``tests.tooling.lock`` compiles a lock from the profile's requirement inputs, but
 the lock does not record that input. Install therefore verifies the cheap
 invariant directly: every direct requirement is present in the lock and the
 locked pin still satisfies it. A manifest that changes an unpinned or loosely
@@ -43,7 +43,7 @@ from packaging.version import InvalidVersion, Version
 
 from rpent.install.manifest import Profile
 from rpent.install.requirements import (
-    environment_dependencies,
+    installed_dependencies,
     override_files,
     read_requirement_text,
 )
@@ -253,25 +253,25 @@ def _override_problems(
         if requirement.url:
             if _url_base(str(requirement.url)) != _url_base(str(locked.url or "")):
                 problems.append(
-                    f"{profile.lock} pins {package!r} from "
+                    f"{profile.lock_display()} pins {package!r} from "
                     f"{locked.url or 'an index'}, but override {display} requires "
-                    f"{requirement.url}; run `rpent-install lock {profile.name}`"
+                    f"{requirement.url}; run `python -m tests.tooling.lock {profile.name}`"
                 )
             continue
         version = _locked_version(locked)
         if version is None:
             problems.append(
-                f"{profile.lock} does not pin a version for {package!r}, which "
+                f"{profile.lock_display()} does not pin a version for {package!r}, which "
                 f"override {display} constrains; run "
-                f"`rpent-install lock {profile.name}`"
+                f"`python -m tests.tooling.lock {profile.name}`"
             )
         elif requirement.specifier and not requirement.specifier.contains(
             version, prereleases=True
         ):
             problems.append(
-                f"{profile.lock} pins {package}=={version}, which does not satisfy "
+                f"{profile.lock_display()} pins {package}=={version}, which does not satisfy "
                 f"override {display} ({requirement}); run "
-                f"`rpent-install lock {profile.name}`"
+                f"`python -m tests.tooling.lock {profile.name}`"
             )
     return problems
 
@@ -288,24 +288,23 @@ def lock_problems(
     An undeclared lock is not a problem; a declared but missing or stale lock
     is.
     """
-    if profile.lock is None:
-        return []
-    path = root / profile.lock
+    path = profile.lock_file(root)
+    display = profile.lock_display()
     if not path.is_file():
         return [
-            f"profile {profile.name!r} declares lock {profile.lock}, but the file "
-            f"does not exist; run `rpent-install lock {profile.name}`"
+            f"profile {profile.name!r} needs lock {display}, but the file does "
+            f"not exist; run `python -m tests.tooling.lock {profile.name}`"
         ]
     text = read_requirement_text(path)
     if text is None:
-        return [f"cannot read {profile.lock}; check that it is a readable file"]
+        return [f"cannot read {display}; check that it is a readable file"]
     entries = parse_lock(text)
     problems: list[str] = []
     markers, marker_problem = _marker_environment(profile)
     if marker_problem is not None:
         problems.append(marker_problem)
-    for value in environment_dependencies(
-        resolution, profile.name, core_dependencies=core_dependencies
+    for value in installed_dependencies(
+        resolution, core_dependencies=core_dependencies
     ):
         requirement = _requirement(value)
         if requirement is None:
@@ -325,30 +324,30 @@ def lock_problems(
         locked = entries.get(package)
         if locked is None:
             problems.append(
-                f"{profile.lock} does not cover {package!r} ({value}); "
-                f"run `rpent-install lock {profile.name}`"
+                f"{profile.lock_display()} does not cover {package!r} ({value}); "
+                f"run `python -m tests.tooling.lock {profile.name}`"
             )
             continue
         if requirement.url:
             if _url_base(str(requirement.url)) != _url_base(str(locked.url or "")):
                 problems.append(
-                    f"{profile.lock} pins {package!r} from "
+                    f"{profile.lock_display()} pins {package!r} from "
                     f"{locked.url or 'an index'}, but the manifest requires "
-                    f"{requirement.url}; run `rpent-install lock {profile.name}`"
+                    f"{requirement.url}; run `python -m tests.tooling.lock {profile.name}`"
                 )
             continue
         version = _locked_version(locked)
         if version is None:
             problems.append(
-                f"{profile.lock} does not pin a version for {package!r}; "
-                f"run `rpent-install lock {profile.name}`"
+                f"{profile.lock_display()} does not pin a version for {package!r}; "
+                f"run `python -m tests.tooling.lock {profile.name}`"
             )
         elif requirement.specifier and not requirement.specifier.contains(
             version, prereleases=True
         ):
             problems.append(
-                f"{profile.lock} pins {package}=={version}, which does not satisfy "
-                f"{value}; run `rpent-install lock {profile.name}`"
+                f"{profile.lock_display()} pins {package}=={version}, which does not satisfy "
+                f"{value}; run `python -m tests.tooling.lock {profile.name}`"
             )
     problems.extend(_override_problems(profile, resolution, root, entries, markers))
     return problems

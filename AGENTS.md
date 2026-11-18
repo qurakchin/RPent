@@ -16,14 +16,19 @@ with documentation instead of assuming either is correct.
 - `rpent/robots/`: robot discovery, descriptors, and shared runtime.
 - `rpent/cli/`, `rpent/dashboard/`, and `rpent/evaluation/`: entry points,
   interactive execution, and run results.
-- `rpent/install/`: component manifests, resolution, locks, fingerprints, and
-  the repository checks exposed through `rpent-install`.
+- `rpent/install/`: component manifests, resolution, lock compilation,
+  fingerprints, and the installer behind `rpent-install`.
+- `tests/tooling/`: maintainer checks and lock generation, run as
+  `python -m tests.tooling.<tool>`; it depends on `rpent/install/` and is not
+  part of the wheel.
 - `robots/<name>/`: each robot or simulator slice, owning native translation
   and its differentiated features.
 - `components/models/<name>/` and `components/toolkits/<name>/`: installable
   model services and toolkits.
-- `installs/profiles/`, `installs/deps/`, and `installs/locks/`: supported
-  install recipes, dependency-only manifests, and one lock per profile.
+- `installs/profiles/`, `installs/deps/`, and `installs/locks/`: user install
+  recipes, dependency-only manifests, and one lock per profile.
+  `tests/profiles/` and `tests/locks/` hold development and test profiles in
+  the same namespace.
 - `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
 

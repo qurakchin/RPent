@@ -112,7 +112,7 @@ Add a VLA
 Because the model runs in its own process, adding a model-based
 primitive requires a few additional components:
 
-1. **Write ``vla_server.py``.** This process owns only the model weights
+1. **Write** ``vla_server.py``. This process owns only the model weights
    and CUDA context. Use
    :class:`rpent.models.facade.BaseVLAFacade` as the base
    class, implement ``predict``, and register any additional model RPCs by
@@ -161,7 +161,7 @@ primitive requires a few additional components:
 4. **Register the declared tool in the toolkit.** Follow the
    same pattern as for a scripted primitive.
 
-5. **Wire the components together in ``robot_spec.py``.** The
+5. **Wire the components together in** ``robot_spec.py``. The
    robot's ``get_toolkit`` builds the toolkit with
    ``runtime_kwargs``:
 

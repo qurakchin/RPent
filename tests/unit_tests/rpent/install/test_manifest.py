@@ -33,8 +33,7 @@ def test_component_manifest_reads_declarations(write_toml):
         platforms = ["linux-x86_64"]
         requires = ["openpi"]
         env_conflicts = ["beta"]
-        placement = ["in-env", "external-env"]
-        default_placement = "external-env"
+        placement = ["in-env", "remote"]
         dependencies = ["numpy>=2,<3"]
         overrides = ["overrides.txt"]
         docs = "docs/alpha.rst"
@@ -49,8 +48,10 @@ def test_component_manifest_reads_declarations(write_toml):
     assert component.name == "alpha"
     assert component.kind == "robot"
     assert component.python == ">=3.11,<3.12"
-    assert component.placements == ("in-env", "external-env")
-    assert component.default_placement == "external-env"
+    assert component.placements == ("in-env", "remote")
+    # Profiles write a placement only for remote components, so a component
+    # that can be installed locally defaults to the profile's own environment.
+    assert component.default_placement == "in-env"
     assert component.requires == ("openpi",)
     assert component.env_conflicts == ("beta",)
     assert component.overrides == (path.parent / "overrides.txt",)
@@ -158,7 +159,7 @@ def test_component_name_must_match_directory(write_toml):
     ("placement", "message"),
     [
         (["bogus"], "unknown placement"),
-        (["external-env"], "default_placement"),
+        (["external-env"], "unknown placement"),
     ],
 )
 def test_component_rejects_invalid_placements(write_toml, placement, message):
@@ -171,12 +172,26 @@ def test_component_rejects_invalid_placements(write_toml, placement, message):
         kind = "robot"
         probe = "robots.alpha"
         placement = [{rendered}]
-        default_placement = "in-env"
         """,
     )
 
     with pytest.raises(InstallConfigError, match=message):
         load_component(path)
+
+
+def test_component_placements_default_to_the_profile_environment(write_toml):
+    path = write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "alpha"
+        kind = "robot"
+        probe = "robots.alpha"
+        placement = ["remote"]
+        """,
+    )
+
+    assert load_component(path).default_placement == "remote"
 
 
 def test_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
@@ -316,8 +331,7 @@ def test_profile_reads_components_and_disables_generated_extra(write_toml):
         dependencies = ["pytest"]
 
         [components.alpha]
-        placement = "external-env"
-        profile = "alpha-model"
+        placement = "remote"
         variant = "pro"
 
         [components.beta]
@@ -330,7 +344,6 @@ def test_profile_reads_components_and_disables_generated_extra(write_toml):
     assert profile.python == "3.10"
     assert profile.generate_extra is False
     assert profile.extra is None
-    assert profile.components["alpha"].profile == "alpha-model"
     assert profile.components["alpha"].variant == "pro"
     assert profile.dependencies == ("pytest",)
 
@@ -439,13 +452,10 @@ def test_profile_requires_minor_python(write_toml):
 @pytest.mark.parametrize(
     ("entry", "message"),
     [
-        (
-            '[components.alpha]\nplacement = "external-env"',
-            "without a 'profile' name",
-        ),
+        ('[components.alpha]\nplacement = "external-env"', "must be one of"),
         (
             '[components.alpha]\nplacement = "in-env"\nprofile = "model"',
-            "remove 'profile'",
+            "unknown field",
         ),
         ("[components.alpha]\ntypo = true", "unknown field"),
     ],

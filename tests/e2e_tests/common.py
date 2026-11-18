@@ -198,10 +198,10 @@ def parse_runtime_args(spec: RobotSpec, argv: list[str]) -> Namespace:
     return parser.parse_args(argv)
 
 
-def installation_info(extra: str) -> dict[str, Any]:
-    """Record enough installation identity to diagnose a clean-extra run."""
+def installation_info(profile: str) -> dict[str, Any]:
+    """Record enough installation identity to diagnose a clean-profile run."""
     return {
-        "extra": extra,
+        "profile": profile,
         "python": platform.python_version(),
         "executable": sys.executable,
         "rpent": version("rpent"),
@@ -300,14 +300,14 @@ def synthetic_rgb() -> np.ndarray:
 
 
 def prepare_suite(
-    *, output_dir: Path, stack: str, extra: str, details: dict[str, Any]
+    *, output_dir: Path, stack: str, profile: str, details: dict[str, Any]
 ) -> Path:
     """Create one suite output directory and record its reproducible inputs."""
     output_dir = output_dir.expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=False)
     manifest = {
         "stack": stack,
-        "installation": installation_info(extra),
+        "installation": installation_info(profile),
         **details,
     }
     (output_dir / "manifest.json").write_text(

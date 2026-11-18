@@ -69,11 +69,11 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. code-block:: bash
 
-   rpent-install extras --write
+   python -m tests.tooling.extras --write
 
-该命令默认执行检查，CI 也跑 ``--check``，区块过期会让构建失败；只有 ``--write`` 会修改 ``pyproject.toml``。
+CI 会运行 ``python -m tests.tooling.extras --check``，区块过期会导致构建失败；只有 ``--write`` 会修改 ``pyproject.toml``。新的接入还需要在 ``installs/profiles/`` 下新增配方，并用 ``python -m tests.tooling.lock <配方>`` 生成锁；见 :doc:`../get_started/installation`。
 
-``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的 extra。通过 ``__getattr__`` 暴露工厂：
+``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的环境。通过 ``__getattr__`` 暴露工厂：
 
 .. code-block:: python
 
@@ -152,7 +152,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
        """
        ...
 
-``resolve_dashboard`` 是可选回调；环境不支持 Dashboard 控制时保持为 ``None``。支持时，由回调返回机器人包中定义的配置：其中 ``task`` 描述命令、校验字段、展示模板和输出目录名称；机器人专用的会话设置仍通过普通命令行参数传入；``runtime_components`` 定义界面中的服务列表；``primitives`` 按顺序列出 Dashboard 展示并允许直接执行的 Toolkit 动作。相机标签页根据每步记录的 PNG 图像文件自动生成。任务候选项应直接保存在该配置中，避免导入机器人包时依赖仿真器包。完整结构参考 ``robots/libero/robot_spec.py``（a_5 之后为 ``spec.py``）。
+``resolve_dashboard`` 是可选回调；环境不支持 Dashboard 控制时保持为 ``None``。支持时，由回调返回机器人包中定义的配置：其中 ``task`` 描述命令、校验字段、展示模板和输出目录名称；机器人专用的会话设置仍通过普通命令行参数传入；``runtime_components`` 定义界面中的服务列表；``primitives`` 按顺序列出 Dashboard 展示并允许直接执行的 Toolkit 动作。相机标签页根据每步记录的 PNG 图像文件自动生成。任务候选项应直接保存在该配置中，避免导入机器人包时依赖仿真器包。完整结构参考 ``robots/libero/robot_spec.py`` （a_5 之后为 ``spec.py``）。
 
 ``_resolve_robot(name)`` 通过 ``importlib.import_module(f"robots.{name}")`` 动态加载机器人包。因此，只需将机器人包放在 ``robots/`` 下，无需维护中央注册列表。
 
@@ -234,7 +234,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 2. Prompt
 ---------
 
-prompt 工厂归入 ``prompts/domain.py``（a_5 之前为 ``prompt_bundle.py``）。定义 ``system_prompt()`` 和 ``user_prompt()`` 两个工厂，并在机器人的 ``spec.py``（当前为 ``robot_spec.py``）中构造 ``PromptBundle(system=system_prompt, user=user_prompt)`` （见上面的“入口”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节； ``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
+prompt 工厂归入 ``prompts/domain.py`` （a_5 之前为 ``prompt_bundle.py``）。定义 ``system_prompt()`` 和 ``user_prompt()`` 两个工厂，并在机器人的 ``spec.py`` （当前为 ``robot_spec.py``）中构造 ``PromptBundle(system=system_prompt, user=user_prompt)`` （见上面的“入口”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节； ``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
 
 .. code-block:: python
 
@@ -303,9 +303,9 @@ toolkit 模块通常包含四部分：
 
 机器人特有的 CLI 参数通过两个钩子接入 ``rpent/cli/main.py`` 的解析流程，并参与最终的 argparse 解析：
 
-**``_add_cli_args(parser, use_dashboard) -> None``。** 将机器人参数注册到 main.py 已创建的共享 parser。``use_dashboard`` 决定原本必填的参数是否保持可选。每个 Dashboard TaskRun 会在 ``parse_config`` 调用前，由机器人 Dashboard spec 定义的任务命令提供其声明的字段。main.py 会在 ``parser.parse_args()`` 之前调用该钩子，因此 argparse 的 usage 和错误信息也会包含机器人参数。
+``_add_cli_args(parser, use_dashboard) -> None`` 将机器人参数注册到 main.py 已创建的共享 parser。``use_dashboard`` 决定原本必填的参数是否保持可选。每个 Dashboard TaskRun 会在 ``parse_config`` 调用前，由机器人 Dashboard spec 定义的任务命令提供其声明的字段。main.py 会在 ``parser.parse_args()`` 之前调用该钩子，因此 argparse 的 usage 和错误信息也会包含机器人参数。
 
-**``_parse_config(args) -> RunConfig``。** 普通 CLI 模式下，该钩子在 ``parser.parse_args()`` 后调用；Dashboard 模式下，每个 TaskRun 会先把请求字段写入任务参数，再调用该钩子。该钩子校验这些字段并返回
+``_parse_config(args) -> RunConfig`` 在普通 CLI 模式下于 ``parser.parse_args()`` 后调用；Dashboard 模式下，每个 TaskRun 会先把请求字段写入任务参数，再调用该钩子。该钩子校验这些字段并返回
 :class:`~rpent.robots.RunConfig`：
 
 - ``recipe_tag`` —— 单次运行的机器人标签，用于 transcript 文件名和 recipe 路径（LIBERO 使用 ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``）。
@@ -403,4 +403,4 @@ JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整�
 
 检查至少执行了一个环境动作、transcript 记录了 ``finish``、``states.json`` 包含无错误的动作记录、生成了预期观测工件，以及自己启动的 daemon 全部退出。这种有界接入测试不要求任务成功。
 
-离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装机器人 extra 并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。
+离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装该机器人的配方并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。

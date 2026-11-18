@@ -1,0 +1,35 @@
+schema = 1
+name = "unit-cpu"
+python = "3.10"
+platform = "linux-x86_64"
+lock = "tests/locks/unit-cpu.lock"
+# Test environments are not a compatibility extra.
+extra = false
+description = "CPU-only unit tests: core, test tools, and the CPU flywheel stack."
+
+dependencies = [
+  "av",
+  "coverage",
+  "gymnasium",
+  "lerobot",
+  "omegaconf",
+  "opencv-python-headless",
+  "pytest",
+  "pytest-timeout",
+  # A model server imports Torch at module scope, and many unit tests import
+  # those modules. The local version selects the CPU wheel from the extra
+  # index, which keeps the hosted runner small and avoids a CUDA dependency
+  # the tests never exercise.
+  "torch==2.6.0+cpu",
+  # `flywheel` reads and writes Parquet; the CPU build never sees a newer
+  # Arrow than the flywheel tests were validated against.
+  "pyarrow<26",
+]
+
+extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
+# The PyTorch index mirrors Torch's dependencies but publishes no upload times.
+# With uv's default strategy those shadows hide packages such as sympy from
+# `--exclude-newer`, so resolution fails even though PyPI lists them. The
+# fall-through strategy keeps the first index authoritative and only uses the
+# extra index for versions PyPI does not have, like `torch==2.6.0+cpu`.
+index-strategy = "unsafe-first-match"

@@ -14,7 +14,7 @@
 
 """The authored runner partition covers every checked-in profile."""
 
-from rpent.install import matrix
+from tests.tooling import matrix
 
 
 def test_repository_partition_covers_every_profile(catalog):

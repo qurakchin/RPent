@@ -16,7 +16,7 @@
 #   packaging==23.0 (isaacsim-core)   vs openai-codex needing >=26.2
 #
 # The robodojo component declares this file as an override, so
-# `rpent-install install robodojo-sim` applies it automatically and the rest of the
+# `rpent-install install robot-robodojo` applies it automatically and the rest of the
 # repository keeps resolving the versions the other robots were validated
 # against. Resolving these conflicts does not establish runtime compatibility.
 starlette==0.45.3

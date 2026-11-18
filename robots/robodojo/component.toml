@@ -4,7 +4,6 @@ kind = "robot"
 probe = "robots.robodojo"
 python = ">=3.11,<3.12"
 platforms = ["linux-x86_64"]
-requires = ["sam3", "openpi"]
 # RoboDojo pins its own RLinf fork and an Isaac Sim stack that breaks the other
 # simulator runtimes and the regular RLinf release.
 env_conflicts = ["franka", "dual_franka", "robotwin", "rlinf"]

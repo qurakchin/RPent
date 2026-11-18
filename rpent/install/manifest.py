@@ -14,7 +14,9 @@
 
 """Typed component manifests (``component.toml``) and profiles.
 
-Profiles live at ``installs/profiles/<name>.toml``.
+Profiles live at ``installs/profiles/<name>.toml`` for the environments users
+install, and at ``tests/profiles/<name>.toml`` for the ones that serve only
+tests and CI. Both use the same schema and discovery.
 
 Manifests own a component's packages. Profiles choose components, their
 placement, and an optional variant; they may add packages that belong to no
@@ -41,7 +43,11 @@ SCHEMA = 1
 KINDS = ("robot", "toolkit", "model", "deps")
 #: Kinds declared by ``component.toml`` inside the component's own directory.
 DIRECTORY_KINDS = ("robot", "toolkit", "model")
-PLACEMENTS = ("in-env", "external-env", "remote")
+#: How a profile may place a component. ``remote`` means the profile installs
+#: only the client and the contract; the service runs outside this repository.
+#: A service that needs its own environment is a separate profile, never a
+#: second environment owned by this one.
+PLACEMENTS = ("in-env", "remote")
 #: ``uv``'s multi-index strategies; see ``--index-strategy`` in ``uv pip compile``.
 INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
 _PYTHON_MINOR = re.compile(r"^\d+\.\d+$")
@@ -190,7 +196,6 @@ class Component:
     imports: tuple[str, ...]
     env_conflicts: tuple[str, ...]
     placements: tuple[str, ...]
-    default_placement: str | None
     default_variant: str | None
     variant_required: bool
     dependencies: tuple[str, ...]
@@ -203,6 +208,16 @@ class Component:
     def manifest_path(self) -> Path:
         """Return the manifest path."""
         return self.manifest
+
+    @property
+    def default_placement(self) -> str:
+        """Return where a profile installs the component unless it says otherwise.
+
+        Profiles write ``placement`` only for ``remote`` components, so a
+        component that can be installed locally always defaults to the
+        profile's own environment.
+        """
+        return "in-env" if "in-env" in self.placements else self.placements[0]
 
     @property
     def is_deps(self) -> bool:
@@ -227,7 +242,6 @@ class Selection:
 
     placement: str | None = None
     variant: str | None = None
-    profile: str | None = None
 
 
 @dataclass(frozen=True)
@@ -249,13 +263,30 @@ class Profile:
     extra: str | None
     description: str | None
     manylinux: str = "2_31"
-    #: A development diagnostic built for one component rather than a profile
-    #: declared in ``installs/profiles/``; nothing may present it as one.
-    synthetic: bool = False
 
-    def relative_lock(self) -> Path | None:
-        """Return the declared lock path relative to the repository root."""
-        return Path(self.lock) if self.lock else None
+    @property
+    def relative_path(self) -> str:
+        """Return the file path messages name, such as ``installs/profiles/x.toml``."""
+        return (
+            f"{self.path.parent.parent.name}/{self.path.parent.name}/{self.path.name}"
+        )
+
+    def lock_file(self, root: Path) -> Path:
+        """Return the declared or conventional lock path.
+
+        A profile that does not declare ``lock`` takes the ``locks/`` directory
+        beside the one its file lives in, so a test profile's lock stays under
+        ``tests/locks/`` rather than appearing next to the user profiles.
+        """
+        if self.lock:
+            return root / self.lock
+        return self.path.parent.parent / "locks" / f"{self.name}.lock"
+
+    def lock_display(self) -> str:
+        """Return the lock path relative to the repository root, for messages."""
+        if self.lock:
+            return self.lock
+        return f"{self.path.parent.parent.name}/locks/{self.name}.lock"
 
 
 def load_component(path: Path) -> Component:
@@ -325,16 +356,7 @@ def _component(
         raise InstallConfigError(f"{path}: 'probe' must be a non-empty import path")
     python = _optional_string(data, "python", path)
     platforms = _string_list(data, "platforms", path)
-    if kind == "deps":
-        placements: tuple[str, ...] = ()
-        default_placement: str | None = None
-    else:
-        placements = _placement_list(data, path)
-        default_placement = data.get("default_placement", placements[0])
-        if default_placement not in placements:
-            raise InstallConfigError(
-                f"{path}: 'default_placement' must be one of {', '.join(placements)}"
-            )
+    placements: tuple[str, ...] = () if kind == "deps" else _placement_list(data, path)
     optional = _optional_groups(data, path)
     default_variant = _optional_string(data, "variant", path)
     if default_variant is not None and default_variant not in optional:
@@ -375,7 +397,6 @@ def _component(
         imports=_string_list(data, "imports", path),
         env_conflicts=_string_list(data, "env_conflicts", path),
         placements=placements,
-        default_placement=default_placement,
         default_variant=default_variant,
         variant_required=variant_required,
         dependencies=_dependency_list(data, "dependencies", path),
@@ -412,7 +433,7 @@ def load_profile(path: Path) -> Profile:
             raise InstallConfigError(
                 f"{path}: components.{component_name} must be a table"
             )
-        unknown = sorted(set(raw) - {"placement", "variant", "profile"})
+        unknown = sorted(set(raw) - {"placement", "variant"})
         if unknown:
             raise InstallConfigError(
                 f"{path}: components.{component_name} has unknown field(s): "
@@ -429,26 +450,7 @@ def load_profile(path: Path) -> Profile:
             raise InstallConfigError(
                 f"{path}: components.{component_name}.variant must be a string"
             )
-        external_profile = raw.get("profile")
-        if external_profile is not None and (
-            not isinstance(external_profile, str) or not external_profile
-        ):
-            raise InstallConfigError(
-                f"{path}: components.{component_name}.profile must be a string"
-            )
-        if placement == "in-env" and external_profile is not None:
-            raise InstallConfigError(
-                f"{path}: components.{component_name} places an in-env component "
-                "inside a named external environment; remove 'profile'"
-            )
-        if placement == "external-env" and external_profile is None:
-            raise InstallConfigError(
-                f"{path}: components.{component_name} uses external-env "
-                "without a 'profile' name"
-            )
-        components[component_name] = Selection(
-            placement=placement, variant=variant, profile=external_profile
-        )
+        components[component_name] = Selection(placement=placement, variant=variant)
     extra_value = data.get("extra", name)
     if extra_value is False:
         generate_extra = False

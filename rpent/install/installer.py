@@ -16,17 +16,12 @@
 
 from __future__ import annotations
 
-import dataclasses
 import os
-import re
 import shutil
 import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
-from packaging.specifiers import InvalidSpecifier, SpecifierSet
 
 from rpent.install.discovery import Catalog, discover
 from rpent.install.errors import InstallError
@@ -38,7 +33,7 @@ from rpent.install.fingerprint import (
     write_fingerprint,
 )
 from rpent.install.lock_coverage import lock_problems
-from rpent.install.manifest import Component, Profile, Selection
+from rpent.install.manifest import Profile
 from rpent.install.requirements import (
     REQUIREMENTS_SCHEMA,
     read_core_dependencies,
@@ -48,20 +43,20 @@ from rpent.install.requirements import (
 from rpent.install.resolve import Resolution, resolve
 from rpent.utils.config import get_repo_root
 
-#: Per-checkout state: generated requirements and per-profile virtualenvs.
+#: Generated requirements files, one per installed environment.
 STATE_DIR = ".rpent"
+#: Default per-profile virtualenvs; gitignored installation output.
+VENV_DIR = ".venvs"
 
 
 def default_venv(root: Path, profile: Profile) -> Path:
     """Return the default virtualenv path for ``profile``."""
-    return root / STATE_DIR / "venvs" / profile.name
+    return root / VENV_DIR / profile.name
 
 
-def requirements_file(root: Path, profile: Profile, environment: str) -> Path:
-    """Return the generated requirements path for one environment."""
-    if environment == profile.name:
-        return root / STATE_DIR / "requirements" / f"{profile.name}.txt"
-    return root / STATE_DIR / "requirements" / f"{profile.name}.{environment}.txt"
+def requirements_file(root: Path, profile: Profile) -> Path:
+    """Return the generated requirements path for a profile."""
+    return root / STATE_DIR / "requirements" / f"{profile.name}.txt"
 
 
 def venv_python(venv: Path) -> Path:
@@ -119,65 +114,6 @@ def run_command(
     return result.stdout if capture else ""
 
 
-def _with_dev(profile: Profile, catalog: Catalog) -> Profile:
-    dev = catalog.profiles.get("dev")
-    if dev is None:
-        return profile
-    components = dict(profile.components)
-    for name, selection in dev.components.items():
-        components.setdefault(name, selection)
-    return dataclasses.replace(
-        profile,
-        components=components,
-        dependencies=tuple(dict.fromkeys(profile.dependencies + dev.dependencies)),
-        extra_index_urls=tuple(
-            dict.fromkeys(profile.extra_index_urls + dev.extra_index_urls)
-        ),
-    )
-
-
-def _supported_python(component: Component) -> str:
-    """Return the running Python, or the nearest minor the component supports.
-
-    A single-component install is a diagnostic run from the current
-    interpreter. When the interpreter is outside the component's range, fall
-    back to the highest supported minor so ``uv venv`` can create a usable
-    environment instead of failing every component check.
-    """
-    host = f"{sys.version_info.major}.{sys.version_info.minor}"
-    if component.python is None:
-        return host
-    try:
-        supported = SpecifierSet(component.python)
-    except InvalidSpecifier:
-        return host
-    if supported.contains(host, prereleases=True):
-        return host
-    candidates: set[tuple[int, int]] = set()
-    for specifier in supported:
-        match = re.fullmatch(r"(\d+)\.(\d+)", specifier.version)
-        if match is None:
-            continue
-        major, minor = int(match.group(1)), int(match.group(2))
-        candidates.add((major, minor))
-        if minor:
-            candidates.add((major, minor - 1))
-    for major, minor in sorted(candidates, reverse=True):
-        value = f"{major}.{minor}"
-        if supported.contains(value, prereleases=True):
-            return value
-    return host
-
-
-def _profiles_placing(catalog: Catalog, component_name: str) -> list[str]:
-    """Return the profiles that list ``component_name``."""
-    return sorted(
-        name
-        for name, profile in catalog.profiles.items()
-        if component_name in profile.components
-    )
-
-
 def _component_profiles(catalog: Catalog) -> dict[str, list[str]]:
     """Return component -> profiles whose resolution closure contains it.
 
@@ -185,7 +121,7 @@ def _component_profiles(catalog: Catalog) -> dict[str, list[str]]:
     so a missing optional dependency can name the profile that provides it
     without reading the checkout's manifests at the point of failure. A
     profile that does not resolve is a configuration error reported by
-    ``rpent-install check``; leaving it out keeps the index usable.
+    ``tests.tooling.check``; leaving it out keeps the index usable.
     """
     mapping: dict[str, list[str]] = {name: [] for name in catalog.components}
     for profile_name, profile in sorted(catalog.profiles.items()):
@@ -201,184 +137,69 @@ def _component_profiles(catalog: Catalog) -> dict[str, list[str]]:
     }
 
 
-def component_profile(
-    component_name: str,
-    catalog: Catalog,
-    *,
-    root: Path,
-    python: str | None = None,
-    variant: str | None = None,
-) -> Profile:
-    """Build a development-only profile for one component.
-
-    The component is placed in the synthetic profile's own environment, so a
-    component that only allows an external or remote placement cannot be
-    installed this way; the error names the profiles that can install it.
-    ``python`` pins the interpreter used for an installed diagnostic
-    environment; ``doctor`` passes the version recorded in the fingerprint so
-    the profile hashes the same no matter which interpreter runs the check.
-    """
-    component = catalog.components[component_name]
-    if "in-env" not in component.placements:
-        places = _profiles_placing(catalog, component_name)
-        hint = (
-            f"install one of the profiles that place it: {', '.join(places)}"
-            if places
-            else (
-                f"no profile places it yet; add [components.{component_name}] to "
-                "a profile that runs it"
-            )
-        )
-        raise InstallError(
-            f"component {component_name!r} allows {', '.join(component.placements)} "
-            f"placement but no in-env placement; {hint}"
-        )
-    if component.variant_required and variant is None:
-        choices = "|".join(sorted(component.optional))
-        places = _profiles_placing(catalog, component_name)
-        hint = (
-            f" or install a profile that selects one: {', '.join(places)}"
-            if places
-            else ""
-        )
-        raise InstallError(
-            f"component {component_name!r} requires a variant; pass "
-            f"`--variant <{choices}>`{hint}"
-        )
-    if variant is not None and variant not in component.optional:
-        choices = ", ".join(sorted(component.optional)) or "<none>"
-        raise InstallError(
-            f"component {component_name!r} has no optional group {variant!r}; "
-            f"--variant must be one of {choices}"
-        )
-    return Profile(
-        name=component_name,
-        path=root / f"<component {component_name}>",
-        python=python or _supported_python(component),
-        platform=runtime_platform(),
-        components={component_name: Selection(placement="in-env", variant=variant)},
-        dependencies=(),
-        index_url=None,
-        extra_index_urls=(),
-        index_strategy=None,
-        lock=None,
-        core=True,
-        generate_extra=False,
-        extra=None,
-        description=f"development diagnostic environment for {component_name}",
-        synthetic=True,
-    )
-
-
-def resolve_install_target(
-    target: str,
-    catalog: Catalog,
-    *,
-    root: Path,
-    include_dev: bool = False,
-    variant: str | None = None,
-) -> Resolution:
-    """Resolve a profile name or, when needed, a single component name.
-
-    ``variant`` names the optional group of a single component; a profile
-    selects its variants itself, so passing both is a mistake.
-    """
-    if target in catalog.profiles:
-        if variant is not None:
-            raise InstallError(
-                f"profile {target!r} selects its own variants; --variant applies "
-                "only to a single component target"
-            )
-        profile = catalog.profiles[target]
-        if include_dev:
-            profile = _with_dev(profile, catalog)
-    elif target in catalog.components:
-        if include_dev:
-            raise InstallError("--dev applies to profiles, not single components")
-        profile = component_profile(target, catalog, root=root, variant=variant)
-    else:
+def profile_resolution(target: str, catalog: Catalog, *, root: Path) -> Resolution:
+    """Resolve one named profile."""
+    profile = catalog.profiles.get(target)
+    if profile is None:
         known = ", ".join(sorted(catalog.profiles))
-        raise InstallError(
-            f"unknown profile or component {target!r}; known profiles: {known}"
-        )
+        raise InstallError(f"unknown profile {target!r}; known profiles: {known}")
     core = read_core_dependencies(root) if profile.core else ()
     return resolve(profile, catalog, core_dependencies=core)
 
 
 def install(
-    target: str,
+    profile_name: str,
     *,
     root: Path | None = None,
     venv: Path | None = None,
-    include_dev: bool = False,
-    variant: str | None = None,
-    dry_run: bool = False,
+    force: bool = False,
     verbose: bool = True,
 ) -> dict[str, Any]:
-    """Install ``target`` and return the written fingerprint."""
+    """Install one named profile and return the written fingerprint."""
     repo_root = (root or get_repo_root()).resolve()
     catalog = discover(repo_root)
-    resolution = resolve_install_target(
-        target, catalog, root=repo_root, include_dev=include_dev, variant=variant
-    )
+    resolution = profile_resolution(profile_name, catalog, root=repo_root)
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
     profile = resolution.profile
-    # A component install is a development diagnostic: its synthetic profile
-    # comes from the host interpreter rather than a declared profile,
-    # so the fingerprint must say so.
-    install_kind = "profile" if target in catalog.profiles else "component"
     core = read_core_dependencies(repo_root) if profile.core else ()
-    main_requirements = render_requirements(
-        resolution, profile.name, core_dependencies=core
-    )
+    main_requirements = render_requirements(resolution, core_dependencies=core)
     destination = (venv or default_venv(repo_root, profile)).resolve()
-    requirements_path = requirements_file(repo_root, profile, profile.name)
-    external = resolution.nonempty_environments()
-    external.pop(profile.name, None)
+    requirements_path = requirements_file(repo_root, profile)
 
-    if dry_run:
-        print(main_requirements, end="")
-        return {
-            "profile": profile.name,
-            "venv": str(destination),
-            "requirements": main_requirements,
-            "external_environments": sorted(external),
-        }
-
+    lock = profile.lock_file(repo_root)
+    if not lock.is_file():
+        raise InstallError(
+            f"profile {profile.name!r} needs lock {profile.lock_display()}, but "
+            f"the file does not exist; maintainers regenerate it with "
+            f"`python -m tests.tooling.lock {profile.name}`"
+        )
     # A lock is only a guarantee while it still covers the manifests. Check
     # before touching the virtualenv so a stale lock fails fast with the
-    # command that regenerates it. `--dev` appends packages the lock does not
-    # contain, so it installs from the generated requirements instead.
-    if not include_dev:
-        problems = lock_problems(profile, resolution, repo_root, core_dependencies=core)
-        if problems:
-            raise InstallError("\n".join(problems))
+    # command that regenerates it.
+    problems = lock_problems(profile, resolution, repo_root, core_dependencies=core)
+    if problems:
+        raise InstallError("\n".join(problems))
 
     existing = read_fingerprint(destination)
     if existing is not None:
-        existing_kind = existing.get("install_kind", "profile")
-        existing_name = existing.get("profile") or existing.get("component")
-        if (existing_kind, existing_name) != (install_kind, profile.name):
+        existing_name = existing.get("profile")
+        if existing_name != profile.name:
             raise InstallError(
-                f"{destination} is already installed for {existing_kind} "
+                f"{destination} is already installed for profile "
                 f"{existing_name!r}; environments cannot share a virtualenv "
                 f"because their dependencies differ. Install "
                 f"{profile.name!r} into its own environment, for example "
                 f"`--venv {default_venv(repo_root, profile)}`"
             )
+    elif destination.exists() and any(destination.iterdir()) and not force:
+        raise InstallError(
+            f"{destination} is not empty and records no installation "
+            "fingerprint; pass --force to install into it anyway"
+        )
 
     requirements_path.parent.mkdir(parents=True, exist_ok=True)
     requirements_path.write_text(main_requirements, encoding="utf-8")
-    external_requirements: dict[str, Path] = {}
-    for environment in sorted(external):
-        path = requirements_file(repo_root, profile, environment)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            render_requirements(resolution, environment, core_dependencies=core),
-            encoding="utf-8",
-        )
-        external_requirements[environment] = path
 
     uv = find_uv()
     python = venv_python(destination)
@@ -393,22 +214,16 @@ def install(
     if not python.exists():
         raise InstallError(
             f"{destination} exists but has no Python interpreter; remove it and "
-            f"rerun `rpent-install install {target}`"
+            f"rerun `rpent-install install {profile.name}`"
         )
 
-    # Install the profile's lock when it exists so a checkout with a lock gets
-    # the same versions everywhere. A lock covers only the profile closure, so
-    # `--dev` (which appends the dev profile's packages) resolves from the
-    # generated requirements instead.
-    lock = repo_root / profile.lock if profile.lock else None
-    using_lock = lock is not None and lock.is_file() and not include_dev
-    install_from = lock if using_lock else requirements_path
+    # Install from the profile's lock so every checkout gets the same versions.
     install_command = [uv, "pip", "install", "--python", str(python)]
     install_command.extend(index_options(profile))
     for resolved in resolution.main_installed().values():
         for override in resolved.component.overrides:
             install_command.extend(["--override", str(override)])
-    install_command.extend(["-r", str(install_from)])
+    install_command.extend(["-r", str(lock)])
     if verbose:
         print(f"$ {' '.join(install_command)}")
     # uv discovers ``[tool.uv]`` by walking up from its working directory, so
@@ -440,14 +255,7 @@ def install(
     commit, dirty = source_state(repo_root)
     fingerprint = {
         "schema": REQUIREMENTS_SCHEMA,
-        "install_kind": install_kind,
-        # A component diagnostic has no declared profile; record the component
-        # instead so `doctor` can rebuild the same synthetic profile.
-        "profile": profile.name if install_kind == "profile" else None,
-        "component": profile.name if install_kind == "component" else None,
-        # Only a lock pins the transitive closure; `--dev` and component
-        # diagnostics install resolved versions that a later run may change.
-        "reproducible": using_lock,
+        "profile": profile.name,
         "python": _python_version(python),
         "platform": runtime_platform(),
         "source_commit": commit,
@@ -457,11 +265,6 @@ def install(
                 "manifest_sha256": resolved.component.manifest_sha256,
                 "placement": resolved.placement,
                 "variant": resolved.variant,
-                **(
-                    {"profile": resolved.env}
-                    if resolved.placement == "external-env"
-                    else {}
-                ),
             }
             for name, resolved in sorted(resolution.components.items())
         },
@@ -474,17 +277,10 @@ def install(
             resolution,
             root=repo_root,
             core_dependencies=core,
-            include_dev=include_dev,
-            reproducible=using_lock,
         ),
-        "include_dev": include_dev,
         "freeze_sha256": freeze_sha256(frozen),
         "requirements_file": str(requirements_path.relative_to(repo_root)),
-        "external_requirements": {
-            environment: str(path.relative_to(repo_root))
-            for environment, path in external_requirements.items()
-        },
-        "lock": str(lock.relative_to(repo_root)) if using_lock else None,
+        "lock": profile.lock_display(),
         "installed_at": datetime.now(timezone.utc)
         .replace(microsecond=0)
         .isoformat()
@@ -493,10 +289,6 @@ def install(
     written = write_fingerprint(destination, fingerprint)
     if verbose:
         print(f"installation fingerprint: {written}")
-        if external:
-            print("external environments are installed separately:")
-            for environment in sorted(external):
-                print(f"  rpent-install install {environment}")
     return fingerprint
 
 
@@ -552,12 +344,7 @@ def probe_source(probe: str) -> str:
 
 def repair_command(resolution: Resolution) -> str:
     """Return the command that rebuilds the same installation."""
-    profile = resolution.profile
-    command = f"rpent-install install {profile.name}"
-    selection = profile.components.get(profile.name)
-    if profile.synthetic and selection is not None and selection.variant is not None:
-        command += f" --variant {selection.variant}"
-    return command
+    return f"rpent-install install {resolution.profile.name}"
 
 
 def _probe_components(

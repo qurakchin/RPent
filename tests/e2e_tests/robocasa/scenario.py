@@ -205,7 +205,7 @@ class RoboCasaScenario:
         self.output_dir = prepare_suite(
             output_dir=output_dir,
             stack="robocasa",
-            extra="robocasa",
+            profile="sim-robocasa",
             details={
                 "task": {
                     "task_name": self.args.task_name,

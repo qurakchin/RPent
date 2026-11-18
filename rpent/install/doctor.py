@@ -24,19 +24,19 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from rpent.install.discovery import Catalog, discover
+from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     FINGERPRINT_NAME,
+    fingerprint_sha256,
     freeze_sha256,
     read_fingerprint,
     runtime_platform,
 )
 from rpent.install.installer import (
-    component_profile,
     find_uv,
     probe_source,
-    resolve_install_target,
+    profile_resolution,
     venv_python,
 )
 from rpent.install.requirements import (
@@ -44,7 +44,6 @@ from rpent.install.requirements import (
     read_core_dependencies,
     requirements_sha256,
 )
-from rpent.install.resolve import resolve
 from rpent.utils.config import get_repo_root
 
 OK = "ok"
@@ -93,37 +92,6 @@ def _probe_endpoint(endpoint: str) -> str | None:
         return f"endpoint {endpoint!r} is not reachable: {exc}"
 
 
-def _installed_minor(fingerprint: dict[str, Any]) -> str | None:
-    """Return the major.minor interpreter version recorded at install time."""
-    parts = str(fingerprint.get("python", "")).split(".")
-    if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
-        return f"{parts[0]}.{parts[1]}"
-    return None
-
-
-def _resolve_component(
-    name: str,
-    catalog: Catalog,
-    *,
-    root: Path,
-    fingerprint: dict[str, Any],
-):
-    """Resolve a component diagnostic with its install-time interpreter."""
-    if name not in catalog.components:
-        known = ", ".join(sorted(catalog.components))
-        raise InstallError(f"unknown component {name!r}; known: {known}")
-    recorded = fingerprint.get("components", {}).get(name, {})
-    profile = component_profile(
-        name,
-        catalog,
-        root=root,
-        python=_installed_minor(fingerprint),
-        variant=recorded.get("variant"),
-    )
-    core = read_core_dependencies(root) if profile.core else ()
-    return resolve(profile, catalog, core_dependencies=core)
-
-
 def check_installation(
     venv: Path,
     *,
@@ -145,26 +113,15 @@ def check_installation(
                 f"install it with `rpent-install install <profile> --venv {venv}`",
             )
         ]
-    kind = fingerprint.get("install_kind", "profile")
-    name = profile_name or fingerprint.get("profile") or fingerprint.get("component")
+    name = profile_name or fingerprint.get("profile")
     if name is None:
-        return [*checks, Check(FAIL, "fingerprint records no profile or component")]
-    include_dev = bool(fingerprint.get("include_dev", False))
-    label = "component" if kind == "component" else "profile"
-    checks.append(Check(OK, f"{label}: {name}"))
+        return [*checks, Check(FAIL, "fingerprint records no profile")]
+    checks.append(Check(OK, f"profile: {name}"))
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
     try:
-        catalog = discover(repo_root)
-        if kind == "component":
-            resolution = _resolve_component(
-                str(name), catalog, root=repo_root, fingerprint=fingerprint
-            )
-        else:
-            resolution = resolve_install_target(
-                str(name), catalog, root=repo_root, include_dev=include_dev
-            )
+        resolution = profile_resolution(str(name), discover(repo_root), root=repo_root)
     except (InstallError, ValueError) as exc:
-        checks.append(Check(FAIL, f"cannot resolve {label} {name!r}: {exc}"))
+        checks.append(Check(FAIL, f"cannot resolve profile {name!r}: {exc}"))
         return checks
     if not resolution.ok:
         checks.append(Check(FAIL, "\n".join(resolution.errors)))
@@ -175,10 +132,6 @@ def check_installation(
         resolution,
         root=repo_root,
         core_dependencies=core,
-        include_dev=include_dev,
-        # An installation that did not read the lock does not depend on it, so
-        # recompiling the lock must not make a `--dev` or diagnostic venv stale.
-        reproducible=bool(fingerprint.get("reproducible", False)),
     )
     recorded_schema = fingerprint.get("schema")
     if recorded_schema != REQUIREMENTS_SCHEMA:
@@ -275,39 +228,25 @@ def check_installation(
         else:
             checks.append(Check(OK, f"probe {component.name}: import {probe}"))
 
-    for component in resolution.external_components().values():
-        env_name = component.env or component.name
-        endpoint = _endpoint_value(env_name, endpoints) or _endpoint_value(
-            component.name, endpoints
-        )
+    for component in resolution.components.values():
+        if component.placement != "remote" or component.component.is_deps:
+            continue
+        name = component.name
+        endpoint = _endpoint_value(name, endpoints)
         if endpoint is None:
             checks.append(
                 Check(
                     WARN,
-                    f"external component {component.name!r} has no endpoint; pass "
-                    f"`--endpoint {env_name}=host:port` or set "
-                    f"RPENT_{env_name.upper().replace('-', '_')}_ENDPOINT",
+                    f"remote component {name!r} has no endpoint; pass "
+                    f"`--endpoint {name}=host:port` or set "
+                    f"RPENT_{name.upper().replace('-', '_')}_ENDPOINT",
                 )
             )
             continue
         problem = _probe_endpoint(endpoint)
         checks.append(
-            Check(
-                FAIL if problem else OK, problem or f"endpoint {env_name}: {endpoint}"
-            )
+            Check(FAIL if problem else OK, problem or f"endpoint {name}: {endpoint}")
         )
+    checks.append(Check(OK, f"fingerprint: {venv / FINGERPRINT_NAME}"))
+    checks.append(Check(OK, f"fingerprint sha256: {fingerprint_sha256(fingerprint)}"))
     return checks
-
-
-def inspect_installation(venv: Path) -> dict[str, Any] | None:
-    """Return the stored fingerprint with its canonical hash, or ``None``."""
-    from rpent.install.fingerprint import fingerprint_sha256
-
-    fingerprint = read_fingerprint(venv)
-    if fingerprint is None:
-        return None
-    return {
-        "venv": str(Path(venv).resolve()),
-        "sha256": fingerprint_sha256(fingerprint),
-        "fingerprint": fingerprint,
-    }

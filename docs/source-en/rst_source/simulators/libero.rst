@@ -109,17 +109,21 @@ its assets. Install only one LIBERO variant per Python environment:
      - Profile
      - Assets
    * - ``standard``
-     - ``libero``
+     - ``sim-libero_standard``
      - ``libero-download-assets --skip-existing``
    * - ``pro``
-     - ``libero-pro``
+     - ``robot-libero_pro``
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
-     - ``libero-plus``
+     - ``sim-libero_plus``
      - ``liberoplus-download-assets --skip-existing``
 
-Each profile includes Pi0.5 (``rpent-openpi``), SAM3, and the RLinf runtime
-(``rpent-rlinf``). Download model weights separately as described below.
+A ``sim-libero_*`` profile contains the simulator and the RLinf runtime
+(``rpent-rlinf``) but no model. ``robot-libero_pro`` adds Pi0.5
+(``rpent-openpi``), SAM3, and the flywheel dependencies. To run standard or
+plus with Pi0.5 and SAM3 locally, install the matching ``model-*`` profiles in
+their own environments and pass the endpoints. Download model weights
+separately as described below.
 
 At runtime, set ``--libero-type`` to match the installed variant.
 

@@ -40,46 +40,36 @@ def _install_hint(component: str) -> str:
     if fingerprint is None:
         return (
             f"install the environment that provides component {component!r}: "
-            f"run `rpent-install list`, install a profile that includes it, or "
-            f"run `rpent-install install {component}` for a development environment"
+            f"run `rpent-install list` and install a profile that includes it"
         )
     profile = fingerprint.get("profile")
-    installed = profile or fingerprint.get("component")
+    if not profile:
+        # A fingerprint written before profiles became the only install target
+        # records no profile; name the component without inventing one.
+        return (
+            f"install the environment that provides component {component!r}: "
+            f"run `rpent-install list` and install a profile that includes it"
+        )
     placement = fingerprint.get("components", {}).get(component)
     if placement is None:
         profiles = fingerprint.get("component_profiles", {}).get(component, [])
-        if profile is None:
-            if profiles:
-                return (
-                    f"this environment was installed for component {installed!r}; "
-                    f"install one of the profiles that includes {component!r}: "
-                    f"{', '.join(profiles)}, or run `rpent-install install "
-                    f"{component}` for a development environment"
-                )
-            return (
-                f"this environment was installed for component {installed!r}; "
-                f"install a profile that includes {component!r}, or run "
-                f"`rpent-install install {component}` for a development environment"
-            )
         if profiles:
             return (
                 f"component {component!r} is not part of profile {profile!r}; "
                 f"install one of the profiles that includes it: "
-                f"{', '.join(profiles)}, or use `rpent-install install "
-                f"{component}` for a development environment"
+                f"{', '.join(profiles)}"
             )
         return (
             f"component {component!r} is not part of profile {profile!r}; "
-            f"install a profile that includes it or use `rpent-install install "
-            f"{component}` for a development environment"
+            "install a profile that includes it"
         )
-    if placement.get("placement") == "external-env":
-        environment = placement.get("profile", component)
+    if placement.get("placement") == "remote":
         return (
-            f"component {component!r} runs in external environment "
-            f"{environment!r}; install it with `rpent-install install {environment}`"
+            f"component {component!r} runs outside profile {profile!r}; install its "
+            "own profile on that host, then rerun "
+            f"`rpent-install install {profile}` to restore the client"
         )
-    return f"rerun `rpent-install install {installed}` to repair the environment"
+    return f"rerun `rpent-install install {profile}` to repair the environment"
 
 
 def require(component: str, module: str) -> ModuleType:

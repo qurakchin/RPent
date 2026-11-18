@@ -1,0 +1,11 @@
+schema = 1
+name = "sim-libero_plus"
+python = "3.11"
+platform = "linux-x86_64"
+
+lock = "installs/locks/sim-libero_plus.lock"
+extra = "sim-libero-plus"
+description = "LIBERO-plus simulation for adapter development, e2e, and data collection."
+
+[components.libero]
+variant = "plus"

@@ -1,0 +1,11 @@
+schema = 1
+name = "tool-geometry"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "tests/locks/tool-geometry.lock"
+# Test environments do not generate a compatibility extra.
+extra = false
+description = "Geometry toolkit with its frozen CPU evaluation corpus."
+
+[components.geometry]
+variant = "eval"

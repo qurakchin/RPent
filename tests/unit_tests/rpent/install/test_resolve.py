@@ -26,7 +26,7 @@ def test_requires_closure_adds_components_with_default_placement(
     make_component, make_profile, make_catalog
 ):
     robot = make_component("alpha", requires=["sam3"])
-    sam3 = make_component("sam3", kind="model", placements=("in-env", "external-env"))
+    sam3 = make_component("sam3", kind="model", placements=("in-env", "remote"))
     profile = make_profile("alpha", {"alpha": Selection()})
     catalog = _catalog(make_catalog, robot, sam3)
 
@@ -34,7 +34,7 @@ def test_requires_closure_adds_components_with_default_placement(
 
     assert resolution.ok
     assert resolution.components["sam3"].placement == "in-env"
-    assert resolution.environments() == {"alpha": ("alpha", "sam3")}
+    assert sorted(resolution.main_installed()) == ["alpha", "sam3"]
 
 
 def test_mutual_requires_is_a_symmetric_closure(
@@ -50,7 +50,7 @@ def test_mutual_requires_is_a_symmetric_closure(
     resolution = resolve(profile, catalog)
 
     assert resolution.ok
-    assert resolution.environments() == {"alpha": ("alpha", "beta")}
+    assert sorted(resolution.main_installed()) == ["alpha", "beta"]
 
 
 def test_default_variant_is_used_when_the_profile_omits_one(
@@ -69,7 +69,10 @@ def test_default_variant_is_used_when_the_profile_omits_one(
 
     assert resolution.ok
     assert resolution.components["alpha"].variant == "standard"
-    assert resolution.dependencies_for("alpha") == ("base-dep", "standard-dep")
+    assert resolution.components["alpha"].dependencies() == (
+        "base-dep",
+        "standard-dep",
+    )
 
 
 def test_required_variant_must_be_selected(make_component, make_profile, make_catalog):
@@ -99,103 +102,66 @@ def test_deps_component_is_listed_once_per_environment(
     resolution = resolve(profile, catalog)
 
     assert resolution.ok
-    assert resolution.environment_deps == {"sim": ["rlinf"]}
-    assert resolution.environments() == {"sim": ("alpha", "beta", "rlinf")}
+    assert resolution.deps == ["rlinf"]
+    assert sorted(resolution.main_installed()) == ["alpha", "beta", "rlinf"]
 
 
-def test_deps_component_joins_every_consuming_environment(
+def test_deps_component_joins_its_consumers_environment(
     make_component, make_profile, make_catalog
 ):
-    rlinf = make_component("rlinf", kind="deps")
     robot = make_component("alpha", requires=["rlinf"])
-    model = make_component(
-        "molmo",
-        kind="model",
-        placements=("in-env", "external-env"),
-        requires=["rlinf"],
-    )
-    profile = make_profile(
-        "flash",
-        {
-            "alpha": Selection(),
-            "molmo": Selection(placement="external-env", profile="molmo"),
-        },
-    )
-    external = make_profile("molmo", {"molmo": Selection()})
-    catalog = make_catalog(
-        components=[rlinf, robot, model], profiles={"molmo": external}
-    )
+    model = make_component("molmo", kind="model", requires=["rlinf"])
+    rlinf = make_component("rlinf", kind="deps")
+    profile = make_profile("flash", {"alpha": Selection(), "molmo": Selection()})
+    catalog = _catalog(make_catalog, rlinf, robot, model)
 
     resolution = resolve(profile, catalog)
 
     assert resolution.ok
-    assert resolution.environment_deps == {
-        "flash": ["rlinf"],
-        "molmo": ["rlinf"],
-    }
-    assert resolution.nonempty_environments() == {
-        "flash": ("alpha", "rlinf"),
-        "molmo": ("molmo", "rlinf"),
-    }
-    # A deps component installs with its consumers; it is not a service with
-    # an endpoint of its own.
-    assert set(resolution.external_components()) == {"molmo"}
+    # Two consumers in one environment pull the deps component in once; it is
+    # not a service with an endpoint of its own.
+    assert resolution.deps == ["rlinf"]
+    assert sorted(resolution.main_installed()) == ["alpha", "molmo", "rlinf"]
 
 
-def test_external_placement_uses_named_environment(
+def test_remote_placement_installs_no_environment(
     make_component, make_profile, make_catalog
 ):
     molmo = make_component(
         "molmo",
         kind="model",
-        placements=("in-env", "external-env"),
-        default_placement="external-env",
+        placements=("in-env", "remote"),
     )
-    profile = make_profile("flash", {"molmo": Selection(profile="molmo")})
-    external = make_profile("molmo", {"molmo": Selection()})
-    catalog = make_catalog(components=[molmo], profiles={"molmo": external})
+    profile = make_profile("flash", {"molmo": Selection(placement="remote")})
+    catalog = make_catalog(components=[molmo])
 
     resolution = resolve(profile, catalog)
 
     assert resolution.ok
-    assert resolution.external_components()["molmo"].env == "molmo"
-    assert resolution.nonempty_environments() == {"molmo": ("molmo",)}
+    # A remote component installs nothing locally: it has no dependencies to
+    # render and must not be probed.
+    assert resolution.main_installed() == {}
 
 
-def test_external_environment_must_exist_and_include_the_component(
+def test_remote_consumer_cannot_pull_in_a_deps_component(
     make_component, make_profile, make_catalog
 ):
-    molmo = make_component("molmo", kind="model", placements=("in-env", "external-env"))
-    profile = make_profile(
-        "flash", {"molmo": Selection(placement="external-env", profile="molmo")}
+    molmo = make_component(
+        "molmo",
+        kind="model",
+        placements=("in-env", "remote"),
+        requires=["rlinf"],
     )
-    unrelated = make_profile("unrelated", {})
-    catalog = make_catalog(components=[molmo], profiles={"unrelated": unrelated})
+    rlinf = make_component("rlinf", kind="deps")
+    profile = make_profile("flash", {"molmo": Selection(placement="remote")})
+    catalog = _catalog(make_catalog, molmo, rlinf)
 
     resolution = resolve(profile, catalog)
 
     assert not resolution.ok
     assert any(
-        "installs/profiles/molmo.toml does not exist" in error
+        "requires deps component 'rlinf' but is placed remotely" in error
         for error in resolution.errors
-    )
-
-
-def test_external_profile_without_the_component_is_reported(
-    make_component, make_profile, make_catalog
-):
-    molmo = make_component("molmo", kind="model", placements=("in-env", "external-env"))
-    profile = make_profile(
-        "flash", {"molmo": Selection(placement="external-env", profile="molmo")}
-    )
-    external = make_profile("molmo", {})
-    catalog = make_catalog(components=[molmo], profiles={"molmo": external})
-
-    resolution = resolve(profile, catalog)
-
-    assert not resolution.ok
-    assert any(
-        "does not install component 'molmo'" in error for error in resolution.errors
     )
 
 
@@ -276,7 +242,7 @@ def test_conflict_suggests_moving_the_component_that_can_leave_the_environment(
     alpha = make_component(
         "alpha",
         env_conflicts=["beta"],
-        placements=("in-env", "external-env"),
+        placements=("in-env", "remote"),
     )
     beta = make_component("beta", env_conflicts=["alpha"])
     profile = make_profile("shared", {"alpha": Selection(), "beta": Selection()})
@@ -285,9 +251,77 @@ def test_conflict_suggests_moving_the_component_that_can_leave_the_environment(
     resolution = resolve(profile, catalog)
 
     assert (
-        "option 1: move alpha to external-env in installs/profiles/shared.toml"
+        "option 1: place alpha remotely in installs/profiles/shared.toml"
         in (resolution.errors[0])
     )
+
+
+def test_two_components_cannot_override_one_package(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    left = tmp_path / "left.txt"
+    right = tmp_path / "right.txt"
+    left.write_text("# keep numpy below 2\nnumpy<2\n", encoding="utf-8")
+    right.write_text("numpy<3\n", encoding="utf-8")
+    alpha = make_component("alpha", overrides=[left])
+    beta = make_component("beta", overrides=[right])
+    profile = make_profile("shared", {"alpha": Selection(), "beta": Selection()})
+    catalog = _catalog(make_catalog, alpha, beta)
+
+    resolution = resolve(profile, catalog)
+
+    assert not resolution.ok
+    # uv merges the override files, so the winner would depend on file order.
+    assert "both override 'numpy'" in resolution.errors[0]
+    assert "merge the override files" in resolution.errors[0]
+
+
+def test_marker_scoped_overrides_leave_the_choice_to_uv(
+    make_component, make_profile, make_catalog, tmp_path
+):
+    left = tmp_path / "left.txt"
+    right = tmp_path / "right.txt"
+    left.write_text("numpy<2\n", encoding="utf-8")
+    right.write_text('numpy<3; sys_platform == "win32"\n', encoding="utf-8")
+    alpha = make_component("alpha", overrides=[left])
+    beta = make_component("beta", overrides=[right])
+    profile = make_profile("shared", {"alpha": Selection(), "beta": Selection()})
+    catalog = _catalog(make_catalog, alpha, beta)
+
+    # The two lines select different targets, so the resolver decides which
+    # one applies instead of the check reporting a duplicate.
+    assert resolve(profile, catalog).ok
+
+
+def test_profile_cannot_repeat_a_component_dependency(
+    make_component, make_profile, make_catalog
+):
+    alpha = make_component("alpha", dependencies=["numpy>=2"])
+    profile = make_profile(
+        "shared",
+        {"alpha": Selection()},
+        dependencies=["numpy<3"],
+    )
+    catalog = _catalog(make_catalog, alpha)
+
+    resolution = resolve(profile, catalog)
+
+    assert not resolution.ok
+    assert "component 'alpha' already requires it" in resolution.errors[0]
+
+
+def test_profile_dependencies_outside_the_closure_are_allowed(
+    make_component, make_profile, make_catalog
+):
+    alpha = make_component("alpha", dependencies=["numpy>=2"])
+    profile = make_profile(
+        "shared",
+        {"alpha": Selection()},
+        dependencies=["pytest"],
+    )
+    catalog = _catalog(make_catalog, alpha)
+
+    assert resolve(profile, catalog).ok
 
 
 def test_declared_conflict_in_separate_environments_is_allowed(
@@ -297,19 +331,16 @@ def test_declared_conflict_in_separate_environments_is_allowed(
     beta = make_component(
         "beta",
         env_conflicts=["alpha"],
-        placements=("in-env", "external-env"),
+        placements=("in-env", "remote"),
     )
     profile = make_profile(
         "shared",
         {
             "alpha": Selection(),
-            "beta": Selection(placement="external-env", profile="beta"),
+            "beta": Selection(placement="remote"),
         },
     )
-    catalog = make_catalog(
-        components=[alpha, beta],
-        profiles={"beta": make_profile("beta", {"beta": Selection()})},
-    )
+    catalog = _catalog(make_catalog, alpha, beta)
 
     resolution = resolve(profile, catalog)
 

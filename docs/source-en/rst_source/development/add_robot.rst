@@ -104,14 +104,18 @@ not live under ``robots/``:
 
 .. code-block:: bash
 
-   rpent-install extras --write
+   python -m tests.tooling.extras --write
 
-The command checks by default and CI runs ``--check``, so a stale block fails
-the build; ``--write`` is the only mode that edits ``pyproject.toml``.
+CI runs ``python -m tests.tooling.extras --check``, so a stale block fails the
+build; ``--write`` is the only mode that edits ``pyproject.toml``. A new
+integration also needs a profile under ``installs/profiles/`` and a lock
+generated with ``python -m tests.tooling.lock <profile>``; see
+:doc:`../get_started/installation`.
 
 ``__init__.py`` is the package entry point and must stay lazy. Robot discovery
 imports every package before the user selects one, so an eager import of a
-simulator or model package makes the whole CLI depend on every robot extra.
+simulator or model package makes the whole CLI depend on every robot's
+environment.
 Export the factories through ``__getattr__``:
 
 .. code-block:: python
@@ -423,7 +427,7 @@ Conventions Worth Keeping
 Robot-specific CLI arguments enter ``rpent/cli/main.py`` through two
 hooks and participate in the final argparse pass:
 
-**``_add_cli_args(parser, use_dashboard) -> None``.** Register the
+``_add_cli_args(parser, use_dashboard) -> None`` registers the
 robot's arguments on the shared parser created by main.py.
 ``use_dashboard`` determines whether normally required arguments remain
 optional. For each Dashboard TaskRun, the robot's Dashboard task command
@@ -431,7 +435,7 @@ supplies the fields declared by its spec before ``parse_config`` runs. main.py
 calls this hook before ``parser.parse_args()``, so argparse's usage and error
 output includes the robot arguments.
 
-**``_parse_config(args) -> RunConfig``.** In normal CLI mode, this is called
+``_parse_config(args) -> RunConfig`` is called in normal CLI mode
 after ``parser.parse_args()``. In Dashboard mode, it is called for each
 TaskRun after the requested fields have been copied to the task arguments. It
 validates those fields and returns a
@@ -601,6 +605,6 @@ errors, expected observation artifacts exist, and owned daemons have exited.
 Task success is not required for this bounded integration check.
 
 Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``. After
-installing the robot extra and preparing its GPU/checkpoint/assets resources,
+installing the robot's profile and preparing its GPU/checkpoint/assets resources,
 run ``pytest tests/e2e_tests/myrobot -v``. See ``tests/README.md`` and
 ``tests/e2e_tests/run_gpu_suite.sh`` for running GPU suites in clean environments.

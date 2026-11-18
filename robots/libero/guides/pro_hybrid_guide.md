@@ -88,11 +88,12 @@ multi-pixel-median tip from the perception protocol.
 
 ## 2. Setup (do these once on a fresh checkout)
 
-Install the `libero-pro` profile; it pulls LIBERO-PRO from the `rpent` branch and
-the perception stack (Pi0.5 and SAM 3.0) into one environment:
+Install the `robot-libero_pro` profile; it pins LIBERO-PRO at a commit from the
+`rpent` branch and installs the perception stack (Pi0.5 and SAM 3.0) into one
+environment:
 
 ```bash
-rpent-install install libero-pro --venv .venv-libero-pro
+rpent-install install robot-libero_pro
 ```
 
 The profile covers the liberopro install and its benchmark registration. The
@@ -104,11 +105,12 @@ nothing perception-specific to install beyond the PRO setup itself.
 ### 2.1. LIBERO-PRO repo
 
 Installed into the profile's environment from
-`https://github.com/RLinf/LIBERO-PRO.git` at the `rpent` branch. Confirm it from
+`https://github.com/RLinf/LIBERO-PRO.git`, pinned to a commit on the `rpent`
+branch. Confirm it from
 inside that environment:
 
 ```bash
-.venv-libero-pro/bin/python -m pip show liberopro
+.venvs/robot-libero_pro/bin/python -m pip show liberopro
 # Name: liberopro  Version: 0.1.0  Location: /path/to/site-packages/liberopro
 ```
 
@@ -116,11 +118,11 @@ inside that environment:
 
 The 16 perturbation suites must be exposed through `get_benchmark()`, and
 `Task.language` must read each BDDL's actual `:language` tag so the perturbed
-instruction reaches Pi0 / hybrid. The `rpent` branch carries that registration;
-verify it in the installed environment:
+instruction reaches Pi0 / hybrid. The pinned revision carries that
+registration; verify it in the installed environment:
 
 ```bash
-.venv-libero-pro/bin/python -c \
+.venvs/robot-libero_pro/bin/python -c \
   "import liberopro.liberopro.benchmark as b; print(b.get_benchmark('libero_spatial_task')().get_task(0).language)"
 ```
 

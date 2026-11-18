@@ -11,6 +11,9 @@ Environment smoke tests can run without model checkpoints.
 ```text
 tests/
 ├── README.md
+├── profiles/            # test and development install profiles
+├── locks/               # their locks, one per profile
+├── tooling/             # maintainer checks and lock generation
 ├── e2e_tests/
 │   ├── common.py         # shared assertions and runtime lifecycle helpers
 │   ├── run_gpu_suite.sh  # clean-environment entry point for one robot stack
@@ -30,6 +33,7 @@ tests/
     │   ├── tools/
     │   └── utils/
     ├── installs/          # contracts over the real checked-in install data
+    ├── tooling/           # tests for tests/tooling/
     ├── robots/<name>/     # tests for one robot slice
     │   ├── libero/
     │   ├── robocasa/
@@ -55,14 +59,19 @@ them when the first test for that module lands.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
   `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
-  `installs/{profiles,deps,locks}/`, the authored runner partition, the
-  compatibility extras and conflicts in the root `pyproject.toml`, and the
-  workflows that consume them. Do not read the real install data from
-  `tests/unit_tests/rpent/install/`; the test path would otherwise hide which
-  layer owns the failure. `installs/` is not a Python package, so the test
-  directory mirrors the repository-level data rather than a `rpent/` module.
-  Both groups use only the core and `dev` dependencies, and `fast ci` runs them
-  in the `dev` profile.
+  `installs/{profiles,deps,locks}/`, `tests/profiles`, `tests/locks`, the
+  authored runner partition, the compatibility extras and conflicts in the
+  root `pyproject.toml`, and the workflows that consume them. Do not read the
+  real install data from `tests/unit_tests/rpent/install/`; the test path would
+  otherwise hide which layer owns the failure. `installs/` is not a Python
+  package, so the test directory mirrors the repository-level data rather than
+  a `rpent/` module. Both groups use only the core and `dev` dependencies, and
+  `fast ci` runs them in the `dev` profile.
+- `tests/tooling/` holds the maintainer entry points that read the real
+  repository data: `python -m tests.tooling.check`, `lock`, `layout`, `extras`,
+  `matrix`, and `affected`. Their tests live in `tests/unit_tests/tooling/`.
+  The dependency direction is `tests/tooling/` → `rpent/install/`; the tools
+  are not part of the wheel.
 - Keep one-off fakes in the test module that uses them. Put shared fixtures in
   the nearest `conftest.py`: use `tests/conftest.py` only for suite-wide
   fixtures and a module directory's `conftest.py` for local fixtures.
@@ -90,8 +99,8 @@ CPU Torch from the PyTorch CPU index:
 
 ```bash
 uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install unit-cpu --venv .venv-unit-cpu
-.venv-unit-cpu/bin/python -m pytest tests/unit_tests -v
+  python -m rpent.cli.install install unit-cpu
+.venvs/unit-cpu/bin/python -m pytest tests/unit_tests -v
 ```
 
 ## RoboCasa environment smoke tests
@@ -100,12 +109,12 @@ RoboCasa separates simulator checks, model component checks and the full call ch
 
 | Tests | Coverage | Requirements |
 | --- | --- | --- |
-| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | RoboCasa extra, assets and GPU/EGL; no model weights or planner credentials |
+| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | `sim-robocasa` profile, assets and GPU/EGL; no model weights or planner credentials |
 | `test_components.py` | Environment observations over RPC and RLDX inference | Model checkpoint, assets and GPU/EGL |
 | `test_policy_chain.py` | CLI → tools → RLDX → simulator action → `finish` | Model checkpoint, assets and GPU/EGL; local scripted planner |
 
 To check simulator installation and interfaces independently, install the
-RoboCasa extra and assets, then run:
+`sim-robocasa` profile and assets, then run:
 
 ```bash
 RPENT_RUN_ROBOCASA_INTEGRATION=1 \
@@ -194,7 +203,7 @@ export MUJOCO_GL=egl
 export PYOPENGL_PLATFORM=egl
 
 bash tests/e2e_tests/run_gpu_suite.sh \
-  <libero-pro|robocasa|robotwin> \
+  <robot-libero_pro|sim-robocasa|sim-robotwin> \
   /path/to/new-output-dir \
   /path/to/new-venv-root
 ```

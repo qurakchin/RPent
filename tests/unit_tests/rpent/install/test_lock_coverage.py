@@ -50,7 +50,7 @@ def test_parse_lock_reads_pins_and_direct_urls():
     assert entries["openpi-client"].url is not None
 
 
-def test_undeclared_lock_is_not_checked(
+def test_profile_without_a_declared_lock_uses_the_default_path(
     make_component, make_profile, make_catalog, tmp_path
 ):
     component = make_component("alpha", dependencies=["numpy>=2"])
@@ -58,7 +58,15 @@ def test_undeclared_lock_is_not_checked(
     catalog = make_catalog(components=[component], profiles={"alpha": profile})
     resolution = resolve(profile, catalog)
 
-    assert lock_problems(profile, resolution, tmp_path) == []
+    assert profile.lock is None
+    assert profile.lock_display() == "installs/locks/alpha.lock"
+
+    problems = lock_problems(profile, resolution, tmp_path)
+
+    assert problems == [
+        "profile 'alpha' needs lock installs/locks/alpha.lock, but the file does "
+        "not exist; run `python -m tests.tooling.lock alpha`"
+    ]
 
 
 def test_missing_declared_lock_is_reported(
@@ -71,8 +79,8 @@ def test_missing_declared_lock_is_reported(
     problems = lock_problems(profile, resolution, tmp_path)
 
     assert problems == [
-        "profile 'alpha' declares lock installs/locks/alpha.lock, but the file does "
-        "not exist; run `rpent-install lock alpha`"
+        "profile 'alpha' needs lock installs/locks/alpha.lock, but the file does "
+        "not exist; run `python -m tests.tooling.lock alpha`"
     ]
 
 

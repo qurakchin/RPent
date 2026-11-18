@@ -42,14 +42,18 @@ Use a branch name that reflects the change, such as
 ```bash
 # Create and activate the development environment.
 uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install dev --venv .venv-dev
-source .venv-dev/bin/activate
+  python -m rpent.cli.install install dev
+source .venvs/dev/bin/activate
 
-# For robot work, install that profile into its own virtualenv with the test
-# packages. Profiles cannot share a virtualenv because their pins differ.
-rpent-install install libero-pro --venv .venv-libero-pro --dev      # LIBERO
-rpent-install install robocasa-sim --venv .venv-robocasa-sim --dev  # RoboCasa
-rpent-install install robotwin-sim --venv .venv-robotwin-sim --dev  # RoboTwin
+# For robot work, install that profile into its own environment. Profiles
+# cannot share a virtualenv because their pins differ, and every profile
+# installs from its lock.
+rpent-install install robot-libero_pro  # LIBERO
+rpent-install install sim-robocasa    # RoboCasa
+rpent-install install sim-robotwin    # RoboTwin
+
+# The lock omits the test runner; add it to the robot environment.
+uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout
 
 # Install and enable the repository hooks.
 uv pip install pre-commit==4.6.2
@@ -57,9 +61,10 @@ pre-commit install
 ```
 
 The robot commands are alternatives: install only the profile relevant to the
-change, and add `--dev` when you did not start from the `dev` profile. See the
-[installation guide](docs/source-en/rst_source/get_started/installation.rst) for
-environment-specific setup.
+change. See the [installation guide](docs/source-en/rst_source/get_started/installation.rst)
+for environment-specific setup and the
+[test guide](tests/README.md#test-suite-structure) for how each suite selects
+its profile.
 
 ### Step 3. Develop
 

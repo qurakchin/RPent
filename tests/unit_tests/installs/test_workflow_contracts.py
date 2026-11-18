@@ -21,6 +21,7 @@ with the repository install data because the workflows are the readers of that
 data.
 """
 
+import re
 from pathlib import Path
 
 import yaml
@@ -95,10 +96,15 @@ def test_fast_ci_scopes_full_ci_with_the_pull_request_profiles():
 def test_fast_ci_runs_installer_and_install_data_tests_in_the_dev_profile():
     workflow = _workflow("fast-ci.yml")
 
-    # Both groups need only the core and `dev` dependencies; every other test
+    # These groups need only the core and `dev` dependencies; every other test
     # path may import a model server, which needs the CPU Torch profile.
     script = _step(workflow, "changes", "Map changed paths to a scope")["run"]
-    assert '{"tests/unit_tests/rpent/install", "tests/unit_tests/installs"}' in script
+    block = script.split("dev_tests = {", 1)[1].split("}", 1)[0]
+    assert set(re.findall(r'"([^"]+)"', block)) == {
+        "tests/unit_tests/rpent/install",
+        "tests/unit_tests/tooling",
+        "tests/unit_tests/installs",
+    }
     assert 'profile = "dev" if tests and tests <= dev_tests else "unit-cpu"' in script
     assert workflow["jobs"]["unit"]["with"]["profile"] == (
         "${{ needs.changes.outputs.profile }}"

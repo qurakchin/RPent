@@ -24,8 +24,10 @@ Installation
 The example below uses LIBERO-PRO. Follow :doc:`../get_started/installation`
 for environment setup and :doc:`../get_started/quickstart` for simulator
 assets; configure API credentials in :doc:`configure_planner`. Install the
-``libero-pro-flywheel`` profile, which adds the export dependencies to
-LIBERO-PRO, with the install command listed on the installation page.
+``robot-libero_pro`` profile, which bundles LIBERO-PRO with Pi0.5, SAM 3.0, and
+the export dependencies; the install command is listed on the installation
+page. ``tool-flywheel`` provides the same export dependencies without a
+simulator or policy.
 
 Record a Trajectory
 -------------------
