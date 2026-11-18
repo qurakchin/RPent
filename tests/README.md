@@ -98,8 +98,7 @@ deliberately omits. CI runs this suite in the `unit-cpu` target, which installs
 CPU Torch from the PyTorch CPU index:
 
 ```bash
-uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install unit-cpu
+scripts/rpent-install.sh install unit-cpu
 .venvs/unit-cpu/bin/python -m pytest tests/unit_tests -v
 ```
 

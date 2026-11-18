@@ -40,9 +40,9 @@ Use a branch name that reflects the change, such as
 ### Step 2. Set up the development environment
 
 ```bash
-# Create and activate the development environment.
-uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install dev
+# Create and activate the development environment. The launcher runs the
+# installer in a throwaway uv environment until `.venvs/dev` exists.
+scripts/rpent-install.sh install dev
 source .venvs/dev/bin/activate
 
 # For robot work, install that target into its own environment. Targets

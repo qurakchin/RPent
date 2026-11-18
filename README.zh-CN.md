@@ -121,8 +121,7 @@ RPent 面向以下四类用户：
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # 默认推荐（LIBERO-PRO）：
-uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install robot-libero_pro
+scripts/rpent-install.sh install robot-libero_pro
 source .venvs/robot-libero_pro/bin/activate
 
 # 其他目标同样安装到 .venvs/<目标>：

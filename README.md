@@ -121,8 +121,7 @@ RPent is built for four kinds of users:
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # Recommended default (LIBERO-PRO):
-uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install robot-libero_pro
+scripts/rpent-install.sh install robot-libero_pro
 source .venvs/robot-libero_pro/bin/activate
 
 # Other targets install into .venvs/<target> as well:

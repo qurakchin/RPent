@@ -59,7 +59,17 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: Directories the layout registers an owner for. Hidden directories are tool
 #: configuration and are exempt.
 ALLOWED_TOP_LEVEL = frozenset(
-    {"rpent", "robots", "components", "installs", "tests", "docs"}
+    {
+        "rpent",
+        "robots",
+        "components",
+        "installs",
+        "tests",
+        "docs",
+        # Checked-in entry points for a checkout with no environment yet; they
+        # hold no package code and no component owns them.
+        "scripts",
+    }
 )
 #: Root files the layout allows next to the top-level directories.
 ALLOWED_ROOT_FILES = (

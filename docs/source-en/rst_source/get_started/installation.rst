@@ -72,13 +72,16 @@ requirements the target would install, without creating or changing an
 environment.
 
 On a fresh checkout the ``rpent-install`` console script does not exist yet.
-Bootstrap it without installing RPent first:
+``scripts/rpent-install.sh`` bootstraps it and passes its arguments to the
+installer, so no prior environment is needed:
 
 .. code-block:: bash
 
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m rpent.cli.install install robot-libero_pro
+   scripts/rpent-install.sh install robot-libero_pro
    source .venvs/robot-libero_pro/bin/activate
+
+The launcher runs the installer from a throwaway ``uv`` environment that adds
+only ``packaging``; it needs ``uv`` on ``PATH`` and nothing else.
 
 ``rpent-install`` runs from a checkout. The wheel published to PyPI contains
 only the core ``rpent`` package; ``robots/``, ``components/`` with their
@@ -102,6 +105,41 @@ placed remotely installs only its client side; install the same component
 (``openpi`` or ``sam3``) as a local target on the serving host and pass its
 endpoint at run time. Re-running ``install`` reuses the environment and
 repairs a stale installation.
+
+Custom combinations
+-------------------
+
+A combination the repository does not name is a target file, not a list of
+names on the command line. ``install`` accepts one target because every
+installation is checked against that target's lock; joining components on the
+fly would install a set no lock covers.
+
+Create the file under ``installs/targets/`` with the name it installs under,
+then compile its lock and install it:
+
+.. code-block:: toml
+
+   schema = 2
+   kind = "target"
+   name = "my-combo"
+   python = "3.11"
+
+   [components.franka]
+
+   [components.sam3]
+
+.. code-block:: bash
+
+   scripts/rpent-tool.sh tests.tooling.lock my-combo
+   scripts/rpent-install.sh install my-combo
+
+An empty component table takes that component's default placement;
+``placement = "remote"`` installs only the client side of a service, and a
+component that requires a variant, such as ``libero``, must name one. Lock
+generation resolves the whole closure against the indexes the components
+declare, so ``env_conflicts``, disagreeing indexes, and incompatible Python
+ranges fail there rather than after the environment exists. A later
+``install --dry-run`` prints the requirements that lock covers.
 
 Targets
 -------
@@ -247,16 +285,14 @@ Maintainer checks and locks
 
 The repository checks and lock generation are maintainer tools under
 ``tests/tooling/``; they are not installed with the wheel and are not part of
-``rpent-install``. Run them from a checkout:
+``rpent-install``. Run them from a checkout through ``scripts/rpent-tool.sh``,
+which passes the module and its arguments to a throwaway ``uv`` environment:
 
 .. code-block:: bash
 
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m tests.tooling.check --all
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m tests.tooling.lock robotwin
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m tests.tooling.lock --all --check
+   scripts/rpent-tool.sh tests.tooling.check --all
+   scripts/rpent-tool.sh tests.tooling.lock robotwin
+   scripts/rpent-tool.sh tests.tooling.lock --all --check
 
 ``check`` reads manifests and targets, computes each target's ``requires``
 closure, and reports conflicting placements, duplicate pins, unsupported

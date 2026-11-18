@@ -37,9 +37,9 @@ planner、robot 或 tool 集成，都能帮助项目持续发展。
 ### 第 2 步：搭建开发环境
 
 ```bash
-# 创建并启用开发环境。
-uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install dev
+# 创建并启用开发环境。在 .venvs/dev 生成之前，脚本会在一次性的 uv 环境里
+# 运行安装器。
+scripts/rpent-install.sh install dev
 source .venvs/dev/bin/activate
 
 # 开发 robot 时，在该目标自己的环境中安装。不同目标的依赖锁定不同，

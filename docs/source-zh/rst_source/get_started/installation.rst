@@ -39,19 +39,45 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
 
 不传 ``--venv`` 时，目标安装到源码目录下的 ``.venvs/<目标>``；``.venvs/`` 是被 git 忽略的安装产物，之后的 ``install`` 和 ``doctor`` 会复用同一个环境。用 ``--venv`` 可以把环境放到其他位置。每个目标需要自己的环境：不同目标锁定不同的仿真器、机器人和模型运行时，因此安装器会拒绝安装到其他目标已安装的环境中。``--force`` 允许写入一个没有指纹记录的非空环境。``--dry-run`` 执行同样的解析和锁校验，只打印该目标将要安装的依赖，不创建也不修改环境。
 
-新检出的仓库还没有 ``rpent-install`` 命令。可以先不安装 RPent，直接引导它：
+新检出的仓库还没有 ``rpent-install`` 命令。``scripts/rpent-install.sh`` 负责引导，并把参数原样转给安装器，因此不需要事先准备任何环境：
 
 .. code-block:: bash
 
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m rpent.cli.install install robot-libero_pro
+   scripts/rpent-install.sh install robot-libero_pro
    source .venvs/robot-libero_pro/bin/activate
+
+该脚本在一个一次性的 ``uv`` 环境里运行安装器，只额外加入 ``packaging``；本机只需要 ``uv`` 在 ``PATH`` 上。
 
 ``rpent-install`` 需要在源码检出中运行。发布到 PyPI 的 wheel 只包含核心 ``rpent`` 包；``robots/``、``components/`` 及其 ``component.toml``、``installs/targets/`` 只随源码检出和 sdist 发布。非可编辑的 ``pip install rpent`` 只提供 CLI；运行具体的机器人、模型服务或工具包请使用源码检出，这样 ``rpent-install`` 才能找到目标。
 
 所有目标都从锁安装。用户目标的锁在 ``installs/locks/<目标>.lock``，测试目标的锁在 ``tests/locks/<目标>.lock``；目标也可以显式指定锁路径。安装前，安装器会检查锁存在，且仍覆盖每条直接需求和组件 override。锁缺失或过期时会失败，并给出重新生成它的命令：``python -m tests.tooling.lock <目标>``。
 
 ``core = false`` 的目标（例如 ``molmo``）不安装可编辑的 RPent，只包含该服务自己的依赖；启动时按 :doc:`../guides/flash` 的说明把源码目录放进 ``PYTHONPATH``。放在 ``remote`` 的组件只装客户端部分；在服务所在主机上把同一组件（``openpi`` 或 ``sam3``）作为本地目标安装，运行时传入它的 endpoint。重复执行 ``install`` 会复用环境并修复过期安装。
+
+自定义组合
+----------
+
+仓库没有具名的组合要写成一个目标文件，而不是在命令行上拼接名字。``install`` 只接受一个目标，因为每次安装都要按该目标的锁校验；临时拼接组件会装出一组没有锁覆盖的环境。
+
+在 ``installs/targets/`` 下按要安装的名字新建文件，再生成锁并安装：
+
+.. code-block:: toml
+
+   schema = 2
+   kind = "target"
+   name = "my-combo"
+   python = "3.11"
+
+   [components.franka]
+
+   [components.sam3]
+
+.. code-block:: bash
+
+   scripts/rpent-tool.sh tests.tooling.lock my-combo
+   scripts/rpent-install.sh install my-combo
+
+空的组件表使用该组件的默认放置；写 ``placement = "remote"`` 只安装服务的客户端部分；必须选变体的组件（例如 ``libero``）要写明 ``variant``。生成锁时会按组件声明的索引解析整个闭包，所以 ``env_conflicts``、索引分歧和 Python 范围冲突在这一步就会失败，而不是等到环境建好之后。随后 ``install --dry-run`` 会打印该锁覆盖的依赖。
 
 目标
 ----
@@ -171,16 +197,13 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
 维护者检查与锁
 --------------
 
-仓库结构检查和锁生成是 ``tests/tooling/`` 下的维护者工具，不随 wheel 安装，也不属于 ``rpent-install``。请在源码检出中运行：
+仓库结构检查和锁生成是 ``tests/tooling/`` 下的维护者工具，不随 wheel 安装，也不属于 ``rpent-install``。请在源码检出中通过 ``scripts/rpent-tool.sh`` 运行，它把模块名和参数转给一次性的 ``uv`` 环境：
 
 .. code-block:: bash
 
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m tests.tooling.check --all
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m tests.tooling.lock robotwin
-   uv run --no-project --python 3.11 --with packaging -- \
-     python -m tests.tooling.lock --all --check
+   scripts/rpent-tool.sh tests.tooling.check --all
+   scripts/rpent-tool.sh tests.tooling.lock robotwin
+   scripts/rpent-tool.sh tests.tooling.lock --all --check
 
 ``check`` 读取清单和目标，计算每个目标的 ``requires`` 闭包，报告放置方式冲突、重复锁定、不支持的 Python 版本、平台不匹配，以及不再覆盖当前依赖的锁。它不会下载任何依赖。加上 ``--resolve`` 后，它还会用 ``uv pip compile`` 编译每个目标，确认声明的依赖可解；这与 ``lock`` 走同一条代码路径，会从配置的索引读取包元数据。
 
