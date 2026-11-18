@@ -16,8 +16,8 @@
 
 import json
 
-from rpent.install import matrix
 from rpent.install.discovery import discover_profiles
+from tests.tooling import matrix
 
 
 def _write_profile(root, name):
@@ -37,7 +37,7 @@ def test_profile_without_a_runner_is_reported(tmp_path):
 
     assert problems == [
         "profile 'alpha' (installs/profiles/alpha.toml) is not installed by any "
-        "runner; add it to HOSTED or GPU in rpent/install/matrix.py"
+        "runner; add it to HOSTED or GPU in tests/tooling/matrix.py"
     ]
 
 
@@ -50,7 +50,7 @@ def test_stale_table_entry_is_reported(tmp_path):
 
     assert problems == [
         "hosted lists profile 'removed', but installs/profiles/removed.toml does "
-        "not exist; remove it from rpent/install/matrix.py"
+        "not exist; remove it from tests/tooling/matrix.py"
     ]
 
 

@@ -27,9 +27,10 @@ if TYPE_CHECKING:
     from packaging.specifiers import SpecifierSet
 
 # ``packaging`` parses requirement strings and is imported where that happens,
-# not at module import. Manifest discovery (``rpent-install matrix``) imports
-# this module through ``rpent.install`` and must run in a checkout that has no
-# third-party packages installed; every install path still needs packaging.
+# not at module import. The repository tooling (``tests.tooling.matrix``)
+# imports manifest discovery through ``rpent.install`` and must run in a
+# checkout that has no third-party packages installed; every install path still
+# needs packaging.
 
 
 @dataclass(frozen=True)

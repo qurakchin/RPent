@@ -66,8 +66,8 @@ jobs:
             # Nightly and manual runs, and a release call with `full: true`,
             # cover every supported profile on the runner its authored
             # partition assigns it to.
-            hosted=$(./scripts/rpent-install.sh matrix --runner hosted)
-            gpu=$(./scripts/rpent-install.sh matrix --runner gpu)
+            hosted=$(./tests/tooling/run.sh matrix --runner hosted)
+            gpu=$(./tests/tooling/run.sh matrix --runner gpu)
             e2e='["libero","robocasa","robotwin"]'
           fi
           {

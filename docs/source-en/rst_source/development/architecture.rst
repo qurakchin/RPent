@@ -79,7 +79,7 @@ model services do not import each other.
      tools/          # Toolkit and shared tool behavior
      memory/         # Memory permissions, merge, and indexing
      evaluation/     # Evaluation result support
-     install/        # Manifests, resolution, fingerprints, checks
+     install/        # Manifests, resolution, fingerprints
    robots/<name>/    # Slice: native translation and differentiated features
      libero/
      robocasa/
@@ -95,6 +95,8 @@ model services do not import each other.
      deps/           # Dependency-only component manifests
    scripts/
      rpent-install.sh  # Bootstrap the installer from a fresh checkout
+   tests/
+     tooling/          # Repository checks and CI selection
 
 Environment Discovery
 ---------------------

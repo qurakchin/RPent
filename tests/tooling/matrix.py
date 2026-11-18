@@ -71,7 +71,7 @@ def problems(
                 found.append(
                     f"{runner} lists profile {name!r}, but "
                     f"installs/profiles/{name}.toml does not exist; remove it "
-                    "from rpent/install/matrix.py"
+                    "from tests/tooling/matrix.py"
                 )
     assigned = {name for names in table.values() for name in names}
     for name in sorted(assigned):
@@ -84,7 +84,7 @@ def problems(
     for name in sorted(set(profiles) - assigned):
         found.append(
             f"profile {name!r} (installs/profiles/{name}.toml) is not installed "
-            "by any runner; add it to HOSTED or GPU in rpent/install/matrix.py"
+            "by any runner; add it to HOSTED or GPU in tests/tooling/matrix.py"
         )
     return found
 
@@ -92,7 +92,7 @@ def problems(
 def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
     """Check the partition or print one runner's profiles as JSON."""
     parser = argparse.ArgumentParser(
-        prog="rpent-install matrix",
+        prog="tests.tooling.matrix",
         description="Assign profiles to the runner that installs them.",
     )
     parser.add_argument(

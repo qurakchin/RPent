@@ -17,9 +17,9 @@
 import json
 import sys
 
-from rpent.install import affected
 from rpent.install.fingerprint import runtime_platform
 from rpent.install.manifest import Selection
+from tests.tooling import affected
 
 
 def test_paths_map_to_their_component(make_component, make_catalog):
@@ -120,7 +120,7 @@ def test_unmapped_path_selects_every_component_and_profile(
 
         assert scope.full
         assert scope.components == ("alpha",)
-        assert scope.tests == ("tests/unit_tests",)
+        assert scope.tests == ("tests/unit_tests", "tests/tooling")
         assert scope.profiles == ("alpha",)
         # Packaging decides what every environment installs, so a pull request
         # keeps the full profile set rather than the pilot one.
@@ -164,8 +164,30 @@ def test_installer_change_installs_every_profile_in_a_pull_request(
     scope = affected.affected_scope(["rpent/install/installer.py"], catalog, tmp_path)
 
     assert scope.full
-    assert scope.tests == ("tests/unit_tests",)
+    assert scope.tests == ("tests/unit_tests", "tests/tooling")
     assert scope.pr_profiles == ("cpu-sample", "libero-sim")
+
+
+def test_tooling_change_installs_every_profile_and_runs_itself(
+    tmp_path, make_component, make_profile, make_catalog
+):
+    alpha = make_component("alpha")
+    catalog = make_catalog(
+        components=[alpha],
+        profiles={
+            "alpha": make_profile("alpha", {"alpha": Selection()}),
+            "minimal": make_profile("minimal", {}),
+        },
+    )
+
+    for path in ("tests/tooling/layout.py", "tests/tooling/run.sh"):
+        scope = affected.affected_scope([path], catalog, tmp_path)
+
+        assert scope.full
+        assert scope.tests == ("tests/unit_tests", "tests/tooling")
+        # The tooling decides which environments a change runs, so a change to
+        # it keeps the full profile set instead of the pilot one.
+        assert scope.pr_profiles == ("alpha", "minimal")
 
 
 def _install_data_catalog(make_component, make_profile, make_catalog):
@@ -201,7 +223,7 @@ def test_install_data_change_runs_the_repository_contract_tests(
 
     assert not scope.full
     assert scope.components == ()
-    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.tests == ("tests/unit_tests/installs", "tests/tooling")
     assert scope.profiles == ("minimal",)
     assert scope.pr_profiles == ("minimal",)
 
@@ -213,7 +235,7 @@ def test_deps_change_reaches_the_profiles_that_require_it(
 
     scope = affected.affected_scope(["installs/deps/shared.toml"], catalog, tmp_path)
 
-    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.tests == ("tests/unit_tests/installs", "tests/tooling")
     assert scope.profiles == ("alpha",)
 
 
@@ -226,7 +248,7 @@ def test_packaging_settings_keep_every_profile(
 
     assert not scope.full
     assert scope.components == ()
-    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.tests == ("tests/unit_tests/installs", "tests/tooling")
     assert scope.profiles == ("alpha", "minimal")
     assert scope.pr_profiles == ("alpha", "minimal")
 
@@ -240,7 +262,7 @@ def test_repository_contract_test_change_installs_no_profile(
         ["tests/unit_tests/installs/test_catalog.py"], catalog, tmp_path
     )
 
-    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.tests == ("tests/unit_tests/installs", "tests/tooling")
     assert scope.profiles == ()
     assert scope.pr_profiles == ()
     assert not scope.full
@@ -253,7 +275,7 @@ def test_unrecognised_install_data_widens_to_every_profile(
 
     scope = affected.affected_scope(["installs/matrix.toml"], catalog, tmp_path)
 
-    assert scope.tests == ("tests/unit_tests/installs",)
+    assert scope.tests == ("tests/unit_tests/installs", "tests/tooling")
     assert scope.profiles == ("alpha", "minimal")
 
 
@@ -269,7 +291,7 @@ def test_mixed_install_and_core_change_widens_to_everything(
     )
 
     assert scope.full
-    assert scope.tests == ("tests/unit_tests",)
+    assert scope.tests == ("tests/unit_tests", "tests/tooling")
     assert scope.profiles == ("alpha", "minimal")
     assert scope.pr_profiles == ("alpha", "minimal")
 

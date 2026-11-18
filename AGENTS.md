@@ -16,8 +16,7 @@ with documentation instead of assuming either is correct.
 - `rpent/robots/`: robot discovery, descriptors, and shared runtime.
 - `rpent/cli/`, `rpent/dashboard/`, and `rpent/evaluation/`: entry points,
   interactive execution, and run results.
-- `rpent/install/`: component manifests, resolution, fingerprints, and
-  the repository checks exposed through `rpent-install`.
+- `rpent/install/`: component manifests, resolution, and fingerprints.
 - `robots/<name>/`: each robot or simulator slice, owning native translation
   and its differentiated features.
 - `components/models/<name>/`: installable model services.
@@ -25,7 +24,9 @@ with documentation instead of assuming either is correct.
   dependency-only manifests.
 - `scripts/`: checkout-level launchers; `scripts/rpent-install.sh` bootstraps
   the installer without installing RPent.
-- `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
+- `tests/`: offline tests, integration checks, repository structure checks, and
+  the selection of test environments for a change under `tests/tooling/`; see
+  [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
 
 The dependency direction is `robots/` → `components/` → `rpent/`: the core

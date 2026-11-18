@@ -47,8 +47,10 @@ from pathlib import Path
 
 from rpent.install.discovery import Catalog, discover
 from rpent.install.errors import InstallConfigError
-from rpent.install.matrix import MATRICES
 from rpent.install.resolve import resolve
+from tests.tooling.matrix import MATRICES
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: Component owner directories, longest prefix first.
 COMPONENT_ROOTS = (
@@ -69,9 +71,16 @@ PR_PILOT_PROFILES = ("minimal",)
 #: Paths whose change can alter every installation, so a PR installs every
 #: profile instead of the pilot set. Install data changes narrow their own
 #: profile set first; a path here in a mixed change still widens it. The
-#: checkout launcher decides how every environment bootstraps, so it widens
-#: the same way.
-PR_ALL_PROFILE_PREFIXES = ("rpent/install/", "installs/", ".github/", "scripts/")
+#: checkout launcher decides how every environment bootstraps, and this
+#: tooling decides which environments a change runs, so both widen the same
+#: way.
+PR_ALL_PROFILE_PREFIXES = (
+    "rpent/install/",
+    "installs/",
+    ".github/",
+    "scripts/",
+    "tests/tooling/",
+)
 #: The repository's install data: the profiles, dependency-only manifests,
 #: and packaging settings that decide what each environment contains.
 INSTALL_DATA_PREFIXES = ("installs/",)
@@ -80,6 +89,10 @@ INSTALL_DATA_ROOT_FILES = ("pyproject.toml",)
 #: ``tests/unit_tests/rpent/install/`` and use synthetic manifests, so the two
 #: groups stay distinguishable by path.
 INSTALL_DATA_TESTS = "tests/unit_tests/installs"
+#: Repository checks and the selection logic that reads the install data.
+#: Changing them can change what every other test path means, so they run with
+#: every scope that is not narrowed to a component.
+TOOLING_TESTS = "tests/tooling"
 
 
 @dataclass(frozen=True)
@@ -189,8 +202,8 @@ def _pr_profiles(paths: list[str], profiles: dict[str, object]) -> tuple[str, ..
     the resolution closure. For a core change, installing every GPU profile
     proves little beyond what nightly proves and costs a self-hosted runner
     slot, so the PR installs the core-only profile. The installer, workflows,
-    packaging, and a mixed change that still names one of them keep the full
-    set; install data on its own narrows before this helper runs.
+    packaging, this tooling, and a mixed change that still names one of them
+    keep the full set; install data on its own narrows before this helper runs.
     """
     available = tuple(sorted(profiles))
     if not paths:
@@ -242,13 +255,14 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
     if paths and all(_is_install_data(path) for path in paths):
         # Install data is repository-level: it changes which environment can be
         # built, not a component's behavior. The contract tests under
-        # ``tests/unit_tests/installs/`` own the cross-file checks, and the
+        # ``tests/unit_tests/installs/`` own the cross-file checks, the runner
+        # partition under ``tests/tooling`` covers every profile, and the
         # profiles that read the changed files are the ones a pull request
         # installs.
         profiles = _profiles_for_install_data(paths, catalog)
         return Scope(
             components=(),
-            tests=(INSTALL_DATA_TESTS,),
+            tests=(INSTALL_DATA_TESTS, TOOLING_TESTS),
             profiles=profiles,
             full=False,
             pr_profiles=profiles,
@@ -257,7 +271,7 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
     if names is None or not paths:
         return Scope(
             components=tuple(sorted(catalog.components)),
-            tests=("tests/unit_tests",),
+            tests=("tests/unit_tests", TOOLING_TESTS),
             profiles=tuple(sorted(catalog.profiles)),
             full=True,
             pr_profiles=_pr_profiles(paths, catalog.profiles),
@@ -312,10 +326,10 @@ def changed_paths(root: Path, base: str, head: str) -> list[str]:
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
-def main(argv: list[str] | None = None, *, root: Path) -> int:
+def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
     """Print the affected scope as a JSON object."""
     parser = argparse.ArgumentParser(
-        prog="rpent-install affected",
+        prog="tests.tooling.affected",
         description="Map changed paths to affected components, tests and profiles.",
     )
     parser.add_argument(
@@ -350,8 +364,4 @@ def main(argv: list[str] | None = None, *, root: Path) -> int:
 
 
 if __name__ == "__main__":
-    print(
-        "run `rpent-install affected` instead of this module",
-        file=sys.stderr,
-    )
-    raise SystemExit(2)
+    sys.exit(main())

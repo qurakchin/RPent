@@ -12,14 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Fixtures for component manifests, profiles, and resolutions."""
+"""Fixtures shared by the installer units, repository contracts and tooling."""
 
 from pathlib import Path
 
 import pytest
 
-from rpent.install.discovery import Catalog
+from rpent.install.discovery import Catalog, discover
 from rpent.install.manifest import Component, Profile
+
+#: Repository root: this file sits one directory below it.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+@pytest.fixture(scope="module")
+def catalog() -> Catalog:
+    """Load the checked-in components and profiles once per module."""
+    return discover(REPO_ROOT)
 
 
 @pytest.fixture

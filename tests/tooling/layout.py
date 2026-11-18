@@ -76,18 +76,12 @@ ALLOWED_ROOT_FILES = (
 IGNORED_TOP_LEVEL = frozenset({"memory", "__pycache__"})
 #: Core subdirectories K5 does not scan, with the reason and the date by which
 #: the exception must be removed or renewed. Model-side wire contracts name the
-#: embodiment they control; the install tooling holds the authored profile
-#: partition and the published extra names. An expired entry is an error, so a
-#: temporary exception cannot become permanent by being forgotten.
+#: embodiment they control. An expired entry is an error, so a temporary
+#: exception cannot become permanent by being forgotten.
 CORE_NAME_EXEMPTIONS = {
     "rpent/models": (
         "model-side wire contracts and the backend table name the embodiment "
         "they speak to",
-        date(2027, 6, 30),
-    ),
-    "rpent/install": (
-        "the authored profile partition and component names are data, not "
-        "scheduling logic",
         date(2027, 6, 30),
     ),
 }
@@ -896,7 +890,7 @@ def _component_names(directory: Path) -> set[str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="rpent-install check-layout",
+        prog="tests.tooling.layout",
         description="Check the repository layout and import boundaries.",
     )
     parser.add_argument(

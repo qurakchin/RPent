@@ -21,7 +21,7 @@ from datetime import date
 from pathlib import Path
 
 import rpent
-from rpent.install import layout
+from tests.tooling import layout
 
 #: Directory that contains the ``rpent`` package. The layout check runs against
 #: a synthetic repository, so the child process only needs this import path.
@@ -87,7 +87,7 @@ def _write(path, text):
 
 def _run(root):
     return subprocess.run(
-        [sys.executable, "-m", "rpent.install.layout", "--root", str(root)],
+        [sys.executable, "-m", "tests.tooling.layout", "--root", str(root)],
         capture_output=True,
         text=True,
         cwd=root,

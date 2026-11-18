@@ -12,14 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The authored runner partition covers every checked-in profile."""
+"""Repository checks and the selection of test environments for a change.
 
-from rpent.install import matrix
-
-
-def test_repository_partition_covers_every_profile(catalog):
-    assert matrix.problems(catalog.profiles) == []
-
-
-def test_repository_partition_check_passes(catalog):
-    assert matrix.main(["--check"], root=catalog.root) == 0
+``layout`` enforces the repository structure and import boundaries.
+``affected`` maps changed paths to components, tests and profiles.
+``matrix`` partitions the profiles across the runners that install them.
+"""

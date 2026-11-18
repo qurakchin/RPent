@@ -17,8 +17,7 @@
 The scopes these workflows pass around are covered by ``test_affected``; these
 tests read the workflow files themselves, because a dropped trigger, a missing
 ``needs``, or a widened wheel scope is invisible to a Python import. They belong
-with the repository install data because the workflows are the readers of that
-data.
+with the tooling because the workflows are its callers.
 """
 
 import os
@@ -26,7 +25,7 @@ from pathlib import Path
 
 import yaml
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 
 
@@ -99,7 +98,11 @@ def test_fast_ci_runs_installer_and_install_data_tests_in_the_dev_profile():
     # Both groups need only the core and `dev` dependencies; every other test
     # path may import a model server, which needs the CPU Torch profile.
     script = _step(workflow, "changes", "Map changed paths to a scope")["run"]
-    assert '{"tests/unit_tests/rpent/install", "tests/unit_tests/installs"}' in script
+    dev_tests = (
+        '{"tests/unit_tests/rpent/install", "tests/unit_tests/installs", '
+        '"tests/tooling"}'
+    )
+    assert dev_tests in script
     assert 'profile = "dev" if tests and tests <= dev_tests else "unit-cpu"' in script
     assert workflow["jobs"]["unit"]["with"]["profile"] == (
         "${{ needs.changes.outputs.profile }}"
@@ -192,12 +195,16 @@ def test_unit_workflow_defaults_to_the_cpu_profile():
     assert _step(workflow, "unit", "Report skipped tests")["if"] == "always()"
 
 
-def test_workflows_bootstrap_the_installer_through_the_launcher():
+def test_workflows_bootstrap_the_tools_through_launchers():
     # The bootstrap interpreter and its extra dependency live in one place, so a
     # change reaches the workflows, the pre-commit hook, and the GPU suite
     # together instead of drifting between copies.
-    launcher = REPO_ROOT / "scripts" / "rpent-install.sh"
-    assert launcher.is_file()
-    assert os.access(launcher, os.X_OK)
+    launchers = (
+        REPO_ROOT / "scripts" / "rpent-install.sh",
+        REPO_ROOT / "tests" / "tooling" / "run.sh",
+    )
+    for launcher in launchers:
+        assert launcher.is_file()
+        assert os.access(launcher, os.X_OK)
     for path in [*WORKFLOWS.glob("*.yml"), REPO_ROOT / ".pre-commit-config.yaml"]:
         assert "--no-project" not in path.read_text(encoding="utf-8"), path.name

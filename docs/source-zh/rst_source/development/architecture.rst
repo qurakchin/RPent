@@ -69,7 +69,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      tools/          # Toolkit 与共享工具行为
      memory/         # 记忆权限、合并与索引
      evaluation/     # 评测结果支持
-     install/        # 清单、解析、指纹与检查
+     install/        # 清单、解析与指纹
    robots/<name>/    # 切片：原生翻译与差异化功能
      libero/
      robocasa/
@@ -85,6 +85,8 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      deps/           # 纯依赖组件清单
    scripts/
      rpent-install.sh  # 在全新检出中引导安装器
+   tests/
+     tooling/          # 仓库检查与 CI 选路
 
 环境发现与接入
 ---------------------

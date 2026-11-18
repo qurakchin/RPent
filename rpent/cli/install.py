@@ -15,9 +15,8 @@
 """``rpent-install``: inspect, check, install, and diagnose environments.
 
 Supported targets are the named profiles in ``installs/profiles/``. Component
-names are accepted by ``install`` as a development diagnostic only. The
-``check-layout``, ``matrix``, and ``affected`` subcommands give CI
-one entry point for the checks it runs before or beside an installation.
+names are accepted by ``install`` as a development diagnostic only. Repository
+checks and CI selection live under ``tests/tooling/``.
 """
 
 from __future__ import annotations
@@ -26,7 +25,6 @@ import argparse
 import sys
 from pathlib import Path
 
-from rpent.install import affected, layout, matrix
 from rpent.install.compile import resolve_profile
 from rpent.install.discovery import discover
 from rpent.install.doctor import FAIL, check_installation, inspect_installation
@@ -170,27 +168,6 @@ def command_inspect(args: argparse.Namespace) -> int:
     return 0
 
 
-def command_check_layout(args: argparse.Namespace) -> int:
-    """Check the repository layout and import boundaries."""
-    return layout.main(["--root", str(args.root)])
-
-
-def command_matrix(args: argparse.Namespace) -> int:
-    """Print one runner's profile matrix or check the partition."""
-    argv = ["--check"] if args.check else ["--runner", args.runner]
-    return matrix.main(argv, root=args.root)
-
-
-def command_affected(args: argparse.Namespace) -> int:
-    """Print the profiles a set of changed paths can affect."""
-    argv = list(args.paths)
-    if args.base is not None:
-        argv.extend(["--base", args.base, "--head", args.head])
-    if args.runner is not None:
-        argv.extend(["--runner", args.runner])
-    return affected.main(argv, root=args.root)
-
-
 def build_parser() -> argparse.ArgumentParser:
     """Return the argument parser for ``rpent-install``."""
     parser = argparse.ArgumentParser(
@@ -253,30 +230,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     inspect.add_argument("--venv", type=Path)
     inspect.set_defaults(handler=command_inspect)
-
-    layout_check = subcommands.add_parser(
-        "check-layout", help="check repository layout and import boundaries"
-    )
-    layout_check.set_defaults(handler=command_check_layout)
-
-    matrix_check = subcommands.add_parser(
-        "matrix", help="print one runner's profiles or check the partition"
-    )
-    matrix_group = matrix_check.add_mutually_exclusive_group(required=True)
-    matrix_group.add_argument("--runner", choices=sorted(matrix.MATRICES))
-    matrix_group.add_argument(
-        "--check", action="store_true", help="check the partition against profiles"
-    )
-    matrix_check.set_defaults(handler=command_matrix)
-
-    affected_check = subcommands.add_parser(
-        "affected", help="print the profiles changed paths can affect"
-    )
-    affected_check.add_argument("paths", nargs="*")
-    affected_check.add_argument("--base", help="git revision to diff from")
-    affected_check.add_argument("--head", default="HEAD")
-    affected_check.add_argument("--runner", choices=sorted(matrix.MATRICES))
-    affected_check.set_defaults(handler=command_affected)
     return parser
 
 

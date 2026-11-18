@@ -4,13 +4,22 @@ RPent keeps fast, offline unit tests under `unit_tests`. Real-simulator smoke
 tests, model component and policy-chain tests, and explicit real-robot
 diagnostics belong under `e2e_tests`. Unit tests mirror the production module or
 repository data they exercise; GPU tests are grouped by robot stack.
-Environment smoke tests can run without model checkpoints.
+Environment smoke tests can run without model checkpoints. Repository structure
+checks and the selection of test environments for a change belong under
+`tooling`; they run before any environment is installed and never ship in the
+wheel.
 
 ## Directory layout
 
 ```text
 tests/
 ├── README.md
+├── conftest.py           # fixtures shared by more than one test directory
+├── tooling/              # repository checks and CI selection
+│   ├── layout.py         # repository structure and import boundaries
+│   ├── affected.py       # changed paths -> components, tests and profiles
+│   ├── matrix.py         # profile-to-runner partition for full CI
+│   └── run.sh            # bootstrap entry point for the three modules
 ├── e2e_tests/
 │   ├── common.py         # shared assertions and runtime lifecycle helpers
 │   ├── run_gpu_suite.sh  # clean-environment entry point for one robot stack
@@ -52,17 +61,24 @@ them when the first test for that module lands.
   belong to `robots/`; installer units belong to `rpent/install/`.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
-  `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
-  `installs/{profiles,deps}/`, the authored runner partition, and the
-  workflows that consume them. Do not read the real install data from
+  `tests/unit_tests/installs/` reads the checked-in `component.toml` files and
+  `installs/{profiles,deps}/`. Do not read the real install data from
   `tests/unit_tests/rpent/install/`; the test path would otherwise hide which
   layer owns the failure. `installs/` is not a Python package, so the test
   directory mirrors the repository-level data rather than a `rpent/` module.
-  Both groups use only the core and `dev` dependencies, and `fast ci` runs them
-  in the `dev` profile.
+  The installer units and the install-data contracts use only the core and
+  `dev` dependencies, and `fast ci` runs them in the `dev` profile.
+- Put repository checks and CI selection under `tests/tooling/`. `layout.py`
+  enforces the repository structure and import boundaries, `affected.py` maps
+  changed paths to the components, tests and profiles they can change, and
+  `matrix.py` owns the runner partition that full CI installs. Their tests
+  live beside them, including the workflow contracts, because the workflows
+  are their callers. Run them through `tests/tooling/run.sh`; like the install
+  launcher, it bootstraps without an installed environment.
 - Keep one-off fakes in the test module that uses them. Put shared fixtures in
-  the nearest `conftest.py`: use `tests/conftest.py` only for suite-wide
-  fixtures and a module directory's `conftest.py` for local fixtures.
+  the nearest `conftest.py`. `tests/conftest.py` holds the component, profile,
+  catalog and TOML fixtures that more than one directory uses; a module
+  directory's `conftest.py` holds local fixtures.
 - Name files after the behavior they verify: `*_contracts.py` for stable API
   contracts, `*_loopback.py` for real local transports, `*_lifecycle.py` for
   resource ownership, and `*_smoke.py` for installation or startup checks.
@@ -79,6 +95,14 @@ Run the complete suite with:
 
 ```bash
 pytest tests/unit_tests -v
+```
+
+Run the repository checks and inspect the scope of a change with:
+
+```bash
+tests/tooling/run.sh layout
+tests/tooling/run.sh matrix --check
+tests/tooling/run.sh affected --base origin/main --head HEAD
 ```
 
 The tests that import model servers need Torch, which the `dev` profile
