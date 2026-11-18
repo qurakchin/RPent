@@ -39,47 +39,24 @@ def _install_hint(component: str) -> str:
     fingerprint = read_fingerprint(venv) if venv is not None else None
     if fingerprint is None:
         return (
-            f"install the environment that provides component {component!r}: "
-            f"run `rpent-install list`, install a profile that includes it, or "
-            f"run `rpent-install install {component}` for a development environment"
+            f"install the environment that provides component {component!r} with "
+            f"`rpent-install install {component}`, or add {component!r} to an "
+            "environment that already holds the components it runs with"
         )
-    profile = fingerprint.get("profile")
-    installed = profile or fingerprint.get("component")
-    placement = fingerprint.get("components", {}).get(component)
-    if placement is None:
-        profiles = fingerprint.get("component_profiles", {}).get(component, [])
-        if profile is None:
-            if profiles:
-                return (
-                    f"this environment was installed for component {installed!r}; "
-                    f"install one of the profiles that includes {component!r}: "
-                    f"{', '.join(profiles)}, or run `rpent-install install "
-                    f"{component}` for a development environment"
-                )
-            return (
-                f"this environment was installed for component {installed!r}; "
-                f"install a profile that includes {component!r}, or run "
-                f"`rpent-install install {component}` for a development environment"
-            )
-        if profiles:
-            return (
-                f"component {component!r} is not part of profile {profile!r}; "
-                f"install one of the profiles that includes it: "
-                f"{', '.join(profiles)}, or use `rpent-install install "
-                f"{component}` for a development environment"
-            )
+    targets = list(fingerprint.get("targets") or [])
+    installed = ", ".join(targets) or "no recorded components"
+    if targets and component in fingerprint.get("components", {}):
         return (
-            f"component {component!r} is not part of profile {profile!r}; "
-            f"install a profile that includes it or use `rpent-install install "
-            f"{component}` for a development environment"
+            f"component {component!r} belongs to this environment, so rerun "
+            f"`rpent-install install {' '.join(targets)}` to repair it"
         )
-    if placement.get("placement") == "external-env":
-        environment = placement.get("profile", component)
-        return (
-            f"component {component!r} runs in external environment "
-            f"{environment!r}; install it with `rpent-install install {environment}`"
-        )
-    return f"rerun `rpent-install install {installed}` to repair the environment"
+    combined = " ".join([*targets, component])
+    return (
+        f"this environment was installed for {installed}; component "
+        f"{component!r} is not part of it. Install it in its own environment with "
+        f"`rpent-install install {component}`, or reinstall this environment with "
+        f"it: `rpent-install install {combined}`"
+    )
 
 
 def require(component: str, module: str) -> ModuleType:

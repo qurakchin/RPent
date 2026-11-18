@@ -51,7 +51,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 代码目录
 ------------
 
-共享执行逻辑、接口和模型基类位于 ``rpent/`` 中，各环境的具体实现位于 ``robots/`` 下的独立包中。不属于机器人的可安装组件放在 ``components/``，安装配方放在 ``installs/``。
+共享执行逻辑、接口和模型基类位于 ``rpent/`` 中，各环境的具体实现位于 ``robots/`` 下的独立包中。不属于机器人的可安装组件放在 ``components/``，不拥有代码的基础设施组件放在 ``installs/``。
 
 依赖方向固定为 ``robots/`` → ``components/`` → ``rpent/``：核心按名字发现组件，从不静态 import 它们；工具包与模型服务之间也不互相 import。
 
@@ -79,10 +79,11 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      robodojo/
      yam/
    components/
+     sim/            # 仿真器服务，每个子目录一个可安装组件
      models/         # 模型服务，每个子目录一个可安装组件
+     tools/          # 只依赖 rpent 的工具
    installs/
-     profiles/       # 受支持的安装目标
-     deps/           # 纯依赖组件清单
+     infra-*.toml    # 不拥有代码的基础设施组件
    scripts/
      rpent-install.sh  # 在全新检出中引导安装器
    tests/

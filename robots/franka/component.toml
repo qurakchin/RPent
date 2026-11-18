@@ -1,21 +1,17 @@
-schema = 1
-name = "franka"
-kind = "robot"
+schema = 2
+name = "robot-franka"
 probe = "robots.franka"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
-requires = ["rlinf", "openpi"]
-# The flash perception tools branch to the dual-arm implementation when the
-# dual Franka slice is installed; the import is lazy and only runs then.
-imports = ["dual_franka"]
-# Franka pins numpy<2 and gymnasium==0.29.1 for franky-control and the camera
-# stack, so it cannot share an environment with the simulator adapters below.
-env_conflicts = ["libero", "robocasa", "robotwin", "robodojo"]
-placement = ["in-env"]
+# Franka pins numpy<2 and gymnasium==0.29.1 for franky-control and the
+# camera stack, so it cannot share an environment with the simulator
+# adapters. The flash perception tools branch to the dual-arm
+# implementation when robot-dual_franka is installed.
+requires = ["infra-rlinf", "model-openpi"]
+imports = ["robot-dual_franka"]
+env_conflicts = ["robot-libero", "robot-robocasa", "robot-robotwin", "robot-robodojo"]
 
 dependencies = [
-  # Keep this list aligned with requirements/embodied/installs/profiles/franka.txt at the
-  # RLinf revision pinned by the rlinf capability.
   "pyyaml",
   "rospkg",
   "pyrealsense2; sys_platform == 'linux' and platform_machine == 'x86_64'",
@@ -30,7 +26,6 @@ dependencies = [
   "imageio[ffmpeg]",
   "evdev",
   "numpy<2",
-  # PyArrow 26 requires NumPy >=2 at import time, incompatible with Franka.
   "pyarrow<26.0.0",
   "pyzmq",
   "websockets",

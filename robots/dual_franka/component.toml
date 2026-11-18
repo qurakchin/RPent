@@ -1,15 +1,12 @@
-schema = 1
-name = "dual_franka"
-kind = "robot"
+schema = 2
+name = "robot-dual_franka"
 probe = "robots.dual_franka"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
-# Dual Franka extends the single-arm integration instead of duplicating its
-# camera, gripper, and teleoperation stack.
-requires = ["franka", "sam3"]
-# Imports robots.franka directly; check_layout allows exactly these imports.
-imports = ["franka"]
-env_conflicts = ["libero", "robocasa", "robotwin", "robodojo"]
-placement = ["in-env"]
+# Dual Franka extends the single-arm integration instead of
+# duplicating its camera, gripper, and teleoperation stack.
+requires = ["robot-franka", "model-sam3"]
+imports = ["robot-franka"]
+env_conflicts = ["robot-libero", "robot-robocasa", "robot-robotwin", "robot-robodojo"]
 
 dependencies = []

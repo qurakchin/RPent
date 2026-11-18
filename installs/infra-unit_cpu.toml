@@ -1,0 +1,19 @@
+schema = 2
+name = "infra-unit_cpu"
+probe = "torch"
+# The core environment plus the unit tools and a CPU Torch-built
+# model stack. A model server imports Torch at module scope, and many
+# unit tests import those modules; the CPU wheel keeps the hosted
+# runner small. The extra index lets uv fall through from PyPI to the
+# PyTorch CPU build.
+extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
+index-strategy = "unsafe-first-match"
+
+dependencies = [
+  "coverage",
+  "pytest",
+  "pytest-timeout",
+  "omegaconf",
+  "gymnasium",
+  "torch==2.6.0+cpu",
+]

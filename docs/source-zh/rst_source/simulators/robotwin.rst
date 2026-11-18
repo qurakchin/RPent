@@ -78,13 +78,12 @@ C2R 使用干净场景中的成功轨迹作为经验，在随机场景中评测�
 安装
 ----
 
-RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVCC、编译工具链以及 SAPIEN 依赖的系统级 GL/EGL/Vulkan 库。安装 ``robotwin`` 兼容 extra 即可；用户不需要运行 RLinf 安装器，也不需要单独克隆 RoboTwin：
+RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVCC、编译工具链以及 SAPIEN 依赖的系统级 GL/EGL/Vulkan 库。安装 ``robot-robotwin`` 即可；用户不需要运行 RLinf 安装器，也不需要单独克隆 RoboTwin：
 
 .. code-block:: bash
 
-   uv venv .venv-robotwin --python 3.11
+   ./scripts/rpent-install.sh install robot-robotwin --venv .venv-robotwin
    source .venv-robotwin/bin/activate
-   uv pip install -e ".[robotwin]"
 
 国内网络可在执行该安装命令前设置 uv 的镜像环境变量：
 

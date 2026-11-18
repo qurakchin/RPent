@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""``rpent-install``: inspect, check, install, and diagnose environments.
+"""``rpent-install``: inspect, check, install, and diagnose components.
 
-Supported targets are the named profiles in ``installs/profiles/``. Component
-names are accepted by ``install`` as a development diagnostic only. Repository
-checks and CI selection live under ``tests/tooling/``.
+Every environment is described by the components named on the command line::
+
+    rpent-install install robot-alpha --venv .venv-alpha
+    rpent-install install infra-dev --venv .venv-dev
+
+Repository checks and CI selection live under ``tests/tooling/``.
 """
 
 from __future__ import annotations
@@ -25,67 +28,96 @@ import argparse
 import sys
 from pathlib import Path
 
-from rpent.install.compile import resolve_profile
+from rpent.install.compile import PLATFORM_TAGS, resolve_resolution
 from rpent.install.discovery import discover
 from rpent.install.doctor import FAIL, check_installation, inspect_installation
 from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.fingerprint import current_venv
-from rpent.install.installer import find_uv, install
+from rpent.install.installer import (
+    choose_python,
+    find_uv,
+    install,
+    resolve_targets,
+)
 from rpent.install.requirements import read_core_dependencies
-from rpent.install.resolve import Resolution, resolve
 from rpent.utils.config import get_repo_root
 
 
-def _describe_environment(resolution: Resolution, environment: str) -> str:
-    names = resolution.environments().get(environment, ())
-    return f"{environment}: {', '.join(names) or '(core only)'}"
-
-
 def command_list(args: argparse.Namespace) -> int:
-    """Print components and profiles."""
+    """Print every component and what it requires."""
     catalog = discover(args.root)
-    print("Components")
-    for name, component in sorted(catalog.components.items()):
-        placements = ", ".join(component.placements)
-        print(f"  {name:<20} {component.kind:<10} {placements}")
-    print("\nProfiles")
-    for name, profile in sorted(catalog.profiles.items()):
-        components = ", ".join(sorted(profile.components)) or "(core only)"
-        print(f"  {name:<20} python {profile.python:<4} {components}")
+    headings = {
+        "robot": "Robots",
+        "sim": "Simulators",
+        "model": "Models",
+        "tool": "Tools",
+        "infra": "Infrastructure",
+    }
+    for kind, heading in headings.items():
+        components = sorted(
+            (
+                component
+                for component in catalog.components.values()
+                if component.kind == kind
+            ),
+            key=lambda component: component.name,
+        )
+        if not components:
+            continue
+        print(heading)
+        for component in components:
+            requires = ", ".join(component.requires) or "-"
+            print(f"  {component.name:<20} requires {requires}")
+        print()
     return 0
 
 
 def command_check(args: argparse.Namespace) -> int:
-    """Resolve profiles without installing anything."""
+    """Resolve component environments without installing anything."""
     catalog = discover(args.root)
-    names = sorted(catalog.profiles) if args.all else args.profiles
+    names = sorted(catalog.components) if args.all else args.targets
     if not names:
-        print("pass a profile name or --all", file=sys.stderr)
+        print("pass a component name or --all", file=sys.stderr)
         return 2
+    unknown = [name for name in names if name not in catalog.components]
+    for name in unknown:
+        known = ", ".join(sorted(catalog.components))
+        print(f"unknown component {name!r}; known components: {known}", file=sys.stderr)
+    failed = bool(unknown)
     uv = find_uv() if args.resolve else None
-    failed = False
+    platform = args.platform
+    if args.resolve and platform not in PLATFORM_TAGS:
+        print(
+            f"unknown platform {platform!r}; known: {', '.join(sorted(PLATFORM_TAGS))}",
+            file=sys.stderr,
+        )
+        return 2
     for name in names:
-        try:
-            profile = catalog.profiles[name]
-        except KeyError:
-            known = ", ".join(sorted(catalog.profiles))
-            print(f"unknown profile {name!r}; known profiles: {known}", file=sys.stderr)
-            failed = True
+        if name not in catalog.components:
             continue
-        core = read_core_dependencies(args.root) if profile.core else ()
-        resolution = resolve(profile, catalog, core_dependencies=core)
+        resolution = resolve_targets([name], catalog, root=args.root)
         if not resolution.ok:
             failed = True
-            print(f"profile {name}: FAIL")
+            print(f"{name}: FAIL")
             for error in resolution.errors:
                 print(f"  {error}")
             continue
+        count = len(resolution.components)
+        noun = "component" if count == 1 else "components"
         if uv is not None:
+            python = choose_python(resolution.components.values())
             try:
-                resolved_text = resolve_profile(profile, catalog, root=args.root, uv=uv)
+                resolved_text = resolve_resolution(
+                    resolution,
+                    root=args.root,
+                    uv=uv,
+                    python=python,
+                    platform=platform,
+                    core_dependencies=read_core_dependencies(args.root),
+                )
             except InstallError as exc:
                 failed = True
-                print(f"profile {name}: FAIL")
+                print(f"{name}: FAIL")
                 print(f"  {exc}")
                 continue
             pinned = sum(
@@ -93,36 +125,22 @@ def command_check(args: argparse.Namespace) -> int:
                 for line in resolved_text.splitlines()
                 if line and not line.startswith((" ", "#"))
             )
-            print(f"profile {name}: ok, uv resolved {pinned} requirements")
+            print(f"{name}: ok, {count} {noun}, uv resolved {pinned} packages")
         else:
-            print(f"profile {name}: ok")
-        for environment in sorted(resolution.nonempty_environments()):
-            print(f"  {_describe_environment(resolution, environment)}")
+            print(f"{name}: ok, {count} {noun}")
     return 1 if failed else 0
 
 
 def command_install(args: argparse.Namespace) -> int:
-    """Create or reuse a virtualenv and install one target."""
+    """Create or reuse a virtualenv and install the named components."""
     install(
-        args.target,
+        args.targets,
         root=args.root,
         venv=args.venv,
-        include_dev=args.dev,
-        variant=args.variant,
         dry_run=args.dry_run,
         verbose=True,
     )
     return 0
-
-
-def _parse_endpoints(values: list[str]) -> dict[str, str]:
-    endpoints: dict[str, str] = {}
-    for value in values:
-        name, separator, endpoint = value.partition("=")
-        if not separator or not name or not endpoint:
-            raise InstallError(f"invalid --endpoint {value!r}; expected NAME=host:port")
-        endpoints[name] = endpoint
-    return endpoints
 
 
 def command_doctor(args: argparse.Namespace) -> int:
@@ -134,38 +152,26 @@ def command_doctor(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    checks = check_installation(
-        venv,
-        profile_name=args.profile,
-        endpoints=_parse_endpoints(args.endpoint),
-        root=args.root,
-    )
+    if args.fingerprint:
+        report = inspect_installation(venv)
+        if report is None:
+            print(f"{venv} has no installation fingerprint", file=sys.stderr)
+            return 1
+        print(f"venv: {report['venv']}")
+        print(f"sha256: {report['sha256']}")
+        for key in sorted(report["fingerprint"]):
+            value = report["fingerprint"][key]
+            if isinstance(value, dict):
+                print(f"{key}:")
+                for nested, nested_value in sorted(value.items()):
+                    print(f"  {nested}: {nested_value}")
+            else:
+                print(f"{key}: {value}")
+        return 0
+    checks = check_installation(venv, root=args.root)
     for check in checks:
         print(f"{check.status:<4} {check.message}")
     return 1 if any(check.status == FAIL for check in checks) else 0
-
-
-def command_inspect(args: argparse.Namespace) -> int:
-    """Print the stored installation fingerprint."""
-    venv = args.venv or current_venv()
-    if venv is None:
-        print("no active virtualenv; activate one or pass --venv", file=sys.stderr)
-        return 2
-    report = inspect_installation(venv)
-    if report is None:
-        print(f"{venv} has no installation fingerprint", file=sys.stderr)
-        return 1
-    print(f"venv: {report['venv']}")
-    print(f"sha256: {report['sha256']}")
-    for key in sorted(report["fingerprint"]):
-        value = report["fingerprint"][key]
-        if isinstance(value, dict):
-            print(f"{key}:")
-            for nested, nested_value in sorted(value.items()):
-                print(f"  {nested}: {nested_value}")
-        else:
-            print(f"{key}: {value}")
-    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -182,32 +188,37 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
-    listing = subcommands.add_parser("list", help="list components and profiles")
+    listing = subcommands.add_parser("list", help="list components")
     listing.set_defaults(handler=command_list)
 
-    check = subcommands.add_parser("check", help="validate profiles without installing")
-    check.add_argument("profiles", nargs="*")
-    check.add_argument("--all", action="store_true", help="check every profile")
+    check = subcommands.add_parser(
+        "check", help="validate components without installing"
+    )
+    check.add_argument("targets", nargs="*")
+    check.add_argument("--all", action="store_true", help="check every component")
     check.add_argument(
         "--resolve",
         action="store_true",
-        help="also compile each profile with uv to prove it resolves",
+        help="also compile each environment with uv to prove it resolves",
+    )
+    check.add_argument(
+        "--platform",
+        default="linux-x86_64",
+        help="platform to compile for with --resolve (default: linux-x86_64)",
     )
     check.set_defaults(handler=command_check)
 
     installer = subcommands.add_parser(
-        "install", help="install one named profile into a virtualenv"
+        "install",
+        help="install one or more components and their requirements into a virtualenv",
     )
-    installer.add_argument("target")
+    installer.add_argument(
+        "targets",
+        nargs="+",
+        metavar="COMPONENT",
+        help="component names; the environment also contains their closure",
+    )
     installer.add_argument("--venv", type=Path, help="virtualenv path")
-    installer.add_argument(
-        "--variant",
-        help="optional group of a single component target; profiles select "
-        "their own variants",
-    )
-    installer.add_argument(
-        "--dev", action="store_true", help="also install the dev profile"
-    )
     installer.add_argument(
         "--dry-run", action="store_true", help="print requirements only"
     )
@@ -215,21 +226,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor = subcommands.add_parser("doctor", help="diagnose an installed venv")
     doctor.add_argument("--venv", type=Path)
-    doctor.add_argument("--profile", help="profile name; defaults to fingerprint")
     doctor.add_argument(
-        "--endpoint",
-        action="append",
-        default=[],
-        metavar="NAME=HOST:PORT",
-        help="external environment endpoint; may be repeated",
+        "--fingerprint",
+        action="store_true",
+        help="print the stored installation fingerprint instead of checking",
     )
     doctor.set_defaults(handler=command_doctor)
-
-    inspect = subcommands.add_parser(
-        "inspect", help="print the installation fingerprint"
-    )
-    inspect.add_argument("--venv", type=Path)
-    inspect.set_defaults(handler=command_inspect)
     return parser
 
 

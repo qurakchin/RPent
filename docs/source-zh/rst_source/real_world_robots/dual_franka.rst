@@ -13,13 +13,13 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
 安装
 ----
 
-在两台 Linux 控制节点分别安装 RPent，保持代码、Python、Ray 和 RLinf 版本一致。本地运行 VLA 或 SAM3 的节点需要 NVIDIA GPU。把 ``franka`` 与 ``sam3`` 兼容 extra 安装到 ``.venv-dual-franka-real``，其中包含双臂 Franka 和本地 SAM 3.0：
+在两台 Linux 控制节点分别安装 RPent，保持代码、Python、Ray 和 RLinf 版本一致。本地运行 VLA 或 SAM3 的节点需要 NVIDIA GPU。把 ``robot-dual_franka`` 安装到 ``.venv-dual-franka-real``，其中包含双臂 Franka 和本地 SAM 3.0：
 
 .. code-block:: bash
 
-   uv venv .venv-dual-franka-real --python 3.11
+   ./scripts/rpent-install.sh install robot-dual_franka \
+     --venv .venv-dual-franka-real
    source .venv-dual-franka-real/bin/activate
-   uv pip install -e ".[franka,sam3]"
 
 
 下载 Python 依赖较慢时，可在执行该安装命令前设置 `清华 PyPI 镜像 <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_：
@@ -43,7 +43,7 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
      --local_dir ./checkpoints/sam3
    export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
 
-未设置该变量或 ``--sam3-endpoint`` 时，分割功能不可用；仅安装配方不会下载权重。VLA checkpoint 配置见 :ref:`dual-franka-vla`。
+未设置该变量或 ``--sam3-endpoint`` 时，分割功能不可用；仅安装组件不会下载权重。VLA checkpoint 配置见 :ref:`dual-franka-vla`。
 
 标定
 ----

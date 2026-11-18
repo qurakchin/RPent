@@ -1,12 +1,9 @@
-schema = 1
-name = "fast_wam"
-kind = "model"
+schema = 2
+name = "model-fast_wam"
 probe = "components.models.fast_wam.server"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
-placement = ["external-env", "remote"]
-default_placement = "external-env"
+# Model weights and the Fast-WAM runtime are supplied by the
+# deployment; the RPent worker owns only request translation.
 
-# Model weights and the Fast-WAM runtime are supplied by the deployment; the
-# RPent worker owns only request translation.
 dependencies = []

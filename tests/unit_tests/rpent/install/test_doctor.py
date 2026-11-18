@@ -12,17 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Doctor reports missing, stale, and endpoint-reachable installations."""
+"""Doctor reports missing, stale, and unusable installations."""
 
-import socket
+import pytest
 
 from rpent.install.discovery import discover
 from rpent.install.doctor import (
     FAIL,
     OK,
     WARN,
-    _endpoint_address,
-    _probe_endpoint,
     check_installation,
     inspect_installation,
 )
@@ -32,22 +30,32 @@ from rpent.install.fingerprint import (
     runtime_platform,
     write_fingerprint,
 )
-from rpent.install.installer import component_profile, resolve_install_target
+from rpent.install.installer import resolve_targets
+from rpent.install.manifest import SCHEMA
 from rpent.install.requirements import REQUIREMENTS_SCHEMA, requirements_sha256
-from rpent.install.resolve import resolve
 
 
-def _profile(write_toml, *, core=False):
+@pytest.fixture
+def repo(tmp_path, write_toml):
     write_toml(
-        "installs/profiles/alpha.toml",
-        f"""
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "{runtime_platform()}"
-        core = {str(core).lower()}
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
         """,
     )
+    write_toml(
+        "robots/alpha/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
+        probe = "json"
+        python = ">=3.10,<3.13"
+        dependencies = ["numpy>=2"]
+        """,
+    )
+    return tmp_path
 
 
 def _venv(tmp_path):
@@ -59,59 +67,87 @@ def _venv(tmp_path):
     return venv
 
 
+def _fingerprint(repo, *, targets=("robot-alpha",), python="3.11.9", **extra):
+    resolution = resolve_targets(
+        targets, discover(repo), root=repo, platform=runtime_platform()
+    )
+    assert resolution.ok, resolution.errors
+    fingerprint = {
+        "schema": REQUIREMENTS_SCHEMA,
+        "targets": list(targets),
+        "python": python,
+        "requirements_sha256": requirements_sha256(resolution, root=repo),
+    }
+    fingerprint.update(extra)
+    return fingerprint
+
+
+def _missing_uv(monkeypatch):
+    def _fail():
+        raise InstallError("uv missing")
+
+    monkeypatch.setattr("rpent.install.doctor.find_uv", _fail)
+
+
 def test_missing_fingerprint_reports_install_command(tmp_path):
     checks = check_installation(tmp_path / "venv", root=tmp_path)
 
-    assert checks[0].status == FAIL
-    assert "rpent-install install <profile>" in checks[0].message
+    assert [check.status for check in checks] == [FAIL]
+    assert "rpent-install install <components>" in checks[0].message
 
 
-def test_stale_fingerprint_fails_before_running_checks(
-    tmp_path, write_toml, monkeypatch
-):
-    _profile(write_toml)
-    venv = _venv(tmp_path)
+def test_fingerprint_without_targets_asks_for_a_reinstall(repo):
+    venv = _venv(repo)
+    write_fingerprint(venv, {"schema": REQUIREMENTS_SCHEMA, "python": "3.11.9"})
+
+    checks = check_installation(venv, root=repo)
+
+    assert [check.status for check in checks] == [FAIL]
+    assert "records no target components" in checks[0].message
+
+
+def test_unresolvable_targets_are_reported(repo, monkeypatch):
+    venv = _venv(repo)
     write_fingerprint(
         venv,
         {
             "schema": REQUIREMENTS_SCHEMA,
-            "profile": "alpha",
+            "targets": ["robot-removed"],
             "python": "3.11.9",
-            "requirements_sha256": "stale",
-            "include_dev": False,
         },
     )
 
-    def _missing_uv():
-        raise InstallError("uv missing")
+    checks = check_installation(venv, root=repo)
 
-    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
+    assert (checks[0].status, checks[0].message) == (OK, "targets: robot-removed")
+    assert any(
+        check.status == FAIL and "robot-removed" in check.message for check in checks
+    )
 
-    checks = check_installation(venv, root=tmp_path)
+
+def test_stale_fingerprint_fails_before_running_checks(repo, monkeypatch):
+    venv = _venv(repo)
+    write_fingerprint(venv, _fingerprint(repo, requirements_sha256="stale"))
+    _missing_uv(monkeypatch)
+
+    checks = check_installation(venv, root=repo)
 
     assert [check.status for check in checks[:3]] == [OK, OK, FAIL]
     assert "out of date" in checks[2].message
+    assert "rpent-install install robot-alpha" in checks[2].message
     assert any(
         check.status == WARN and "uv missing" in check.message for check in checks
     )
 
 
-def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
-    tmp_path, write_toml, monkeypatch
-):
-    _profile(write_toml)
-    venv = _venv(tmp_path)
+def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(repo, monkeypatch):
+    venv = _venv(repo)
     recorded = {
-        "profile": "alpha",
+        "targets": ["robot-alpha"],
         "python": "3.11.9",
-        "include_dev": False,
         "requirements_sha256": "written by an older rpent-install",
     }
-
-    def _missing_uv():
-        raise InstallError("uv missing")
-
-    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
+    _missing_uv(monkeypatch)
 
     older = REQUIREMENTS_SCHEMA - 1
     for schema, label in ((older, str(older)), (None, "unknown")):
@@ -120,7 +156,7 @@ def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
             fingerprint["schema"] = schema
         write_fingerprint(venv, fingerprint)
 
-        checks = check_installation(venv, root=tmp_path)
+        checks = check_installation(venv, root=repo)
 
         assert any(
             check.status == FAIL and f"input mode {label}" in check.message
@@ -131,321 +167,58 @@ def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
         assert not any("out of date" in check.message for check in checks)
 
 
-def test_dev_installation_is_not_reported_as_stale(tmp_path, write_toml, monkeypatch):
-    _profile(write_toml)
-    write_toml(
-        "installs/profiles/dev.toml",
-        f"""
-        schema = 1
-        name = "dev"
-        python = "3.11"
-        platform = "{runtime_platform()}"
-        core = false
-        dependencies = ["pytest"]
-        """,
-    )
-    venv = _venv(tmp_path)
-    resolution = resolve_install_target(
-        "alpha", discover(tmp_path), root=tmp_path, include_dev=True
-    )
-    assert resolution.ok
-    write_fingerprint(
-        venv,
-        {
-            "schema": REQUIREMENTS_SCHEMA,
-            "profile": "alpha",
-            "python": "3.11.9",
-            "include_dev": True,
-            "requirements_sha256": requirements_sha256(
-                resolution, root=tmp_path, include_dev=True
-            ),
-        },
-    )
+def test_unchanged_inputs_and_probes_pass(repo, monkeypatch):
+    venv = _venv(repo)
+    write_fingerprint(venv, _fingerprint(repo))
+    _missing_uv(monkeypatch)
 
-    def _missing_uv():
-        raise InstallError("uv missing")
+    checks = check_installation(venv, root=repo)
 
-    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
-
-    checks = check_installation(venv, root=tmp_path)
-
+    assert checks[0].message == "targets: robot-alpha"
     assert any(
-        check.status == OK and "installation inputs unchanged" in check.message
+        check.status == OK and check.message == "installation inputs unchanged"
         for check in checks
     )
-    assert not any("out of date" in check.message for check in checks)
-
-
-def test_component_installation_uses_the_recorded_interpreter(
-    tmp_path, write_toml, monkeypatch
-):
-    write_toml(
-        "pyproject.toml",
-        """
-        [project]
-        name = "rpent"
-        dependencies = []
-        """,
+    assert any(
+        check.status == OK and check.message == "probe robot-alpha: import json"
+        for check in checks
     )
-    _profile(write_toml)
+    assert not any(check.status == FAIL for check in checks)
+
+
+def test_recorded_interpreter_rejecting_the_components_is_reported(repo, write_toml):
     write_toml(
         "robots/beta/component.toml",
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-beta"
         probe = "json"
         python = ">=3.10,<3.12"
         """,
     )
-    catalog = discover(tmp_path)
-    resolution = resolve(
-        component_profile("beta", catalog, root=tmp_path, python="3.10"),
-        catalog,
-    )
-    venv = _venv(tmp_path)
+    venv = _venv(repo)
     write_fingerprint(
-        venv,
-        {
-            "schema": REQUIREMENTS_SCHEMA,
-            "install_kind": "component",
-            "profile": None,
-            "component": "beta",
-            "python": "3.10.8",
-            "include_dev": False,
-            "requirements_sha256": requirements_sha256(resolution, root=tmp_path),
-        },
+        venv, _fingerprint(repo, targets=("robot-beta",), python="3.12.1")
     )
 
-    def _missing_uv():
-        raise InstallError("uv missing")
-
-    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
-
-    checks = check_installation(venv, root=tmp_path)
-
-    assert "component: beta" in {check.message for check in checks}
-    assert any(
-        check.status == OK and "installation inputs unchanged" in check.message
-        for check in checks
-    )
-    assert not any("out of date" in check.message for check in checks)
-
-
-def test_component_diagnostic_uses_the_recorded_variant(
-    tmp_path, write_toml, monkeypatch
-):
-    write_toml(
-        "pyproject.toml",
-        """
-        [project]
-        name = "rpent"
-        dependencies = []
-        """,
-    )
-    write_toml(
-        "robots/gamma/component.toml",
-        """
-        schema = 1
-        name = "gamma"
-        kind = "robot"
-        probe = "json"
-        variant_required = true
-
-        [optional]
-        pro = ["numpy"]
-        """,
-    )
-    _profile(write_toml)
-    catalog = discover(tmp_path)
-    resolution = resolve(
-        component_profile(
-            "gamma", catalog, root=tmp_path, python="3.11", variant="pro"
-        ),
-        catalog,
-    )
-    venv = _venv(tmp_path)
-    write_fingerprint(
-        venv,
-        {
-            "schema": REQUIREMENTS_SCHEMA,
-            "install_kind": "component",
-            "profile": None,
-            "component": "gamma",
-            "python": "3.11.9",
-            "include_dev": False,
-            "components": {"gamma": {"placement": "in-env", "variant": "pro"}},
-            "requirements_sha256": requirements_sha256(resolution, root=tmp_path),
-        },
-    )
-
-    def _missing_uv():
-        raise InstallError("uv missing")
-
-    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
-
-    checks = check_installation(venv, root=tmp_path)
-
-    assert not any("cannot resolve" in check.message for check in checks)
-    assert any(
-        check.status == OK and "installation inputs unchanged" in check.message
-        for check in checks
-    )
-
-
-def test_inspect_installation_reports_fingerprint_hash(tmp_path):
-    venv = tmp_path / "venv"
-    venv.mkdir()
-    fingerprint = {"profile": "alpha"}
-    write_fingerprint(venv, fingerprint)
-
-    inspected = inspect_installation(venv)
-
-    assert inspected["fingerprint"] == fingerprint
-    assert inspected["sha256"] == fingerprint_sha256(fingerprint)
-    assert inspect_installation(tmp_path / "missing") is None
-
-
-def test_endpoint_address_accepts_host_port_and_url():
-    assert _endpoint_address("host:8000") == ("host", 8000)
-    assert _endpoint_address("http://host:8000/path") == ("host", 8000)
-    assert _endpoint_address("host") is None
-
-
-def test_probe_endpoint_reports_reachable_and_unreachable():
-    with socket.socket() as server:
-        server.bind(("127.0.0.1", 0))
-        server.listen(1)
-        host, port = server.getsockname()
-        assert _probe_endpoint(f"{host}:{port}") is None
-
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
-        host, port = probe.getsockname()
-    message = _probe_endpoint(f"{host}:{port}")
-    assert "not reachable" in message
-
-
-def _profiles_with_beta(write_toml, beta_toml):
-    write_toml(
-        "pyproject.toml",
-        """
-        [project]
-        name = "rpent"
-        dependencies = []
-        """,
-    )
-    write_toml(
-        "installs/profiles/other.toml",
-        f"""
-        schema = 1
-        name = "other"
-        python = "3.11"
-        platform = "{runtime_platform()}"
-        core = false
-
-        [components.beta]
-        placement = "in-env"
-        """,
-    )
-    write_toml("robots/beta/component.toml", beta_toml)
-
-
-def _profile_checks(tmp_path, write_toml, monkeypatch, profile_toml, python):
-    write_toml("installs/profiles/alpha.toml", profile_toml)
-    venv = _venv(tmp_path)
-    resolution = resolve_install_target("alpha", discover(tmp_path), root=tmp_path)
-    assert resolution.ok
-    write_fingerprint(
-        venv,
-        {
-            "schema": REQUIREMENTS_SCHEMA,
-            "profile": "alpha",
-            "python": python,
-            "include_dev": False,
-            "requirements_sha256": requirements_sha256(resolution, root=tmp_path),
-        },
-    )
-
-    def _missing_uv():
-        raise InstallError("uv missing")
-
-    monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
-    return check_installation(venv, root=tmp_path)
-
-
-def test_profile_installation_reports_a_component_rejecting_the_interpreter(
-    tmp_path, write_toml, monkeypatch
-):
-    _profiles_with_beta(
-        write_toml,
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
-        probe = "json"
-        python = ">=3.10,<3.12"
-        """,
-    )
-
-    checks = _profile_checks(
-        tmp_path,
-        write_toml,
-        monkeypatch,
-        f"""
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "{runtime_platform()}"
-        core = false
-
-        [components.beta]
-        placement = "in-env"
-        """,
-        "3.12.1",
-    )
+    checks = check_installation(venv, root=repo)
 
     assert any(
         check.status == FAIL
-        and "component 'beta' requires Python >=3.10,<3.12" in check.message
+        and "component 'robot-beta' requires Python >=3.10,<3.12" in check.message
         and "3.12.1" in check.message
         for check in checks
     )
 
 
-def test_profile_python_is_the_creation_interpreter_not_a_support_range(
-    tmp_path, write_toml, monkeypatch
-):
-    # CI creates each matrix environment with its own minor version while the
-    # filled-in profile keeps the pin it was written with. The recorded
-    # interpreter only has to satisfy the installed components.
-    _profiles_with_beta(
-        write_toml,
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
-        probe = "json"
-        python = ">=3.10,<3.13"
-        """,
-    )
+def test_any_interpreter_inside_the_component_ranges_is_accepted(repo):
+    # CI creates an environment with its own minor version while the recorded
+    # interpreter is whatever created the venv; it only has to satisfy the
+    # installed components.
+    venv = _venv(repo)
+    write_fingerprint(venv, _fingerprint(repo, python="3.12.1"))
 
-    checks = _profile_checks(
-        tmp_path,
-        write_toml,
-        monkeypatch,
-        f"""
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "{runtime_platform()}"
-        core = false
-
-        [components.beta]
-        placement = "in-env"
-        """,
-        "3.12.1",
-    )
+    checks = check_installation(venv, root=repo)
 
     assert any(
         check.status == OK and check.message == "python: 3.12.1" for check in checks
@@ -453,41 +226,14 @@ def test_profile_python_is_the_creation_interpreter_not_a_support_range(
     assert not any("requires Python" in check.message for check in checks)
 
 
-def test_external_environment_components_are_checked_against_their_own_python(
-    tmp_path, write_toml, monkeypatch
-):
-    _profiles_with_beta(
-        write_toml,
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
-        probe = "json"
-        python = ">=3.10,<3.12"
-        placement = ["in-env", "external-env"]
-        """,
-    )
+def test_inspect_installation_reports_fingerprint_hash(tmp_path):
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    fingerprint = {"targets": ["robot-alpha"]}
+    write_fingerprint(venv, fingerprint)
 
-    checks = _profile_checks(
-        tmp_path,
-        write_toml,
-        monkeypatch,
-        f"""
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "{runtime_platform()}"
-        core = false
+    inspected = inspect_installation(venv)
 
-        [components.beta]
-        placement = "external-env"
-        profile = "other"
-        """,
-        "3.12.1",
-    )
-
-    assert not any("requires Python" in check.message for check in checks)
-    assert any(
-        check.status == WARN and "external component 'beta'" in check.message
-        for check in checks
-    )
+    assert inspected["fingerprint"] == fingerprint
+    assert inspected["sha256"] == fingerprint_sha256(fingerprint)
+    assert inspect_installation(tmp_path / "missing") is None

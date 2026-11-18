@@ -24,10 +24,12 @@ import pytest
 
 from components.models.fast_wam.server import FastWAMFacade, load_libero_policy
 from components.models.uniwam.server import UniWAMFacade
-from robots.libero.observation import physical_observation
-from robots.libero.wam_client import LiberoWAMClient
-from robots.robotwin.observation import physical_observation as robotwin_observation
-from robots.robotwin.wam_client import RoboTwinWAMClient, robotwin_request
+from components.sim.libero.observation import physical_observation
+from components.sim.libero.wam_client import LiberoWAMClient
+from components.sim.robotwin.observation import (
+    physical_observation as robotwin_observation,
+)
+from components.sim.robotwin.wam_client import RoboTwinWAMClient, robotwin_request
 
 torch = pytest.importorskip("torch")
 

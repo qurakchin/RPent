@@ -12,17 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Assign every install profile to the runner that installs it in full CI.
+"""Assign every component to the runner that installs it in full CI.
 
-Profiles are discovered, but the workflow needs a static matrix. The partition
-below is authored on purpose: a generated matrix would follow the profiles it
-is supposed to cover, so a profile that nobody classified would quietly install
-nowhere. ``--check`` compares the table with ``installs/profiles/*.toml`` and
-fails when a profile is missing or no longer exists, which makes adding a
-profile also a decision about where it is installed.
+Components are discovered, but the workflow needs a static matrix. The table
+below is authored on purpose: each entry is one fresh environment, named by the
+components it installs, and a generated matrix would follow the components it
+is supposed to cover, so a component that nobody classified would quietly
+install nowhere. ``--check`` resolves every entry and compares its coverage with
+the discovered components, so adding a component is also a decision about where
+it is installed.
 
-Hosted runners install the profiles whose dependencies pull no CUDA packages; the GPU
-runner installs everything that does.
+An entry may name several components: the environment then contains them and
+their ``requires`` closure. Coverage is by closure, so the model services a
+robot environment already installs need no entry of their own.
+
+Hosted runners install the entries whose dependencies pull no CUDA packages; the
+GPU runner installs everything that does.
 """
 
 from __future__ import annotations
@@ -32,91 +37,123 @@ import json
 import sys
 from pathlib import Path
 
-from rpent.install.discovery import discover_profiles
+from rpent.install.discovery import Catalog, discover
+from rpent.install.resolve import resolve
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-#: CPU-only profiles: installable on a hosted runner within its disk and time
-#: limits.
-HOSTED = ("dev", "minimal", "unit-cpu")
+#: CPU-only environments: installable on a hosted runner within its disk and
+#: time limits.
+HOSTED = (
+    ("infra-dev",),
+    ("infra-minimal",),
+    ("infra-unit_cpu",),
+)
 
-#: Profiles that resolve CUDA packages; they need the embodied GPU runner.
+#: Environments that resolve CUDA packages; they need the embodied GPU runner.
 GPU = (
-    "libero-openpi-external",
-    "libero-plus",
-    "libero-pro",
-    "libero-pro-flywheel",
-    "libero-pro-molmo",
-    "libero-sim",
-    "molmo-server",
-    "openpi-server",
-    "sam3-server",
+    ("infra-rlinf",),
+    ("model-apxinf",),
+    ("model-cosmos3",),
+    ("model-cosmos_policy",),
+    ("model-fast_wam",),
+    ("model-molmo",),
+    ("model-uniwam",),
+    ("robot-dual_franka",),
+    ("robot-franka",),
+    ("robot-libero",),
+    # A multi-target environment: the exporter runs in the robot's environment.
+    ("robot-libero", "tool-flywheel"),
+    ("robot-robocasa",),
+    ("robot-robodojo",),
+    ("robot-robotwin",),
+    ("robot-yam",),
+    ("sim-libero",),
+    ("sim-robocasa",),
+    ("sim-robodojo",),
+    ("sim-robotwin",),
 )
 
 MATRICES = {"hosted": HOSTED, "gpu": GPU}
 
 
 def problems(
-    profiles: dict[str, object], matrices: dict[str, tuple[str, ...]] | None = None
+    catalog: Catalog,
+    matrices: dict[str, tuple[tuple[str, ...], ...]] | None = None,
 ) -> list[str]:
-    """Return every way the partition disagrees with ``profiles``."""
+    """Return every way the table disagrees with ``catalog``."""
     table = MATRICES if matrices is None else matrices
     found: list[str] = []
-    for runner, names in table.items():
-        duplicates = sorted({name for name in names if names.count(name) > 1})
-        for name in duplicates:
-            found.append(f"{runner} lists profile {name!r} more than once")
-        for name in names:
-            if name not in profiles:
+    covered: set[str] = set()
+    seen: dict[tuple[str, ...], str] = {}
+    for runner, entries in table.items():
+        for entry in entries:
+            label = " ".join(entry)
+            if not entry:
+                found.append(f"{runner} lists an empty environment")
+                continue
+            if entry in seen:
                 found.append(
-                    f"{runner} lists profile {name!r}, but "
-                    f"installs/profiles/{name}.toml does not exist; remove it "
-                    "from tests/tooling/matrix.py"
+                    f"{runner} lists environment {label!r} again; {seen[entry]} "
+                    "already installs it"
                 )
-    assigned = {name for names in table.values() for name in names}
-    for name in sorted(assigned):
-        runners = [runner for runner, names in table.items() if name in names]
-        if len(runners) > 1:
-            found.append(
-                f"profile {name!r} is assigned to both "
-                f"{' and '.join(sorted(set(runners)))}; keep it on one runner"
-            )
-    for name in sorted(set(profiles) - assigned):
+                continue
+            seen[entry] = runner
+            unknown = sorted(set(entry) - set(catalog.components))
+            if unknown:
+                found.append(
+                    f"{runner} lists environment {label!r}, but "
+                    f"{', '.join(unknown)} does not exist; remove it from "
+                    "tests/tooling/matrix.py"
+                )
+                continue
+            resolution = resolve(entry, catalog)
+            if not resolution.ok:
+                found.append(
+                    f"environment {label!r} cannot be installed: "
+                    f"{'; '.join(resolution.errors)}"
+                )
+            covered.update(resolution.components)
+    for name in sorted(set(catalog.components) - covered):
         found.append(
-            f"profile {name!r} (installs/profiles/{name}.toml) is not installed "
-            "by any runner; add it to HOSTED or GPU in tests/tooling/matrix.py"
+            f"component {name!r} is not installed by any environment; add it to "
+            "HOSTED or GPU in tests/tooling/matrix.py"
         )
     return found
 
 
 def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
-    """Check the partition or print one runner's profiles as JSON."""
+    """Check the table or print one runner's environments as JSON."""
     parser = argparse.ArgumentParser(
         prog="tests.tooling.matrix",
-        description="Assign profiles to the runner that installs them.",
+        description="Assign components to the runner that installs them.",
     )
     parser.add_argument(
         "--runner",
         choices=sorted(MATRICES),
-        help="print the profiles for one runner as a JSON array",
+        help="print one runner's environments as a JSON array of arrays",
     )
     parser.add_argument(
         "--check",
         action="store_true",
-        help="fail when the table and installs/profiles disagree",
+        help="fail when the table and the discovered components disagree",
     )
     args = parser.parse_args(argv)
 
     if not args.check and args.runner is None:
         parser.error("pass --check or --runner")
     if args.check:
-        found = problems(discover_profiles(root))
+        found = problems(discover(root))
         for problem in found:
             print(f"error: {problem}", file=sys.stderr)
         if found:
             return 1
     if args.runner is not None:
-        # Read the table without loading the profiles: the workflow needs the
+        # Read the table without discovering components: the workflow needs the
         # matrix before any install runs, and --check owns the drift check.
-        print(json.dumps(list(MATRICES[args.runner])))
+        print(json.dumps([list(entry) for entry in MATRICES[args.runner]]))
     return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

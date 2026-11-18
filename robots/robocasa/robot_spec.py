@@ -407,7 +407,13 @@ def _spawn_env_server(
             name="env_server",
             cmd=[
                 sys.executable,
-                str(get_repo_root() / "robots" / "robocasa" / "env_server.py"),
+                str(
+                    get_repo_root()
+                    / "components"
+                    / "sim"
+                    / "robocasa"
+                    / "env_server.py"
+                ),
                 "--task-name",
                 args.task_name,
                 "--split",
@@ -455,7 +461,7 @@ def _spawn_vla_server(
         host, port = "127.0.0.1", pick_free_port()
         daemon = am.spawn_worker(
             [
-                str(get_repo_root() / "robots" / "robocasa" / "vla_server.py"),
+                str(get_repo_root() / "components" / "models" / "rldx" / "server.py"),
                 "--model-path",
                 am.checkpoint,
                 "--transport",
@@ -485,8 +491,8 @@ def _init_runtime(
     endpoint to attach, or leave it unset to spawn a local subprocess.
     """
     select_am(args, "robocasa")
+    from components.models.rldx.client import RoboCasaVLAClient
     from robots.robocasa.env_client import RoboCasaEnvClient
-    from robots.robocasa.vla_client import RoboCasaVLAClient
 
     starters = {
         "env": lambda: _spawn_env_server(args, output_dir),

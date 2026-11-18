@@ -25,17 +25,22 @@ from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import read_fingerprint, runtime_platform
 from rpent.install.installer import (
-    _with_dev,
+    choose_python,
+    default_venv,
+    environment_id,
     find_uv,
     index_options,
     install,
-    resolve_install_target,
+    requirements_file,
+    resolve_targets,
 )
+from rpent.install.manifest import SCHEMA
 from rpent.install.requirements import (
     REQUIREMENTS_SCHEMA,
     read_core_dependencies,
     requirements_sha256,
 )
+from rpent.install.resolve import resolve
 
 
 @pytest.fixture
@@ -50,46 +55,28 @@ def repo(tmp_path, write_toml):
     )
     write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "json"
         dependencies = ["numpy>=2"]
         """,
     )
     write_toml(
         "robots/beta/component.toml",
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-beta"
         probe = "json"
         """,
     )
-    major, minor = sys.version_info[:2]
     write_toml(
-        "installs/profiles/alpha.toml",
+        "installs/infra-dev.toml",
         f"""
-        schema = 1
-        name = "alpha"
-        python = "{major}.{minor}"
-        platform = "{runtime_platform()}"
-
-        [components.alpha]
-        placement = "in-env"
-        """,
-    )
-    write_toml(
-        "installs/profiles/dev.toml",
-        f"""
-        schema = 1
-        name = "dev"
-        python = "{major}.{minor}"
-        platform = "{runtime_platform()}"
+        schema = {SCHEMA}
+        name = "infra-dev"
+        probe = "json"
         dependencies = ["pytest"]
-
-        [components]
         """,
     )
     return tmp_path
@@ -99,172 +86,69 @@ def test_dry_run_renders_requirements_without_uv(repo, monkeypatch, capsys):
     monkeypatch.delenv("RPENT_UV", raising=False)
     monkeypatch.setattr("shutil.which", lambda name: None)
 
-    result = install("alpha", root=repo, dry_run=True, verbose=False)
+    result = install(["robot-alpha"], root=repo, dry_run=True, verbose=False)
 
-    assert result["profile"] == "alpha"
-    assert result["external_environments"] == []
+    assert result["targets"] == ["robot-alpha"]
     assert "packaging" in result["requirements"]
     assert "numpy>=2" in result["requirements"]
     assert "packaging" in capsys.readouterr().out
 
 
-def test_resolve_install_target_adds_dev_profile(repo):
+def test_environment_id_is_order_independent():
+    assert environment_id(["robot-beta", "robot-alpha", "robot-alpha"]) == (
+        "robot-alpha+robot-beta"
+    )
+
+
+def test_default_paths_are_named_after_the_target_set(repo):
+    targets = ["robot-beta", "robot-alpha"]
+
+    assert default_venv(repo, targets) == (
+        repo / ".rpent" / "venvs" / "robot-alpha+robot-beta"
+    )
+    assert requirements_file(repo, targets) == (
+        repo / ".rpent" / "requirements" / "robot-alpha+robot-beta.txt"
+    )
+
+
+def test_a_target_set_resolves_its_closure_together(repo):
     catalog = discover(repo)
 
-    resolution = resolve_install_target("alpha", catalog, root=repo, include_dev=True)
+    resolution = resolve_targets(["robot-alpha", "infra-dev"], catalog, root=repo)
 
-    assert resolution.ok
-    assert "dev" not in resolution.components
-    assert "pytest" in resolution.profile.dependencies
-
-    with pytest.raises(InstallError, match="--dev applies to profiles"):
-        resolve_install_target("beta", catalog, root=repo, include_dev=True)
+    assert resolution.ok, resolution.errors
+    assert resolution.targets == ("infra-dev", "robot-alpha")
+    assert sorted(resolution.components) == ["infra-dev", "robot-alpha"]
 
 
-def test_with_dev_is_idempotent(repo):
-    catalog = discover(repo)
-    profile = catalog.profiles["alpha"]
-
-    once = _with_dev(profile, catalog)
-    twice = _with_dev(once, catalog)
-
-    assert once.dependencies == ("pytest",)
-    assert twice.dependencies == once.dependencies
+def test_unknown_target_lists_known_components(repo):
+    with pytest.raises(InstallError, match="known components: infra-dev"):
+        install(["robot-missing"], root=repo, dry_run=True, verbose=False)
 
 
-def test_component_target_uses_running_interpreter(repo):
-    catalog = discover(repo)
+def test_choose_python_prefers_the_running_interpreter(make_component):
+    host = f"{sys.version_info.major}.{sys.version_info.minor}"
+    component = make_component("robot-alpha", python=">=3.10,<3.15")
 
-    resolution = resolve_install_target("beta", catalog, root=repo)
-
-    profile = resolution.profile
-    assert profile.name == "beta"
-    assert profile.python == f"{sys.version_info.major}.{sys.version_info.minor}"
-    assert profile.platform == runtime_platform()
+    assert choose_python([component]) == host
 
 
-def test_unknown_target_lists_known_profiles(repo):
-    with pytest.raises(InstallError, match="known profiles: alpha, dev"):
-        resolve_install_target("missing", discover(repo), root=repo)
+def test_choose_python_picks_the_highest_supported_minor(make_component):
+    component = make_component("robot-alpha", python=">=3.9,<3.12")
+
+    assert choose_python([component]) == "3.11"
 
 
-def test_component_target_selects_its_variant_explicitly(tmp_path, write_toml):
-    write_toml(
-        "pyproject.toml",
-        """
-        [project]
-        name = "rpent"
-        dependencies = []
-        """,
-    )
-    write_toml(
-        "robots/gamma/component.toml",
-        """
-        schema = 1
-        name = "gamma"
-        kind = "robot"
-        probe = "json"
-        variant_required = true
-
-        [optional]
-        pro = ["numpy"]
-        lite = ["packaging"]
-        """,
-    )
-    major, minor = sys.version_info[:2]
-    write_toml(
-        "installs/profiles/gamma-pro.toml",
-        f"""
-        schema = 1
-        name = "gamma-pro"
-        python = "{major}.{minor}"
-        platform = "{runtime_platform()}"
-
-        [components.gamma]
-        variant = "pro"
-        """,
-    )
-    catalog = discover(tmp_path)
-
-    with pytest.raises(InstallError) as error:
-        resolve_install_target("gamma", catalog, root=tmp_path)
-    message = str(error.value)
-    assert "requires a variant" in message
-    assert "--variant <lite|pro>" in message
-    assert "gamma-pro" in message
-
-    with pytest.raises(InstallError, match="has no optional group 'nope'"):
-        resolve_install_target("gamma", catalog, root=tmp_path, variant="nope")
-
-    resolution = resolve_install_target("gamma", catalog, root=tmp_path, variant="pro")
-
-    assert resolution.ok
-    assert resolution.profile.synthetic
-    assert resolution.profile.components["gamma"].variant == "pro"
-
-
-def test_component_target_rejects_a_variant_for_a_profile(repo):
-    with pytest.raises(InstallError, match="--variant applies only to a single"):
-        resolve_install_target("alpha", discover(repo), root=repo, variant="pro")
-
-
-def test_component_target_reports_profiles_that_place_it(tmp_path, write_toml):
-    write_toml(
-        "pyproject.toml",
-        """
-        [project]
-        name = "rpent"
-        dependencies = []
-        """,
-    )
-    write_toml(
-        "components/models/delta/component.toml",
-        """
-        schema = 1
-        name = "delta"
-        kind = "model"
-        probe = "json"
-        placement = ["remote"]
-        """,
-    )
-    major, minor = sys.version_info[:2]
-    write_toml(
-        "installs/profiles/delta-remote.toml",
-        f"""
-        schema = 1
-        name = "delta-remote"
-        python = "{major}.{minor}"
-        platform = "{runtime_platform()}"
-
-        [components.delta]
-        placement = "remote"
-        """,
-    )
-    catalog = discover(tmp_path)
-
-    with pytest.raises(InstallError) as error:
-        resolve_install_target("delta", catalog, root=tmp_path)
-
-    message = str(error.value)
-    assert "no in-env placement" in message
-    assert "delta-remote" in message
-
-
-def test_find_uv_prefers_override(monkeypatch):
-    monkeypatch.setenv("RPENT_UV", "/custom/uv")
-
-    assert find_uv() == "/custom/uv"
-
-
-def test_index_options_preserve_order(make_profile):
-    profile = make_profile(
-        "alpha",
+def test_index_options_follow_the_merged_resolution(make_component, make_catalog):
+    component = make_component(
+        "infra-unit_cpu",
         index_url="https://index.test/simple",
         extra_index_urls=("https://extra.test/simple",),
         index_strategy="unsafe-first-match",
     )
+    resolution = resolve(["infra-unit_cpu"], make_catalog(components=[component]))
 
-    assert index_options(profile) == [
+    assert index_options(resolution) == [
         "--index-url",
         "https://index.test/simple",
         "--extra-index-url",
@@ -272,6 +156,12 @@ def test_index_options_preserve_order(make_profile):
         "--index-strategy",
         "unsafe-first-match",
     ]
+
+
+def test_find_uv_prefers_override(monkeypatch):
+    monkeypatch.setenv("RPENT_UV", "/custom/uv")
+
+    assert find_uv() == "/custom/uv"
 
 
 def _fake_uv(tmp_path, monkeypatch):
@@ -311,87 +201,60 @@ def _uv_working_directories(tmp_path):
     return (tmp_path / "uv-pwd").read_text(encoding="utf-8").splitlines()
 
 
-def test_install_probes_the_deps_components_of_the_environment(
-    tmp_path, write_toml, monkeypatch, capsys
-):
-    write_toml(
-        "pyproject.toml",
-        """
-        [project]
-        name = "rpent"
-        dependencies = []
-        """,
-    )
-    for name in ("alpha", "beta"):
-        write_toml(
-            f"robots/{name}/component.toml",
-            f"""
-            schema = 1
-            name = "{name}"
-            kind = "robot"
-            probe = "json"
-            requires = ["shared"]
-            """,
-        )
-    write_toml(
-        "installs/deps/shared.toml",
-        """
-        schema = 1
-        name = "shared"
-        kind = "deps"
-        probe = "json"
-        dependencies = ["packaging"]
-        """,
-    )
-    major, minor = sys.version_info[:2]
-    write_toml(
-        "installs/profiles/alpha.toml",
-        f"""
-        schema = 1
-        name = "alpha"
-        python = "{major}.{minor}"
-        platform = "{runtime_platform()}"
-
-        [components.alpha]
-        placement = "in-env"
-        """,
-    )
-    _fake_uv(tmp_path, monkeypatch)
-
-    fingerprint = install("alpha", root=tmp_path, venv=tmp_path / "venv", verbose=True)
-
-    assert "probe shared: import json" in capsys.readouterr().out
-    assert fingerprint["components"]["shared"]["placement"] == "in-env"
-
-
-def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatch):
+def test_install_records_a_fingerprint(repo, tmp_path, monkeypatch, capsys):
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
 
-    fingerprint = install("alpha", root=repo, venv=venv, verbose=False)
+    fingerprint = install(["robot-alpha"], root=repo, venv=venv, verbose=True)
 
     assert read_fingerprint(venv) == fingerprint
     assert fingerprint["schema"] == REQUIREMENTS_SCHEMA
-    assert fingerprint["profile"] == "alpha"
-    assert fingerprint["components"]["alpha"]["placement"] == "in-env"
-    assert fingerprint["component_profiles"]["alpha"] == ["alpha"]
-    assert fingerprint["requirements_file"] == ".rpent/requirements/alpha.txt"
+    assert fingerprint["targets"] == ["robot-alpha"]
+    assert sorted(fingerprint["components"]) == ["robot-alpha"]
+    assert fingerprint["requirements_file"] == ".rpent/requirements/robot-alpha.txt"
+    assert fingerprint["platform"] == runtime_platform()
     assert fingerprint["source_commit"] is None
     assert os.path.isfile(venv / "bin" / "python")
+    assert "probe robot-alpha: import json" in capsys.readouterr().out
 
 
-def test_install_uses_generated_requirements(repo, tmp_path, monkeypatch):
-    _, install_arguments = _fake_uv(tmp_path, monkeypatch)
+def test_install_installs_the_requirements_then_the_checkout_as_editable(
+    repo, tmp_path, monkeypatch
+):
+    uv, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
-    fingerprint = install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    fingerprint = install(["robot-alpha"], root=repo, venv=tmp_path / "venv")
 
-    requirements_arguments = install_arguments()[0]
+    requirements_arguments, editable_arguments = install_arguments()
     assert requirements_arguments[requirements_arguments.index("-r") + 1] == str(
-        repo / ".rpent/requirements/alpha.txt"
+        repo / ".rpent/requirements/robot-alpha.txt"
     )
     requirements = (repo / fingerprint["requirements_file"]).read_text()
     assert "numpy>=2" in requirements
     assert "packaging" in requirements
+    assert editable_arguments[-3:] == ["--no-deps", "-e", str(repo.resolve())]
+    assert requirements_arguments[:2] == ["pip", "install"]
+    assert editable_arguments[:2] == ["pip", "install"]
+    assert requirements_arguments[2:4] == [
+        "--python",
+        str(tmp_path / "venv" / "bin" / "python"),
+    ]
+    # The checkout's own package is installed editable, without dependencies, so
+    # the requirements file stays the only source of third-party packages.
+    assert str(uv) not in requirements_arguments
+
+
+def test_install_records_the_inputs_doctor_recomputes(repo, tmp_path, monkeypatch):
+    _fake_uv(tmp_path, monkeypatch)
+
+    fingerprint = install(["robot-alpha"], root=repo, venv=tmp_path / "venv")
+
+    resolution = resolve_targets(["robot-alpha"], discover(repo), root=repo)
+    assert fingerprint["requirements_sha256"] == requirements_sha256(
+        resolution,
+        root=repo,
+        core_dependencies=read_core_dependencies(repo),
+    )
 
 
 def test_install_passes_override_files_by_absolute_path(
@@ -402,10 +265,9 @@ def test_install_passes_override_files_by_absolute_path(
     # checkout before being handed over.
     write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "json"
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
@@ -414,7 +276,7 @@ def test_install_passes_override_files_by_absolute_path(
     write_toml("robots/alpha/requirements/override.txt", "numpy<3\n")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
-    install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    install(["robot-alpha"], root=repo, venv=tmp_path / "venv", verbose=False)
 
     arguments = install_arguments()[0]
     value = arguments[arguments.index("--override") + 1]
@@ -428,107 +290,63 @@ def test_install_runs_uv_inside_the_checkout(repo, tmp_path, monkeypatch):
     _fake_uv(tmp_path, monkeypatch)
     monkeypatch.chdir(repo / "robots")
 
-    install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    install(["robot-alpha"], root=repo, venv=tmp_path / "venv", verbose=False)
 
     assert set(_uv_working_directories(tmp_path)) == {str(repo.resolve())}
 
 
-def test_install_refuses_a_venv_belonging_to_another_profile(
+def test_install_refuses_a_venv_installed_for_another_target_set(
     repo, tmp_path, monkeypatch
 ):
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
     venv.mkdir()
-    (venv / "rpent-install.json").write_text('{"profile": "beta"}\n', encoding="utf-8")
-
-    with pytest.raises(InstallError, match="already installed for profile 'beta'"):
-        install("alpha", root=repo, venv=venv, verbose=False)
-
-
-def test_component_install_marks_its_fingerprint(repo, tmp_path, monkeypatch):
-    _fake_uv(tmp_path, monkeypatch)
-
-    fingerprint = install("beta", root=repo, venv=tmp_path / "venv", verbose=False)
-
-    assert fingerprint["install_kind"] == "component"
-    assert fingerprint["component"] == "beta"
-    assert fingerprint["profile"] is None
-
-
-def test_profile_install_records_its_inputs(repo, tmp_path, monkeypatch):
-    _fake_uv(tmp_path, monkeypatch)
-
-    fingerprint = install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
-
-    assert fingerprint["install_kind"] == "profile"
-    assert fingerprint["profile"] == "alpha"
-    assert fingerprint["component"] is None
-    # `doctor` recomputes the same input hash to detect configuration drift.
-    resolution = resolve_install_target("alpha", discover(repo), root=repo)
-    assert fingerprint["requirements_sha256"] == requirements_sha256(
-        resolution,
-        root=repo,
-        core_dependencies=read_core_dependencies(repo),
+    (venv / "rpent-install.json").write_text(
+        '{"targets": ["robot-beta"]}\n', encoding="utf-8"
     )
 
+    with pytest.raises(InstallError, match="already installed for robot-beta"):
+        install(["robot-alpha"], root=repo, venv=venv, verbose=False)
 
-def test_component_install_refuses_a_profile_venv(repo, tmp_path, monkeypatch):
+
+def test_install_accepts_a_venv_installed_for_the_same_target_set(
+    repo, tmp_path, monkeypatch
+):
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
 
-    install("beta", root=repo, venv=venv, verbose=False)
-
-    with pytest.raises(InstallError, match="already installed for component 'beta'"):
-        install("alpha", root=repo, venv=venv, verbose=False)
-
-
-def test_install_with_dev_includes_test_dependencies(repo, tmp_path, monkeypatch):
-    _, install_arguments = _fake_uv(tmp_path, monkeypatch)
-
+    install(["robot-beta", "robot-alpha"], root=repo, venv=venv, verbose=False)
     fingerprint = install(
-        "alpha", root=repo, venv=tmp_path / "venv", include_dev=True, verbose=False
+        ["robot-alpha", "robot-beta"], root=repo, venv=venv, verbose=False
     )
 
-    requirements_arguments = install_arguments()[0]
-    assert requirements_arguments[requirements_arguments.index("-r") + 1] == str(
-        repo / ".rpent/requirements/alpha.txt"
-    )
-    assert fingerprint["include_dev"] is True
-    assert "pytest" in (repo / fingerprint["requirements_file"]).read_text()
+    assert fingerprint["targets"] == ["robot-alpha", "robot-beta"]
 
 
-def test_install_refuses_a_component_rejecting_the_interpreter(
+def test_install_fails_before_uv_when_no_interpreter_fits(
     repo, tmp_path, write_toml, monkeypatch
 ):
     write_toml(
         "robots/beta/component.toml",
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-beta"
         probe = "json"
         python = ">=3.10,<3.12"
         """,
     )
-    write_toml(
-        "installs/profiles/betaenv.toml",
-        f"""
-        schema = 1
-        name = "betaenv"
-        python = "3.11"
-        platform = "{runtime_platform()}"
-
-        [components.beta]
-        placement = "in-env"
-        """,
-    )
     _fake_uv(tmp_path, monkeypatch)
+    # An existing virtualenv keeps the interpreter it was created with, so the
+    # install checks the components against that interpreter before resolving.
+    venv = tmp_path / "venv"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin" / "python").write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setattr(
         "rpent.install.installer._python_version", lambda python: "3.12.1"
     )
 
     with pytest.raises(InstallError, match=r"requires Python >=3\.10,<3\.12"):
-        install("betaenv", root=repo, venv=tmp_path / "venv", verbose=False)
+        install(["robot-beta"], root=repo, venv=tmp_path / "venv", verbose=False)
 
     # The check runs before uv installs anything.
     assert not (tmp_path / "uv-install-args").exists()
@@ -537,29 +355,13 @@ def test_install_refuses_a_component_rejecting_the_interpreter(
 def test_install_accepts_an_interpreter_inside_every_component_range(
     repo, tmp_path, write_toml, monkeypatch
 ):
-    # The profile pin names the interpreter used to create the venv; the
-    # components decide which interpreters can run the environment.
-    write_toml(
-        "installs/profiles/older.toml",
-        f"""
-        schema = 1
-        name = "older"
-        python = "3.11"
-        platform = "{runtime_platform()}"
-
-        [components.alpha]
-        placement = "in-env"
-        """,
-    )
     write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "json"
         python = ">=3.10,<3.14"
-        dependencies = ["numpy>=2"]
         """,
     )
     _fake_uv(tmp_path, monkeypatch)
@@ -567,6 +369,6 @@ def test_install_accepts_an_interpreter_inside_every_component_range(
         "rpent.install.installer._python_version", lambda python: "3.12.1"
     )
 
-    fingerprint = install("older", root=repo, venv=tmp_path / "venv", verbose=False)
+    fingerprint = install(["robot-alpha"], root=repo, venv=tmp_path / "venv")
 
-    assert fingerprint["profile"] == "older"
+    assert fingerprint["python"] == "3.12.1"

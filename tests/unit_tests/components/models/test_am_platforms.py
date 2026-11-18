@@ -14,9 +14,9 @@
 
 """Robots own the wire contracts; capabilities keep matching copies."""
 
-from robots.libero import control as libero_control
-from robots.robotwin import control as robotwin_control
-from robots.robotwin import observation as robotwin_observation
+from components.sim.libero import control as libero_control
+from components.sim.robotwin import control as robotwin_control
+from components.sim.robotwin import observation as robotwin_observation
 from robots.yam import contracts as yam_contracts
 from rpent.models import platforms as am_platforms
 

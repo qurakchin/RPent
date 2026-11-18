@@ -1,10 +1,8 @@
-schema = 1
-name = "sam3"
-kind = "model"
+schema = 2
+name = "model-sam3"
 probe = "components.models.sam3.server"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
-placement = ["in-env", "external-env"]
 
 dependencies = [
   "sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8",

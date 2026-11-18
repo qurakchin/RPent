@@ -12,27 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Check profile dependencies with a temporary ``uv pip compile`` resolution."""
+"""Check component dependencies with a temporary ``uv pip compile`` resolution."""
 
 from __future__ import annotations
 
 import tempfile
 from pathlib import Path
 
-from rpent.install.discovery import Catalog
 from rpent.install.errors import InstallError
 from rpent.install.installer import index_options, run_command
-from rpent.install.manifest import Profile
-from rpent.install.requirements import (
-    read_core_dependencies,
-    render_requirements,
-)
-from rpent.install.resolve import resolve
+from rpent.install.requirements import render_requirements
+from rpent.install.resolve import Resolution
 
 # Pin the manylinux baseline instead of uv's default glibc 2.17 target: current
 # GPU wheels are published for newer baselines (rerun-sdk for manylinux_2_31,
-# Isaac Sim for manylinux_2_35), so a 2.17 baseline cannot resolve them. A
-# profile raises its baseline with `manylinux` when its components need it.
+# Isaac Sim for manylinux_2_35), so a 2.17 baseline cannot resolve them.
+DEFAULT_MANYLINUX = "2_31"
 PLATFORM_TAGS = {
     "linux-x86_64": "x86_64-manylinux_{baseline}",
     "linux-aarch64": "aarch64-manylinux_{baseline}",
@@ -41,36 +36,30 @@ PLATFORM_TAGS = {
 }
 
 
-def compile_profile(
-    profile: Profile,
-    catalog: Catalog,
+def compile_resolution(
+    resolution: Resolution,
     *,
     root: Path,
     uv: str,
     output: Path,
+    python: str,
+    platform: str,
+    core_dependencies: tuple[str, ...] = (),
 ) -> str:
-    """Compile one profile into ``output`` for a dependency resolution check."""
-    resolution = resolve(
-        profile,
-        catalog,
-        core_dependencies=read_core_dependencies(root) if profile.core else (),
-    )
-    if not resolution.ok:
-        raise InstallError("\n".join(resolution.errors))
-    platform_template = PLATFORM_TAGS.get(profile.platform)
+    """Compile one component environment into ``output``.
+
+    ``python`` is the ``major.minor`` interpreter the environment would run.
+    """
+    platform_template = PLATFORM_TAGS.get(platform)
     if platform_template is None:
         raise InstallError(
-            f"profile {profile.name!r} uses unknown platform {profile.platform!r}; "
-            f"known: {', '.join(sorted(PLATFORM_TAGS))}"
+            f"unknown platform {platform!r}; known: {', '.join(sorted(PLATFORM_TAGS))}"
         )
-    platform_tag = platform_template.format(baseline=profile.manylinux)
-    requirements = render_requirements(
-        resolution,
-        profile.name,
-        core_dependencies=read_core_dependencies(root) if profile.core else (),
-    )
+    platform_tag = platform_template.format(baseline=DEFAULT_MANYLINUX)
+    requirements = render_requirements(resolution, core_dependencies=core_dependencies)
+    name = "+".join(resolution.targets)
     with tempfile.TemporaryDirectory(prefix="rpent-requirements-") as directory:
-        source = Path(directory) / f"{profile.name}.txt"
+        source = Path(directory) / f"{name}.txt"
         source.write_text(requirements, encoding="utf-8")
         command = [
             uv,
@@ -78,17 +67,17 @@ def compile_profile(
             "compile",
             str(source),
             "--python-version",
-            profile.python,
+            python,
             "--python-platform",
             platform_tag,
             "--no-header",
             "--no-annotate",
             "--output-file",
             str(output),
-            *index_options(profile),
+            *index_options(resolution),
         ]
-        for resolved in resolution.main_installed().values():
-            for override in resolved.component.overrides:
+        for component in resolution.components.values():
+            for override in component.overrides:
                 # Manifests resolve overrides to absolute paths when they are
                 # loaded, so uv's working directory does not matter here.
                 command.extend(["--overrides", str(override)])
@@ -100,19 +89,29 @@ def compile_profile(
     return output.read_text(encoding="utf-8")
 
 
-def resolve_profile(
-    profile: Profile,
-    catalog: Catalog,
+def resolve_resolution(
+    resolution: Resolution,
     *,
     root: Path,
     uv: str,
+    python: str,
+    platform: str,
+    core_dependencies: tuple[str, ...] = (),
 ) -> str:
-    """Compile ``profile`` into a temporary file and return the uv output.
+    """Compile ``resolution`` into a temporary file and return the uv output.
 
     ``rpent-install check --resolve`` uses this to prove that the declared
-    dependencies have a solution; it delegates to :func:`compile_profile` so
+    dependencies have a solution; it delegates to :func:`compile_resolution` so
     there is only one resolver.
     """
     with tempfile.TemporaryDirectory(prefix="rpent-resolve-") as directory:
-        output = Path(directory) / f"{profile.name}.txt"
-        return compile_profile(profile, catalog, root=root, uv=uv, output=output)
+        output = Path(directory) / "requirements.txt"
+        return compile_resolution(
+            resolution,
+            root=root,
+            uv=uv,
+            output=output,
+            python=python,
+            platform=platform,
+            core_dependencies=core_dependencies,
+        )

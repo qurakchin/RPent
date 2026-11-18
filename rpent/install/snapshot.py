@@ -37,14 +37,14 @@ def installation_snapshot(venv: Path | None = None) -> dict[str, Any]:
     """Return the current environment's installation identity.
 
     A source checkout that was not installed through ``rpent-install`` still gets a
-    snapshot, but ``profile`` and ``install_sha256`` are ``None`` so a run can
+    snapshot, but ``targets`` and ``install_sha256`` are ``None`` so a run can
     be traced to the environment that produced it.
     """
     active = Path(venv).resolve() if venv is not None else current_venv()
     fingerprint = read_fingerprint(active) if active is not None else None
     if fingerprint is None:
         return {
-            "profile": None,
+            "targets": None,
             "install_sha256": None,
             "python": platform.python_version(),
             "platform": runtime_platform(),
@@ -52,7 +52,7 @@ def installation_snapshot(venv: Path | None = None) -> dict[str, Any]:
             "components": [],
         }
     return {
-        "profile": fingerprint.get("profile"),
+        "targets": fingerprint.get("targets"),
         "install_sha256": fingerprint_sha256(fingerprint),
         "python": fingerprint.get("python", platform.python_version()),
         "platform": fingerprint.get("platform", runtime_platform()),

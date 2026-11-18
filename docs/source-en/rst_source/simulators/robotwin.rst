@@ -80,14 +80,13 @@ Installation
 
 RoboTwin requires Python 3.11. The host must already provide a compatible
 CUDA toolkit/NVCC, a compiler toolchain, and the system GL/EGL/Vulkan
-libraries that SAPIEN depends on. Install the RoboTwin compatibility extra;
-you do not need to run the RLinf installer or clone RoboTwin separately:
+libraries that SAPIEN depends on. Install ``robot-robotwin``; you do not need
+to run the RLinf installer or clone RoboTwin separately:
 
 .. code-block:: bash
 
-   uv venv .venv-robotwin --python 3.11
+   ./scripts/rpent-install.sh install robot-robotwin --venv .venv-robotwin
    source .venv-robotwin/bin/activate
-   uv pip install -e ".[robotwin]"
 
 For networks closer to Chinese mirrors, set uv's index environment variables
 before running that install command:

@@ -82,16 +82,22 @@ def test_target50_manifest_identity_and_dependencies():
 
 def test_target50_sources_match_manifest_and_documentation():
     dependencies = _manifest()["dependencies"]
+    # The component that installs each package carries the pin.
     sources = {
-        "robosuite": "robosuite",
-        "robocasa": "rpent-robocasa365",
-        "rldx": "rlinf-rldx",
+        "robosuite": (
+            "robosuite",
+            REPO_ROOT / "components" / "sim" / "robocasa" / "component.toml",
+        ),
+        "robocasa": (
+            "rpent-robocasa365",
+            REPO_ROOT / "components" / "sim" / "robocasa" / "component.toml",
+        ),
+        "rldx": (
+            "rlinf-rldx",
+            REPO_ROOT / "components" / "models" / "rldx" / "component.toml",
+        ),
     }
-    project = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    component = (REPO_ROOT / "robots" / "robocasa" / "component.toml").read_text(
-        encoding="utf-8"
-    )
-    for name, package in sources.items():
+    for name, (package, manifest) in sources.items():
         # The public manifest records the upstream branch the protocol was
         # evaluated against; the install pins a commit on that branch so a
         # relock cannot silently change the simulator.
@@ -100,8 +106,7 @@ def test_target50_sources_match_manifest_and_documentation():
         repository = dependencies[name]["repository"]
         requirement = f"{package} @ git+{repository}.git@"
         pinned = re.compile(rf"{re.escape(requirement)}[0-9a-f]{{40}}")
-        assert pinned.search(component)
-        assert pinned.search(project)
+        assert pinned.search(manifest.read_text(encoding="utf-8"))
         for language in ("en", "zh"):
             guide = (
                 REPO_ROOT
@@ -111,8 +116,8 @@ def test_target50_sources_match_manifest_and_documentation():
                 / "simulators"
                 / "robocasa.rst"
             ).read_text(encoding="utf-8")
-            assert 'uv pip install -e ".[robocasa]"' in guide
-            assert "rpent-install install robocasa-sim" not in guide
+            assert "install robot-robocasa --venv" in guide
+            assert "robocasa-sim" not in guide
             assert "``rpent``" in guide
             assert "uv pip check" in guide
             assert "uv pip freeze" in guide

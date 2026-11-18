@@ -1,9 +1,10 @@
 name: Full CI
 
-# Proves a clean machine can install and run each selected profile in a fresh
-# venv, with doctor checks and the GPU suite where a simulator exists.
-# `fast ci` selects the profiles a pull request affects; nightly, manual, and
-# release runs install every profile. Releases call this with `full: true`.
+# Proves a clean machine can install and run each selected environment in a
+# fresh venv, with doctor checks and the GPU suite where a simulator exists.
+# `fast ci` selects the environments a pull request affects; nightly, manual,
+# and release runs install every environment. Releases call this with
+# `full: true`.
 on:
   schedule:
     # Offset from other nightly jobs to spread runner load.
@@ -12,17 +13,17 @@ on:
   workflow_call:
     inputs:
       full:
-        description: Install every profile (release gate)
+        description: Install every environment (release gate)
         required: false
         type: boolean
         default: false
       hosted:
-        description: JSON array of profiles installed on a hosted runner
+        description: JSON array of environments installed on a hosted runner; each entry is the component names of one environment
         required: false
         type: string
         default: ""
       gpu:
-        description: JSON array of profiles installed on the embodied runner
+        description: JSON array of environments installed on the embodied runner; each entry is the component names of one environment
         required: false
         type: string
         default: ""
@@ -37,7 +38,7 @@ permissions:
 
 jobs:
   scope:
-    name: Select profiles
+    name: Select environments
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -47,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Select the profiles and suites
+      - name: Select the environments and suites
         id: select
         shell: bash
         env:
@@ -64,8 +65,8 @@ jobs:
             e2e=$CALLED_E2E
           else
             # Nightly and manual runs, and a release call with `full: true`,
-            # cover every supported profile on the runner its authored
-            # partition assigns it to.
+            # cover every component on the runner its authored partition
+            # assigns it to.
             hosted=$(./tests/tooling/run.sh matrix --runner hosted)
             gpu=$(./tests/tooling/run.sh matrix --runner gpu)
             e2e='["libero","robocasa","robotwin"]'
@@ -81,7 +82,7 @@ jobs:
     uses: ./.github/workflows/unit.yml
     with:
       tests: "[]"
-      profile: unit-cpu
+      components: infra-unit_cpu
 
   env:
     name: Environments

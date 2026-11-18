@@ -16,189 +16,185 @@
 
 import pytest
 
-from rpent.install.discovery import discover, discover_components, discover_profiles
+from rpent.install.discovery import discover, discover_components
 from rpent.install.errors import InstallConfigError
+from rpent.install.manifest import SCHEMA
+
+DIRECTORIES = {
+    "robot": "robots",
+    "sim": "components/sim",
+    "model": "components/models",
+    "tool": "components/tools",
+}
 
 
-def _manifest(write_toml, relative, name, kind, *, conflicts=(), requires=()):
+def _component(write_toml, kind, short, *, conflicts=(), requires=(), imports=()):
+    name = f"{kind}-{short}"
     rendered = ", ".join(f'"{item}"' for item in conflicts)
     required = ", ".join(f'"{item}"' for item in requires)
+    imported = ", ".join(f'"{item}"' for item in imports)
     return write_toml(
-        f"{relative}/{name}/component.toml",
+        f"{DIRECTORIES[kind]}/{short}/component.toml",
         f"""
-        schema = 1
+        schema = {SCHEMA}
         name = "{name}"
-        kind = "{kind}"
-        probe = "{name}"
+        probe = "{name.replace("-", ".")}"
+        requires = [{required}]
+        env_conflicts = [{rendered}]
+        imports = [{imported}]
+        """,
+    )
+
+
+def _infra(write_toml, short, *, requires=(), conflicts=()):
+    required = ", ".join(f'"{item}"' for item in requires)
+    rendered = ", ".join(f'"{item}"' for item in conflicts)
+    return write_toml(
+        f"installs/infra-{short}.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "infra-{short}"
+        probe = "{short}"
         requires = [{required}]
         env_conflicts = [{rendered}]
         """,
     )
 
 
-def test_discovery_loads_components_profiles_and_conflict_symmetry(
-    tmp_path, write_toml
-):
-    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["beta"])
-    _manifest(write_toml, "robots", "beta", "robot", conflicts=["alpha"])
-    _manifest(write_toml, "components/models", "sam3", "model")
-    write_toml(
-        "installs/profiles/alpha.toml",
-        """
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "linux-x86_64"
-
-        [components.alpha]
-        placement = "in-env"
-        """,
-    )
+def test_discovery_loads_every_kind(tmp_path, write_toml):
+    _component(write_toml, "robot", "alpha", conflicts=["robot-beta"])
+    _component(write_toml, "robot", "beta", conflicts=["robot-alpha"])
+    _component(write_toml, "sim", "alpha")
+    _component(write_toml, "model", "alpha")
+    _component(write_toml, "tool", "alpha")
+    _infra(write_toml, "alpha")
 
     catalog = discover(tmp_path)
 
-    assert sorted(catalog.components) == ["alpha", "beta", "sam3"]
-    assert catalog.components["sam3"].kind == "model"
-    assert catalog.profiles["alpha"].components["alpha"].placement == "in-env"
+    assert catalog.root == tmp_path.resolve()
+    assert sorted(catalog.components) == [
+        "infra-alpha",
+        "model-alpha",
+        "robot-alpha",
+        "robot-beta",
+        "sim-alpha",
+        "tool-alpha",
+    ]
+    assert catalog.components["sim-alpha"].kind == "sim"
+    assert catalog.components["infra-alpha"].is_infra
 
 
-def test_component_kind_must_match_root(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "model")
+def test_component_name_must_match_its_directory(tmp_path, write_toml):
+    write_toml(
+        "robots/alpha/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "robot-beta"
+        probe = "robots.alpha"
+        """,
+    )
 
-    with pytest.raises(InstallConfigError, match="does not match"):
+    with pytest.raises(InstallConfigError, match="must be 'robot-alpha'"):
         discover_components(tmp_path)
 
 
-def test_duplicate_component_names_are_rejected(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot")
-    _manifest(write_toml, "components/models", "alpha", "model")
+def test_component_manifest_in_the_wrong_kind_of_directory_is_rejected(
+    tmp_path, write_toml
+):
+    write_toml(
+        "components/models/alpha/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
+        probe = "robots.alpha"
+        """,
+    )
 
-    with pytest.raises(InstallConfigError, match="declared twice"):
+    with pytest.raises(InstallConfigError, match="must be 'model-alpha'"):
         discover_components(tmp_path)
+
+
+def test_a_component_name_is_derived_from_its_location(tmp_path, write_toml):
+    _component(write_toml, "robot", "alpha")
+    _component(write_toml, "model", "alpha")
+
+    components = discover_components(tmp_path)
+
+    assert components["robot-alpha"].path == (tmp_path / "robots" / "alpha").resolve()
+    assert (
+        components["model-alpha"].path
+        == (tmp_path / "components" / "models" / "alpha").resolve()
+    )
+    assert components["robot-alpha"].manifest.name == "component.toml"
 
 
 def test_conflicts_must_reference_known_components(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["missing"])
+    _component(write_toml, "robot", "alpha", conflicts=["robot-missing"])
 
     with pytest.raises(InstallConfigError, match="unknown component"):
         discover_components(tmp_path)
 
 
 def test_conflicts_must_not_name_the_component_itself(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["alpha"])
+    _component(write_toml, "robot", "alpha", conflicts=["robot-alpha"])
 
     with pytest.raises(InstallConfigError, match="names the component itself"):
         discover_components(tmp_path)
 
 
-def test_profiles_are_discovered_by_filename(tmp_path, write_toml):
-    write_toml(
-        "installs/profiles/alpha.toml",
-        """
-        schema = 1
-        name = "alpha"
-        python = "3.10"
-        platform = "linux-x86_64"
-        """,
-    )
+def test_requires_must_reference_known_components(tmp_path, write_toml):
+    _component(write_toml, "robot", "alpha", requires=["model-missing"])
 
-    profiles = discover_profiles(tmp_path)
-
-    assert profiles["alpha"].python == "3.10"
-
-
-def test_profiles_require_a_source_checkout(tmp_path):
-    with pytest.raises(InstallConfigError, match="installs/profiles.*does not exist"):
-        discover_profiles(tmp_path)
+    with pytest.raises(InstallConfigError, match="requires references unknown"):
+        discover_components(tmp_path)
 
 
 def test_imports_must_be_declared_in_requires(tmp_path, write_toml):
-    write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
-        probe = "alpha"
-        imports = ["beta"]
-        """,
-    )
-    _manifest(write_toml, "robots", "beta", "robot")
+    _component(write_toml, "robot", "alpha", imports=["robot-beta"])
+    _component(write_toml, "robot", "beta")
 
     with pytest.raises(InstallConfigError, match="neither.*requires the other"):
         discover_components(tmp_path)
 
 
 def test_imports_may_rely_on_the_other_components_requires(tmp_path, write_toml):
-    write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
-        probe = "alpha"
-        imports = ["beta"]
-        """,
-    )
-    _manifest(write_toml, "robots", "beta", "robot", requires=["alpha"])
+    _component(write_toml, "robot", "alpha", imports=["robot-beta"])
+    _component(write_toml, "robot", "beta", requires=["robot-alpha"])
 
     components = discover_components(tmp_path)
 
-    assert components["alpha"].imports == ("beta",)
+    assert components["robot-alpha"].imports == ("robot-beta",)
 
 
-def test_imports_must_name_a_same_kind_component(tmp_path, write_toml):
-    write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
-        probe = "alpha"
-        requires = ["sam3"]
-        imports = ["sam3"]
-        """,
+def test_imports_must_name_a_robot_component(tmp_path, write_toml):
+    _component(
+        write_toml, "robot", "alpha", requires=["sim-alpha"], imports=["sim-alpha"]
     )
-    _manifest(write_toml, "components/models", "sam3", "model")
+    _component(write_toml, "sim", "alpha")
 
     with pytest.raises(InstallConfigError, match="must name a robot component"):
         discover_components(tmp_path)
 
 
 def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
-    write_toml(
-        "components/models/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "model"
-        probe = "alpha"
-        requires = ["beta"]
-        imports = ["beta"]
-        """,
+    _component(
+        write_toml, "model", "alpha", requires=["model-beta"], imports=["model-beta"]
     )
-    _manifest(write_toml, "components/models", "beta", "model", requires=["alpha"])
+    _component(write_toml, "model", "beta", requires=["model-alpha"])
 
     with pytest.raises(InstallConfigError, match="imports is only for robot slices"):
         discover_components(tmp_path)
 
 
 def test_apple_double_metadata_is_ignored(tmp_path, write_toml):
-    write_toml(
-        "installs/profiles/alpha.toml",
-        """
-        schema = 1
-        name = "alpha"
-        python = "3.10"
-        platform = "linux-x86_64"
-        """,
-    )
+    _component(write_toml, "robot", "alpha")
+    _infra(write_toml, "dev")
     # A network filesystem stores macOS extended attributes as ._<name> files.
-    (tmp_path / "installs" / "profiles" / "._alpha.toml").write_bytes(
-        b"\xa3\na metadata file"
-    )
-    _manifest(write_toml, "robots", "alpha", "robot")
-    (tmp_path / "robots" / "._alpha").write_bytes(b"\xa3 metadata")
+    (tmp_path / "installs" / "._infra-dev.toml").write_bytes(b"\xa3 metadata")
+    (tmp_path / "robots" / "._alpha").mkdir()
 
-    assert list(discover_components(tmp_path)) == ["alpha"]
-    assert list(discover_profiles(tmp_path)) == ["alpha"]
+    assert sorted(discover_components(tmp_path)) == ["infra-dev", "robot-alpha"]
+
+
+def test_empty_checkout_has_no_components(tmp_path):
+    assert discover_components(tmp_path) == {}

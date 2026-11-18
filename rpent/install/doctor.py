@@ -17,14 +17,12 @@
 from __future__ import annotations
 
 import os
-import socket
 import subprocess
-import urllib.parse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from rpent.install.discovery import Catalog, discover
+from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     FINGERPRINT_NAME,
@@ -33,10 +31,10 @@ from rpent.install.fingerprint import (
     runtime_platform,
 )
 from rpent.install.installer import (
-    component_profile,
     find_uv,
     probe_source,
-    resolve_install_target,
+    repair_command,
+    resolve_targets,
     venv_python,
 )
 from rpent.install.requirements import (
@@ -44,7 +42,7 @@ from rpent.install.requirements import (
     read_core_dependencies,
     requirements_sha256,
 )
-from rpent.install.resolve import python_errors, resolve
+from rpent.install.resolve import python_errors
 from rpent.utils.config import get_repo_root
 
 OK = "ok"
@@ -64,118 +62,45 @@ def _run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, text=True, capture_output=True, **kwargs)
 
 
-def _endpoint_value(name: str, endpoints: dict[str, str]) -> str | None:
-    if name in endpoints:
-        return endpoints[name]
-    value = os.environ.get(f"RPENT_{name.upper().replace('-', '_')}_ENDPOINT")
-    return value or None
-
-
-def _endpoint_address(endpoint: str) -> tuple[str, int] | None:
-    parsed = urllib.parse.urlsplit(endpoint)
-    if parsed.hostname is None:
-        parsed = urllib.parse.urlsplit(f"//{endpoint}")
-    if parsed.hostname is None:
-        return None
-    if parsed.port is not None:
-        return parsed.hostname, parsed.port
-    return None
-
-
-def _probe_endpoint(endpoint: str) -> str | None:
-    address = _endpoint_address(endpoint)
-    if address is None:
-        return f"cannot parse endpoint {endpoint!r}; expected host:port or a URL"
-    try:
-        with socket.create_connection(address, timeout=5):
-            return None
-    except OSError as exc:
-        return f"endpoint {endpoint!r} is not reachable: {exc}"
-
-
-def _installed_minor(fingerprint: dict[str, Any]) -> str | None:
-    """Return the major.minor interpreter version recorded at install time."""
-    parts = str(fingerprint.get("python", "")).split(".")
-    if len(parts) >= 2 and parts[0].isdigit() and parts[1].isdigit():
-        return f"{parts[0]}.{parts[1]}"
-    return None
-
-
-def _resolve_component(
-    name: str,
-    catalog: Catalog,
-    *,
-    root: Path,
-    fingerprint: dict[str, Any],
-):
-    """Resolve a component diagnostic with its install-time interpreter."""
-    if name not in catalog.components:
-        known = ", ".join(sorted(catalog.components))
-        raise InstallError(f"unknown component {name!r}; known: {known}")
-    recorded = fingerprint.get("components", {}).get(name, {})
-    profile = component_profile(
-        name,
-        catalog,
-        root=root,
-        python=_installed_minor(fingerprint),
-        variant=recorded.get("variant"),
-    )
-    core = read_core_dependencies(root) if profile.core else ()
-    return resolve(profile, catalog, core_dependencies=core)
-
-
-def check_installation(
-    venv: Path,
-    *,
-    profile_name: str | None = None,
-    endpoints: dict[str, str] | None = None,
-    root: Path | None = None,
-) -> list[Check]:
+def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
     """Return diagnostic results for the environment in ``venv``."""
     repo_root = (root or get_repo_root()).resolve()
     venv = Path(venv).resolve()
-    endpoints = endpoints or {}
     checks: list[Check] = []
     fingerprint = read_fingerprint(venv)
     if fingerprint is None:
         return [
             Check(
                 FAIL,
-                f"{venv} has no {FINGERPRINT_NAME}; "
-                f"install it with `rpent-install install <profile> --venv {venv}`",
+                f"{venv} has no {FINGERPRINT_NAME}; install it with "
+                f"`rpent-install install <components> --venv {venv}`",
             )
         ]
-    kind = fingerprint.get("install_kind", "profile")
-    name = profile_name or fingerprint.get("profile") or fingerprint.get("component")
-    if name is None:
-        return [*checks, Check(FAIL, "fingerprint records no profile or component")]
-    include_dev = bool(fingerprint.get("include_dev", False))
-    label = "component" if kind == "component" else "profile"
-    checks.append(Check(OK, f"{label}: {name}"))
+    targets = fingerprint.get("targets")
+    if not isinstance(targets, list) or not targets:
+        return [
+            Check(
+                FAIL,
+                "fingerprint records no target components; reinstall with "
+                f"`rpent-install install <components> --venv {venv}`",
+            )
+        ]
+    checks.append(Check(OK, f"targets: {', '.join(targets)}"))
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
     try:
         catalog = discover(repo_root)
-        if kind == "component":
-            resolution = _resolve_component(
-                str(name), catalog, root=repo_root, fingerprint=fingerprint
-            )
-        else:
-            resolution = resolve_install_target(
-                str(name), catalog, root=repo_root, include_dev=include_dev
-            )
+        resolution = resolve_targets(
+            targets, catalog, root=repo_root, platform=runtime_platform()
+        )
     except (InstallError, ValueError) as exc:
-        checks.append(Check(FAIL, f"cannot resolve {label} {name!r}: {exc}"))
+        checks.append(Check(FAIL, f"cannot resolve {' '.join(targets)!r}: {exc}"))
         return checks
     if not resolution.ok:
         checks.append(Check(FAIL, "\n".join(resolution.errors)))
         return checks
-    profile = resolution.profile
-    core = read_core_dependencies(repo_root) if profile.core else ()
+    core = read_core_dependencies(repo_root)
     expected_requirements = requirements_sha256(
-        resolution,
-        root=repo_root,
-        core_dependencies=core,
-        include_dev=include_dev,
+        resolution, root=repo_root, core_dependencies=core
     )
     recorded_schema = fingerprint.get("schema")
     if recorded_schema != REQUIREMENTS_SCHEMA:
@@ -187,7 +112,7 @@ def check_installation(
                 FAIL,
                 "fingerprint records installation input mode "
                 f"{interpreted}, current is {REQUIREMENTS_SCHEMA}; rerun "
-                f"`rpent-install install {name} --venv {venv}` to record the "
+                f"`{repair_command(resolution)} --venv {venv}` to record the "
                 "current inputs",
             )
         )
@@ -197,7 +122,7 @@ def check_installation(
                 FAIL,
                 "environment is out of date with its recorded inputs (manifests, "
                 f"overrides, or [tool.uv]); rerun "
-                f"`rpent-install install {name} --venv {venv}`",
+                f"`{repair_command(resolution)} --venv {venv}`",
             )
         )
     else:
@@ -210,22 +135,12 @@ def check_installation(
     checks.append(Check(OK, f"python: {fingerprint.get('python', '?')}"))
     unsupported = python_errors(
         str(fingerprint.get("python", "")),
-        (resolved.component for resolved in resolution.main_installed().values()),
+        resolution.components.values(),
         owner=str(venv),
     )
     if unsupported:
         checks.append(Check(FAIL, "\n".join(unsupported)))
-    current_platform = runtime_platform()
-    if profile.platform != current_platform:
-        checks.append(
-            Check(
-                FAIL,
-                f"profile {profile.name!r} targets {profile.platform}, "
-                f"this host is {current_platform}",
-            )
-        )
-    else:
-        checks.append(Check(OK, f"platform: {current_platform}"))
+    checks.append(Check(OK, f"platform: {runtime_platform()}"))
 
     try:
         uv = find_uv()
@@ -241,7 +156,7 @@ def check_installation(
                 Check(
                     FAIL,
                     "installed packages changed since the fingerprint was written; "
-                    f"rerun `rpent-install install {name} --venv {venv}`",
+                    f"rerun `{repair_command(resolution)} --venv {venv}`",
                 )
             )
         else:
@@ -253,8 +168,8 @@ def check_installation(
             checks.append(Check(OK, "uv pip check"))
 
     environment = {**os.environ, "PYTHONPATH": str(repo_root)}
-    for component in resolution.main_installed().values():
-        probe = component.component.probe
+    for name, component in resolution.components.items():
+        probe = component.probe
         result = _run(
             [str(python), "-c", probe_source(probe)],
             env=environment,
@@ -263,34 +178,12 @@ def check_installation(
             checks.append(
                 Check(
                     FAIL,
-                    f"component {component.name!r} is not importable: "
+                    f"component {name!r} is not importable: "
                     f"{result.stderr.strip().splitlines()[-1] if result.stderr.strip() else probe}",
                 )
             )
         else:
-            checks.append(Check(OK, f"probe {component.name}: import {probe}"))
-
-    for component in resolution.external_components().values():
-        env_name = component.env or component.name
-        endpoint = _endpoint_value(env_name, endpoints) or _endpoint_value(
-            component.name, endpoints
-        )
-        if endpoint is None:
-            checks.append(
-                Check(
-                    WARN,
-                    f"external component {component.name!r} has no endpoint; pass "
-                    f"`--endpoint {env_name}=host:port` or set "
-                    f"RPENT_{env_name.upper().replace('-', '_')}_ENDPOINT",
-                )
-            )
-            continue
-        problem = _probe_endpoint(endpoint)
-        checks.append(
-            Check(
-                FAIL if problem else OK, problem or f"endpoint {env_name}: {endpoint}"
-            )
-        )
+            checks.append(Check(OK, f"probe {name}: import {probe}"))
     return checks
 
 

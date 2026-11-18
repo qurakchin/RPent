@@ -58,7 +58,7 @@ PROXY_ENVIRONMENT_VARIABLES = (
 
 
 def test_robodojo_camera_meta_roundtrip(transport, make_server_and_client):
-    from robots.robodojo.env_server import RoboDojoEnvFacade
+    from components.sim.robodojo.env_server import RoboDojoEnvFacade
 
     camera = {
         "intrinsic_matrix": np.eye(3, dtype=np.float32),

@@ -95,27 +95,22 @@ LIBERO
 
 首次使用 LIBERO-PRO，请先完成 :doc:`../get_started/quickstart` 的安装、资源下载和模型配置。本页用于选择更多任务与复现实验。
 
-其他 LIBERO 版本请按 :doc:`../get_started/installation` 在独立环境中安装对应配方，再下载资源；每个 Python 环境只安装一种 LIBERO 版本：
+``robot-libero`` 同时安装 standard LIBERO 与 LIBERO-PRO，运行时用 ``--libero-type`` 选择版本，并下载对应资源：
 
 .. list-table::
    :header-rows: 1
 
-   * - 版本
-     - 配方
+   * - ``--libero-type``
      - 资源下载
    * - ``standard``
-     - ``libero``
      - ``libero-download-assets --skip-existing``
    * - ``pro``
-     - ``libero-pro``
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
-     - ``libero-plus``
-     - ``liberoplus-download-assets --skip-existing``
+     - ``liberoplus-download-assets --skip-existing``；还需在环境中安装
+       ``rlinf-liberoplus``，目前没有组件提供它
 
-以上各配方均包含 Pi0.5（``rpent-openpi``）、SAM3 和 RLinf 运行时（``rpent-rlinf``）。模型权重需按下文单独下载。
-
-运行时通过 ``--libero-type`` 选择与安装包一致的版本。
+该环境包含 Pi0.5（``rpent-openpi``）、SAM3 和 RLinf 运行时（``infra-rlinf``）。模型权重需按下文单独下载。
 
 VLA 配置
 --------

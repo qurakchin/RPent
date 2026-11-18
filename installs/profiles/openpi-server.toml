@@ -1,7 +1,0 @@
-schema = 1
-name = "openpi-server"
-python = "3.11"
-platform = "linux-x86_64"
-
-[components.openpi]
-placement = "in-env"

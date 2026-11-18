@@ -7,7 +7,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from robots.robodojo import agent_support, robot_spec, tools
+from components.sim.robodojo import agent_support
+from robots.robodojo import robot_spec, tools
 from robots.robodojo.env_client import ExecutionSyncError
 from robots.robodojo.primitives import RoboDojoPrimitives
 from robots.robodojo.toolkit import RoboDojoToolkit
@@ -792,8 +793,8 @@ def test_exploration_memory_can_be_published_and_read_by_evaluation(
 def test_score_uses_native_cache_without_advancing_reward_state(
     make_agent, success, partial, expected
 ):
+    from components.sim.robodojo.env_facade import RoboDojoEnvFacade
     from robots.robodojo.env_client import RoboDojoEnvClient
-    from robots.robodojo.env_facade import RoboDojoEnvFacade
 
     checks = []
 

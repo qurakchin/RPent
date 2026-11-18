@@ -1,9 +1,0 @@
-schema = 1
-name = "libero-plus"
-python = "3.11"
-platform = "linux-x86_64"
-# LIBERO-plus requires robosuite<1.5, so it is a variant rather than an
-# inheritance from the standard LIBERO profile.
-
-[components.libero]
-variant = "plus"

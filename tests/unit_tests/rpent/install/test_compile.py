@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Profile dependency checks resolve with uv without persisting compiled files."""
+"""``check --resolve`` compiles a component environment with uv, temporarily."""
 
 import os
 import stat
@@ -21,10 +21,16 @@ from pathlib import Path
 import pytest
 
 from rpent.cli.install import main as env_main
-from rpent.install.compile import compile_profile, resolve_profile
+from rpent.install.compile import (
+    DEFAULT_MANYLINUX,
+    compile_resolution,
+    resolve_resolution,
+)
 from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
-from rpent.install.manifest import Selection
+from rpent.install.installer import choose_python, resolve_targets
+from rpent.install.manifest import SCHEMA
+from rpent.install.requirements import read_core_dependencies
 
 
 @pytest.fixture
@@ -39,48 +45,21 @@ def repo(tmp_path, write_toml):
     )
     write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "json"
         platforms = ["linux-x86_64"]
         dependencies = ["numpy>=2"]
         """,
     )
     write_toml(
-        "installs/profiles/alpha.toml",
-        """
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "linux-x86_64"
-
-        [components.alpha]
-        placement = "in-env"
-        """,
-    )
-    write_toml(
         "robots/beta/component.toml",
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-beta"
         probe = "json"
         platforms = ["linux-x86_64"]
-        """,
-    )
-    write_toml(
-        "installs/profiles/beta.toml",
-        """
-        schema = 1
-        name = "beta"
-        python = "3.11"
-        platform = "linux-x86_64"
-        manylinux = "2_35"
-
-        [components.beta]
-        placement = "in-env"
         """,
     )
     return tmp_path
@@ -88,7 +67,7 @@ def repo(tmp_path, write_toml):
 
 @pytest.fixture
 def fake_uv(tmp_path, monkeypatch):
-    """A uv stand-in that records the compiled requirements at --output-file."""
+    """A uv stand-in that copies the compiled source to ``--output-file``."""
     uv = tmp_path / "uv"
     uv.write_text(
         """#!/bin/sh
@@ -106,6 +85,10 @@ for argument in "$@"; do
   previous=$argument
 done
 [ -n "$output" ]
+if grep -q 'numpy>=9' "$source"; then
+  echo "no solution for numpy>=9" >&2
+  exit 1
+fi
 cp "$source" "$output"
 """,
         encoding="utf-8",
@@ -115,12 +98,24 @@ cp "$source" "$output"
     return uv
 
 
+def _arguments(fake_uv):
+    return (fake_uv.parent / "uv-args").read_text(encoding="utf-8").splitlines()
+
+
+def _resolution(repo, *targets):
+    catalog = discover(repo)
+    resolution = resolve_targets(targets, catalog, root=repo)
+    assert resolution.ok, resolution.errors
+    return resolution
+
+
 def test_check_resolves_from_the_checkout(repo, fake_uv, monkeypatch):
-    # uv discovers ``[tool.uv]`` from its working directory, so dependencies resolved
-    # from a subdirectory would record versions the checkout does not select.
+    # uv discovers ``[tool.uv]`` from its working directory, so dependencies
+    # resolved from a subdirectory would record versions the checkout does not
+    # select.
     monkeypatch.chdir(repo / "robots")
 
-    assert env_main(["--root", str(repo), "check", "alpha", "--resolve"]) == 0
+    assert env_main(["--root", str(repo), "check", "robot-alpha", "--resolve"]) == 0
 
     assert (repo / "uv-pwd").read_text(encoding="utf-8").splitlines() == [
         str(repo.resolve())
@@ -132,110 +127,157 @@ def test_check_resolves_override_files_against_the_checkout(repo, fake_uv, write
     # resolved from a subdirectory would otherwise miss the override.
     write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "json"
-        platforms = ["linux-x86_64"]
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
     )
     write_toml("robots/alpha/requirements/override.txt", "numpy<3\n")
 
-    assert env_main(["--root", str(repo), "check", "alpha", "--resolve"]) == 0
+    assert env_main(["--root", str(repo), "check", "robot-alpha", "--resolve"]) == 0
 
-    arguments = (fake_uv.parent / "uv-args").read_text(encoding="utf-8").splitlines()
+    arguments = _arguments(fake_uv)
     value = arguments[arguments.index("--overrides") + 1]
     assert value == str(repo / "robots/alpha/requirements/override.txt")
     assert os.path.isabs(value)
 
 
-def test_compile_rejects_an_unknown_platform(
-    tmp_path, make_component, make_profile, make_catalog, fake_uv
-):
-    component = make_component("alpha", platforms=("solaris",))
-    profile = make_profile(
-        "alpha",
-        components={"alpha": Selection(placement="in-env")},
-        platform="solaris",
-        core=False,
-    )
-    catalog = make_catalog([component], {"alpha": profile})
-
+def test_compile_rejects_an_unknown_platform(repo, fake_uv, tmp_path):
     with pytest.raises(InstallError, match="unknown platform 'solaris'"):
-        compile_profile(
-            profile, catalog, root=tmp_path, uv=str(fake_uv), output=tmp_path / "x"
+        compile_resolution(
+            _resolution(repo, "robot-alpha"),
+            root=repo,
+            uv=str(fake_uv),
+            output=tmp_path / "x.txt",
+            python="3.11",
+            platform="solaris",
         )
 
 
-def test_resolve_profile_cleans_up_compiled_requirements(repo, fake_uv):
-    catalog = discover(repo)
-    text = resolve_profile(
-        catalog.profiles["alpha"], catalog, root=repo, uv=str(fake_uv)
+def test_check_rejects_an_unknown_platform(repo, fake_uv, capsys):
+    assert (
+        env_main(
+            [
+                "--root",
+                str(repo),
+                "check",
+                "robot-alpha",
+                "--resolve",
+                "--platform",
+                "solaris",
+            ]
+        )
+        == 2
+    )
+    assert "unknown platform 'solaris'" in capsys.readouterr().err
+
+
+def test_check_uses_the_default_manylinux_baseline(repo, fake_uv):
+    assert env_main(["--root", str(repo), "check", "robot-alpha", "--resolve"]) == 0
+
+    arguments = _arguments(fake_uv)
+    assert arguments[arguments.index("--python-platform") + 1] == (
+        f"x86_64-manylinux_{DEFAULT_MANYLINUX}"
+    )
+
+
+def test_check_passes_the_components_index_settings(repo, fake_uv, write_toml):
+    write_toml(
+        "installs/infra-unit_cpu.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "infra-unit_cpu"
+        probe = "json"
+        index-url = "https://download.pytorch.org/whl/cpu"
+        extra-index-urls = ["https://pypi.org/simple"]
+        index-strategy = "unsafe-first-match"
+        """,
+    )
+
+    assert env_main(["--root", str(repo), "check", "infra-unit_cpu", "--resolve"]) == 0
+
+    arguments = _arguments(fake_uv)
+    assert arguments[arguments.index("--index-url") + 1] == (
+        "https://download.pytorch.org/whl/cpu"
+    )
+    assert arguments[arguments.index("--extra-index-url") + 1] == (
+        "https://pypi.org/simple"
+    )
+    assert arguments[arguments.index("--index-strategy") + 1] == "unsafe-first-match"
+
+
+def test_resolve_resolution_cleans_up_compiled_requirements(repo, fake_uv):
+    resolution = _resolution(repo, "robot-alpha")
+
+    text = resolve_resolution(
+        resolution,
+        root=repo,
+        uv=str(fake_uv),
+        python=choose_python(resolution.components.values()),
+        platform="linux-x86_64",
+        core_dependencies=read_core_dependencies(repo),
     )
 
     assert "numpy>=2" in text
-    arguments = (fake_uv.parent / "uv-args").read_text().splitlines()
+    arguments = _arguments(fake_uv)
     assert not Path(arguments[arguments.index("--output-file") + 1]).exists()
     assert not Path(arguments[2]).exists()
 
 
 def test_check_resolve_reports_the_uv_solution(repo, fake_uv, capsys):
-    assert env_main(["--root", str(repo), "check", "alpha", "--resolve"]) == 0
-    assert "profile alpha: ok, uv resolved 2 requirements" in capsys.readouterr().out
+    assert env_main(["--root", str(repo), "check", "robot-alpha", "--resolve"]) == 0
+
+    # `packaging` from RPent core plus `numpy>=2` from the component.
+    assert "robot-alpha: ok, 1 component, uv resolved 2 packages" in (
+        capsys.readouterr().out
+    )
 
 
 def test_check_resolve_reports_a_uv_failure(repo, fake_uv, monkeypatch, capsys):
     def fail(*args, **kwargs):
         raise InstallError("no solution for numpy>=9")
 
-    monkeypatch.setattr("rpent.cli.install.resolve_profile", fail)
+    monkeypatch.setattr("rpent.cli.install.resolve_resolution", fail)
 
-    assert env_main(["--root", str(repo), "check", "alpha", "--resolve"]) == 1
+    assert env_main(["--root", str(repo), "check", "robot-alpha", "--resolve"]) == 1
+
     output = capsys.readouterr().out
-    assert "profile alpha: FAIL" in output
+    assert "robot-alpha: FAIL" in output
     assert "no solution for numpy>=9" in output
 
 
-def test_check_uses_the_profile_manylinux_baseline(repo, fake_uv):
-    assert env_main(["--root", str(repo), "check", "beta", "--resolve"]) == 0
+def test_check_without_resolve_reports_counts_without_uv(repo, monkeypatch, capsys):
+    monkeypatch.setenv("RPENT_UV", "/nonexistent/uv")
 
-    arguments = (fake_uv.parent / "uv-args").read_text(encoding="utf-8").split()
-    assert arguments[arguments.index("--python-platform") + 1] == (
-        "x86_64-manylinux_2_35"
-    )
+    assert env_main(["--root", str(repo), "check", "robot-alpha"]) == 0
+
+    assert "robot-alpha: ok, 1 component" in capsys.readouterr().out
 
 
 def test_check_all_reports_failures_and_continues(repo, fake_uv, write_toml, capsys):
     write_toml(
         "robots/gamma/component.toml",
-        """
-        schema = 1
-        name = "gamma"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-gamma"
         probe = "json"
-        platforms = ["solaris"]
-        """,
-    )
-    write_toml(
-        "installs/profiles/gamma.toml",
-        """
-        schema = 1
-        name = "gamma"
-        python = "3.11"
-        platform = "solaris"
-
-        [components.gamma]
-        placement = "in-env"
+        dependencies = ["numpy>=9"]
         """,
     )
 
     assert env_main(["--root", str(repo), "check", "--all", "--resolve"]) == 1
 
     output = capsys.readouterr().out
-    assert "profile gamma: FAIL" in output
-    assert "unknown platform 'solaris'" in output
-    assert "profile alpha: ok" in output
-    assert "profile beta: ok" in output
+    assert "robot-gamma: FAIL" in output
+    assert "no solution for numpy>=9" in output
+    assert "robot-alpha: ok" in output
+    assert "robot-beta: ok" in output
+
+
+def test_check_reports_unknown_components(repo, capsys):
+    assert env_main(["--root", str(repo), "check", "robot-missing"]) == 1
+
+    assert "unknown component 'robot-missing'" in capsys.readouterr().err

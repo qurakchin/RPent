@@ -60,7 +60,7 @@ rpent = "rpent.cli.main:main"
 rpent-install = "rpent.cli.install:main"
 rpent-memory = "rpent.cli.memory:main"
 rpent-check-llm = "rpent.cli.check_llm:main"
-rpent-flywheel = "rpent.flywheel.cli:main"
+rpent-flywheel = "rpent.cli.flywheel:main"
 
 [project.urls]
 Homepage = "https://github.com/RLinf/RPent"
@@ -68,95 +68,8 @@ Repository = "https://github.com/RLinf/RPent"
 Documentation = "https://rpent.readthedocs.io/en/latest/"
 "Bug Report" = "https://github.com/RLinf/RPent/issues"
 
-# Compatibility path for the robots that installs/profiles does not cover yet.
-# They install into a dedicated environment with their extra instead of a
-# profile; see the robot's guide. Do not add a robot that has a profile here.
-[project.optional-dependencies]
-franka = [
-    "defusedxml",
-    "empy==3.3.4",
-    "evdev",
-    "franky-control @ https://github.com/Brunch-Life/franky/releases/download/wheels-libfranka-0.19.0/franky_control-1.1.3-cp310-cp310-manylinux_2_28_x86_64.whl ; python_version == '3.10' and sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "franky-control @ https://github.com/Brunch-Life/franky/releases/download/wheels-libfranka-0.19.0/franky_control-1.1.3-cp311-cp311-manylinux_2_28_x86_64.whl ; python_version == '3.11' and sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "franky-control @ https://github.com/Brunch-Life/franky/releases/download/wheels-libfranka-0.19.0/franky_control-1.1.3-cp312-cp312-manylinux_2_28_x86_64.whl ; python_version == '3.12' and sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "gymnasium==0.29.1",
-    "imageio[ffmpeg]",
-    "matplotlib>=3.8",
-    "numpy<2",
-    "opencv-python",
-    "pillow>=10",
-    "pyarrow<26.0.0",
-    "pymodbus>=3.0,<4.0",
-    "pyquaternion",
-    "pyrealsense2; sys_platform == 'linux' and platform_machine == 'x86_64'",
-    "pyserial",
-    "pyspacemouse>=2.0.0",
-    "pyyaml",
-    "pyzmq",
-    "rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3",
-    "rospkg",
-    "rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0",
-    "websockets",
-]
-robocasa = [
-    "rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3",
-    "rlinf-rldx @ git+https://github.com/RLinf/RLDX-1.git@ebcfd13df5177e4b3e574bdf5a3b427c7c4a1e8a",
-    "robosuite @ git+https://github.com/RLinf/robosuite.git@97cfbde4b68d8ec43dad20cf4747297866a6ca2e",
-    "rpent-robocasa365 @ git+https://github.com/RLinf/robocasa.git@2692d8fc5fd86708a1b2028dcbce892ec418a9e7",
-]
-robodojo-sim = [
-    "einops>=0.8.0",
-    "pillow>=10",
-    "pyarrow>=21.0.0,<26.0.0",
-    "pycocotools",
-    "rlinf @ git+https://github.com/littleZ05/RLinf.git@91e0c6e361eff9371e2423a4183602481ae95ee5",
-    "rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@6d76a0c4a49a7a47bf5ee3924de2ccd7ecb8a8b7",
-    "rpent-openpi @ git+https://github.com/RLinf/openpi.git@a560f4dd8205b8423ecd4c8a0fabb5f54140b8a0",
-    "sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8",
-    "torch",
-    "torchvision",
-]
-robotwin = [
-    "nvidia-curobo @ git+https://github.com/NVlabs/curobo.git@v0.7.8",
-    "rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3",
-    "rlinf-lingbotvla==0.1.3",
-    "rlinf-robotwin-runtime==0.1.3",
-]
-sam3 = [
-    "einops>=0.8.0",
-    "pillow>=10",
-    "pycocotools",
-    "sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8",
-    "torch",
-    "torchvision",
-]
-test = [
-    "coverage",
-    "gymnasium",
-    "omegaconf",
-    "pytest",
-    "pytest-timeout",
-]
-yam = [
-    "huggingface_hub>=0.24,<1",
-    "imageio-ffmpeg",
-    "mujoco>=3.2,<4",
-    "omegaconf>=2.3,<3",
-    "pyrealsense2>=2.55,<3",
-]
-
 [tool.uv]
 prerelease = "allow"
-
-# Each compatibility extra pulls a separately pinned simulator runtime whose
-# Torch and Transformers versions are mutually incompatible with the others.
-conflicts = [
-    [{ extra = "franka" }, { extra = "robocasa" }],
-    [{ extra = "franka" }, { extra = "robodojo-sim" }],
-    [{ extra = "franka" }, { extra = "robotwin" }],
-    [{ extra = "robocasa" }, { extra = "robotwin" }],
-    [{ extra = "robodojo-sim" }, { extra = "robotwin" }],
-]
 
 [tool.uv.extra-build-dependencies]
 # Build RoboTwin's Torch extensions against its runtime Torch version.

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Resolve a profile into environments, dependencies, and configuration errors."""
+"""Resolve component names into one environment's contents and diagnostics."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from rpent.install.discovery import Catalog
-from rpent.install.manifest import Component, Profile, Selection
+from rpent.install.manifest import Component
 
 if TYPE_CHECKING:
     from packaging.specifiers import SpecifierSet
@@ -33,98 +33,34 @@ if TYPE_CHECKING:
 # needs packaging.
 
 
-@dataclass(frozen=True)
-class ResolvedComponent:
-    """One component placed by a profile."""
-
-    component: Component
-    placement: str
-    variant: str | None
-    env: str | None
-
-    @property
-    def name(self) -> str:
-        """Return the component name."""
-        return self.component.name
-
-    def dependencies(self) -> tuple[str, ...]:
-        """Return direct dependencies including the selected variant."""
-        return self.component.dependencies_for(self.variant)
-
-
 @dataclass
 class Resolution:
-    """The environments and diagnostics produced by one profile."""
+    """The components one environment contains, and why it cannot be built."""
 
-    profile: Profile
-    components: dict[str, ResolvedComponent] = field(default_factory=dict)
-    #: Environment name -> deps components installed there because a consumer
-    #: in that environment requires them. A deps component has no placement of
-    #: its own, so it may appear in more than one environment.
-    environment_deps: dict[str, list[str]] = field(default_factory=dict)
+    #: The component names the caller asked for, sorted and deduplicated.
+    targets: tuple[str, ...]
+    #: Every component in the environment, including the ``requires`` closure.
+    components: dict[str, Component] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
+    #: Index settings merged from the components; parts of the closure that
+    #: disagree are errors.
+    index_url: str | None = None
+    extra_index_urls: tuple[str, ...] = ()
+    index_strategy: str | None = None
 
     @property
     def ok(self) -> bool:
         """Return whether static checks passed."""
         return not self.errors
 
-    def environments(self) -> dict[str, tuple[str, ...]]:
-        """Return environment name to component names, excluding remote ones."""
-        groups: dict[str, list[str]] = {self.profile.name: []}
-        for resolved in self.components.values():
-            if resolved.component.is_deps:
-                continue
-            if resolved.placement == "remote" or resolved.env is None:
-                continue
-            groups.setdefault(resolved.env, []).append(resolved.name)
-        for environment, names in self.environment_deps.items():
-            groups.setdefault(environment, []).extend(names)
-        return {name: tuple(sorted(names)) for name, names in groups.items()}
-
-    def nonempty_environments(self) -> dict[str, tuple[str, ...]]:
-        """Return environments that contain at least one component."""
-        return {name: names for name, names in self.environments().items() if names}
-
-    def main_components(self) -> dict[str, ResolvedComponent]:
-        """Return components installed into the profile's main environment."""
-        return {
-            name: resolved
-            for name, resolved in self.components.items()
-            if resolved.placement == "in-env" and not resolved.component.is_deps
-        }
-
-    def main_deps(self) -> dict[str, ResolvedComponent]:
-        """Return deps components grouped into the profile's main environment."""
-        names = self.environment_deps.get(self.profile.name, [])
-        return {name: self.components[name] for name in names}
-
-    def main_installed(self) -> dict[str, ResolvedComponent]:
-        """Return every component installed into the profile's main environment.
-
-        This is what the environment must be able to import: components with
-        code and the deps groups their consumers require.
-        """
-        return {**self.main_components(), **self.main_deps()}
-
-    def external_components(self) -> dict[str, ResolvedComponent]:
-        """Return components installed into named external environments.
-
-        A deps component installs with its consumers, so it is not a service
-        with an endpoint of its own even when a consumer is external.
-        """
-        return {
-            name: resolved
-            for name, resolved in self.components.items()
-            if resolved.placement == "external-env" and not resolved.component.is_deps
-        }
-
-    def dependencies_for(self, environment: str) -> tuple[str, ...]:
-        """Return the direct dependencies of one environment."""
-        requirements: list[str] = []
-        for name in self.environments().get(environment, ()):
-            requirements.extend(self.components[name].dependencies())
-        return tuple(requirements)
+    def dependencies(self) -> tuple[str, ...]:
+        """Return every direct dependency in the environment, deduplicated."""
+        requirements = [
+            requirement
+            for component in self.components.values()
+            for requirement in component.dependencies
+        ]
+        return tuple(dict.fromkeys(requirements))
 
 
 def _canonical(value: str) -> tuple[str, SpecifierSet, str] | None:
@@ -193,9 +129,9 @@ def _pin_conflicts(
     return conflicts
 
 
-def _dependency_pins(component: ResolvedComponent) -> dict[str, str]:
+def _dependency_pins(component: Component) -> dict[str, str]:
     """Return package -> pin for one component's direct requirements."""
-    identities = (_canonical(value) for value in component.dependencies())
+    identities = (_canonical(value) for value in component.dependencies)
     return {
         identity[0]: str(identity[1]) or identity[2]
         for identity in identities
@@ -203,12 +139,7 @@ def _dependency_pins(component: ResolvedComponent) -> dict[str, str]:
     }
 
 
-def _format_conflict(
-    left: ResolvedComponent,
-    right: ResolvedComponent,
-    *,
-    environment: str,
-) -> str:
+def _format_conflict(left: Component, right: Component) -> str:
     left_deps = _dependency_pins(left)
     right_deps = _dependency_pins(right)
     details = [
@@ -222,26 +153,13 @@ def _format_conflict(
             f"  {left.name} and {right.name} declare env_conflicts"
             " (a transitive version incompatibility)"
         ]
-    movable = next(
-        (
-            candidate
-            for candidate in (right, left)
-            if "external-env" in candidate.component.placements
-        ),
-        None,
-    )
-    suggestion = (
-        f"  option 1: move {movable.name} to external-env in installs/profiles/{environment}.toml"
-        if movable is not None
-        else f"  option 1: install {right.name} in a separate environment"
-    )
     return (
-        f"profile {environment!r} places {left.name!r} and {right.name!r} "
-        "in the same environment, but they conflict\n"
+        f"components {left.name!r} and {right.name!r} cannot share an "
+        "environment\n"
         + "\n".join(details)
-        + f"\n{suggestion}\n"
-        f"  option 2: install without {right.name}: "
-        f"rpent-install install {environment}"
+        + "\ninstall each target in its own environment: "
+        f"`rpent-install install {left.name}` and "
+        f"`rpent-install install {right.name}`"
     )
 
 
@@ -251,14 +169,7 @@ def python_errors(
     *,
     owner: str = "this environment",
 ) -> list[str]:
-    """Return errors for components that do not support the Python ``version``.
-
-    A profile's ``python`` only picks the interpreter the installer creates the
-    environment with; what must hold is that every component placed in the
-    environment supports the interpreter it actually runs, so ``install`` and
-    ``doctor`` check the recorded version here while ``resolve`` makes the same
-    check against the declared one before anything is installed.
-    """
+    """Return errors for components that do not support Python ``version``."""
     from packaging.specifiers import InvalidSpecifier, SpecifierSet
     from packaging.version import InvalidVersion, Version
 
@@ -286,181 +197,121 @@ def python_errors(
     return errors
 
 
-def _check_component_range(resolved: ResolvedComponent, profile: Profile) -> list[str]:
-    component = resolved.component
-    errors = python_errors(
-        profile.python, [component], owner=f"profile {profile.name!r}"
-    )
-    if component.platforms and profile.platform not in component.platforms:
-        errors.append(
-            f"component {component.name!r} supports "
-            f"{', '.join(component.platforms)}, but profile "
-            f"{profile.name!r} targets {profile.platform}"
-        )
-    return errors
+def platform_errors(platform: str, components: Iterable[Component]) -> list[str]:
+    """Return errors for components that do not support ``platform``."""
+    return [
+        f"component {component.name!r} supports "
+        f"{', '.join(component.platforms)}, but this environment runs on "
+        f"{platform}"
+        for component in sorted(components, key=lambda item: item.name)
+        if component.platforms and platform not in component.platforms
+    ]
+
+
+def _merge_index_settings(
+    resolution: Resolution, components: Iterable[Component]
+) -> None:
+    """Merge index settings, reporting components that disagree."""
+    extra: list[str] = []
+    for component in sorted(components, key=lambda item: item.name):
+        if component.index_url is not None:
+            if resolution.index_url not in (None, component.index_url):
+                resolution.errors.append(
+                    f"component {component.name!r} selects index "
+                    f"{component.index_url!r}, but another component in this "
+                    f"environment selects {resolution.index_url!r}; install them "
+                    "in separate environments"
+                )
+            resolution.index_url = component.index_url
+        if component.index_strategy is not None:
+            if resolution.index_strategy not in (None, component.index_strategy):
+                resolution.errors.append(
+                    f"component {component.name!r} selects index strategy "
+                    f"{component.index_strategy!r}, but another component in this "
+                    f"environment selects {resolution.index_strategy!r}; install "
+                    "them in separate environments"
+                )
+            resolution.index_strategy = component.index_strategy
+        extra.extend(component.extra_index_urls)
+    resolution.extra_index_urls = tuple(dict.fromkeys(extra))
 
 
 def resolve(
-    profile: Profile,
+    targets: Iterable[str],
     catalog: Catalog,
     *,
     core_dependencies: tuple[str, ...] = (),
+    python: str | None = None,
+    platform: str | None = None,
 ) -> Resolution:
-    """Place the profile's components, compute closure, and report conflicts."""
-    resolution = Resolution(profile=profile)
-    selections = dict(profile.components)
-    for name in sorted(selections):
+    """Return the environment a ``install <targets>`` command would create.
+
+    ``python`` and ``platform`` describe the environment that will run the
+    components; ``rpent-install check`` leaves them out to validate manifests
+    without tying the answer to the machine that runs the check.
+    """
+    names = tuple(sorted(set(targets)))
+    resolution = Resolution(targets=names)
+    if not names:
+        resolution.errors.append("name at least one component to install")
+        return resolution
+    pending = list(names)
+    for name in names:
         if name not in catalog.components:
             resolution.errors.append(
-                f"profile {profile.name!r} references unknown component {name!r}; "
-                f"known components: {', '.join(sorted(catalog.components))}"
+                f"unknown component {name!r}; known components: "
+                f"{', '.join(sorted(catalog.components))}"
             )
-        elif catalog.components[name].is_deps:
-            resolution.errors.append(
-                f"profile {profile.name!r} selects deps component {name!r}; deps "
-                "components are installed by the components that require them, so "
-                "remove the [components] entry and add "
-                f"'requires = [\"{name}\"]' to a consuming component"
-            )
-    pending = [
-        name
-        for name in sorted(selections)
-        if name in catalog.components and not catalog.components[name].is_deps
-    ]
-    placed: set[str] = set()
     while pending:
         name = pending.pop(0)
-        if name in placed:
+        if name in resolution.components:
             continue
-        placed.add(name)
-        component = catalog.components[name]
-        selection = selections.get(name)
-        variant = selection.variant if selection is not None else None
-        if variant is None:
-            variant = component.default_variant
-        if variant is None and component.variant_required:
-            resolution.errors.append(
-                f"component {name!r} requires a variant; add "
-                f"'variant = \"...\"' under [components.{name}] in "
-                f"installs/profiles/{profile.name}.toml; expected one of "
-                f"{', '.join(sorted(component.optional))}"
-            )
-        elif variant is not None and variant not in component.optional:
-            resolution.errors.append(
-                f"component {name!r} has no optional group {variant!r}; "
-                f"expected one of {', '.join(sorted(component.optional)) or '<none>'}"
-            )
-            variant = None
-        placement = (
-            selection.placement
-            if selection is not None and selection.placement is not None
-            else component.default_placement
-        )
-        if placement not in component.placements:
-            resolution.errors.append(
-                f"component {name!r} cannot use placement {placement!r}; "
-                f"allowed: {', '.join(component.placements)}"
-            )
-            placement = component.default_placement
-        if placement == "external-env":
-            env = (
-                selection.profile
-                if selection is not None and selection.profile is not None
-                else component.name
-            )
-            external = catalog.profiles.get(env)
-            if env == profile.name:
-                resolution.errors.append(
-                    f"component {name!r} cannot use the profile's own environment "
-                    f"{env!r} as its external environment"
-                )
-            elif external is None:
-                resolution.errors.append(
-                    f"component {name!r} uses external environment {env!r}, but "
-                    f"installs/profiles/{env}.toml does not exist; add the profile or "
-                    f"set 'profile' to an existing one"
-                )
-            elif name not in external.components:
-                resolution.errors.append(
-                    f"external environment {env!r} does not install component "
-                    f"{name!r}; add [components.{name}] to installs/profiles/{env}.toml"
-                )
-        elif placement == "in-env":
-            env = profile.name
-        else:
-            env = None
-        resolution.components[name] = ResolvedComponent(
-            component=component,
-            placement=placement,
-            variant=variant,
-            env=env,
-        )
+        component = catalog.components.get(name)
+        if component is None:
+            # Reported above or by the requires check that queued it.
+            continue
+        resolution.components[name] = component
+        pending.extend(component.requires)
+
+    ordered = dict(sorted(resolution.components.items()))
+    resolution.components = ordered
+
+    for component in ordered.values():
         for required in component.requires:
-            if required not in catalog.components:
+            if required in component.env_conflicts or (
+                required in ordered
+                and component.name in ordered[required].env_conflicts
+            ):
                 resolution.errors.append(
-                    f"component {name!r} requires unknown component {required!r}"
+                    f"component {component.name!r} requires {required!r} but "
+                    "the two declare env_conflicts; fix their manifests"
                 )
-                continue
-            if catalog.components[required].is_deps:
-                if env is None:
-                    resolution.errors.append(
-                        f"component {name!r} requires deps component {required!r} "
-                        "but is placed remotely; deps components install with the "
-                        "environment of the component that requires them"
-                    )
-                    continue
-                names = resolution.environment_deps.setdefault(env, [])
-                if required not in names:
-                    names.append(required)
-                # A deps component can live in several environments, but the
-                # map above records each membership. Keep the first resolved
-                # record so the placement does not depend on consumer order.
-                resolution.components.setdefault(
-                    required,
-                    ResolvedComponent(
-                        component=catalog.components[required],
-                        placement=placement,
-                        variant=None,
-                        env=env,
-                    ),
-                )
-                continue
-            if required not in selections:
-                selections[required] = Selection()
-            pending.append(required)
 
-    for resolved in resolution.components.values():
-        resolution.errors.extend(_check_component_range(resolved, profile))
+    if python is not None:
+        resolution.errors.extend(
+            python_errors(python, ordered.values(), owner="the environment")
+        )
+    if platform is not None:
+        resolution.errors.extend(platform_errors(platform, ordered.values()))
+    _merge_index_settings(resolution, ordered.values())
 
-    for environment, names in resolution.environments().items():
-        for index, left_name in enumerate(names):
-            for right_name in names[index + 1 :]:
-                left = resolution.components[left_name]
-                right = resolution.components[right_name]
-                if (
-                    right_name in left.component.env_conflicts
-                    or left_name in right.component.env_conflicts
-                ):
-                    resolution.errors.append(
-                        _format_conflict(left, right, environment=environment)
-                    )
-        requirements = [
-            (name, requirement)
-            for name in names
-            for requirement in resolution.components[name].dependencies()
-        ]
-        if environment == profile.name:
-            requirements.extend(
-                (profile.name, requirement) for requirement in core_dependencies
-            )
-            requirements.extend(
-                (profile.name, requirement) for requirement in profile.dependencies
-            )
-        for package, pins in _pin_conflicts(requirements).items():
-            lines = "\n".join(f"  {owner}: {package} {pin}" for owner, pin in pins)
-            resolution.errors.append(
-                f"profile {profile.name!r} has conflicting pins for {package!r} "
-                f"in environment {environment!r}\n{lines}"
-            )
+    names_in_env = list(ordered)
+    for index, left_name in enumerate(names_in_env):
+        for right_name in names_in_env[index + 1 :]:
+            left = ordered[left_name]
+            right = ordered[right_name]
+            if right_name in left.env_conflicts or left_name in right.env_conflicts:
+                resolution.errors.append(_format_conflict(left, right))
+
+    requirements = [
+        (component.name, requirement)
+        for component in ordered.values()
+        for requirement in component.dependencies
+    ]
+    if core_dependencies:
+        requirements.extend(("rpent", requirement) for requirement in core_dependencies)
+    for package, pins in _pin_conflicts(requirements).items():
+        lines = "\n".join(f"  {owner}: {package} {pin}" for owner, pin in pins)
+        resolution.errors.append(f"conflicting pins for {package!r}\n{lines}")
     resolution.errors = sorted(dict.fromkeys(resolution.errors))
     return resolution

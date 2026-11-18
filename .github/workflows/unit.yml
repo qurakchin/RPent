@@ -10,11 +10,11 @@ on:
         required: false
         type: string
         default: ""
-      profile:
-        description: Install profile that supplies the test environment
+      components:
+        description: Component whose environment supplies the test dependencies
         required: false
         type: string
-        default: "unit-cpu"
+        default: "infra-unit_cpu"
 
 permissions:
   contents: read
@@ -29,7 +29,7 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Check the component layout
         run: ./tests/tooling/run.sh layout
-      - name: Check every profile
+      - name: Check every component
         run: ./scripts/rpent-install.sh check --all
       - name: Check the runner partition
         run: ./tests/tooling/run.sh matrix --check
@@ -41,21 +41,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The unit profile composes no components; this matrix is what covers
-        # the core package's declared range, so each minor installs the same
-        # dependency set and runs the same suite.
+        # The unit environment installs no component code; this matrix is what
+        # covers the core package's declared range, so each minor installs the
+        # same dependency set and runs the same suite.
         python: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Pin the profile's Python
+      - name: Pin the environment's Python
         run: uv python install ${{ matrix.python }}
       - name: Create the environment with the matrix Python
-        # The profile names its recommended interpreter; creating the venv here
-        # makes the matrix leg the one that runs, without a second install path.
+        # The components name their supported interpreter ranges; creating the
+        # venv here makes the matrix leg the one that runs, without a second
+        # install path.
         run: uv venv --python ${{ matrix.python }} .venv
-      - name: Install the test environment from the profile
-        run: ./scripts/rpent-install.sh install "${{ inputs.profile }}" --venv .venv
+      - name: Install the test environment from its component
+        run: ./scripts/rpent-install.sh install "${{ inputs.components }}" --venv .venv
       - name: Run the selected tests
         shell: bash
         env:
@@ -108,10 +109,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Pin the profile's Python
+      - name: Pin the environment's Python
         run: uv python install 3.11
-      - name: Install the minimal environment from the profile
-        run: ./scripts/rpent-install.sh install minimal --venv .venv-minimal
+      - name: Install the minimal environment
+        run: ./scripts/rpent-install.sh install infra-minimal --venv .venv-minimal
       - name: Check CLI and robot discovery without robot dependencies
         run: |
           .venv-minimal/bin/python -c "

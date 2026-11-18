@@ -37,7 +37,7 @@ pytest tests/unit_tests -v
 Inspect any files changed by hooks and rerun affected checks. The
 [unit workflow](../../../.github/workflows/unit.yml) installs the `unit-cpu`
 profile from its declared dependencies and runs the same suite; `fast ci`
-narrows the selection to the tests that mirror the changed components. Do not install every robot profile for
+narrows the selection to the tests that mirror the changed components. Do not install every robot component for
 an unrelated change.
 
 For the supported GPU suites, follow the environment setup in the test guide

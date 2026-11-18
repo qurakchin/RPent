@@ -22,14 +22,14 @@ Create the LIBERO-PRO environment and activate it:
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   ./scripts/rpent-install.sh install libero-pro --venv .venv-libero-pro
-   source .venv-libero-pro/bin/activate
+   ./scripts/rpent-install.sh install robot-libero --venv .venv-libero
+   source .venv-libero/bin/activate
 
-The profile pins Python, the RLinf revision, Pi0.5, SAM 3.0, and the LIBERO
-packages together. See :doc:`installation` for every profile, its install
-command, external model environments, and diagnostics.
+The components pin Python, the RLinf revision, Pi0.5, SAM 3.0, and the LIBERO
+packages together. See :doc:`installation` for every component, its install
+command, and diagnostics.
 
-Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv-libero-pro`` and set the checkpoint paths and API key again.
+Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv-libero`` and set the checkpoint paths and API key again.
 
 2. Download Assets and Models
 -----------------------------

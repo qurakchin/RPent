@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Discover component manifests and install profiles in a source checkout."""
+"""Discover component manifests in a source checkout."""
 
 from __future__ import annotations
 
@@ -22,37 +22,33 @@ from typing import Iterable
 
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
+    COMPONENT_DIRECTORIES,
     Component,
-    Profile,
     load_component,
-    load_deps_component,
-    load_profile,
+    load_infra_component,
 )
 from rpent.utils.config import get_repo_root
 
-#: Every component root and the glob that finds it. Directory kinds read a
-#: ``component.toml``; the ``deps`` kind reads one file per component.
-COMPONENT_ROOTS = (
-    ("robots/*/component.toml", "robot"),
-    ("components/models/*/component.toml", "model"),
-    ("installs/deps/*.toml", "deps"),
-)
+#: Every component root and the glob that finds it.
+COMPONENT_ROOTS = tuple(
+    (f"{directory}/*/component.toml", kind)
+    for kind, directory in COMPONENT_DIRECTORIES.items()
+) + (("installs/infra-*.toml", "infra"),)
 
 
 @dataclass(frozen=True)
 class Catalog:
-    """Components and profiles available in one checkout."""
+    """Components available in one checkout."""
 
     root: Path
     components: dict[str, Component]
-    profiles: dict[str, Profile]
 
 
 def _is_metadata_file(path: Path) -> bool:
     """Return whether ``path`` is an AppleDouble or other dot metadata file.
 
     Network filesystems store macOS extended attributes as ``._<name>`` files
-    next to the original, so a synced checkout can gain ``._profile.toml``
+    next to the original, so a synced checkout can gain ``._component.toml``
     entries that are not manifests.
     """
     return path.name.startswith(".")
@@ -75,21 +71,16 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
     """Load every component manifest under ``root``.
 
     Raises:
-        InstallConfigError: a manifest is invalid, duplicated, or has a kind
-            that does not match the directory root it lives under.
+        InstallConfigError: a manifest is invalid, duplicated, or references a
+            component that does not exist.
     """
     repo_root = (root or get_repo_root()).resolve()
     components: dict[str, Component] = {}
-    for manifest, expected_kind in _component_manifests(repo_root):
-        if expected_kind == "deps":
-            component = load_deps_component(manifest)
+    for manifest, kind in _component_manifests(repo_root):
+        if kind == "infra":
+            component = load_infra_component(manifest)
         else:
-            component = load_component(manifest)
-        if component.kind != expected_kind:
-            raise InstallConfigError(
-                f"{manifest}: kind {component.kind!r} does not match the "
-                f"{expected_kind!r} component root"
-            )
+            component = load_component(manifest, kind)
         previous = components.get(component.name)
         if previous is not None:
             raise InstallConfigError(
@@ -97,27 +88,31 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
                 f"{previous.manifest_path} and {manifest}"
             )
         components[component.name] = component
-    _check_conflicts(components)
-    _check_deps_consumers(components)
-    _check_imports(components)
+    _check_references(components)
     # ``env_conflicts`` stays as each manifest writes it: resolution checks the
     # relation from both sides, so declaring a conflict once is enough.
     return components
 
 
-def _check_imports(components: dict[str, Component]) -> None:
-    """Allow ``imports`` on robot slices, naming a co-installed robot.
+def _check_references(components: dict[str, Component]) -> None:
+    """Require every declared relationship to name a known component.
 
-    Model services share a contract instead of importing each other's
-    modules, so an ``imports`` entry on one is a manifest error rather than
-    a boundary the layout check has to honour.
+    ``imports`` additionally stays a robot-slice relation: model services share
+    a wire contract instead of importing each other's modules, and components
+    without code cannot import anything.
     """
-    reverse = {
-        other.name: set(other.requires)
-        for other in components.values()
-        if not other.is_deps
-    }
     for component in components.values():
+        for field in ("requires", "env_conflicts", "imports"):
+            for other in getattr(component, field):
+                if other not in components:
+                    raise InstallConfigError(
+                        f"{component.manifest_path}: {field} references unknown "
+                        f"component {other!r}"
+                    )
+                if other == component.name:
+                    raise InstallConfigError(
+                        f"{component.manifest_path}: {field} names the component itself"
+                    )
         for other in component.imports:
             if component.kind != "robot":
                 raise InstallConfigError(
@@ -125,18 +120,14 @@ def _check_imports(components: dict[str, Component]) -> None:
                     f"slices; {component.kind} components share a contract "
                     "instead of importing each other"
                 )
-            target = components.get(other)
-            if target is None:
-                raise InstallConfigError(
-                    f"{component.manifest_path}: imports references unknown "
-                    f"component {other!r}"
-                )
-            if target.kind != component.kind:
+            if components[other].kind != "robot":
                 raise InstallConfigError(
                     f"{component.manifest_path}: imports {other!r} must name a "
-                    f"{component.kind} component, not {target.kind!r}"
+                    f"robot component, not {components[other].kind!r}"
                 )
-            if other not in component.requires and component.name not in reverse[other]:
+            if other not in component.requires and component.name not in (
+                components[other].requires
+            ):
                 raise InstallConfigError(
                     f"{component.manifest_path}: imports {other!r}, but neither "
                     "component requires the other; add it to requires so the "
@@ -144,77 +135,7 @@ def _check_imports(components: dict[str, Component]) -> None:
                 )
 
 
-def _check_deps_consumers(components: dict[str, Component]) -> None:
-    """Require every deps component to serve at least two components."""
-    consumers: dict[str, list[str]] = {name: [] for name in components}
-    for component in components.values():
-        if component.is_deps:
-            continue
-        for required in component.requires:
-            if required in consumers:
-                consumers[required].append(component.name)
-    for name, component in components.items():
-        if not component.is_deps:
-            continue
-        used_by = sorted(set(consumers[name]))
-        if len(used_by) < 2:
-            raise InstallConfigError(
-                f"{component.manifest_path}: deps component {name!r} is required "
-                f"by {', '.join(used_by) or 'no component'}; a single consumer "
-                "belongs in that component's own dependencies"
-            )
-
-
-def _check_conflicts(components: dict[str, Component]) -> None:
-    """Require every ``env_conflicts`` entry to name another known component."""
-    for component in components.values():
-        for other in component.env_conflicts:
-            if other not in components:
-                raise InstallConfigError(
-                    f"{component.manifest_path}: env_conflicts references unknown "
-                    f"component {other!r}"
-                )
-            if other == component.name:
-                raise InstallConfigError(
-                    f"{component.manifest_path}: env_conflicts names the component "
-                    "itself"
-                )
-
-
-def discover_profiles(root: Path | None = None) -> dict[str, Profile]:
-    """Load every profile under ``installs/profiles/`` in ``root``.
-
-    Raises:
-        InstallConfigError: ``root`` is not a source checkout with
-            ``installs/profiles/``.
-    """
-    repo_root = (root or get_repo_root()).resolve()
-    profiles_dir = repo_root / "installs" / "profiles"
-    if not profiles_dir.is_dir():
-        raise InstallConfigError(
-            f"{profiles_dir} does not exist; profiles ship with the source "
-            "checkout, so run rpent-install from the repository root or "
-            "reinstall RPent in editable mode (pip install -e .)"
-        )
-    profiles: dict[str, Profile] = {}
-    for path in sorted(profiles_dir.glob("*.toml")):
-        if _is_metadata_file(path):
-            continue
-        profile = load_profile(path)
-        if profile.name in profiles:
-            raise InstallConfigError(
-                f"profile {profile.name!r} is declared twice: "
-                f"{profiles[profile.name].path} and {path}"
-            )
-        profiles[profile.name] = profile
-    return profiles
-
-
 def discover(root: Path | None = None) -> Catalog:
-    """Return all components and profiles in one checkout."""
+    """Return every component in one checkout."""
     repo_root = (root or get_repo_root()).resolve()
-    return Catalog(
-        root=repo_root,
-        components=discover_components(repo_root),
-        profiles=discover_profiles(repo_root),
-    )
+    return Catalog(root=repo_root, components=discover_components(repo_root))

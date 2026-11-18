@@ -12,190 +12,195 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Component manifests and environment profiles parse into install inputs."""
+"""Component manifests parse into install inputs."""
 
 import pytest
 
 from rpent.install.errors import InstallConfigError
-from rpent.install.manifest import load_component, load_deps_component, load_profile
+from rpent.install.manifest import (
+    SCHEMA,
+    load_component,
+    load_infra_component,
+)
 
 
 def test_component_manifest_reads_declarations(write_toml):
     write_toml("robots/alpha/overrides.txt", "torch==2.7")
     path = write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "robots.alpha.robot_spec"
         python = ">=3.11,<3.12"
         platforms = ["linux-x86_64"]
-        requires = ["openpi"]
-        env_conflicts = ["beta"]
-        placement = ["in-env", "external-env"]
-        default_placement = "external-env"
-        dependencies = ["numpy>=2,<3"]
+        requires = ["model-openpi"]
+        imports = ["robot-beta"]
+        env_conflicts = ["robot-beta"]
         overrides = ["overrides.txt"]
-        docs = "docs/alpha.rst"
-
-        [optional]
-        pro = ["extra-package"]
+        index-url = "https://example.invalid/simple"
+        extra-index-urls = ["https://example.invalid/extra"]
+        index-strategy = "unsafe-first-match"
+        dependencies = ["numpy>=2,<3"]
         """,
     )
 
-    component = load_component(path)
+    component = load_component(path, "robot")
 
-    assert component.name == "alpha"
+    assert component.name == "robot-alpha"
     assert component.kind == "robot"
+    assert component.path == path.parent
     assert component.python == ">=3.11,<3.12"
-    assert component.placements == ("in-env", "external-env")
-    assert component.default_placement == "external-env"
-    assert component.requires == ("openpi",)
-    assert component.env_conflicts == ("beta",)
+    assert component.platforms == ("linux-x86_64",)
+    assert component.requires == ("model-openpi",)
+    assert component.imports == ("robot-beta",)
+    assert component.env_conflicts == ("robot-beta",)
     assert component.overrides == (path.parent / "overrides.txt",)
-    assert component.dependencies_for("pro") == (
-        "numpy>=2,<3",
-        "extra-package",
-    )
-    with pytest.raises(InstallConfigError, match="unknown variant"):
-        component.dependencies_for("missing")
+    assert component.dependencies == ("numpy>=2,<3",)
+    assert component.index_url == "https://example.invalid/simple"
+    assert component.extra_index_urls == ("https://example.invalid/extra",)
+    assert component.index_strategy == "unsafe-first-match"
+    assert not component.is_infra
 
 
-def test_component_declares_a_default_variant(write_toml):
-    path = write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
-        probe = "robots.alpha"
-        variant = "standard"
-
-        [optional]
-        standard = ["standard-dep"]
-        pro = ["pro-dep"]
-        """,
-    )
-
-    component = load_component(path)
-
-    assert component.default_variant == "standard"
-    assert not component.variant_required
-
-
-def test_component_rejects_a_required_variant_with_a_default(write_toml):
-    path = write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
-        probe = "robots.alpha"
-        variant = "standard"
-        variant_required = true
-
-        [optional]
-        standard = ["standard-dep"]
-        """,
-    )
-
-    with pytest.raises(
-        InstallConfigError, match="cannot be combined with a default 'variant'"
-    ):
-        load_component(path)
-
-
-def test_component_rejects_unknown_default_variant_and_empty_requirement(
-    write_toml,
-):
-    unknown = write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
-        probe = "robots.alpha"
-        variant = "missing"
-
-        [optional]
-        standard = ["standard-dep"]
-        """,
-    )
-    empty = write_toml(
-        "robots/beta/component.toml",
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
-        probe = "robots.beta"
-        variant_required = true
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="'variant' 'missing'"):
-        load_component(unknown)
-    with pytest.raises(InstallConfigError, match="no \\[optional\\] groups"):
-        load_component(empty)
-
-
-def test_component_name_must_match_directory(write_toml):
-    path = write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
-        probe = "robots.beta"
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="must match its directory"):
-        load_component(path)
-
-
-@pytest.mark.parametrize(
-    ("placement", "message"),
-    [
-        (["bogus"], "unknown placement"),
-        (["external-env"], "default_placement"),
-    ],
-)
-def test_component_rejects_invalid_placements(write_toml, placement, message):
-    rendered = ", ".join(f'"{item}"' for item in placement)
+def test_component_name_must_name_kind_and_directory(write_toml):
     path = write_toml(
         "robots/alpha/component.toml",
         f"""
-        schema = 1
-        name = "alpha"
-        kind = "robot"
-        probe = "robots.alpha"
-        placement = [{rendered}]
-        default_placement = "in-env"
+        schema = {SCHEMA}
+        name = "robot-beta"
+        probe = "robots.beta"
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="must be 'robot-alpha'"):
+        load_component(path, "robot")
+
+
+def test_component_kind_comes_from_the_directory_root(write_toml):
+    path = write_toml(
+        "components/models/sam3/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "model-sam3"
+        probe = "components.models.sam3.server"
+        """,
+    )
+
+    assert load_component(path, "model").kind == "model"
+
+
+def test_infra_manifest_has_no_code_directory(write_toml):
+    path = write_toml(
+        "installs/infra-dev.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "infra-dev"
+        probe = "pytest"
+        dependencies = ["pytest"]
+        """,
+    )
+
+    component = load_infra_component(path)
+
+    assert component.kind == "infra"
+    assert component.path is None
+    assert component.is_infra
+    assert component.dependencies == ("pytest",)
+
+
+def test_infra_manifest_name_must_match_its_file(write_toml):
+    path = write_toml(
+        "installs/infra-dev.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "infra-unit"
+        probe = "pytest"
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="must be 'infra-dev'"):
+        load_infra_component(path)
+
+
+@pytest.mark.parametrize(
+    ("entry", "message"),
+    [
+        ('imports = ["robot-alpha"]', "cannot import one"),
+        ('overrides = ["extra.txt"]', "remove 'overrides'"),
+    ],
+)
+def test_infra_manifest_rejects_code_relations(write_toml, entry, message):
+    path = write_toml(
+        "installs/infra-dev.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "infra-dev"
+        probe = "pytest"
+        {entry}
         """,
     )
 
     with pytest.raises(InstallConfigError, match=message):
-        load_component(path)
+        load_infra_component(path)
+
+
+def test_infra_kind_needs_no_directory_manifest(write_toml):
+    path = write_toml(
+        "components/models/sam3/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "model-sam3"
+        probe = "components.models.sam3.server"
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="no directory of their own"):
+        load_component(path, "infra")
+
+
+def test_unknown_fields_and_old_schema_are_rejected(write_toml):
+    stale = write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 1
+        name = "robot-alpha"
+        probe = "robots.alpha"
+        kind = "robot"
+        placement = ["in-env"]
+        """,
+    )
+    typo = write_toml(
+        "robots/beta/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "robot-beta"
+        probe = "robots.beta"
+        docs = "docs/beta.rst"
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="unsupported schema 1"):
+        load_component(stale, "robot")
+    with pytest.raises(InstallConfigError, match="unknown field.*docs"):
+        load_component(typo, "robot")
 
 
 def test_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
     branch = write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "robots.alpha"
         dependencies = ["pkg @ git+https://github.com/example/pkg.git@main"]
         """,
     )
     commit = write_toml(
         "robots/beta/component.toml",
-        """
-        schema = 1
-        name = "beta"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-beta"
         probe = "robots.beta"
         dependencies = [
           "pkg @ git+https://github.com/example/pkg.git@0123456789abcdef0123456789abcdef01234567",
@@ -204,69 +209,35 @@ def test_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
     )
     tag = write_toml(
         "robots/gamma/component.toml",
-        """
-        schema = 1
-        name = "gamma"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-gamma"
         probe = "robots.gamma"
         dependencies = ["pkg @ git+https://github.com/example/pkg.git@v1.2.3"]
         """,
     )
 
     with pytest.raises(InstallConfigError, match="pins git ref 'main'"):
-        load_component(branch)
-    assert load_component(commit).dependencies[0].endswith("01234567")
-    assert load_component(tag).dependencies == (
+        load_component(branch, "robot")
+    assert load_component(commit, "robot").dependencies[0].endswith("01234567")
+    assert load_component(tag, "robot").dependencies == (
         "pkg @ git+https://github.com/example/pkg.git@v1.2.3",
     )
-
-
-def test_profile_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
-    path = write_toml(
-        "installs/profiles/alpha.toml",
-        """
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "linux-x86_64"
-        dependencies = ["pkg @ git+https://github.com/example/pkg.git@main"]
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="pins git ref 'main'"):
-        load_profile(path)
 
 
 def test_git_dependency_without_a_ref_is_rejected(write_toml):
     path = write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "robots.alpha"
         dependencies = ["pkg @ git+https://github.com/example/pkg.git"]
         """,
     )
 
     with pytest.raises(InstallConfigError, match="has no git ref"):
-        load_component(path)
-
-
-def test_deps_component_rejects_requires(write_toml):
-    path = write_toml(
-        "installs/deps/rlinf.toml",
-        """
-        schema = 1
-        name = "rlinf"
-        kind = "deps"
-        probe = "rlinf"
-        requires = ["openpi"]
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="cannot require other components"):
-        load_deps_component(path)
+        load_component(path, "robot")
 
 
 def test_component_rejects_an_absolute_override(write_toml):
@@ -274,190 +245,53 @@ def test_component_rejects_an_absolute_override(write_toml):
     path = write_toml(
         "robots/alpha/component.toml",
         f"""
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "robots.alpha"
         overrides = ["{override}"]
         """,
     )
 
     with pytest.raises(InstallConfigError, match="must be relative to the component"):
-        load_component(path)
+        load_component(path, "robot")
 
 
 def test_component_rejects_missing_override(write_toml):
     path = write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
-        name = "alpha"
-        kind = "robot"
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
         probe = "robots.alpha"
         overrides = ["missing.txt"]
         """,
     )
 
     with pytest.raises(InstallConfigError, match="override file not found"):
-        load_component(path)
+        load_component(path, "robot")
 
 
-def test_profile_reads_components(write_toml):
-    path = write_toml(
-        "installs/profiles/alpha.toml",
-        """
-        schema = 1
-        name = "alpha"
-        python = "3.10"
-        platform = "linux-x86_64"
-
-        dependencies = ["pytest"]
-
-        [components.alpha]
-        placement = "external-env"
-        profile = "alpha-model"
-        variant = "pro"
-
-        [components.beta]
-        placement = "in-env"
-        """,
-    )
-
-    profile = load_profile(path)
-
-    assert profile.python == "3.10"
-    assert profile.components["alpha"].profile == "alpha-model"
-    assert profile.components["alpha"].variant == "pro"
-    assert profile.dependencies == ("pytest",)
-
-
-def test_profile_manylinux_defaults_and_overrides(write_toml):
-    default = load_profile(
+def test_index_strategy_is_optional_and_validated(write_toml):
+    default = load_infra_component(
         write_toml(
-            "installs/profiles/alpha.toml",
-            """
-            schema = 1
-            name = "alpha"
-            python = "3.11"
-            platform = "linux-x86_64"
-            """,
-        )
-    )
-    raised = load_profile(
-        write_toml(
-            "installs/profiles/beta.toml",
-            """
-            schema = 1
-            name = "beta"
-            python = "3.11"
-            platform = "linux-x86_64"
-            manylinux = "2_35"
-            """,
-        )
-    )
-
-    assert default.manylinux == "2_31"
-    assert raised.manylinux == "2_35"
-
-
-def test_profile_index_strategy_is_optional_and_validated(write_toml):
-    default = load_profile(
-        write_toml(
-            "installs/profiles/alpha.toml",
-            """
-            schema = 1
-            name = "alpha"
-            python = "3.11"
-            platform = "linux-x86_64"
-            """,
-        )
-    )
-    declared = load_profile(
-        write_toml(
-            "installs/profiles/beta.toml",
-            """
-            schema = 1
-            name = "beta"
-            python = "3.11"
-            platform = "linux-x86_64"
-            index-strategy = "unsafe-first-match"
+            "installs/infra-dev.toml",
+            f"""
+            schema = {SCHEMA}
+            name = "infra-dev"
+            probe = "pytest"
             """,
         )
     )
     invalid = write_toml(
-        "installs/profiles/gamma.toml",
-        """
-        schema = 1
-        name = "gamma"
-        python = "3.11"
-        platform = "linux-x86_64"
+        "installs/infra-unit.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "infra-unit"
+        probe = "pytest"
         index-strategy = "best-match"
         """,
     )
 
     assert default.index_strategy is None
-    assert declared.index_strategy == "unsafe-first-match"
     with pytest.raises(InstallConfigError, match="'index-strategy' must be one of"):
-        load_profile(invalid)
-
-
-def test_profile_rejects_invalid_manylinux(write_toml):
-    path = write_toml(
-        "installs/profiles/alpha.toml",
-        """
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "linux-x86_64"
-        manylinux = "manylinux_2_31"
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="'manylinux' must name a glibc"):
-        load_profile(path)
-
-
-def test_profile_requires_minor_python(write_toml):
-    path = write_toml(
-        "installs/profiles/alpha.toml",
-        """
-        schema = 1
-        name = "alpha"
-        python = ">=3.11"
-        platform = "linux-x86_64"
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="pin a minor version"):
-        load_profile(path)
-
-
-@pytest.mark.parametrize(
-    ("entry", "message"),
-    [
-        (
-            '[components.alpha]\nplacement = "external-env"',
-            "without a 'profile' name",
-        ),
-        (
-            '[components.alpha]\nplacement = "in-env"\nprofile = "model"',
-            "remove 'profile'",
-        ),
-        ("[components.alpha]\ntypo = true", "unknown field"),
-    ],
-)
-def test_profile_rejects_inconsistent_placements(write_toml, entry, message):
-    path = write_toml(
-        "installs/profiles/alpha.toml",
-        f"""
-        schema = 1
-        name = "alpha"
-        python = "3.11"
-        platform = "linux-x86_64"
-
-        {entry}
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match=message):
-        load_profile(path)
+        load_infra_component(invalid)

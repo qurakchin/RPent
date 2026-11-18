@@ -81,27 +81,26 @@ Target50 包含以下任务类别，完整任务、seed 和运行限制见本页
 安装与资源准备
 ---------------------
 
-需要 Linux、NVIDIA GPU、可用的 CUDA/EGL，以及 ``git`` 和 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_。RoboCasa 使用 Python 3.10，创建环境时安装 ``robocasa`` 兼容 extra：
+需要 Linux、NVIDIA GPU、可用的 CUDA/EGL，以及 ``git`` 和 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_。RoboCasa 使用 Python 3.10，``rpent-install`` 会按组件声明的版本范围选用：
 
 .. code-block:: bash
 
-   uv venv .venv-robocasa --python 3.10
+   ./scripts/rpent-install.sh install robot-robocasa --venv .venv-robocasa
    source .venv-robocasa/bin/activate
-   uv pip install -e ".[robocasa]"
 
-该 extra 会安装一组成对的 CUDA Torch 与 torchvision；RLDX 要求 Torch >= 2.7、torchvision >= 0.22。若驱动需要其他构建，可按 `PyTorch 安装说明 <https://pytorch.org/get-started/locally/>`_ 用 ``uv pip install`` 重新安装匹配的版本；国内可使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_。
+该组件闭包会安装一组成对的 CUDA Torch 与 torchvision；RLDX 要求 Torch >= 2.7、torchvision >= 0.22。若驱动需要其他构建，可按 `PyTorch 安装说明 <https://pytorch.org/get-started/locally/>`_ 用 ``uv pip install`` 重新安装匹配的版本；国内可使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_。
 
 .. list-table::
    :header-rows: 1
 
    * - 环境
-     - extra
+     - 组件
      - 资源下载
    * - RoboCasa365
-     - ``robocasa``
+     - ``robot-robocasa``、``sim-robocasa``、``model-rldx``
      - ``robocasa-download-assets`` （见下方命令）
 
-该 extra 安装 RoboCasa、RLDX 和 Robosuite 的 ``rpent`` 分支源码。不要另装提供同一导入包的 ``rlinf-robocasa365``。
+这些组件安装 RoboCasa、RLDX 和 Robosuite 的 ``rpent`` 分支源码。不要另装提供同一导入包的 ``rlinf-robocasa365``。
 
 检查依赖后，将约 10 GB 的厨房资源放到 Python 包目录之外，并在启动 RPent 的终端设置资源路径：
 
@@ -439,7 +438,7 @@ Target50 包含 50 个厨房任务，共运行 340 次。以下使用 Codex、GP
 VLA 推理检查
 ~~~~~~~~~~~~
 
-完成 :ref:`VLA 配置 <robocasa-vla-configuration>` 后，选择空闲 GPU 和新的输出目录运行。需要测试依赖时，把测试依赖装入环境：``uv pip install -e ".[robocasa,test]"``。
+完成 :ref:`VLA 配置 <robocasa-vla-configuration>` 后，选择空闲 GPU 和新的输出目录运行。需要测试依赖时，把测试依赖装入环境：``uv pip install pytest pytest-timeout``。
 
 .. code-block:: bash
 

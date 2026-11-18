@@ -55,7 +55,7 @@ skeleton is:
 .. code-block:: text
 
    robots/myrobot/
-       component.toml          # kind, probe, dependencies, placement, docs
+       component.toml          # name, probe, python, dependencies, docs
        __init__.py             # lazy package entry point
        spec.py                 # RobotSpec, factories, Dashboard spec, runtime hooks
        config.py               # CLI flags, RunConfig, task selection
@@ -76,22 +76,25 @@ current file for each role until that migration lands.
 
 .. code-block:: toml
 
-   schema = 1
-   name = "myrobot"
-   kind = "robot"
+   schema = 2
+   name = "robot-myrobot"
    probe = "robots.myrobot"
    python = ">=3.10,<3.13"
    platforms = ["linux-x86_64"]
-   placement = ["in-env"]
+   requires = ["sim-mysim", "model-mymodel"]
 
    dependencies = ["my-simulator==1.2"]
 
-``probe`` names the importable package. ``rpent-install install`` and
-``rpent-install doctor`` import it inside the target environment together with the
-slice's environment adapter, so a successful probe proves the real
-dependencies are present. Keep only this robot's packages in
-``dependencies``; a package that two or more components need belongs in a
-``deps`` component under ``installs/deps/``. ``imports`` is only for a robot slice
+``name`` must be ``robot-`` plus the directory name, because the prefix says
+which kind of component it is and where its code lives. ``requires`` names the
+components the environment also installs; declaring them here is how a robot
+environment pulls in its simulator and model services. ``probe`` names the
+importable package. ``rpent-install install`` and ``rpent-install doctor``
+import it inside the target environment together with the slice's environment
+adapter, so a successful probe proves the real dependencies are present. Keep
+only this robot's packages in ``dependencies``; a package that several
+components need belongs in an infrastructure component under ``installs/``.
+``imports`` is only for a robot slice
 that reuses another slice's code: name the other robot, and make one of the
 two ``requires`` the other so the install closure includes both. Toolkits and
 model services share a contract instead of importing each other.
@@ -596,6 +599,7 @@ errors, expected observation artifacts exist, and owned daemons have exited.
 Task success is not required for this bounded integration check.
 
 Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``. After
-installing the robot's profile and preparing its GPU/checkpoint/assets resources,
+installing the robot's environment and preparing its GPU/checkpoint/assets
+resources,
 run ``pytest tests/e2e_tests/myrobot -v``. See ``tests/README.md`` and
 ``tests/e2e_tests/run_gpu_suite.sh`` for running GPU suites in clean environments.

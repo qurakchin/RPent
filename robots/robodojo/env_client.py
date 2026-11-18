@@ -23,7 +23,7 @@ from typing import Any
 
 import numpy as np
 
-from robots.robodojo.access import CAMERAS, validate_rgb
+from components.sim.robodojo.access import CAMERAS, validate_rgb
 from rpent.env.client import BaseEnvClient
 
 

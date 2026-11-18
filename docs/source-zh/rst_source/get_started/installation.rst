@@ -1,16 +1,52 @@
 安装
 ====
 
-RPent 安装的是具名环境配方。``installs/profiles/`` 中的每个配方选择组件及其放置方式，每个组件在 ``component.toml`` 中声明自己的依赖。``rpent-install`` 创建虚拟环境，只安装该配方的内容，对每个在本地安装的组件执行导入探针，并写入安装指纹。
+一个 RPent 环境就是你写在命令行上的那些组件，加上它们 ``requires`` 的闭包。每个组件在 ``component.toml`` 中声明自己的依赖、Python 版本范围和平台。``rpent-install`` 创建虚拟环境，安装该闭包和核心 ``rpent`` 包，对每个安装的组件执行导入探针，并写入安装指纹。
 
 环境要求
 --------
 
 - Linux ``x86_64`` 和 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_。
-- 配方指定的 Python minor 版本；本机没有时，``rpent-install`` 会让 uv 下载。
-- 仿真器和真机配方需要与该配方的 PyTorch 构建兼容的 GPU 和驱动。
+- 所有选中组件都支持的 Python minor 版本。当前解释器满足要求时直接使用；否则 ``rpent-install`` 会让 uv 下载一个满足要求的版本。
+- 所选组件的 PyTorch 构建需要兼容的 GPU 和驱动。
 
-查看与检查配方
+组件
+----
+
+组件名的前缀说明它是什么、代码在哪里：
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 34 48
+
+   * - 前缀
+     - 位置
+     - 内容
+   * - ``robot-``
+     - ``robots/<name>/``
+     - 机器人切片：原生转换、工具和运行时接线。
+   * - ``sim-``
+     - ``components/sim/<name>/``
+     - 机器人和模型共用的仿真器服务。
+   * - ``model-``
+     - ``components/models/<name>/``
+     - 模型服务：VLA、定位或动作模型后端。
+   * - ``tool-``
+     - ``components/tools/<name>/``
+     - 只依赖核心的工具，例如 flywheel 导出器。
+   * - ``infra-``
+     - ``installs/infra-<name>.toml``
+     - 环境需要但不拥有代码的依赖包（RLinf 运行时、测试工具、CPU Torch）。
+
+依赖方向是 ``rpent`` ← ``components/sim`` ← ``components/models`` ← ``robots``；``components/tools`` 只依赖 ``rpent``。因此机器人环境会自动带上它的仿真器和模型服务：
+
+.. code-block:: bash
+
+   rpent-install list
+
+``robot-libero`` 需要 ``sim-libero``、``model-openpi`` 和 ``model-sam3``；``robot-robocasa`` 需要 ``sim-robocasa`` 和 ``model-rldx``；``robot-robodojo`` 需要 ``sim-robodojo``、``model-sam3``、``model-openpi``、``model-awomo05`` 和 ``model-vpp2``。没有机器人需要的模型服务（``model-molmo``、``model-cosmos3``、``model-cosmos_policy``、``model-fast_wam``、``model-apxinf``、``model-uniwam``）装进自己的环境。
+
+查看与检查组件
 --------------
 
 .. code-block:: bash
@@ -18,103 +54,68 @@ RPent 安装的是具名环境配方。``installs/profiles/`` 中的每个配方
    rpent-install list
    rpent-install check --all
 
-``check`` 读取清单和配方，计算 ``requires`` 闭包，报告放置方式冲突、重复的版本固定、不支持的 Python 版本和平台不匹配。它不会下载任何依赖。加上 ``--resolve`` 后，它还会用 ``uv pip compile`` 检查声明的依赖是否可解；这会从配置的索引读取包元数据，检查后删除临时生成的 requirements。
+``check`` 读取清单，计算每个组件的 ``requires`` 闭包，报告未知组件名、不支持的 Python 版本、平台不匹配、互相矛盾的精确版本固定，以及组件通过 ``env_conflicts`` 声明的冲突。它不会下载任何依赖。加上 ``--resolve`` 后，它还会用 ``uv pip compile`` 验证声明的依赖在指定平台（``--platform``，默认 ``linux-x86_64``）上可解，并在检查后删除生成的 requirements。
 
-安装配方
+安装环境
 --------
 
-在源码目录中把配方安装到独立的虚拟环境：
+在源码目录中把组件安装到独立的虚拟环境：
 
 .. code-block:: bash
 
-   rpent-install install libero-pro --venv .venv-libero-pro
-   source .venv-libero-pro/bin/activate
+   rpent-install install robot-libero --venv .venv-libero
+   source .venv-libero/bin/activate
 
 新检出的仓库还没有 ``rpent-install`` 命令。``scripts/rpent-install.sh`` 会先引导它，不需要预先安装 RPent：
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install libero-pro --venv .venv-libero-pro
-   source .venv-libero-pro/bin/activate
+   ./scripts/rpent-install.sh install robot-libero --venv .venv-libero
 
-``rpent-install`` 需要在源码检出中运行。发布到 PyPI 的 wheel 只包含核心 ``rpent`` 包；``robots/``、``components/`` 及其 ``component.toml``、``installs/profiles/`` 只随源码检出和 sdist 发布。非可编辑的 ``pip install rpent`` 只提供 CLI；运行具体的机器人或模型服务请使用源码检出（或 sdist），在 pip 安装的环境里 ``rpent-install`` 会报告找不到配方。
-
-每个配方使用自己的虚拟环境。不同配方对仿真器、机器人和模型运行时有不同的依赖约束，安装器会拒绝在已安装其他配方的环境中安装；请为它指定另一个 ``--venv``。不传 ``--venv`` 时，配方安装到源码目录下的 ``.rpent/venvs/<配方>``；``.rpent/`` 是本地状态、已被 git 忽略，之后的 ``install`` 和 ``doctor`` 会复用同一个环境。``core = false`` 的配方（例如 ``molmo-server``）不安装可编辑的 RPent，只包含该服务自己的依赖；启动时按 :doc:`../guides/flash` 的说明把源码目录放进 ``PYTHONPATH``。
-
-重复执行会复用环境并修复过期安装。安装器根据配方和组件清单生成 requirements，再由 ``uv pip install`` 解析安装。清单中的直接依赖版本约束和 Git revision 仍然生效；随着上游发布新版本，不同时间全新安装的传递依赖版本可能不同。``--dev`` 将测试依赖追加到生成的 requirements，``--dry-run`` 只打印这些 requirements。配方把组件放到外部环境时，安装器会打印该环境的安装命令；请在同一个源码目录中执行。
-
-Franka、双臂 Franka、YAM、RoboCasa、RoboDojo 和 RoboTwin 已经声明组件清单，但暂时没有配方选择它们。它们的安装方式仍是各自指南中的兼容 extra，例如 ``uv pip install -e ".[franka]"``；参见 :doc:`../real_world_robots/franka`、:doc:`../real_world_robots/yam` 以及对应仿真器指南。也可以用 ``rpent-install install <机器人>`` 装成开发用的单组件环境，但那不是受支持的运行时部署方式。
-
-配方
-----
-
-.. list-table::
-   :header-rows: 1
-   :widths: 28 10 62
-
-   * - 配方
-     - Python
-     - 内容
-   * - ``minimal``
-     - 3.11
-     - 仅核心 RPent，用于验证不安装机器人依赖时的 CLI 和机器人发现。
-   * - ``dev``
-     - 3.11
-     - 测试和 lint 依赖；可用 ``rpent-install install <配方> --dev`` 附加到其他配方。
-   * - ``libero-sim`` / ``libero-pro`` / ``libero-plus``
-     - 3.11
-     - 对应 LIBERO 变体，含 RLinf、Pi0.5 和 SAM 3.0。
-   * - ``libero-pro-flywheel``
-     - 3.11
-     - LIBERO-PRO 与 LeRobot 轨迹导出。
-   * - ``libero-pro-molmo``
-     - 3.11
-     - LIBERO-PRO，并将 Molmo 定位放在外部 ``molmo-server`` 环境。
-   * - ``libero-openpi-external``
-     - 3.11
-     - LIBERO-PRO，通过 ``--am-endpoint`` 连接外部 ``openpi-server`` 环境中的 Pi0.5 服务。
-   * - ``molmo-server``
-     - 3.11
-     - 独立的 Molmo 服务环境（``core = false``）。
-   * - ``sam3-server`` / ``openpi-server``
-     - 3.11
-     - 单能力诊断环境。
-   * - ``unit-cpu``
-     - 3.11
-     - 仅 CPU 的单元测试依赖；CI 在每个受支持的 Python 次版本上各装一次。
-
-安装命令
---------
-
-每个配方对应下面一条安装命令。新检出的仓库用 ``./scripts/rpent-install.sh`` 代替命令开头的 ``rpent-install``，见上文。
+写出多个组件名可以组合成一个环境。下面的命令把 LeRobot 导出器和 LIBERO 装进同一个 venv，导出器就是在该环境里读取机器人的依赖：
 
 .. code-block:: bash
 
-   rpent-install install minimal --venv .venv-minimal
-   rpent-install install dev --venv .venv-dev
-   rpent-install install libero-sim --venv .venv-libero-sim
-   rpent-install install libero-pro --venv .venv-libero-pro
-   rpent-install install libero-plus --venv .venv-libero-plus
-   rpent-install install libero-pro-flywheel --venv .venv-libero-pro-flywheel
-   rpent-install install libero-pro-molmo --venv .venv-libero-pro-molmo
-   rpent-install install libero-openpi-external --venv .venv-libero-openpi-external
-   rpent-install install molmo-server --venv .venv-molmo-server
-   rpent-install install sam3-server --venv .venv-sam3-server
-   rpent-install install openpi-server --venv .venv-openpi-server
-   rpent-install install unit-cpu --venv .venv-unit-cpu
+   rpent-install install robot-libero tool-flywheel --venv .venv-libero-flywheel
+
+``rpent-install`` 需要在源码检出中运行。发布到 PyPI 的 wheel 只包含核心 ``rpent`` 包；``robots/`` 和 ``components/`` 及其 ``component.toml`` 只随源码检出和 sdist 发布。非可编辑的 ``pip install rpent`` 只提供 CLI；运行具体的机器人或模型服务请使用源码检出（或 sdist），因为 ``rpent-install`` 要在其中找到清单。
+
+环境只包含你写出的组件及其闭包。为其他组件集合安装过的 venv 会被拒绝；请为新的组件集合指定另一个 ``--venv``。不传 ``--venv`` 时，目标集合安装到源码目录下的 ``.rpent/venvs/<组件名以 + 连接>``；``.rpent/`` 是本地状态、已被 git 忽略，之后的 ``install`` 和 ``doctor`` 会复用同一个环境。
+
+重复执行会复用环境并修复过期安装。安装器根据清单生成 requirements，再由 ``uv pip install`` 解析安装。清单中的直接依赖版本约束和 Git revision 仍然生效；随着上游发布新版本，不同时间全新安装的传递依赖版本可能不同。``--dry-run`` 只打印生成的 requirements，不执行安装。
+
+任意数量的组件都可以贡献依赖包。索引设置（``index-url``、``extra-index-urls``、``index-strategy``）在整个闭包上合并；两个组件对它们的要求不一致时，该环境判定为无效，而不是悄悄选择其中一个。
+
+常用环境
+--------
+
+.. code-block:: bash
+
+   rpent-install install infra-minimal --venv .venv-minimal
+   rpent-install install infra-dev --venv .venv-dev
+   rpent-install install infra-unit_cpu --venv .venv-unit-cpu
+   rpent-install install robot-libero --venv .venv-libero
+   rpent-install install robot-robocasa --venv .venv-robocasa
+   rpent-install install robot-robotwin --venv .venv-robotwin
+   rpent-install install robot-franka --venv .venv-franka
+   rpent-install install robot-dual_franka --venv .venv-dual-franka
+   rpent-install install robot-yam --venv .venv-yam
+   rpent-install install robot-robodojo --venv .venv-robodojo
+   rpent-install install model-molmo --venv .venv-molmo
+   rpent-install install model-openpi --venv .venv-openpi
+
+``infra-minimal`` 是核心环境：只有 RPent 及其自身依赖，不含任何机器人、仿真器或模型包，足以验证 CLI 和机器人发现。``infra-dev`` 再加上测试和 lint 工具。``infra-unit_cpu`` 在测试工具之外再加一套 CPU Torch 构建的模型依赖，供单元测试使用。机器人环境覆盖受支持的真机和仿真器；平台准备、checkpoint 和资产见各仿真器或机器人页面。
 
 环境诊断
 --------
 
 .. code-block:: bash
 
-   rpent-install doctor --venv .venv-libero-pro
-   rpent-install inspect --venv .venv-libero-pro
+   rpent-install doctor --venv .venv-libero
+   rpent-install doctor --venv .venv-libero --fingerprint
 
-``doctor`` 将安装指纹与每项记录在案的安装输入比较（清单、组件 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查 Python 和平台，运行 ``uv pip check`` 与组件探针，并可用 ``--endpoint molmo=host:port`` 探测外部 endpoint。``uv`` 的解析在仓库根目录进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内；指纹还记录写入时使用的输入模式，由旧版 ``rpent-install`` 安装的 venv 会报告为需要重装，而不是环境已漂移。开发时也可以用 ``rpent-install install <组件>`` 单独安装一个组件；它的指纹记录 ``install_kind = "component"`` 及安装时使用的解释器，``doctor`` 会用这个解释器重建诊断配方，而不是用当前运行检查的解释器。``inspect`` 打印指纹及其 hash。``doctor`` 还会比较当前安装包集合与记录的 freeze hash。这些检查用于发现环境变化，不会固定将来解析出的依赖版本。发布工作流以 ``full: true`` 调用 Full CI，在发布前安装并诊断每个配方。
+``doctor`` 将安装指纹与每项记录在案的安装输入比较（每个组件的清单 hash、它的 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查记录的 Python 版本和平台，运行 ``uv pip check`` 与组件探针，并比较当前安装包集合与记录的 freeze hash。``uv`` 的解析在仓库根目录进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内。为其他组件集合安装过的 venv 会报告为需要重装，而不是环境已漂移。``--fingerprint`` 打印存储的指纹及其 hash，不执行上述检查。
 
-执行 ``check --resolve`` 时，Linux 配方默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本）。配方可用 ``manylinux`` 提高基线。对包含 cuRobo 构建的配置使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个配方解析失败时会报告错误并继续检查其余配方。
+执行 ``check --resolve`` 时，``linux-x86_64`` 默认以 ``manylinux_2_31`` 为目标（glibc 2.31，即 Ubuntu 20.04 或更新版本）：当前 GPU wheel 发布在更新的基线上，2.17 的目标解析不到它们。对包含 cuRobo 构建的配置使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个组件解析失败时会报告错误并继续检查其余组件。
 
-运行产物会在 ``run.json`` 中记录当前配方、指纹 hash、源码 commit 和组件名。
-
-平台准备、checkpoint 和资产见各仿真器或机器人页面。
+发布工作流以 ``full: true`` 调用 Full CI，在发布前安装并诊断每个组件环境。

@@ -1,7 +1,0 @@
-schema = 1
-name = "libero-pro-flywheel"
-python = "3.11"
-platform = "linux-x86_64"
-
-[components.libero]
-variant = "pro-flywheel"

@@ -16,14 +16,14 @@ Install
 
 Install RPent on both Linux control nodes with matching code, Python, Ray and
 RLinf versions. Nodes running VLA or SAM3 locally need an NVIDIA GPU.
-Install the Franka and SAM 3.0 compatibility extras into their own environment;
-they include both Franka arms and local SAM 3.0:
+Install ``robot-dual_franka`` into its own environment; it includes both Franka
+arms, local SAM 3.0, and their dependencies:
 
 .. code-block:: bash
 
-   uv venv .venv-dual-franka-real --python 3.11
+   ./scripts/rpent-install.sh install robot-dual_franka \
+     --venv .venv-dual-franka-real
    source .venv-dual-franka-real/bin/activate
-   uv pip install -e ".[franka,sam3]"
 
 If Python package downloads are slow, set the
 `Tsinghua PyPI mirror <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_
@@ -54,7 +54,7 @@ Download SAM3 weights on the environment node if local segmentation is needed:
    export SAM3_CHECKPOINT_PATH="$PWD/checkpoints/sam3/sam3.pt"
 
 Without this variable or ``--sam3-endpoint``, segmentation is unavailable;
-installing the profile alone does not download weights. VLA checkpoints are
+installing the environment alone does not download weights. VLA checkpoints are
 configured in :ref:`dual-franka-vla`.
 
 Calibration

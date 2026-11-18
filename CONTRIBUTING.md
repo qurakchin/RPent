@@ -41,25 +41,22 @@ Use a branch name that reflects the change, such as
 
 ```bash
 # Create and activate the development environment.
-./scripts/rpent-install.sh install dev --venv .venv-dev
+./scripts/rpent-install.sh install infra-dev --venv .venv-dev
 source .venv-dev/bin/activate
 
-# For robot work, install that profile into its own virtualenv with the test
-# packages. Profiles cannot share a virtualenv because their pins differ.
-rpent-install install libero-pro --venv .venv-libero-pro --dev      # LIBERO
-
-# Robots outside this install refactor still use their compatibility extras;
-# add the test extra to get the same test packages.
-uv pip install -e ".[robocasa,test]"  # RoboCasa
-uv pip install -e ".[robotwin,test]"  # RoboTwin
+# For robot work, install that robot into its own virtualenv together with the
+# test tools. Components with different pins cannot share a virtualenv.
+rpent-install install robot-libero infra-dev --venv .venv-libero  # LIBERO
+rpent-install install robot-robocasa infra-dev --venv .venv-robocasa
+rpent-install install robot-robotwin infra-dev --venv .venv-robotwin
 
 # Install and enable the repository hooks.
 uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-The robot commands are alternatives: install only the profile relevant to the
-change, and add `--dev` when you did not start from the `dev` profile. See the
+The robot commands are alternatives: install only the robot relevant to the
+change. See the
 [installation guide](docs/source-en/rst_source/get_started/installation.rst) for
 environment-specific setup.
 
@@ -74,8 +71,8 @@ Follow these conventions while developing:
   environment in its `robots/<name>/` directory, and model services in
   `components/models/<name>/`.
   Place shared functionality in common modules with matching responsibilities.
-  Install recipes and dependency-only components live under
-  `installs/`.
+  Infrastructure components that install packages without owning code live in
+  `installs/infra-<name>.toml`.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and

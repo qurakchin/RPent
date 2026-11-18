@@ -1,0 +1,14 @@
+schema = 2
+name = "sim-robodojo"
+probe = "components.sim.robodojo"
+python = ">=3.11,<3.12"
+platforms = ["linux-x86_64"]
+# RoboDojo runs on its own RLinf fork, which robot-robodojo installs,
+# so this component does not require infra-rlinf.
+# Isaac Sim and its Omniverse packages are published on NVIDIA's index,
+# not PyPI.
+extra-index-urls = ["https://pypi.nvidia.com"]
+
+dependencies = [
+  "rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@6d76a0c4a49a7a47bf5ee3924de2ccd7ecb8a8b7",
+]

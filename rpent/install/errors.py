@@ -22,4 +22,4 @@ class InstallError(RuntimeError):
 
 
 class InstallConfigError(ValueError):
-    """A component manifest or environment profile is invalid."""
+    """A component manifest or environment is invalid."""

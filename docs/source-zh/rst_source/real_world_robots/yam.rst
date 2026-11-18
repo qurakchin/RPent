@@ -33,14 +33,13 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 
 **控制机安装**
 
-在控制机先创建 ``.venv-yam-real`` 并安装 YAM 兼容 extra，再补充 RLinf、i2rt SDK 和对应的构建依赖：
+在控制机先用 ``robot-yam`` 组件创建 ``.venv-yam-real``，再补充 RLinf、i2rt SDK 和对应的构建依赖：
 
 .. code-block:: bash
 
    cd /path/to/RPent
-   uv venv .venv-yam-real --python 3.11
+   ./scripts/rpent-install.sh install robot-yam --venv .venv-yam-real
    source .venv-yam-real/bin/activate
-   uv pip install -e ".[yam]"
    uv pip install --torch-backend cpu \
      --build-constraints /path/to/RLinf/requirements/embodied/installs/profiles/yam-build-constraints.txt \
      -e /path/to/RLinf \
@@ -49,7 +48,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 
 **推理机安装**
 
-在推理机先用 RLinf 的安装脚本把 YAM 和 OpenPI 依赖装进 ``.venv-yam-real``，再把 YAM 兼容 extra 安装到同一环境：
+在推理机先用 RLinf 的安装脚本把 YAM 和 OpenPI 依赖装进 ``.venv-yam-real``，再把 ``robot-yam`` 组件加进同一环境：
 
 .. code-block:: bash
 
@@ -58,7 +57,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
      --venv /path/to/RPent/.venv-yam-real --install-rlinf
    cd /path/to/RPent
    source .venv-yam-real/bin/activate
-   uv pip install -e ".[yam]"
+   ./scripts/rpent-install.sh install robot-yam --venv .venv-yam-real
    uv pip check
 
 已安装系统依赖时，可在安装命令末尾加上 ``--no-root``。

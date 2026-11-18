@@ -1,8 +1,8 @@
 name: Fast CI
 
 # Every pull request and every push to main. Unit checks install the selected
-# CPU test profile and run affected contracts. `full ci` installs the affected
-# runtime profiles and exercises their integration suites.
+# CPU test environment and run affected contracts. `full ci` installs the
+# affected component environments and exercises their integration suites.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
@@ -25,7 +25,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       tests: ${{ steps.scope.outputs.tests }}
-      profile: ${{ steps.scope.outputs.profile }}
+      components: ${{ steps.scope.outputs.components }}
       hosted: ${{ steps.scope.outputs.hosted }}
       gpu: ${{ steps.scope.outputs.gpu }}
       e2e: ${{ steps.scope.outputs.e2e }}
@@ -76,36 +76,44 @@ jobs:
               for line in open(os.environ["CHANGED"], encoding="utf-8")
               if line.strip()
           ]
-          hosted = set(load("HOSTED"))
-          gpu = set(load("GPU"))
           suites = {"libero", "robocasa", "robotwin"}
-          # A core change keeps `full` for nightly and release runs, but a PR
-          # installs only the pilot profiles. The install-instance paths keep
-          # the full set, so an installer or profile change still proves every
-          # environment.
-          selected = scope.get("pr_profiles", scope["profiles"])
+          # A core change keeps `installs` complete for nightly and release
+          # runs, but a pull request installs only the pilot environment. The
+          # installer, workflow, and tooling paths keep the full set, so a
+          # change to any of them still proves every environment.
+          selected = scope.get("pr_installs", scope["installs"])
           if scope["full"]:
-              e2e = sorted(suites) if set(selected) == set(scope["profiles"]) else []
+              e2e = sorted(suites) if set(selected) == set(scope["installs"]) else []
           else:
-              e2e = sorted(suites & set(scope["components"]))
+              # A robot and its simulator are separate components now, so both
+              # name the suite their integration runs.
+              subjects = {name.split("-", 1)[-1] for name in scope["components"]}
+              e2e = sorted(suites & subjects)
           # The installer unit and repository contract groups need only the
-          # core and `dev` dependencies. Every other test path may import a
-          # model server, so it keeps the CPU Torch profile; an empty selection
-          # runs the whole suite and needs that profile too.
+          # core and `infra-dev` dependencies. Every other test path may import
+          # a model server, so it keeps the CPU Torch environment; an empty
+          # selection runs the whole suite and needs that environment too.
           dev_tests = {"tests/unit_tests/rpent/install", "tests/unit_tests/installs", "tests/tooling"}
           tests = set(scope["tests"])
-          profile = "dev" if tests and tests <= dev_tests else "unit-cpu"
+          components = "infra-dev" if tests and tests <= dev_tests else "infra-unit_cpu"
           values = {
               "tests": scope["tests"],
-              "profile": profile,
-              "hosted": [p for p in selected if p in hosted],
-              "gpu": [p for p in selected if p in gpu],
+              "components": components,
+              # An entry names the components one environment installs; it is
+              # affected when it names one the change reaches, including the
+              # robot whose closure pulls in a changed model or simulator.
+              "hosted": [
+                  entry for entry in load("HOSTED") if set(entry) & set(selected)
+              ],
+              "gpu": [
+                  entry for entry in load("GPU") if set(entry) & set(selected)
+              ],
               "e2e": e2e,
               "docs": scope["docs"],
               # A component change can only be proven by installing its
-              # closure from its profile, which `full ci` does. Install data
-              # narrows the profile set rather than emptying it.
-              "needs_full": bool(scope["components"] or scope["profiles"]),
+              # environment, which `full ci` does. Install data narrows the
+              # environment set rather than emptying it.
+              "needs_full": bool(scope["components"] or scope["installs"]),
               "package": any(
                   path in {"pyproject.toml", "setup.py", "MANIFEST.in"}
                   for path in changed
@@ -122,7 +130,7 @@ jobs:
     uses: ./.github/workflows/unit.yml
     with:
       tests: ${{ needs.changes.outputs.tests }}
-      profile: ${{ needs.changes.outputs.profile }}
+      components: ${{ needs.changes.outputs.components }}
 
   package:
     name: Package

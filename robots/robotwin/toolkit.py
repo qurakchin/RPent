@@ -22,9 +22,9 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 
+from components.sim.robotwin.contract import ROBOTWIN_CAMERA_NAMES
 from robots.robotwin import tools
 from robots.robotwin.primitives import RoboTwinPrimitives
-from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
 from rpent.session.env_capture import CapturingEnvClient

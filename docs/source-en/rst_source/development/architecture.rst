@@ -59,7 +59,7 @@ Repository Layout
 Shared execution, contracts, and model bases live under ``rpent/``. Each
 package under ``robots/`` supplies the environment-specific implementation
 described above. Installable components that are not robots live under
-``components/``, and the install recipes live under ``installs/``.
+``components/``, and the infrastructure components live under ``installs/``.
 
 The dependency direction is fixed: ``robots/`` → ``components/`` → ``rpent/``.
 The core discovers components by name and never imports them statically, and
@@ -89,10 +89,11 @@ model services do not import each other.
      robodojo/
      yam/
    components/
+     sim/            # Simulator services, one installable component each
      models/         # Model services, one installable component each
+     tools/          # Tools that depend only on rpent
    installs/
-     profiles/       # Supported install targets
-     deps/           # Dependency-only component manifests
+     infra-*.toml    # Infrastructure components without code of their own
    scripts/
      rpent-install.sh  # Bootstrap the installer from a fresh checkout
    tests/

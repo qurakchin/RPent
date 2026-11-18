@@ -17,11 +17,11 @@ set -euo pipefail
 
 # Run the installer on a fresh checkout.
 #
-# The ``rpent-install`` console script exists only after a profile is installed,
-# so this launcher runs ``rpent.cli.install`` in a throwaway uv environment that
-# adds only the manifest parser dependency. CI, the pre-commit hook, and the GPU
-# suite call it, so the bootstrap interpreter and that dependency are declared
-# once; installer arguments pass straight through.
+# The ``rpent-install`` console script exists only after a component is
+# installed, so this launcher runs ``rpent.cli.install`` in a throwaway uv
+# environment that adds only the manifest parser dependency. CI, the pre-commit
+# hook, and the GPU suite call it, so the bootstrap interpreter and that
+# dependency are declared once; installer arguments pass straight through.
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 

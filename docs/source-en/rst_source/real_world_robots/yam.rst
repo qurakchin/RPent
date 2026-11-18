@@ -36,15 +36,14 @@ first, then install the YAM environment on each machine as described below:
 
 **Control machine installation**
 
-Create ``.venv-yam-real`` from the YAM compatibility extra, then add RLinf, the
+Create ``.venv-yam-real`` with the ``robot-yam`` component, then add RLinf, the
 i2rt SDK and the required build dependencies:
 
 .. code-block:: bash
 
    cd /path/to/RPent
-   uv venv .venv-yam-real --python 3.11
+   ./scripts/rpent-install.sh install robot-yam --venv .venv-yam-real
    source .venv-yam-real/bin/activate
-   uv pip install -e ".[yam]"
    uv pip install --torch-backend cpu \
      --build-constraints /path/to/RLinf/requirements/embodied/installs/profiles/yam-build-constraints.txt \
      -e /path/to/RLinf \
@@ -54,8 +53,8 @@ i2rt SDK and the required build dependencies:
 **Inference machine installation**
 
 On the inference machine, use RLinf's installer to install YAM and OpenPI
-dependencies into ``.venv-yam-real``, then install the YAM compatibility extra
-into the same environment:
+dependencies into ``.venv-yam-real``, then add the ``robot-yam`` component to
+the same environment:
 
 .. code-block:: bash
 
@@ -64,7 +63,7 @@ into the same environment:
      --venv /path/to/RPent/.venv-yam-real --install-rlinf
    cd /path/to/RPent
    source .venv-yam-real/bin/activate
-   uv pip install -e ".[yam]"
+   ./scripts/rpent-install.sh install robot-yam --venv .venv-yam-real
    uv pip check
 
 If system dependencies are already installed, append ``--no-root`` to the installer

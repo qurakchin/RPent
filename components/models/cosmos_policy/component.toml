@@ -1,12 +1,9 @@
-schema = 1
-name = "cosmos_policy"
-kind = "model"
+schema = 2
+name = "model-cosmos_policy"
 probe = "components.models.cosmos_policy.server"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
-placement = ["external-env", "remote"]
-default_placement = "external-env"
+# The server loads the official checkpoint from its own interpreter;
+# RPent only maps observations and predictions at the RPC boundary.
 
-# The server loads the official checkpoint from its own interpreter; RPent only
-# maps observations and predictions at the RPC boundary.
 dependencies = []

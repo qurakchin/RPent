@@ -388,14 +388,7 @@ def _spawn_sam3_server(
         name="sam3_server",
         cmd=[
             sys.executable,
-            str(
-                get_repo_root()
-                / "rpent"
-                / "robots"
-                / "components"
-                / "sam3"
-                / "server.py"
-            ),
+            str(get_repo_root() / "components" / "models" / "sam3" / "server.py"),
             "--transport",
             "http",
             "--host",

@@ -1,7 +1,0 @@
-schema = 1
-name = "sam3-server"
-python = "3.11"
-platform = "linux-x86_64"
-
-[components.sam3]
-placement = "in-env"

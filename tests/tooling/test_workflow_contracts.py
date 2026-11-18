@@ -74,38 +74,42 @@ def test_fast_ci_has_one_aggregate_required_check():
         assert f"{job}:${{{{ needs.{job}.result }}}}" in results
 
 
-def test_fast_ci_scopes_full_ci_with_the_pull_request_profiles():
+def test_fast_ci_scopes_full_ci_with_the_pull_request_environments():
     script = _step(_workflow("fast-ci.yml"), "changes", "Map changed paths to a scope")[
         "run"
     ]
 
-    # A core change keeps the full profile set for nightly and release runs,
-    # while a pull request installs the pilot set; a component change already
-    # narrows ``profiles`` to its closure.
-    assert 'scope.get("pr_profiles", scope["profiles"])' in script
+    # A core change keeps the full environment set for nightly and release
+    # runs, while a pull request installs the pilot set; a component change
+    # already narrows ``installs`` to its closure.
+    assert 'scope.get("pr_installs", scope["installs"])' in script
     assert (
-        'e2e = sorted(suites) if set(selected) == set(scope["profiles"]) else []'
+        'e2e = sorted(suites) if set(selected) == set(scope["installs"]) else []'
         in (script)
     )
-    # Install data changes narrow the profile set but still call full CI for
-    # those profiles.
-    assert 'bool(scope["components"] or scope["profiles"])' in script
+    # Install data changes narrow the environment set but still call full CI for
+    # those environments.
+    assert 'bool(scope["components"] or scope["installs"])' in script
 
 
-def test_fast_ci_runs_installer_and_install_data_tests_in_the_dev_profile():
+def test_fast_ci_runs_installer_and_install_data_tests_in_the_dev_environment():
     workflow = _workflow("fast-ci.yml")
 
-    # Both groups need only the core and `dev` dependencies; every other test
-    # path may import a model server, which needs the CPU Torch profile.
+    # Both groups need only the core and `infra-dev` dependencies; every other
+    # test path may import a model server, which needs the CPU Torch
+    # environment.
     script = _step(workflow, "changes", "Map changed paths to a scope")["run"]
     dev_tests = (
         '{"tests/unit_tests/rpent/install", "tests/unit_tests/installs", '
         '"tests/tooling"}'
     )
     assert dev_tests in script
-    assert 'profile = "dev" if tests and tests <= dev_tests else "unit-cpu"' in script
-    assert workflow["jobs"]["unit"]["with"]["profile"] == (
-        "${{ needs.changes.outputs.profile }}"
+    assert (
+        'components = "infra-dev" if tests and tests <= dev_tests '
+        'else "infra-unit_cpu"' in script
+    )
+    assert workflow["jobs"]["unit"]["with"]["components"] == (
+        "${{ needs.changes.outputs.components }}"
     )
 
 
@@ -129,11 +133,11 @@ def test_full_ci_does_not_run_on_tags():
     assert set(triggers) == {"schedule", "workflow_dispatch", "workflow_call"}
 
 
-def test_full_ci_covers_all_profiles_for_a_release():
+def test_full_ci_covers_all_environments_for_a_release():
     workflow = _workflow("full-ci.yml")
 
-    assert workflow["jobs"]["unit"]["with"]["profile"] == "unit-cpu"
-    called = _step(workflow, "scope", "Select the profiles and suites")["run"]
+    assert workflow["jobs"]["unit"]["with"]["components"] == "infra-unit_cpu"
+    called = _step(workflow, "scope", "Select the environments and suites")["run"]
     assert '"$EVENT" == "workflow_call" && "$CALLED_FULL" != "true"' in called
 
 
@@ -170,29 +174,42 @@ def test_package_checks_the_core_wheel_and_the_complete_sdist():
     ]
     # A source-scope wheel is what `pip install .` produces; it must carry the
     # files the installed package opens, and an editable install must expose
-    # the checkout's packages and profiles from another directory.
+    # the checkout's packages and components from another directory.
     assert "--no-deps -e ." in source
     for relative in ("target50.json", "demo_randomized.json"):
         assert relative in source
     assert "rpent-install" in source
 
 
-def test_unit_workflow_defaults_to_the_cpu_profile():
+def test_unit_workflow_defaults_to_the_cpu_environment():
     workflow = _workflow("unit.yml")
     inputs = _triggers(workflow)["workflow_call"]["inputs"]
 
-    # ``dev`` deliberately has no Torch; the CPU profile supplies it so the
-    # full unit suite can import model servers.
-    assert inputs["profile"]["default"] == "unit-cpu"
-    install = _step(workflow, "unit", "Install the test environment from the profile")
+    # ``infra-dev`` deliberately has no Torch; the CPU environment supplies it
+    # so the full unit suite can import model servers.
+    assert inputs["components"]["default"] == "infra-unit_cpu"
+    install = _step(workflow, "unit", "Install the test environment from its component")
     assert "if" not in install
-    assert 'install "${{ inputs.profile }}" --venv .venv' in install["run"]
-    minimal = _step(
-        workflow, "minimal-imports", "Install the minimal environment from the profile"
-    )
+    assert 'install "${{ inputs.components }}" --venv .venv' in install["run"]
+    minimal = _step(workflow, "minimal-imports", "Install the minimal environment")
     assert "if" not in minimal
-    assert "install minimal --venv .venv-minimal" in minimal["run"]
+    assert "install infra-minimal --venv .venv-minimal" in minimal["run"]
     assert _step(workflow, "unit", "Report skipped tests")["if"] == "always()"
+
+
+def test_env_workflow_installs_every_component_of_an_environment():
+    workflow = _workflow("env.yml")
+    matrix = workflow["jobs"]["gpu"]["strategy"]["matrix"]
+
+    # Each matrix entry is the component list one install names, so a
+    # multi-target environment is installed and doctored as one venv.
+    assert matrix["targets"] == "${{ fromJSON(inputs.gpu) }}"
+    install = _step(workflow, "gpu", "Fresh install from the components")["run"]
+    assert "install ${{ join(matrix.targets, ' ') }}" in install
+    assert "--venv \".venv-${{ join(matrix.targets, '+') }}\"" in install
+    assert workflow["jobs"]["gpu"]["name"] == (
+        "Fresh install ${{ join(matrix.targets, '+') }}"
+    )
 
 
 def test_workflows_bootstrap_the_tools_through_launchers():

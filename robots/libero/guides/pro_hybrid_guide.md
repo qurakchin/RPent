@@ -87,14 +87,14 @@ multi-pixel-median tip from the perception protocol.
 
 ## 2. Setup (do these once on a fresh checkout)
 
-Install the `libero-pro` profile; it pulls LIBERO-PRO from the `rpent` branch and
-the perception stack (Pi0.5 and SAM 3.0) into one environment:
+Install `robot-libero`; it pulls the LIBERO-PRO packages from the `rpent` branch
+and the perception stack (Pi0.5 and SAM 3.0) into one environment:
 
 ```bash
-rpent-install install libero-pro --venv .venv-libero-pro
+rpent-install install robot-libero --venv .venv-libero
 ```
 
-The profile covers the liberopro install and its benchmark registration. The
+The component covers the liberopro install and its benchmark registration. The
 remaining steps are the assets, the dataset snapshot, and the verification check
 described below. The perception observables (depth + both cameras + hi-res) are
 unconditional once the runner launches with `--libero-type pro`; there is
@@ -102,12 +102,12 @@ nothing perception-specific to install beyond the PRO setup itself.
 
 ### 2.1. LIBERO-PRO repo
 
-Installed into the profile's environment from
+Installed into the environment from
 `https://github.com/RLinf/LIBERO-PRO.git` at the `rpent` branch. Confirm it from
 inside that environment:
 
 ```bash
-.venv-libero-pro/bin/python -m pip show liberopro
+.venv-libero/bin/python -m pip show liberopro
 # Name: liberopro  Version: 0.1.0  Location: /path/to/site-packages/liberopro
 ```
 
@@ -119,7 +119,7 @@ instruction reaches Pi0 / hybrid. The `rpent` branch carries that registration;
 verify it in the installed environment:
 
 ```bash
-.venv-libero-pro/bin/python -c \
+.venv-libero/bin/python -c \
   "import liberopro.liberopro.benchmark as b; print(b.get_benchmark('libero_spatial_task')().get_task(0).language)"
 ```
 

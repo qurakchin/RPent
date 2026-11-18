@@ -24,8 +24,8 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from components.sim.libero.suites import LIBERO_SUITE_NAMES, resolve_libero_type
 from robots.libero.prompt_bundle import system_prompt, user_prompt
-from robots.libero.suites import LIBERO_SUITE_NAMES, resolve_libero_type
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
@@ -460,7 +460,7 @@ def _spawn_vla_server(
 def _make_model_client(rpc: RpcClient, wam: AMConfig | None) -> Any:
     """Bind the platform client and validate the worker before executing actions."""
     if wam is not None:
-        from robots.libero.wam_client import LiberoWAMClient
+        from components.sim.libero.wam_client import LiberoWAMClient
 
         try:
             client = LiberoWAMClient(rpc)
@@ -487,7 +487,7 @@ def _spawn_env_server(
         name="env_server",
         cmd=[
             sys.executable,
-            str(get_repo_root() / "robots" / "libero" / "env_server.py"),
+            str(get_repo_root() / "components" / "sim" / "libero" / "env_server.py"),
             "--suite",
             args.suite,
             "--task",
@@ -528,14 +528,7 @@ def _spawn_sam3_server(
         name="sam3_server",
         cmd=[
             sys.executable,
-            str(
-                get_repo_root()
-                / "rpent"
-                / "robots"
-                / "components"
-                / "sam3"
-                / "server.py"
-            ),
+            str(get_repo_root() / "components" / "models" / "sam3" / "server.py"),
             "--transport",
             "http",
             "--host",

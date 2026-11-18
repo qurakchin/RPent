@@ -35,7 +35,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 .. code-block:: text
 
    robots/myrobot/
-       component.toml          # kind、probe、依赖、placement、docs
+       component.toml          # name、probe、python、依赖、文档链接
        __init__.py             # 惰性包入口
        spec.py                 # RobotSpec、工厂、Dashboard 描述和 runtime 钩子
        config.py               # 命令行参数、RunConfig、任务选择
@@ -52,17 +52,16 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. code-block:: toml
 
-   schema = 1
-   name = "myrobot"
-   kind = "robot"
+   schema = 2
+   name = "robot-myrobot"
    probe = "robots.myrobot"
    python = ">=3.10,<3.13"
    platforms = ["linux-x86_64"]
-   placement = ["in-env"]
+   requires = ["sim-mysim", "model-mymodel"]
 
    dependencies = ["my-simulator==1.2"]
 
-``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进 ``installs/deps/`` 下的 deps 组件。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。工具包与模型服务之间共享契约，不互相 import。
+``name`` 必须是 ``robot-`` 加上目录名，前缀说明组件类型，也决定代码所在位置。``requires`` 声明这个环境同时安装的组件；机器人环境正是通过它带上仿真器和模型服务。``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；多个组件都需要的包应放进 ``installs/`` 下的基础设施组件。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。工具包与模型服务之间共享契约，不互相 import。
 
 ``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的依赖包。通过 ``__getattr__`` 暴露工厂：
 
@@ -396,4 +395,4 @@ JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整�
 
 检查至少执行了一个环境动作、transcript 记录了 ``finish``、``states.json`` 包含无错误的动作记录、生成了预期观测工件，以及自己启动的 daemon 全部退出。这种有界接入测试不要求任务成功。
 
-离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装该机器人的配方并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。
+离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装该机器人的组件并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。

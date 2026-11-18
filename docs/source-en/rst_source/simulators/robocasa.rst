@@ -83,15 +83,15 @@ Installation and Resources
 
 Use Linux, an NVIDIA GPU, working CUDA/EGL, ``git``, and
 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_. RoboCasa needs
-Python 3.10, so create the environment with the RoboCasa compatibility extra:
+Python 3.10, which ``rpent-install`` selects from the component's declared
+range:
 
 .. code-block:: bash
 
-   uv venv .venv-robocasa --python 3.10
+   ./scripts/rpent-install.sh install robot-robocasa --venv .venv-robocasa
    source .venv-robocasa/bin/activate
-   uv pip install -e ".[robocasa]"
 
-The extra installs a CUDA-enabled Torch and torchvision pair; RLDX requires
+The component closure installs a CUDA-enabled Torch and torchvision pair; RLDX requires
 Torch >= 2.7 and torchvision >= 0.22. If your driver needs a different build,
 reinstall the matching pair with ``uv pip install`` using the
 `PyTorch instructions <https://pytorch.org/get-started/locally/>`_.
@@ -100,13 +100,13 @@ reinstall the matching pair with ``uv pip install`` using the
    :header-rows: 1
 
    * - Environment
-     - Extra
+     - Components
      - Assets
    * - RoboCasa365
-     - ``robocasa``
+     - ``robot-robocasa``, ``sim-robocasa``, ``model-rldx``
      - ``robocasa-download-assets`` (command below)
 
-The extra installs the ``rpent`` source branches of RoboCasa, RLDX and
+The components install the ``rpent`` source branches of RoboCasa, RLDX and
 Robosuite. Do not also install ``rlinf-robocasa365``, which provides the same
 import package.
 
@@ -572,8 +572,7 @@ VLA Inference Check
 
 Complete :ref:`VLA configuration <robocasa-vla-configuration>`, then select an
 available GPU and a fresh output directory. If you need test dependencies,
-install them into the environment:
-``uv pip install -e ".[robocasa,test]"``.
+install them into the environment: ``uv pip install pytest pytest-timeout``.
 
 .. code-block:: bash
 

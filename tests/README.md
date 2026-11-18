@@ -17,8 +17,8 @@ tests/
 ├── conftest.py           # fixtures shared by more than one test directory
 ├── tooling/              # repository checks and CI selection
 │   ├── layout.py         # repository structure and import boundaries
-│   ├── affected.py       # changed paths -> components, tests and profiles
-│   ├── matrix.py         # profile-to-runner partition for full CI
+│   ├── affected.py       # changed paths -> components, tests and environments
+│   ├── matrix.py         # component-to-runner partition for full CI
 │   └── run.sh            # bootstrap entry point for the three modules
 ├── e2e_tests/
 │   ├── common.py         # shared assertions and runtime lifecycle helpers
@@ -40,11 +40,16 @@ tests/
     │   └── utils/
     ├── installs/          # contracts over the real checked-in install data
     ├── robots/<name>/     # tests for one robot slice
+    │   ├── dual_franka/
+    │   ├── franka/
     │   ├── libero/
     │   ├── robocasa/
-    │   └── robotwin/
+    │   ├── robodojo/
+    │   ├── robotwin/
+    │   └── yam/
     └── components/
-        └── models/        # model services
+        ├── models/        # model services
+        └── tools/         # tools such as the flywheel exporter
 ```
 
 Directories that do not yet have tests do not need empty placeholders. Add
@@ -55,29 +60,33 @@ them when the first test for that module lands.
 - Mirror core modules under `tests/unit_tests/rpent/`. For example, tests for
   `rpent.utils.rpc` belong in `tests/unit_tests/rpent/utils/rpc/`.
 - Mirror robot slices under `tests/unit_tests/robots/<name>/`, model services
-  under `tests/unit_tests/components/models/`.
+  under `tests/unit_tests/components/models/`, and tools under
+  `tests/unit_tests/components/tools/`. Simulator components have no mirrored
+  directory yet; a change to one widens the affected suite to the whole unit
+  suite instead of narrowing it.
 - Place cross-layer tests with the primary contract owner. Registry and config
   contracts belong to `rpent/robots/`; slice toolkit and schema contracts
   belong to `robots/`; installer units belong to `rpent/install/`.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
   `tests/unit_tests/installs/` reads the checked-in `component.toml` files and
-  `installs/{profiles,deps}/`. Do not read the real install data from
+  `installs/infra-*.toml`. Do not read the real install data from
   `tests/unit_tests/rpent/install/`; the test path would otherwise hide which
   layer owns the failure. `installs/` is not a Python package, so the test
   directory mirrors the repository-level data rather than a `rpent/` module.
   The installer units and the install-data contracts use only the core and
-  `dev` dependencies, and `fast ci` runs them in the `dev` profile.
+  `infra-dev` dependencies, and `fast ci` runs them in the `infra-dev`
+  environment.
 - Put repository checks and CI selection under `tests/tooling/`. `layout.py`
   enforces the repository structure and import boundaries, `affected.py` maps
-  changed paths to the components, tests and profiles they can change, and
+  changed paths to the components, tests and environments they can change, and
   `matrix.py` owns the runner partition that full CI installs. Their tests
   live beside them, including the workflow contracts, because the workflows
   are their callers. Run them through `tests/tooling/run.sh`; like the install
   launcher, it bootstraps without an installed environment.
 - Keep one-off fakes in the test module that uses them. Put shared fixtures in
-  the nearest `conftest.py`. `tests/conftest.py` holds the component, profile,
-  catalog and TOML fixtures that more than one directory uses; a module
+  the nearest `conftest.py`. `tests/conftest.py` holds the component, catalog
+  and TOML fixtures that more than one directory uses; a module
   directory's `conftest.py` holds local fixtures.
 - Name files after the behavior they verify: `*_contracts.py` for stable API
   contracts, `*_loopback.py` for real local transports, `*_lifecycle.py` for
@@ -105,12 +114,12 @@ tests/tooling/run.sh matrix --check
 tests/tooling/run.sh affected --base origin/main --head HEAD
 ```
 
-The tests that import model servers need Torch, which the `dev` profile
-deliberately omits. CI runs this suite in the `unit-cpu` profile, which installs
+The tests that import model servers need Torch, which `infra-dev` deliberately
+omits. CI runs this suite in the `infra-unit_cpu` environment, which installs
 CPU Torch from the PyTorch CPU index:
 
 ```bash
-./scripts/rpent-install.sh install unit-cpu --venv .venv-unit-cpu
+./scripts/rpent-install.sh install infra-unit_cpu --venv .venv-unit-cpu
 .venv-unit-cpu/bin/python -m pytest tests/unit_tests -v
 ```
 
@@ -120,12 +129,12 @@ RoboCasa separates simulator checks, model component checks and the full call ch
 
 | Tests | Coverage | Requirements |
 | --- | --- | --- |
-| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | RoboCasa profile, assets and GPU/EGL; no model weights or planner credentials |
+| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | RoboCasa environment, assets and GPU/EGL; no model weights or planner credentials |
 | `test_components.py` | Environment observations over RPC and RLDX inference | Model checkpoint, assets and GPU/EGL |
 | `test_policy_chain.py` | CLI → tools → RLDX → simulator action → `finish` | Model checkpoint, assets and GPU/EGL; local scripted planner |
 
 To check simulator installation and interfaces independently, install the
-RoboCasa profile and assets, then run:
+RoboCasa environment and assets, then run:
 
 ```bash
 RPENT_RUN_ROBOCASA_INTEGRATION=1 \

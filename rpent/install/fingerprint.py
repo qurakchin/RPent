@@ -94,7 +94,7 @@ def source_state(root: Path) -> tuple[str | None, bool]:
 
 
 def runtime_platform() -> str:
-    """Return this interpreter's platform in profile notation."""
+    """Return this interpreter's platform in manifest notation."""
     system = platform.system().lower()
     machine = platform.machine().lower()
     if system == "linux":

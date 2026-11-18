@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from rpent.install.discovery import Catalog, discover
-from rpent.install.manifest import Component, Profile
+from rpent.install.manifest import COMPONENT_DIRECTORIES, KINDS, Component
 
 #: Repository root: this file sits one directory below it.
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture(scope="module")
 def catalog() -> Catalog:
-    """Load the checked-in components and profiles once per module."""
+    """Load the checked-in components once per module."""
     return discover(REPO_ROOT)
 
 
@@ -49,31 +49,34 @@ def make_component(tmp_path):
     """Build a component without touching the filesystem."""
 
     def _make(name, **values):
-        placements = tuple(values.pop("placements", ("in-env",)))
-        kind = values.pop("kind", "robot")
-        directory = {
-            "model": Path("components") / "models",
-        }.get(kind, Path("robots"))
+        prefix = name.split("-", 1)[0]
+        kind = values.pop("kind", prefix if prefix in KINDS else "robot")
+        subject = name.split("-", 1)[1] if "-" in name else name
+        directory = (
+            None
+            if kind == "infra"
+            else tmp_path / COMPONENT_DIRECTORIES[kind] / subject
+        )
         return Component(
             name=name,
             kind=kind,
-            path=tmp_path / directory / name,
-            manifest=tmp_path / directory / name / "component.toml",
-            probe=values.pop("probe", f"robots.{name}"),
+            path=directory,
+            manifest=(
+                tmp_path / "installs" / f"{name}.toml"
+                if directory is None
+                else directory / "component.toml"
+            ),
+            probe=values.pop("probe", f"rpent.{subject}"),
             python=values.pop("python", None),
             platforms=tuple(values.pop("platforms", ())),
             requires=tuple(values.pop("requires", ())),
             imports=tuple(values.pop("imports", ())),
             env_conflicts=tuple(values.pop("env_conflicts", ())),
-            placements=placements,
-            default_placement=values.pop(
-                "default_placement", placements[0] if placements else None
-            ),
-            default_variant=values.pop("default_variant", None),
-            variant_required=values.pop("variant_required", False),
             dependencies=tuple(values.pop("dependencies", ())),
-            optional=values.pop("optional", {}),
             overrides=tuple(values.pop("overrides", ())),
+            index_url=values.pop("index_url", None),
+            extra_index_urls=tuple(values.pop("extra_index_urls", ())),
+            index_strategy=values.pop("index_strategy", None),
             manifest_sha256=values.pop("manifest_sha256", name),
         )
 
@@ -81,37 +84,13 @@ def make_component(tmp_path):
 
 
 @pytest.fixture
-def make_profile(tmp_path):
-    """Build a profile without touching the filesystem."""
+def make_catalog(tmp_path, make_component):
+    """Build a catalog from components."""
 
-    def _make(name, components=None, **values):
-        return Profile(
-            name=name,
-            path=tmp_path / "installs" / "profiles" / f"{name}.toml",
-            python=values.pop("python", "3.11"),
-            platform=values.pop("platform", "linux-x86_64"),
-            components=components or {},
-            dependencies=tuple(values.pop("dependencies", ())),
-            index_url=values.pop("index_url", None),
-            extra_index_urls=tuple(values.pop("extra_index_urls", ())),
-            index_strategy=values.pop("index_strategy", None),
-            core=values.pop("core", True),
-            manylinux=values.pop("manylinux", "2_31"),
-        )
-
-    return _make
-
-
-@pytest.fixture
-def make_catalog(tmp_path, make_component, make_profile):
-    """Build a catalog from component and profile mappings."""
-
-    def _make(components=(), profiles=None):
-        component_map = {component.name: component for component in components}
+    def _make(components=()):
         return Catalog(
             root=Path(tmp_path),
-            components=component_map,
-            profiles=profiles or {},
+            components={component.name: component for component in components},
         )
 
     return _make

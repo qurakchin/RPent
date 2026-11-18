@@ -24,11 +24,14 @@ Rules:
 - K3: a slice root must not add a retired name, and a migrated slice must not
   keep one. Components that predate the skeleton only warn until their
   migration lands.
-- K4: ``components/models/`` must not import ``robots`` or a sibling model.
-  A robot slice may import another slice only when its manifest declares it in
-  ``imports`` and one of the two ``requires`` the other. Core ``rpent/**``
-  must not import ``components.models`` or a concrete ``robots.<name>``;
-  importing the ``robots`` package itself for discovery is allowed.
+- K4: the component layers are ``rpent`` ← ``components/sim`` ←
+  ``components/models`` ← ``robots``. A component may import the layers below
+  it and never a sibling; a robot slice may import another robot only when its
+  manifest declares it in ``imports`` and one of the two ``requires`` the
+  other. ``components/tools`` is outside the layers and depends only on
+  ``rpent``. Core ``rpent/**`` must not import a component or a concrete
+  ``robots.<name>``; importing the ``robots`` package itself for discovery is
+  allowed.
 - K5: core ``rpent/**`` must not name a robot or benchmark (R8).
   ``rpent/models/`` is exempt: model-side contracts and the backend table name
   the embodiment they speak to.
@@ -93,7 +96,17 @@ GROUP_PACKAGES = (
     "robots",
     "components",
     "components/models",
+    "components/sim",
+    "components/tools",
 )
+#: Component directory name under ``components/`` -> the kind it holds, and the
+#: order those directories import in: simulators below models, models below
+#: robots.
+COMPONENT_MODULE_KINDS = {"sim": "sim", "models": "model", "tools": "tool"}
+#: Core modules that dispatch to a tool. The console script has to exist in a
+#: core-only wheel, so its entry point names the tool and imports it inside the
+#: function; every other core module stays free of tools.
+CORE_TOOL_ENTRY_POINTS = frozenset({"rpent/cli/flywheel.py"})
 #: Files that carry wire data rather than behavior. They may use the standard
 #: library, NumPy, core contracts, and their own group's modules; anything else
 #: belongs in the adapter or server.
@@ -228,9 +241,13 @@ REQUIRED_ROLE_FILES = {
         "prompts/__init__.py",
         "prompts/domain.py",
     ),
+    # A simulator owns the environment server and the translation its robot
+    # slice calls into; role files beyond that follow what it needs.
+    "sim": ("__init__.py", "env_server.py"),
     # A model service only needs an importable package and its server; config
     # and README are useful conventions, not skeleton requirements.
     "model": ("__init__.py", "server.py"),
+    "tool": ("__init__.py",),
 }
 #: Components that predate the target skeleton; missing role files warn until
 #: their migration lands.
@@ -394,20 +411,41 @@ def _owner(path: Path, root: Path) -> tuple[str, str] | None:
         return None
     if relative[0] == "robots" and len(relative) > 1:
         return "robot", relative[1]
-    if relative[:2] == ("components", "models") and len(relative) > 2:
-        return "model", relative[2]
+    if relative[0] == "components" and len(relative) > 2:
+        kind = COMPONENT_MODULE_KINDS.get(relative[1])
+        if kind is not None:
+            return kind, relative[2]
     if relative[0] == "rpent":
         return "core", ""
     return None
 
 
+def _component_target(module: str) -> tuple[str, str] | None:
+    """Return ``(kind, name)`` when ``module`` lives inside a component."""
+    parts = module.split(".")
+    if len(parts) >= 3 and parts[0] == "components":
+        kind = COMPONENT_MODULE_KINDS.get(parts[1])
+        if kind is not None:
+            return kind, parts[2]
+    robot = _concrete_robot(module)
+    if robot is not None:
+        return "robot", robot
+    return None
+
+
 def _declared_imports(root: Path) -> dict[str, set[str]]:
-    """Return component -> siblings it may import because it declares them."""
+    """Return robot directory -> directory names its manifest lets it import."""
     try:
         components = discover_components(root)
     except InstallConfigError:
         return {}
-    return {name: set(component.imports) for name, component in components.items()}
+    return {
+        name.removeprefix("robot-"): {
+            other.removeprefix("robot-") for other in component.imports
+        }
+        for name, component in components.items()
+        if component.kind == "robot"
+    }
 
 
 def check_top_level(root: Path) -> list[Finding]:
@@ -451,43 +489,14 @@ def check_imports(root: Path) -> list[Finding]:
             continue
         if any(part in {".git", ".rpent", "tests", "docs"} for part in path.parts):
             continue
+        relative = path.relative_to(root).as_posix()
         owner = _owner(path, root)
         if owner is None:
             continue
         kind, name = owner
         for line, module in _imports(path, root):
-            robot = _concrete_robot(module)
-            if kind == "model":
-                if module == "robots" or robot is not None:
-                    findings.append(
-                        Finding(path, line, f"model {name!r} must not import robots")
-                    )
-                sibling = _sibling_package(module, "components.models")
-                if sibling is not None and sibling != name:
-                    findings.append(
-                        Finding(
-                            path,
-                            line,
-                            f"model {name!r} must not import sibling "
-                            f"{sibling!r}; declare a shared contract instead",
-                        )
-                    )
-            elif kind == "robot":
-                if (
-                    robot is not None
-                    and robot != name
-                    and robot not in declared_imports.get(name, set())
-                ):
-                    findings.append(
-                        Finding(
-                            path,
-                            line,
-                            f"robot {name!r} must not import robot {robot!r}; "
-                            "declare it in component.toml imports when the "
-                            "integration intentionally extends another slice",
-                        )
-                    )
-            elif kind == "core":
+            target = _component_target(module)
+            if kind == "core":
                 if _under(module, "components.models"):
                     findings.append(
                         Finding(
@@ -497,14 +506,89 @@ def check_imports(root: Path) -> list[Finding]:
                             "behind the rpent.models client contract",
                         )
                     )
-                if robot is not None:
+                elif _under(module, "components.sim"):
                     findings.append(
                         Finding(
                             path,
                             line,
-                            f"core must not import concrete robot {robot!r}",
+                            "core must not import simulator components; keep "
+                            "them behind the rpent.env contract",
                         )
                     )
+                elif _under(module, "components.tools"):
+                    if relative not in CORE_TOOL_ENTRY_POINTS:
+                        findings.append(
+                            Finding(
+                                path,
+                                line,
+                                "core must not import tools; a tool depends on "
+                                "the core, not the other way round",
+                            )
+                        )
+                elif target is not None:
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"core must not import concrete robot {target[1]!r}",
+                        )
+                    )
+                continue
+            if target is None:
+                continue
+            target_kind, target_name = target
+            if target_name == name:
+                continue
+            if kind == "robot":
+                if target_kind == "robot" and target_name not in declared_imports.get(
+                    name, set()
+                ):
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"robot {name!r} must not import robot {target_name!r}; "
+                            "declare it in component.toml imports when the "
+                            "integration intentionally extends another slice",
+                        )
+                    )
+            elif kind == "model":
+                if target_kind == "robot":
+                    findings.append(
+                        Finding(path, line, f"model {name!r} must not import robots")
+                    )
+                elif target_kind == "model":
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"model {name!r} must not import sibling "
+                            f"{target_name!r}; declare a shared contract instead",
+                        )
+                    )
+                elif target_kind == "tool":
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"model {name!r} must not import tool {target_name!r}; "
+                            "tools depend only on rpent",
+                        )
+                    )
+            else:
+                findings.append(
+                    Finding(
+                        path,
+                        line,
+                        f"{kind} {name!r} must not import {target_kind} "
+                        f"{target_name!r}; "
+                        + (
+                            "simulators sit below models and robots"
+                            if kind == "sim"
+                            else "tools depend only on rpent"
+                        ),
+                    )
+                )
     return findings
 
 
@@ -725,10 +809,16 @@ def check_coverage(root: Path) -> list[Finding]:
         components = discover_components(root)
     except InstallConfigError as exc:
         return [Finding(root / "component.toml", 0, str(exc))]
-    declared = {component.path.resolve() for component in components.values()}
+    declared = {
+        component.path.resolve()
+        for component in components.values()
+        if component.path is not None
+    }
     roots = [
         (root / "robots", "robot"),
         (root / "components" / "models", "model"),
+        (root / "components" / "sim", "sim"),
+        (root / "components" / "tools", "tool"),
     ]
     for directory, kind in roots:
         if not directory.is_dir():
@@ -760,6 +850,8 @@ def check_role_files(root: Path, *, today: date | None = None) -> list[Finding]:
     roots = [
         (root / "robots", "robot"),
         (root / "components" / "models", "model"),
+        (root / "components" / "sim", "sim"),
+        (root / "components" / "tools", "tool"),
     ]
     for directory, kind in roots:
         if not directory.is_dir():
@@ -856,7 +948,7 @@ def check_legacy_names(root: Path, *, today: date | None = None) -> list[Finding
 def check_file_sizes(root: Path) -> list[Finding]:
     """Return K7 warnings for role files over their line-count limit."""
     findings: list[Finding] = []
-    for directory in ("robots", "components/models"):
+    for directory in ("robots", "components/models", "components/sim"):
         for path in sorted((root / directory).rglob("*.py")):
             limit = LINE_LIMITS.get(path.name)
             if limit is None:

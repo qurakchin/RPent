@@ -17,11 +17,13 @@ with documentation instead of assuming either is correct.
 - `rpent/cli/`, `rpent/dashboard/`, and `rpent/evaluation/`: entry points,
   interactive execution, and run results.
 - `rpent/install/`: component manifests, resolution, and fingerprints.
-- `robots/<name>/`: each robot or simulator slice, owning native translation
-  and its differentiated features.
+- `robots/<name>/`: each robot slice, owning native translation and its
+  differentiated features.
+- `components/sim/<name>/`: installable simulator services.
 - `components/models/<name>/`: installable model services.
-- `installs/profiles/` and `installs/deps/`: supported install recipes and
-  dependency-only manifests.
+- `components/tools/<name>/`: installable tools such as the flywheel exporter.
+- `installs/infra-<name>.toml`: infrastructure components that install packages
+  for an environment without owning code.
 - `scripts/`: checkout-level launchers; `scripts/rpent-install.sh` bootstraps
   the installer without installing RPent.
 - `tests/`: offline tests, integration checks, repository structure checks, and
@@ -29,9 +31,10 @@ with documentation instead of assuming either is correct.
   [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
 
-The dependency direction is `robots/` → `components/` → `rpent/`: the core
-discovers components by name and never imports them statically, and model
-services do not import each other.
+The dependency direction is `rpent` ← `components/sim` ← `components/models` ←
+`robots`: the core discovers components by name and never imports them
+statically, tools depend only on `rpent`, and model services do not import each
+other.
 
 ## Development principles
 

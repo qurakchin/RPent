@@ -30,20 +30,21 @@ IMPORT_ROOT = Path(rpent.__file__).resolve().parents[1]
 #: Package groups each component root lives under; all must stay importable.
 GROUP_INITS = {
     "robots": ("robots",),
+    "components/sim": ("components", "components/sim"),
     "components/models": ("components", "components/models"),
+    "components/tools": ("components", "components/tools"),
 }
 
 
-def _component(write_toml, root, name, kind, *, requires=(), imports=()):
+def _component(write_toml, root, subject, kind, *, requires=(), imports=()):
     required = ", ".join(f'"{item}"' for item in requires)
     imported = ", ".join(f'"{item}"' for item in imports)
     manifest = write_toml(
-        f"{root}/{name}/component.toml",
+        f"{root}/{subject}/component.toml",
         f"""
-        schema = 1
-        name = "{name}"
-        kind = "{kind}"
-        probe = "{name}"
+        schema = 2
+        name = "{kind}-{subject}"
+        probe = "json"
         requires = [{required}]
         imports = [{imported}]
         """,
@@ -68,7 +69,9 @@ SKELETON = {
         "prompts/__init__.py",
         "prompts/domain.py",
     ),
+    "sim": ("__init__.py", "env_server.py"),
     "model": ("__init__.py", "server.py"),
+    "tool": ("__init__.py",),
 }
 
 
@@ -162,7 +165,12 @@ def test_relative_sibling_model_import_is_reported(tmp_path, write_toml):
 
 def test_declared_extension_allows_a_relative_import(tmp_path, write_toml):
     _component(
-        write_toml, "robots", "alpha", "robot", requires=["beta"], imports=["beta"]
+        write_toml,
+        "robots",
+        "alpha",
+        "robot",
+        requires=["robot-beta"],
+        imports=["robot-beta"],
     )
     _component(write_toml, "robots", "beta", "robot")
     _write(tmp_path / "robots" / "alpha" / "module.py", "from .. import beta\n")
@@ -190,7 +198,12 @@ def test_apple_double_python_files_are_ignored(tmp_path, write_toml):
 
 def test_declared_coinstalled_extension_allows_cross_robot_import(tmp_path, write_toml):
     _component(
-        write_toml, "robots", "alpha", "robot", requires=["beta"], imports=["beta"]
+        write_toml,
+        "robots",
+        "alpha",
+        "robot",
+        requires=["robot-beta"],
+        imports=["robot-beta"],
     )
     _component(write_toml, "robots", "beta", "robot")
     _write(
@@ -472,3 +485,67 @@ def test_legacy_component_skeleton_fails_after_the_migration_deadline(
     assert len(findings) == 1
     assert findings[0].level == layout.ERROR
     assert "migration deadline 2027-06-30 passed" in findings[0].message
+
+
+def test_tool_must_not_import_a_robot(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _component(write_toml, "components/tools", "exporter", "tool")
+    _write(
+        tmp_path / "components" / "tools" / "exporter" / "export.py",
+        "from robots.alpha import spec\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "tool 'exporter' must not import robot 'alpha'" in result.stdout
+
+
+def test_sim_must_not_import_a_model(tmp_path, write_toml):
+    _component(write_toml, "components/sim", "alpha", "sim")
+    _component(write_toml, "components/models", "sam3", "model")
+    _write(
+        tmp_path / "components" / "sim" / "alpha" / "client.py",
+        "from components.models.sam3 import server\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "sim 'alpha' must not import model 'sam3'" in result.stdout
+
+
+def test_tool_skeleton_needs_only_its_package(tmp_path, write_toml):
+    _component(write_toml, "components/tools", "exporter", "tool")
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0
+    assert "layout ok" in result.stdout
+
+
+def test_new_sim_without_an_env_server_is_an_error(tmp_path, write_toml):
+    _component(write_toml, "components/sim", "alpha", "sim")
+    (tmp_path / "components" / "sim" / "alpha" / "env_server.py").unlink()
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "sim 'alpha' is missing its skeleton files: env_server.py" in result.stdout
+
+
+def test_core_tool_entry_point_may_import_a_tool(tmp_path, write_toml):
+    _component(write_toml, "components/tools", "flywheel", "tool")
+    _write(
+        tmp_path / "rpent" / "cli" / "flywheel.py",
+        "from components.tools.flywheel import exporter\n",
+    )
+    _write(
+        tmp_path / "rpent" / "planner" / "exporter.py",
+        "from components.tools.flywheel import exporter\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert result.stdout.count("core must not import tools") == 1
