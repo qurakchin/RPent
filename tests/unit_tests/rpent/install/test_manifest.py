@@ -20,7 +20,7 @@ from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
     SCHEMA,
     load_component,
-    load_infra_component,
+    load_package_component,
 )
 
 
@@ -101,7 +101,7 @@ def test_infra_manifest_has_no_code_directory(write_toml):
         """,
     )
 
-    component = load_infra_component(path)
+    component = load_package_component(path, "infra")
 
     assert component.kind == "infra"
     assert component.path is None
@@ -120,14 +120,14 @@ def test_infra_manifest_name_must_match_its_file(write_toml):
     )
 
     with pytest.raises(InstallConfigError, match="must be 'infra-dev'"):
-        load_infra_component(path)
+        load_package_component(path, "infra")
 
 
 @pytest.mark.parametrize(
     ("entry", "message"),
     [
-        ('imports = ["robot-alpha"]', "cannot import one"),
-        ('overrides = ["extra.txt"]', "remove 'overrides'"),
+        ('imports = ["robot-alpha"]', "has nothing to import"),
+        ('overrides = ["extra.txt"]', "cannot resolve override paths"),
     ],
 )
 def test_infra_manifest_rejects_code_relations(write_toml, entry, message):
@@ -142,7 +142,7 @@ def test_infra_manifest_rejects_code_relations(write_toml, entry, message):
     )
 
     with pytest.raises(InstallConfigError, match=message):
-        load_infra_component(path)
+        load_package_component(path, "infra")
 
 
 def test_infra_kind_needs_no_directory_manifest(write_toml):
@@ -157,6 +157,55 @@ def test_infra_kind_needs_no_directory_manifest(write_toml):
 
     with pytest.raises(InstallConfigError, match="no directory of their own"):
         load_component(path, "infra")
+
+
+def test_package_manifest_keeps_its_kind(write_toml):
+    # A component that installs packages for code it does not own declares the
+    # kind it serves, so `check` still reports the right Python and platform
+    # range and `list` groups it with its kind.
+    path = write_toml(
+        "installs/sim-libero_plus.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "sim-libero_plus"
+        probe = "liberoplus"
+        """,
+    )
+
+    component = load_package_component(path, "sim")
+
+    assert component.kind == "sim"
+    assert component.path is None
+    assert not component.is_infra
+
+
+def test_package_manifest_name_must_carry_the_kind_prefix(write_toml):
+    path = write_toml(
+        "installs/sim-libero_plus.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "model-libero_plus"
+        probe = "liberoplus"
+        """,
+    )
+
+    # The name must match the file, so a kind/prefix mismatch is caught first.
+    with pytest.raises(InstallConfigError, match="must be 'sim-libero_plus'"):
+        load_package_component(path, "sim")
+
+
+def test_package_manifest_kind_must_match_its_prefix(write_toml):
+    path = write_toml(
+        "installs/infra-dev.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "infra-dev"
+        probe = "pytest"
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="sim component names start with"):
+        load_package_component(path, "sim")
 
 
 def test_unknown_fields_and_old_schema_are_rejected(write_toml):
@@ -272,7 +321,7 @@ def test_component_rejects_missing_override(write_toml):
 
 
 def test_index_strategy_is_optional_and_validated(write_toml):
-    default = load_infra_component(
+    default = load_package_component(
         write_toml(
             "installs/infra-dev.toml",
             f"""
@@ -280,7 +329,8 @@ def test_index_strategy_is_optional_and_validated(write_toml):
             name = "infra-dev"
             probe = "pytest"
             """,
-        )
+        ),
+        "infra",
     )
     invalid = write_toml(
         "installs/infra-unit.toml",
@@ -294,4 +344,4 @@ def test_index_strategy_is_optional_and_validated(write_toml):
 
     assert default.index_strategy is None
     with pytest.raises(InstallConfigError, match="'index-strategy' must be one of"):
-        load_infra_component(invalid)
+        load_package_component(invalid, "infra")

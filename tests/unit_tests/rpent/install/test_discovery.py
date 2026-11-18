@@ -84,6 +84,38 @@ def test_discovery_loads_every_kind(tmp_path, write_toml):
     assert catalog.components["infra-alpha"].is_infra
 
 
+def _package(write_toml, kind, short, *, requires=()):
+    required = ", ".join(f'"{item}"' for item in requires)
+    return write_toml(
+        f"installs/{kind}-{short}.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "{kind}-{short}"
+        probe = "{short}"
+        requires = [{required}]
+        """,
+    )
+
+
+def test_a_package_manifest_is_discovered_without_a_directory(tmp_path, write_toml):
+    _package(write_toml, "sim", "variant_plus")
+    _package(write_toml, "infra", "runtime")
+
+    catalog = discover(tmp_path)
+
+    assert sorted(catalog.components) == ["infra-runtime", "sim-variant_plus"]
+    assert catalog.components["sim-variant_plus"].kind == "sim"
+    assert catalog.components["sim-variant_plus"].path is None
+
+
+def test_a_component_declared_twice_is_rejected(tmp_path, write_toml):
+    _component(write_toml, "sim", "alpha")
+    _package(write_toml, "sim", "alpha")
+
+    with pytest.raises(InstallConfigError, match="declared twice"):
+        discover(tmp_path)
+
+
 def test_component_name_must_match_its_directory(tmp_path, write_toml):
     write_toml(
         "robots/alpha/component.toml",

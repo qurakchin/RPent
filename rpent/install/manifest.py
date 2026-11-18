@@ -54,8 +54,8 @@ SCHEMA = 2
 #: Component kinds in the order ``rpent-install list`` prints them.
 KINDS = ("robot", "sim", "model", "tool", "infra")
 #: Kind -> the directory holding ``component.toml`` files, relative to the
-#: checkout root. ``infra`` components have no code directory; their manifests
-#: are ``installs/infra-<name>.toml``.
+#: checkout root. ``infra`` components have no code directory; a component of
+#: any kind that owns no code declares itself in ``installs/<kind>-<name>.toml``.
 COMPONENT_DIRECTORIES = {
     "robot": "robots",
     "sim": "components/sim",
@@ -207,8 +207,9 @@ class Component:
 
     name: str
     kind: str
-    #: The component's code directory; ``None`` for ``infra`` components, which
-    #: install packages on behalf of an environment rather than owning code.
+    #: The component's code directory; ``None`` for a manifest under
+    #: ``installs/``, which installs packages on behalf of an environment
+    #: rather than owning code.
     path: Path | None
     manifest: Path
     probe: str
@@ -245,7 +246,7 @@ def load_component(path: Path, kind: str) -> Component:
     if kind not in COMPONENT_DIRECTORIES:
         raise InstallConfigError(
             f"{path}: {kind!r} components have no directory of their own; "
-            "their manifests are installs/infra-<name>.toml"
+            f"their manifests are installs/{prefix(kind)}<name>.toml"
         )
     data = _read_toml(path)
     _schema(data, path)
@@ -254,32 +255,38 @@ def load_component(path: Path, kind: str) -> Component:
     return _component(data, path, name=name, kind=kind, directory=path.parent)
 
 
-def load_infra_component(path: Path) -> Component:
-    """Load one ``installs/infra-<name>.toml`` manifest.
+def load_package_component(path: Path, kind: str) -> Component:
+    """Load one ``installs/<kind>-<name>.toml`` manifest.
+
+    A component without a code directory still installs into an environment:
+    the infrastructure components provide the runtime packages every robot
+    environment shares, and a separately packaged simulator variant installs
+    the packages whose environment server another component already owns.
 
     Raises:
-        InstallConfigError: the manifest is invalid or does not match its file
-            name.
+        InstallConfigError: the manifest is invalid, its name does not carry
+            ``kind``'s prefix, or it declares a relation that needs a code
+            directory.
     """
     data = _read_toml(path)
     _schema(data, path)
     _fields(data, path)
     name = _name(data, path, path.stem)
-    if not name.startswith(prefix("infra")):
+    if not name.startswith(prefix(kind)):
         raise InstallConfigError(
-            f"{path}: infra component names start with {prefix('infra')!r}"
+            f"{path}: {kind} component names start with {prefix(kind)!r}"
         )
     if data.get("imports"):
         raise InstallConfigError(
-            f"{path}: infra components have no code, so they cannot import one; "
-            "remove 'imports'"
+            f"{path}: a component without a code directory has nothing to "
+            "import; remove 'imports'"
         )
     if data.get("overrides"):
         raise InstallConfigError(
-            f"{path}: infra components have no directory, so override paths "
-            "cannot be resolved against one; remove 'overrides'"
+            f"{path}: a component without a code directory cannot resolve "
+            "override paths; remove 'overrides'"
         )
-    return _component(data, path, name=name, kind="infra", directory=None)
+    return _component(data, path, name=name, kind=kind, directory=None)
 
 
 def _component(

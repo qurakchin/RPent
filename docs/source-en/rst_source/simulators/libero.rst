@@ -112,11 +112,21 @@ assets:
    * - ``pro``
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
-     - ``liberoplus-download-assets --skip-existing``; also install
-       ``rlinf-liberoplus`` into the environment, which no component ships
+     - ``liberoplus-download-assets --skip-existing``; the simulator package
+       comes from ``sim-libero_plus``
 
-The environment includes Pi0.5 (``rpent-openpi``), SAM3, and the RLinf runtime
-(``infra-rlinf``). Download model weights separately as described below.
+LIBERO-plus needs robosuite<1.5, so it cannot share an environment with the
+standard and PRO packages. ``sim-libero_plus`` therefore replaces
+``sim-libero`` instead of extending it; name it with the model components
+``robot-libero`` would have pulled in:
+
+.. code-block:: bash
+
+   rpent-install install sim-libero_plus model-openpi model-sam3 --venv .venv-libero-plus
+
+The standard and PRO environment includes Pi0.5 (``rpent-openpi``), SAM3, and
+the RLinf runtime (``infra-rlinf``), which ``sim-libero_plus`` requires.
+Download model weights separately as described below.
 
 At runtime, set ``--libero-type`` to match the installed variant.
 

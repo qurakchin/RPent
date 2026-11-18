@@ -91,10 +91,11 @@ INSTALL_DATA_ROOT_FILES = ("pyproject.toml",)
 #: ``tests/unit_tests/rpent/install/`` and use synthetic manifests, so the two
 #: groups stay distinguishable by path.
 INSTALL_DATA_TESTS = "tests/unit_tests/installs"
-#: Repository checks and the selection logic that reads the install data.
-#: Changing them can change what every other test path means, so they run with
-#: every scope that is not narrowed to a component.
-TOOLING_TESTS = "tests/tooling"
+#: Tests for the repository checks and the selection logic that reads the
+#: install data. They live under ``tests/unit_tests/`` so the default unit run
+#: collects them, and changing the checks can change what every other test path
+#: means, so they run with every scope that is not narrowed to a component.
+TOOLING_TESTS = "tests/unit_tests/tooling"
 
 
 @dataclass(frozen=True)
@@ -261,9 +262,9 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
         # Install data is repository-level: it changes which environment can be
         # built, not a component's behavior. The contract tests under
         # ``tests/unit_tests/installs/`` own the cross-file checks, the runner
-        # partition under ``tests/tooling`` covers every component, and the
-        # environments whose closure reads the changed files are the ones a pull
-        # request installs.
+        # partition under ``tests/unit_tests/tooling/`` covers every component,
+        # and the environments whose closure reads the changed files are the
+        # ones a pull request installs.
         installs = _installs_for_install_data(paths, catalog)
         return Scope(
             components=(),

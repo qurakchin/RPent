@@ -135,7 +135,7 @@ def test_unmapped_path_selects_every_component_and_environment(
 
         assert scope.full
         assert scope.components == ("infra-minimal", "robot-alpha")
-        assert scope.tests == ("tests/unit_tests", "tests/tooling")
+        assert scope.tests == ("tests/unit_tests", "tests/unit_tests/tooling")
         assert scope.installs == ("infra-minimal", "robot-alpha")
         # Packaging decides what every environment installs, so a pull request
         # keeps the full environment set rather than the pilot one.
@@ -184,7 +184,7 @@ def test_installer_change_installs_every_environment_in_a_pull_request(
     scope = affected.affected_scope(["rpent/install/installer.py"], catalog, tmp_path)
 
     assert scope.full
-    assert scope.tests == ("tests/unit_tests", "tests/tooling")
+    assert scope.tests == ("tests/unit_tests", "tests/unit_tests/tooling")
     assert scope.pr_installs == ("infra-minimal", "robot-alpha")
 
 
@@ -202,7 +202,7 @@ def test_tooling_change_installs_every_environment_and_runs_itself(
         scope = affected.affected_scope([path], catalog, tmp_path)
 
         assert scope.full
-        assert scope.tests == ("tests/unit_tests", "tests/tooling")
+        assert scope.tests == ("tests/unit_tests", "tests/unit_tests/tooling")
         assert scope.pr_installs == ("infra-minimal", "robot-alpha")
 
 
@@ -226,7 +226,7 @@ def test_install_data_change_runs_the_repository_contract_tests(
 
     assert not scope.full
     assert scope.components == ()
-    assert scope.tests == ("tests/unit_tests/installs", "tests/tooling")
+    assert scope.tests == ("tests/unit_tests/installs", "tests/unit_tests/tooling")
     assert scope.installs == ("infra-rlinf", "robot-alpha")
     assert scope.pr_installs == scope.installs
 
@@ -250,7 +250,7 @@ def test_packaging_settings_keep_every_environment(
 
     assert not scope.full
     assert scope.components == ()
-    assert scope.tests == ("tests/unit_tests/installs", "tests/tooling")
+    assert scope.tests == ("tests/unit_tests/installs", "tests/unit_tests/tooling")
     assert scope.installs == ("infra-minimal", "infra-rlinf", "robot-alpha")
     assert scope.pr_installs == scope.installs
 
@@ -264,7 +264,7 @@ def test_repository_contract_test_change_installs_nothing(
         ["tests/unit_tests/installs/test_catalog.py"], catalog, tmp_path
     )
 
-    assert scope.tests == ("tests/unit_tests/installs", "tests/tooling")
+    assert scope.tests == ("tests/unit_tests/installs", "tests/unit_tests/tooling")
     assert scope.installs == ()
     assert scope.pr_installs == ()
     assert not scope.full
@@ -277,7 +277,7 @@ def test_unrecognised_install_data_widens_to_every_environment(
 
     scope = affected.affected_scope(["installs/matrix.toml"], catalog, tmp_path)
 
-    assert scope.tests == ("tests/unit_tests/installs", "tests/tooling")
+    assert scope.tests == ("tests/unit_tests/installs", "tests/unit_tests/tooling")
     assert scope.installs == ("infra-minimal", "infra-rlinf", "robot-alpha")
 
 
@@ -293,7 +293,7 @@ def test_mixed_install_and_core_change_widens_to_everything(
     )
 
     assert scope.full
-    assert scope.tests == ("tests/unit_tests", "tests/tooling")
+    assert scope.tests == ("tests/unit_tests", "tests/unit_tests/tooling")
     assert scope.installs == ("infra-minimal", "infra-rlinf", "robot-alpha")
     assert scope.pr_installs == ("infra-minimal", "infra-rlinf", "robot-alpha")
 

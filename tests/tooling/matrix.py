@@ -59,6 +59,9 @@ GPU = (
     ("model-fast_wam",),
     ("model-molmo",),
     ("model-uniwam",),
+    # The adapter installs no package of its own; the XPolicyLab runtime comes
+    # from the deployment's resource root.
+    ("model-xpolicylab",),
     ("robot-dual_franka",),
     ("robot-franka",),
     ("robot-libero",),
@@ -69,6 +72,7 @@ GPU = (
     ("robot-robotwin",),
     ("robot-yam",),
     ("sim-libero",),
+    ("sim-libero_plus",),
     ("sim-robocasa",),
     ("sim-robodojo",),
     ("sim-robotwin",),

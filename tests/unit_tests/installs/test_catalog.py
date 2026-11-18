@@ -25,8 +25,9 @@ def test_every_component_manifest_lives_where_its_name_declares_it(catalog):
     for name, component in sorted(catalog.components.items()):
         assert component.name == name
         assert name.startswith(f"{component.kind}-")
-        if component.kind == "infra":
-            assert component.path is None
+        if component.path is None:
+            # A component that owns no code declares itself under ``installs/``,
+            # whatever its kind; `infra` components are all of this shape.
             assert component.manifest == catalog.root / "installs" / f"{name}.toml"
         else:
             assert component.manifest == component.path / "component.toml"

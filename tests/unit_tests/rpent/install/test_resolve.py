@@ -291,3 +291,36 @@ def test_components_selecting_different_index_strategies_are_reported(
     resolution = resolve(["infra-a", "infra-b"], catalog)
 
     assert any("selects index strategy" in error for error in resolution.errors)
+
+
+def test_two_components_overriding_one_package_are_reported(
+    make_component, make_catalog, tmp_path
+):
+    # uv merges every override into one resolution, so the winner would depend
+    # on file order instead of on which component declared the constraint.
+    shared = tmp_path / "shared.txt"
+    shared.write_text("numpy==2.0.0\n", encoding="utf-8")
+    alpha = make_component("robot-alpha", overrides=[shared])
+    beta = make_component("model-beta", overrides=[shared])
+    catalog = _catalog(make_catalog, alpha, beta)
+
+    resolution = resolve(["robot-alpha", "model-beta"], catalog)
+
+    assert not resolution.ok
+    assert any("both override 'numpy'" in error for error in resolution.errors)
+
+
+def test_marker_scoped_overrides_select_one_target_and_are_ignored(
+    make_component, make_catalog, tmp_path
+):
+    linux = tmp_path / "linux.txt"
+    linux.write_text('torch==2.4.0; sys_platform == "linux"\n', encoding="utf-8")
+    darwin = tmp_path / "darwin.txt"
+    darwin.write_text('torch==2.5.0; sys_platform == "darwin"\n', encoding="utf-8")
+    alpha = make_component("robot-alpha", overrides=[linux])
+    beta = make_component("model-beta", overrides=[darwin])
+    catalog = _catalog(make_catalog, alpha, beta)
+
+    resolution = resolve(["robot-alpha", "model-beta"], catalog)
+
+    assert resolution.ok, resolution.errors

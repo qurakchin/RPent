@@ -23,17 +23,22 @@ from typing import Iterable
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
     COMPONENT_DIRECTORIES,
+    KINDS,
     Component,
     load_component,
-    load_infra_component,
+    load_package_component,
+    prefix,
 )
 from rpent.utils.config import get_repo_root
 
-#: Every component root and the glob that finds it.
+#: Every component root: the glob that finds it, the kind it declares, and
+#: whether the manifest sits in a code directory of its own. A manifest under
+#: ``installs/`` may declare any kind; it names the packages an environment
+#: needs for code that ships with the checkout.
 COMPONENT_ROOTS = tuple(
-    (f"{directory}/*/component.toml", kind)
+    (f"{directory}/*/component.toml", kind, True)
     for kind, directory in COMPONENT_DIRECTORIES.items()
-) + (("installs/infra-*.toml", "infra"),)
+) + tuple((f"installs/{prefix(kind)}*.toml", kind, False) for kind in KINDS)
 
 
 @dataclass(frozen=True)
@@ -54,9 +59,9 @@ def _is_metadata_file(path: Path) -> bool:
     return path.name.startswith(".")
 
 
-def _component_manifests(root: Path) -> Iterable[tuple[Path, str]]:
+def _component_manifests(root: Path) -> Iterable[tuple[Path, str, bool]]:
     seen: set[Path] = set()
-    for pattern, kind in COMPONENT_ROOTS:
+    for pattern, kind, has_directory in COMPONENT_ROOTS:
         for manifest in sorted(root.glob(pattern)):
             if _is_metadata_file(manifest):
                 continue
@@ -64,7 +69,7 @@ def _component_manifests(root: Path) -> Iterable[tuple[Path, str]]:
             if resolved in seen:
                 continue
             seen.add(resolved)
-            yield manifest, kind
+            yield manifest, kind, has_directory
 
 
 def discover_components(root: Path | None = None) -> dict[str, Component]:
@@ -76,11 +81,11 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
     """
     repo_root = (root or get_repo_root()).resolve()
     components: dict[str, Component] = {}
-    for manifest, kind in _component_manifests(repo_root):
-        if kind == "infra":
-            component = load_infra_component(manifest)
-        else:
+    for manifest, kind, has_directory in _component_manifests(repo_root):
+        if has_directory:
             component = load_component(manifest, kind)
+        else:
+            component = load_package_component(manifest, kind)
         previous = components.get(component.name)
         if previous is not None:
             raise InstallConfigError(

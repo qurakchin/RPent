@@ -93,7 +93,7 @@ jobs:
           # core and `infra-dev` dependencies. Every other test path may import
           # a model server, so it keeps the CPU Torch environment; an empty
           # selection runs the whole suite and needs that environment too.
-          dev_tests = {"tests/unit_tests/rpent/install", "tests/unit_tests/installs", "tests/tooling"}
+          dev_tests = {"tests/unit_tests/rpent/install", "tests/unit_tests/installs", "tests/unit_tests/tooling"}
           tests = set(scope["tests"])
           components = "infra-dev" if tests and tests <= dev_tests else "infra-unit_cpu"
           values = {

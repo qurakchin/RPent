@@ -39,6 +39,7 @@ tests/
     │   ├── tools/
     │   └── utils/
     ├── installs/          # contracts over the real checked-in install data
+    ├── tooling/           # tests for the repository checks and CI selection
     ├── robots/<name>/     # tests for one robot slice
     │   ├── dual_franka/
     │   ├── franka/
@@ -80,10 +81,13 @@ them when the first test for that module lands.
 - Put repository checks and CI selection under `tests/tooling/`. `layout.py`
   enforces the repository structure and import boundaries, `affected.py` maps
   changed paths to the components, tests and environments they can change, and
-  `matrix.py` owns the runner partition that full CI installs. Their tests
-  live beside them, including the workflow contracts, because the workflows
-  are their callers. Run them through `tests/tooling/run.sh`; like the install
-  launcher, it bootstraps without an installed environment.
+  `matrix.py` owns the runner partition that full CI installs. Run them through
+  `tests/tooling/run.sh`; like the install launcher, it bootstraps without an
+  installed environment.
+- Keep the tests for those checks under `tests/unit_tests/tooling/`, so the
+  default unit run collects them instead of only the paths `affected.py`
+  selects. Workflow contract tests belong to `tests/unit_tests/installs/`
+  because the workflows read the install data.
 - Keep one-off fakes in the test module that uses them. Put shared fixtures in
   the nearest `conftest.py`. `tests/conftest.py` holds the component, catalog
   and TOML fixtures that more than one directory uses; a module

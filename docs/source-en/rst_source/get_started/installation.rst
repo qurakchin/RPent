@@ -46,6 +46,12 @@ The name prefix says what a component is and where its code lives:
      - Packages an environment needs without owning code (RLinf runtime, test
        tools, CPU Torch).
 
+A component that installs packages for code it does not own has no directory:
+its manifest lives in ``installs/<prefix>-<name>.toml`` instead of the
+location above. The ``infra-`` components are all of this shape, and
+``sim-libero_plus`` installs the LIBERO-plus package whose environment server
+ships with ``sim-libero``.
+
 The dependency direction is ``rpent`` ← ``components/sim`` ←
 ``components/models`` ← ``robots``; ``components/tools`` depends only on
 ``rpent``. A robot environment therefore pulls in its simulator and model
@@ -139,6 +145,7 @@ Common environments
    rpent-install install infra-dev --venv .venv-dev
    rpent-install install infra-unit_cpu --venv .venv-unit-cpu
    rpent-install install robot-libero --venv .venv-libero
+   rpent-install install sim-libero_plus model-openpi model-sam3 --venv .venv-libero-plus
    rpent-install install robot-robocasa --venv .venv-robocasa
    rpent-install install robot-robotwin --venv .venv-robotwin
    rpent-install install robot-franka --venv .venv-franka
@@ -154,6 +161,8 @@ discovery. ``infra-dev`` adds the test and lint tools. ``infra-unit_cpu`` adds
 those tools and a CPU Torch-built model stack for the unit suite. The robot
 environments cover the supported real robots and simulators; see each
 simulator or robot page for platform preparation, checkpoints, and assets.
+``sim-libero_plus`` replaces ``sim-libero`` rather than adding to it: LIBERO-plus
+needs robosuite<1.5, so the two package sets cannot share an environment.
 
 Diagnose an environment
 -----------------------

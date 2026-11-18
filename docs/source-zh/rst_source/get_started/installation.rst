@@ -38,6 +38,8 @@
      - ``installs/infra-<name>.toml``
      - 环境需要但不拥有代码的依赖包（RLinf 运行时、测试工具、CPU Torch）。
 
+为不属于自己的代码安装依赖包的组件没有代码目录，清单放在 ``installs/<前缀>-<name>.toml`` 而不是上表的位置。``infra-`` 组件全部属于这种形态，``sim-libero_plus`` 则是为 ``sim-libero`` 自带的 env server 安装 LIBERO-plus 包。
+
 依赖方向是 ``rpent`` ← ``components/sim`` ← ``components/models`` ← ``robots``；``components/tools`` 只依赖 ``rpent``。因此机器人环境会自动带上它的仿真器和模型服务：
 
 .. code-block:: bash
@@ -95,6 +97,7 @@
    rpent-install install infra-dev --venv .venv-dev
    rpent-install install infra-unit_cpu --venv .venv-unit-cpu
    rpent-install install robot-libero --venv .venv-libero
+   rpent-install install sim-libero_plus model-openpi model-sam3 --venv .venv-libero-plus
    rpent-install install robot-robocasa --venv .venv-robocasa
    rpent-install install robot-robotwin --venv .venv-robotwin
    rpent-install install robot-franka --venv .venv-franka
@@ -104,7 +107,7 @@
    rpent-install install model-molmo --venv .venv-molmo
    rpent-install install model-openpi --venv .venv-openpi
 
-``infra-minimal`` 是核心环境：只有 RPent 及其自身依赖，不含任何机器人、仿真器或模型包，足以验证 CLI 和机器人发现。``infra-dev`` 再加上测试和 lint 工具。``infra-unit_cpu`` 在测试工具之外再加一套 CPU Torch 构建的模型依赖，供单元测试使用。机器人环境覆盖受支持的真机和仿真器；平台准备、checkpoint 和资产见各仿真器或机器人页面。
+``infra-minimal`` 是核心环境：只有 RPent 及其自身依赖，不含任何机器人、仿真器或模型包，足以验证 CLI 和机器人发现。``infra-dev`` 再加上测试和 lint 工具。``infra-unit_cpu`` 在测试工具之外再加一套 CPU Torch 构建的模型依赖，供单元测试使用。机器人环境覆盖受支持的真机和仿真器；平台准备、checkpoint 和资产见各仿真器或机器人页面。``sim-libero_plus`` 替代而不是叠加 ``sim-libero``：LIBERO-plus 要求 robosuite<1.5，两套包不能共用一个环境。
 
 环境诊断
 --------

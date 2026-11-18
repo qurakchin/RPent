@@ -107,10 +107,16 @@ LIBERO
    * - ``pro``
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
-     - ``liberoplus-download-assets --skip-existing``；还需在环境中安装
-       ``rlinf-liberoplus``，目前没有组件提供它
+     - ``liberoplus-download-assets --skip-existing``；模拟器包来自
+       ``sim-libero_plus``
 
-该环境包含 Pi0.5（``rpent-openpi``）、SAM3 和 RLinf 运行时（``infra-rlinf``）。模型权重需按下文单独下载。
+LIBERO-plus 要求 robosuite<1.5，不能和 standard、PRO 的包装进同一个环境。因此 ``sim-libero_plus`` 替代而不是叠加 ``sim-libero``，把 ``robot-libero`` 原本会带入的模型组件一起写上：
+
+.. code-block:: bash
+
+   rpent-install install sim-libero_plus model-openpi model-sam3 --venv .venv-libero-plus
+
+standard、PRO 环境包含 Pi0.5（``rpent-openpi``）、SAM3 和 RLinf 运行时（``infra-rlinf``），``sim-libero_plus`` 会带上后者。模型权重需按下文单独下载。
 
 VLA 配置
 --------

@@ -163,6 +163,59 @@ def _format_conflict(left: Component, right: Component) -> str:
     )
 
 
+def _override_packages(component: Component) -> set[str]:
+    """Return the packages one component's override files constrain.
+
+    Marker-scoped lines select different constraints per target, so the
+    resolver decides which one applies and they are not compared, the same rule
+    the pin check follows. An unreadable or unparsable file is left to uv,
+    which reports it when it applies the override.
+    """
+    from packaging.requirements import InvalidRequirement, Requirement
+    from packaging.utils import canonicalize_name
+
+    packages: set[str] = set()
+    for path in component.overrides:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line in text.splitlines():
+            value = line.strip()
+            if not value or value.startswith("#"):
+                continue
+            try:
+                requirement = Requirement(value)
+            except InvalidRequirement:
+                continue
+            if requirement.marker is None:
+                packages.add(canonicalize_name(requirement.name))
+    return packages
+
+
+def _override_conflicts(components: dict[str, Component]) -> list[str]:
+    """Return errors for packages two components override at once.
+
+    uv merges every component's override into one resolution, so two files
+    constraining the same package leave the winner to file order. Report the
+    pair and let the components own their constraints or share one file.
+    """
+    owners: dict[str, list[str]] = {}
+    for name, component in sorted(components.items()):
+        for package in _override_packages(component):
+            owners.setdefault(package, []).append(name)
+    errors: list[str] = []
+    for package, names in sorted(owners.items()):
+        if len(names) < 2:
+            continue
+        errors.append(
+            f"components {', '.join(repr(name) for name in names)} both override "
+            f"{package!r} in one environment; move the constraint into the "
+            "component that needs it or merge the override files"
+        )
+    return errors
+
+
 def python_errors(
     version: str,
     components: Iterable[Component],
@@ -313,5 +366,6 @@ def resolve(
     for package, pins in _pin_conflicts(requirements).items():
         lines = "\n".join(f"  {owner}: {package} {pin}" for owner, pin in pins)
         resolution.errors.append(f"conflicting pins for {package!r}\n{lines}")
+    resolution.errors.extend(_override_conflicts(ordered))
     resolution.errors = sorted(dict.fromkeys(resolution.errors))
     return resolution

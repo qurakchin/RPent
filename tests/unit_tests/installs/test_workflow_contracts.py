@@ -16,8 +16,9 @@
 
 The scopes these workflows pass around are covered by ``test_affected``; these
 tests read the workflow files themselves, because a dropped trigger, a missing
-``needs``, or a widened wheel scope is invisible to a Python import. They belong
-with the tooling because the workflows are its callers.
+``needs``, or a widened wheel scope is invisible to a Python import. They sit
+with the install-data contracts because the workflows and that data are read
+together.
 """
 
 import os
@@ -25,7 +26,7 @@ from pathlib import Path
 
 import yaml
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 
 
@@ -101,7 +102,7 @@ def test_fast_ci_runs_installer_and_install_data_tests_in_the_dev_environment():
     script = _step(workflow, "changes", "Map changed paths to a scope")["run"]
     dev_tests = (
         '{"tests/unit_tests/rpent/install", "tests/unit_tests/installs", '
-        '"tests/tooling"}'
+        '"tests/unit_tests/tooling"}'
     )
     assert dev_tests in script
     assert (
