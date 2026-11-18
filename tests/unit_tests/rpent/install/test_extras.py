@@ -14,12 +14,8 @@
 
 """Compatibility extras mirror profiles, component closures, and conflicts."""
 
-import tomllib
-from pathlib import Path
-
 import pytest
 
-from rpent.install.discovery import discover
 from rpent.install.extras import BEGIN_MARKER, END_MARKER, generate, replace_block
 from rpent.install.manifest import Selection
 
@@ -84,24 +80,6 @@ def test_conflicts_pair_incompatible_extras_and_skip_dev(catalog):
     assert '{ extra = "alpha" }, { extra = "beta" }' in generated.text
 
 
-def test_repository_manifests_declare_the_robotwin_molmo_conflict():
-    components = discover().components
-
-    assert "robotwin" in components["molmo"].env_conflicts
-    assert "molmo" in components["robotwin"].env_conflicts
-    # OpenPI follows Molmo's Transformers range, so they are compatible.
-    assert "molmo" not in components["openpi"].env_conflicts
-
-
-def test_repository_extras_keep_only_the_real_molmo_conflict():
-    generated = generate(discover())
-
-    # RoboTwin pins transformers 4.51.3 and Molmo needs >=4.57. LIBERO and
-    # OpenPI resolve transformers 4.57.6, which satisfies Molmo.
-    assert ("molmo", "robotwin") in generated.conflicts
-    assert ("libero", "molmo") not in generated.conflicts
-
-
 def test_alias_shares_the_target_extra(catalog):
     generated = generate(catalog, aliases={"old-alpha": "alpha"})
 
@@ -113,17 +91,6 @@ def test_alias_without_target_is_ignored(catalog):
     generated = generate(catalog, aliases={"old-missing": "missing"})
 
     assert "old-missing" not in generated.extras
-
-
-def test_repository_pyproject_keeps_the_renamed_extra_name():
-    pyproject = Path(__file__).resolve().parents[4] / "pyproject.toml"
-    extras = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"][
-        "optional-dependencies"
-    ]
-
-    # `pip install -e ".[robodojo-sim]"` predates the component rename.
-    assert "robodojo-sim" in extras
-    assert extras["robodojo-sim"] == extras["robodojo"]
 
 
 def test_replace_block_requires_markers_and_is_idempotent(catalog):

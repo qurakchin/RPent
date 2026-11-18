@@ -16,14 +16,16 @@
 
 The scopes these workflows pass around are covered by ``test_affected``; these
 tests read the workflow files themselves, because a dropped trigger, a missing
-``needs``, or a widened wheel scope is invisible to a Python import.
+``needs``, or a widened wheel scope is invisible to a Python import. They belong
+with the repository install data because the workflows are the readers of that
+data.
 """
 
 from pathlib import Path
 
 import yaml
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 
 
@@ -84,6 +86,22 @@ def test_fast_ci_scopes_full_ci_with_the_pull_request_profiles():
     assert (
         'e2e = sorted(suites) if set(selected) == set(scope["profiles"]) else []'
         in (script)
+    )
+    # Install data changes narrow the profile set but still call full CI for
+    # those profiles.
+    assert 'bool(scope["components"] or scope["profiles"])' in script
+
+
+def test_fast_ci_runs_installer_and_install_data_tests_in_the_dev_profile():
+    workflow = _workflow("fast-ci.yml")
+
+    # Both groups need only the core and `dev` dependencies; every other test
+    # path may import a model server, which needs the CPU Torch profile.
+    script = _step(workflow, "changes", "Map changed paths to a scope")["run"]
+    assert '{"tests/unit_tests/rpent/install", "tests/unit_tests/installs"}' in script
+    assert 'profile = "dev" if tests and tests <= dev_tests else "unit-cpu"' in script
+    assert workflow["jobs"]["unit"]["with"]["profile"] == (
+        "${{ needs.changes.outputs.profile }}"
     )
 
 
