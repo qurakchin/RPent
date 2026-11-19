@@ -295,7 +295,7 @@ What Runs Where
 LIBERO separates simulation and model inference into services. The toolkit
 uses their clients to execute the planner's requests.
 
-- **env_server** (``robots/libero/env_server.py``) — owns the LIBERO
+- **env_server** (``components/sim/libero/env_server.py``) — owns the LIBERO
   MuJoCo env and EGL rendering. Exposes ``reset``, ``step``,
   ``chunk_step``, ``render_camera``, ``get_camera_meta``, … over an RPC
   transport (HTTP by default; socket via ``--transport socket``).
@@ -359,7 +359,8 @@ Bringing Your Own VLA
 If you have a LIBERO-compatible VLA that is not Pi0.5, swap the model
 client without touching the robot by:
 
-1. Writing a new ``vla_server.py`` that exposes the same ``predict``
+1. Writing a new model service
+   (``components/models/<name>/server.py``) that exposes the same ``predict``
    RPC contract (over HTTP or socket).
 2. Pointing at it with ``--am-endpoint [protocol://]host:port``.
 3. Optionally updating ``robots/libero/toolkit.py`` if the tool

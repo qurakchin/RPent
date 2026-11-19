@@ -85,8 +85,10 @@ pre-commit install
 # 格式化并检查整个仓库。
 pre-commit run --all-files
 
-# 运行全部单元测试。
-pytest tests/unit_tests -v
+# 运行全部单元测试。该套件需要 infra-unit_cpu 环境，infra-dev 有意不含
+# 其中的依赖；见 tests/README.md。
+./rpent-install.sh install infra-unit_cpu --venv .venv-unit-cpu
+.venv-unit-cpu/bin/python -m pytest tests/unit_tests -v
 
 # 开发时运行单个文件中的相关测试。
 pytest tests/unit_tests/rpent/cli/test_main_contracts.py -k xxx -x

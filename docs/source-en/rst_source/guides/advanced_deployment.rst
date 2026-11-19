@@ -24,7 +24,7 @@ steps; those values must match the RPent client exactly. On the env host:
 .. code-block:: bash
 
    export LIBERO_TYPE=pro
-   python -m robots.libero.env_server \
+   python -m components.sim.libero.env_server \
      --suite libero_object_swap --task 2 --seed 0 \
      --max-episode-steps 10000 \
      --cuda-device 0 \

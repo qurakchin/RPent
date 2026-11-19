@@ -113,8 +113,10 @@ Before opening a pull request, run the same required checks as CI:
 # Format and lint the complete repository.
 pre-commit run --all-files
 
-# Run all unit tests.
-pytest tests/unit_tests -v
+# Run all unit tests. The suite needs the infra-unit_cpu environment, which
+# infra-dev deliberately omits; see tests/README.md.
+./rpent-install.sh install infra-unit_cpu --venv .venv-unit-cpu
+.venv-unit-cpu/bin/python -m pytest tests/unit_tests -v
 
 # Run a focused test while developing.
 pytest tests/unit_tests/rpent/cli/test_main_contracts.py -k xxx -x

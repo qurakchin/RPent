@@ -190,7 +190,9 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
             checks.append(Check(OK, "installed package set matches the fingerprint"))
         checked = _run([uv, "pip", "check", "--python", str(python)])
         if checked.returncode != 0:
-            checks.append(Check(FAIL, f"uv pip check failed: {checked.stdout.strip()}"))
+            # ``uv pip check`` reports incompatibilities on standard error.
+            detail = (checked.stdout + checked.stderr).strip()
+            checks.append(Check(FAIL, f"uv pip check failed: {detail}"))
         else:
             checks.append(Check(OK, "uv pip check"))
 

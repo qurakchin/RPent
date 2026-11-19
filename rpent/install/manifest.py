@@ -253,11 +253,8 @@ def load_component(path: Path, kind: str) -> Component:
     """Load one ``<component directory>/component.toml``.
 
     The name must be ``kind``'s prefix plus the directory name, so a component
-    cannot sit in one place and call itself another.
-
-    Raises:
-        InstallConfigError: the manifest is invalid or does not match the
-            directory it lives in.
+    cannot sit in one place and call itself another. A manifest that is invalid
+    or does not match its directory raises ``InstallConfigError``.
     """
     data = _read_toml(path)
     _schema(data, path)
