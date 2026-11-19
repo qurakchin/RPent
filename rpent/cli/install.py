@@ -29,13 +29,18 @@ from pathlib import Path
 from rpent.install.discovery import discover
 from rpent.install.doctor import FAIL, check_installation
 from rpent.install.errors import InstallConfigError, InstallError
-from rpent.install.fingerprint import SUPPORTED_PLATFORM, current_venv, runtime_platform
+from rpent.install.fingerprint import (
+    SUPPORTED_PLATFORM,
+    activated_venv,
+    current_venv,
+    runtime_platform,
+)
 from rpent.install.installer import install
 from rpent.utils.config import get_repo_root
 
 
 def _require_supported_platform() -> None:
-    """Reject hosts RPent does not compile locks or install wheels for."""
+    """Reject hosts RPent does not install wheels for."""
     current = runtime_platform()
     if current != SUPPORTED_PLATFORM:
         raise InstallError(
@@ -84,10 +89,12 @@ def _parse_endpoints(values: list[str]) -> dict[str, str]:
 def command_doctor(args: argparse.Namespace) -> int:
     """Check the current or selected virtualenv."""
     _require_supported_platform()
-    venv = args.venv or current_venv()
+    # Prefer the environment the user activated: `rpent-install` may be running
+    # from a tool environment while the target environment is activated.
+    venv = args.venv or activated_venv() or current_venv()
     if venv is None:
         print(
-            "no active virtualenv; activate one or pass --venv",
+            "no active virtualenv; activate one or pass --venv <path>",
             file=sys.stderr,
         )
         return 2

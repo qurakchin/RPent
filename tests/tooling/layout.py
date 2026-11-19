@@ -66,9 +66,6 @@ ALLOWED_TOP_LEVEL = frozenset(
         "installs",
         "tests",
         "docs",
-        # Checked-in entry points for a checkout with no environment yet; they
-        # hold no package code and no component owns them.
-        "scripts",
     }
 )
 #: Root files the layout allows next to the top-level directories.
@@ -81,6 +78,9 @@ ALLOWED_ROOT_FILES = (
     "CLAUDE.md",
     "MANIFEST.in",
     "setup.py",
+    # The install bootstrap for a checkout with no environment yet; the
+    # maintainer launcher lives under ``tests/tooling``.
+    "rpent-install.sh",
     ".gitignore",
     ".pre-commit-config.yaml",
 )

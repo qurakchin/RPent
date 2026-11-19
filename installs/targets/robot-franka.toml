@@ -3,7 +3,6 @@ kind = "target"
 name = "robot-franka"
 python = "3.11"
 
-lock = "installs/locks/robot-franka.lock"
 extra = "franka"
 description = "Single-arm Franka with Pi0.5."
 

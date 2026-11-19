@@ -2,7 +2,6 @@ schema = 2
 kind = "target"
 name = "dev"
 python = "3.10"
-lock = "tests/locks/dev.lock"
 # Compatibility alias for the test tools the dev target has always provided.
 extra = "test"
 description = "Test dependencies for local development and CI."

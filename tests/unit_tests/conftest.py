@@ -124,7 +124,6 @@ def make_component(tmp_path):
             dependencies=tuple(values.pop("dependencies", ())),
             optional=values.pop("optional", {}),
             overrides=tuple(values.pop("overrides", ())),
-            docs=None,
             manifest_sha256=values.pop("manifest_sha256", name),
         )
 
@@ -139,14 +138,12 @@ def make_target(tmp_path):
         return Target(
             name=name,
             path=tmp_path / "installs" / "targets" / f"{name}.toml",
-            display_path=values.pop("display_path", f"installs/targets/{name}.toml"),
             python=values.pop("python", "3.11"),
             components=components or {},
             dependencies=tuple(values.pop("dependencies", ())),
             index_url=values.pop("index_url", None),
             extra_index_urls=tuple(values.pop("extra_index_urls", ())),
             index_strategy=values.pop("index_strategy", None),
-            lock=values.pop("lock", None),
             core=values.pop("core", True),
             generate_extra=values.pop("generate_extra", False),
             extra=values.pop("extra", None),

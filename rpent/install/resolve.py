@@ -282,20 +282,21 @@ def _format_conflict(
         ),
         None,
     )
+    split = (
+        f"split {left.name} and {right.name} into separate targets and connect "
+        "them by endpoint"
+    )
     suggestion = (
         f"  option 1: place {remote.name} remotely in {target_path} and run it "
-        "from its own target"
+        f"from its own target\n  option 2: {split}"
         if remote is not None
-        else f"  option 1: install {right.name} in a separate environment with "
-        "its own target"
+        else f"  {split}"
     )
     return (
         f"target {target!r} places {left.name!r} and {right.name!r} "
         "in the same environment, but they conflict\n"
         + "\n".join(details)
-        + f"\n{suggestion}\n"
-        f"  option 2: install without {right.name}: "
-        f"rpent-install install {target}"
+        + f"\n{suggestion}"
     )
 
 
@@ -303,6 +304,7 @@ def _choose_python(
     target: Target,
     components: list[ResolvedComponent],
     errors: list[str],
+    display: str,
 ) -> str | None:
     """Return the newest supported Python minor every constraint accepts.
 
@@ -316,9 +318,7 @@ def _choose_python(
     try:
         requested = python_specifier(target.python)
     except InvalidSpecifier as exc:
-        errors.append(
-            f"{target.relative_path}: invalid python request {target.python!r}: {exc}"
-        )
+        errors.append(f"{display}: invalid python request {target.python!r}: {exc}")
         return None
     ranges: list[tuple[str, SpecifierSet]] = []
     for resolved in components:
@@ -382,6 +382,7 @@ def resolve(
 ) -> Resolution:
     """Place the target's components, compute closure, and report conflicts."""
     resolution = Resolution(target=target)
+    display = target.relative_path(catalog.root)
     selections = dict(target.components)
     for name in sorted(selections):
         if name not in catalog.components:
@@ -416,7 +417,7 @@ def resolve(
             resolution.errors.append(
                 f"component {name!r} requires a variant; add "
                 f"'variant = \"...\"' under [components.{name}] in "
-                f"{target.relative_path}; expected one of "
+                f"{display}; expected one of "
                 f"{', '.join(sorted(component.optional))}"
             )
         elif variant is not None and variant not in component.optional:
@@ -474,7 +475,7 @@ def resolve(
             pending.append(required)
 
     resolution.python = _choose_python(
-        target, list(resolution.components.values()), resolution.errors
+        target, list(resolution.components.values()), resolution.errors, display
     )
 
     installed = sorted(resolution.main_installed())
@@ -491,7 +492,7 @@ def resolve(
                         left,
                         right,
                         target=target.name,
-                        target_path=target.relative_path,
+                        target_path=display,
                     )
                 )
     requirements = [

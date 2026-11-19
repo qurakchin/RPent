@@ -6,7 +6,6 @@ kind = "deps"
 # installs into whichever environment requires it.
 probe = "rlinf"
 python = ">=3.10,<3.13"
-docs = "docs/source-en/rst_source/get_started/quickstart.rst"
 
 dependencies = [
   "rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3",

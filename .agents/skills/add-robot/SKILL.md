@@ -43,9 +43,9 @@ appropriate extra with lazy imports.
    failure and cleanup; handle complete CLI startup and selected Dashboard
    components when supported. Keep robot-specific result schemas in the
    robot's finalization hook and verify which entry points call it.
-6. Update the generated installation extras, the lock for the target the
-   component forms, the runner matrix, usage/development documentation, and
-   tests. Follow the actual runner and CI configuration when adding a new
+6. Update the generated installation extras, the runner matrix,
+   usage/development documentation, and tests; a reproduction lock under
+   `tests/locks/` is optional. Follow the actual runner and CI configuration when adding a new
    supported test target; adding a directory alone does not wire it into CI.
 
 ## Validate and hand off

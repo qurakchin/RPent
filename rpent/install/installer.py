@@ -31,15 +31,14 @@ from rpent.install.fingerprint import (
     source_state,
     write_fingerprint,
 )
-from rpent.install.lock_coverage import lock_problems
 from rpent.install.manifest import Target
 from rpent.install.requirements import (
-    REQUIREMENTS_SCHEMA,
+    INPUT_SCHEMA,
     read_core_dependencies,
     render_requirements,
     requirements_sha256,
 )
-from rpent.install.resolve import Resolution, python_accepted, resolve
+from rpent.install.resolve import Resolution, resolve
 from rpent.utils.config import get_repo_root
 
 #: Generated requirements files, one per installed environment.
@@ -168,39 +167,16 @@ def install(
         raise InstallError("\n".join(resolution.errors))
     target = resolution.target
     core = read_core_dependencies(repo_root) if target.core else ()
-    main_requirements = render_requirements(resolution, core_dependencies=core)
+    main_requirements = render_requirements(
+        resolution, root=repo_root, core_dependencies=core
+    )
     destination = (venv or default_venv(repo_root, target)).resolve()
     requirements_path = requirements_file(repo_root, target)
 
-    lock = target.lock_file(repo_root)
-    if not lock.is_file():
-        raise InstallError(
-            f"target {target.name!r} needs lock {target.lock_display()}, but "
-            f"the file does not exist; maintainers regenerate it with "
-            f"`python -m tests.tooling.lock {target.name}`"
-        )
-    # A lock is only a guarantee while it still covers the manifests. Check
-    # before touching the virtualenv so a stale lock fails fast with the
-    # command that regenerates it.
-    problems = lock_problems(target, resolution, repo_root, core_dependencies=core)
-    if problems:
-        raise InstallError("\n".join(problems))
-    # Imported here because ``lock`` imports this module for its uv helpers.
-    from rpent.install.lock import lock_python
-
-    locked_python = lock_python(lock.read_text(encoding="utf-8"))
-    if locked_python is not None and not python_accepted(resolution, locked_python):
-        raise InstallError(
-            f"{target.lock_display()} targets Python {locked_python}, which "
-            f"does not satisfy target {target.name!r} ({target.python}) and "
-            f"its components; regenerate it with "
-            f"`python -m tests.tooling.lock {target.name}`"
-        )
-    python_version = locked_python or resolution.python
+    python_version = resolution.python
 
     if dry_run:
-        print(f"# target {target.name}: python {python_version}", end="")
-        print(f", lock {target.lock_display()}")
+        print(f"# target {target.name}: python {python_version}")
         print(main_requirements, end="")
         return {}
 
@@ -240,13 +216,15 @@ def install(
             f"rerun `rpent-install install {target.name}`"
         )
 
-    # Install from the target's lock so every checkout gets the same versions.
+    # Install the requirements rendered from the manifests. A checked-in lock
+    # is a reproduction artifact, not an installation input, so a stale or
+    # missing lock never blocks installing or diagnosing an environment.
     install_command = [uv, "pip", "install", "--python", str(python)]
     install_command.extend(index_options(target))
     for resolved in resolution.main_installed().values():
         for override in resolved.component.overrides:
             install_command.extend(["--override", str(override)])
-    install_command.extend(["-r", str(lock)])
+    install_command.extend(["-r", str(requirements_path)])
     if verbose:
         print(f"$ {' '.join(install_command)}")
     # uv discovers ``[tool.uv]`` by walking up from its working directory, so
@@ -277,7 +255,7 @@ def install(
     )
     commit, dirty = source_state(repo_root)
     fingerprint = {
-        "schema": REQUIREMENTS_SCHEMA,
+        "schema": INPUT_SCHEMA,
         "target": target.name,
         "python": _python_version(python),
         "source_commit": commit,
@@ -302,7 +280,6 @@ def install(
         ),
         "freeze_sha256": freeze_sha256(frozen),
         "requirements_file": str(requirements_path.relative_to(repo_root)),
-        "lock": target.lock_display(),
         "installed_at": datetime.now(timezone.utc)
         .replace(microsecond=0)
         .isoformat()

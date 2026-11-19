@@ -185,11 +185,7 @@ def _install_data_catalog(make_component, make_target, make_catalog):
     return make_catalog(
         components=[alpha, shared],
         targets={
-            "alpha": make_target(
-                "alpha",
-                {"alpha": Selection()},
-                lock="installs/locks/alpha.lock",
-            ),
+            "alpha": make_target("alpha", {"alpha": Selection()}),
             "minimal": make_target("minimal", {}),
         },
     )
@@ -222,12 +218,12 @@ def test_deps_change_reaches_the_targets_that_require_it(
     assert scope.targets == ("alpha",)
 
 
-def test_lock_change_reaches_the_target_that_reads_it(
+def test_lock_change_reaches_the_target_it_reproduces(
     tmp_path, make_component, make_target, make_catalog
 ):
     catalog = _install_data_catalog(make_component, make_target, make_catalog)
 
-    scope = affected.affected_scope(["installs/locks/alpha.lock"], catalog, tmp_path)
+    scope = affected.affected_scope(["tests/locks/alpha.lock"], catalog, tmp_path)
 
     assert scope.tests == ("tests/unit_tests/installs",)
     assert scope.targets == ("alpha",)

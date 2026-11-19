@@ -3,7 +3,6 @@ kind = "target"
 name = "sim-libero_plus"
 python = "3.11"
 
-lock = "installs/locks/sim-libero_plus.lock"
 extra = "sim-libero-plus"
 description = "LIBERO-plus simulation for adapter development, e2e, and data collection."
 

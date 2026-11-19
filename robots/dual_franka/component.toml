@@ -11,6 +11,5 @@ requires = ["franka"]
 # Imports robots.franka directly; check_layout allows exactly these imports.
 imports = ["franka"]
 env_conflicts = ["libero", "robocasa", "robotwin", "robodojo"]
-docs = "docs/source-en/rst_source/real_world_robots/dual_franka.rst"
 
 dependencies = []

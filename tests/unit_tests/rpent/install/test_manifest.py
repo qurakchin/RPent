@@ -40,7 +40,6 @@ def test_component_manifest_reads_declarations(write_toml):
         placement = ["in-env", "remote"]
         dependencies = ["numpy>=2,<3"]
         overrides = ["overrides.txt"]
-        docs = "docs/alpha.rst"
 
         [optional]
         pro = ["extra-package"]
@@ -507,15 +506,24 @@ def test_target_rejects_inconsistent_placements(write_toml, entry, message):
         load_target(path)
 
 
-def test_a_component_rejects_a_top_level_field_it_does_not_define(write_toml):
+@pytest.mark.parametrize(
+    "field",
+    (
+        'index_url = "https://example.invalid/simple"',
+        # Documentation links and lock paths are not installation settings; a
+        # lock is found by target name under tests/locks instead.
+        'docs = "docs/source-en/index.rst"',
+    ),
+)
+def test_a_component_rejects_a_top_level_field_it_does_not_define(write_toml, field):
     path = write_toml(
         "robots/alpha/component.toml",
-        """
+        f"""
         schema = 2
         name = "alpha"
         kind = "robot"
         probe = "alpha"
-        index_url = "https://example.invalid/simple"
+        {field}
         """,
     )
 
@@ -523,15 +531,23 @@ def test_a_component_rejects_a_top_level_field_it_does_not_define(write_toml):
         load_component(path)
 
 
-def test_a_target_rejects_a_top_level_field_it_does_not_define(write_toml):
+@pytest.mark.parametrize(
+    "field",
+    (
+        'placements = ["in-env"]',
+        'lock = "tests/locks/alpha.lock"',
+        'docs = "docs/source-en/index.rst"',
+    ),
+)
+def test_a_target_rejects_a_top_level_field_it_does_not_define(write_toml, field):
     path = write_toml(
         "installs/targets/alpha.toml",
-        """
+        f"""
         schema = 2
         kind = "target"
         name = "alpha"
         python = "3.11"
-        placements = ["in-env"]
+        {field}
         """,
     )
 

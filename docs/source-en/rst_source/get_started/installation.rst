@@ -4,8 +4,9 @@ Installation
 RPent installs a named target, not a list of extras. A target selects
 components and where they live; every component declares its own dependencies
 and Python support in ``component.toml``. ``rpent-install`` creates the virtual
-environment, installs exactly the target's lock, runs an import probe for each
-component it installs locally, and writes an installation fingerprint.
+environment, installs the requirements those manifests resolve to, runs an
+import probe for each component it installs locally, and writes an installation
+fingerprint.
 
 Requirements
 ------------
@@ -46,9 +47,9 @@ environments and connected at run time with endpoints.
 ``python`` in a component or target is either a version (``"3.11"``) or a
 range (``">=3.10,<3.13"``). A range resolves to the newest supported minor that
 satisfies the target and every component in its closure, so widening support
-does not by itself change an installed environment: the lock records the minor
-it compiled for in its ``# python =`` header, and ``install`` reuses that
-minor while it still satisfies every manifest.
+does not by itself change an installed environment. ``install`` resolves the
+minor from the manifests, and ``doctor`` reports when the manifests now resolve
+to different inputs than the fingerprint recorded.
 
 Install a target
 -----------------
@@ -67,17 +68,16 @@ environment elsewhere. Each target needs its own environment: targets pin
 different simulator, robot, and model runtimes, so the installer refuses to
 install into an environment that another target installed. ``--force``
 allows a non-empty environment that records no fingerprint.
-``--dry-run`` runs the same resolution and lock checks and prints the
-requirements the target would install, without creating or changing an
-environment.
+``--dry-run`` runs the same resolution checks and prints the requirements the
+target would install, without creating or changing an environment.
 
 On a fresh checkout the ``rpent-install`` console script does not exist yet.
-``scripts/rpent-install.sh`` bootstraps it and passes its arguments to the
+``./rpent-install.sh`` bootstraps it and passes its arguments to the
 installer, so no prior environment is needed:
 
 .. code-block:: bash
 
-   scripts/rpent-install.sh install robot-libero_pro
+   ./rpent-install.sh install robot-libero_pro
    source .venvs/robot-libero_pro/bin/activate
 
 The launcher runs the installer from a throwaway ``uv`` environment that adds
@@ -90,13 +90,12 @@ source checkout and sdist. A non-editable ``pip install rpent`` provides the
 CLI; run a specific robot, model service, or toolkit from a source checkout,
 where ``rpent-install`` can find the targets.
 
-Every target is installed from a lock. User targets keep theirs in
-``installs/locks/<target>.lock`` and test targets in
-``tests/locks/<target>.lock``; a target may also name its lock explicitly.
-Before installing, the installer checks that the lock exists and still covers
-every direct requirement and component override. A missing or stale lock fails
-with the command that regenerates it:
-``python -m tests.tooling.lock <target>``.
+``install`` resolves the target from its manifests, so it reads no lock:
+changing a manifest changes what the next install creates. The checked-in locks
+under ``tests/locks/<target>.lock`` are optional reproduction artifacts for
+rebuilding an environment with exactly the versions a maintainer verified; they
+are not installation inputs, and ``install`` and ``check`` work without them.
+``python -m tests.tooling.lock <target>`` regenerates one.
 
 A target with ``core = false``, such as ``molmo``, skips the editable
 RPent install and contains only that service's dependencies; start it with the
@@ -110,12 +109,12 @@ Custom combinations
 -------------------
 
 A combination the repository does not name is a target file, not a list of
-names on the command line. ``install`` accepts one target because every
-installation is checked against that target's lock; joining components on the
-fly would install a set no lock covers.
+names on the command line. ``install`` accepts one target because the target is
+what resolution, the fingerprint, and later ``doctor`` runs describe; a set of
+components joined on the fly would have no record to compare against.
 
 Create the file under ``installs/targets/`` with the name it installs under,
-then compile its lock and install it:
+then install it:
 
 .. code-block:: toml
 
@@ -130,16 +129,15 @@ then compile its lock and install it:
 
 .. code-block:: bash
 
-   scripts/rpent-tool.sh tests.tooling.lock my-combo
-   scripts/rpent-install.sh install my-combo
+   ./rpent-install.sh install my-combo
 
 An empty component table takes that component's default placement;
 ``placement = "remote"`` installs only the client side of a service, and a
-component that requires a variant, such as ``libero``, must name one. Lock
-generation resolves the whole closure against the indexes the components
-declare, so ``env_conflicts``, disagreeing indexes, and incompatible Python
-ranges fail there rather than after the environment exists. A later
-``install --dry-run`` prints the requirements that lock covers.
+component that requires a variant, such as ``libero``, must name one.
+Resolution checks the whole closure against the indexes the components declare,
+so ``env_conflicts``, disagreeing indexes, and incompatible Python ranges fail
+before the environment exists; ``install --dry-run`` prints the requirements
+without installing them.
 
 Targets
 -------
@@ -219,8 +217,8 @@ Targets
 The remaining components (``apxinf``, ``cosmos3``, ``cosmos_policy``,
 ``fast_wam``, ``geometry``, ``uniwam``, and ``xpolicylab``) install under their
 own names as well; ``rpent-install list`` prints the full set. The Python column
-shows the minor the shipped lock pins, which can be narrower than the range the
-manifest accepts.
+shows the minor the manifests currently resolve to, which can be narrower than
+the range a manifest accepts.
 
 Install commands
 ----------------
@@ -261,13 +259,14 @@ Diagnose
    rpent-install doctor
    rpent-install doctor --venv .venvs/robot-libero_pro
 
-Without ``--venv``, ``doctor`` inspects the active virtual environment.
-``--target`` overrides the target recorded in the fingerprint. ``doctor``
-compares the stored fingerprint with every recorded installation input (the
-manifests, the lock the install read, the component override files, and the
-repository's ``[tool.uv]`` settings), checks Python and platform, runs
-``uv pip check`` and the component probes, and prints the fingerprint path and
-its SHA-256. Components placed remotely are probed with
+Without ``--venv``, ``doctor`` inspects the environment activated in the shell,
+falling back to the one running ``rpent-install``; the first line names the
+environment it inspected. ``--target`` overrides the target recorded in the
+fingerprint and reports the mismatch as a warning. ``doctor`` compares the
+stored fingerprint with every installation input (the manifests, the component
+override files, and the repository's ``[tool.uv]`` settings), checks Python and
+platform, runs ``uv pip check`` and the component probes, and prints the
+fingerprint path and its SHA-256. Components placed remotely are probed with
 ``--endpoint <name>=host:port`` or ``RPENT_<NAME>_ENDPOINT``; a remote component
 without an endpoint is reported as a warning. ``uv`` resolves from the
 checkout, so the
@@ -277,36 +276,40 @@ The fingerprint records the input mode it was written with, so an environment
 installed by an older ``rpent-install`` is reported as needing a reinstall
 rather than as drifted.
 
-Run artifacts record the active target, fingerprint hash, source commit, and
-component names in ``run.json``.
+Run artifacts record the installed target and the fingerprint hash in
+``run.json``; the fingerprint itself stays in that environment.
 
-Maintainer checks and locks
----------------------------
+Maintainer checks and reproduction locks
+----------------------------------------
 
 The repository checks and lock generation are maintainer tools under
 ``tests/tooling/``; they are not installed with the wheel and are not part of
-``rpent-install``. Run them from a checkout through ``scripts/rpent-tool.sh``,
+``rpent-install``. Run them from a checkout through ``tests/tooling/rpent-tool.sh``,
 which passes the module and its arguments to a throwaway ``uv`` environment:
 
 .. code-block:: bash
 
-   scripts/rpent-tool.sh tests.tooling.check --all
-   scripts/rpent-tool.sh tests.tooling.lock robotwin
-   scripts/rpent-tool.sh tests.tooling.lock --all --check
+   tests/tooling/rpent-tool.sh tests.tooling.check --all
+   tests/tooling/rpent-tool.sh tests.tooling.check minimal --inputs-hash
+   tests/tooling/rpent-tool.sh tests.tooling.lock robotwin
+   tests/tooling/rpent-tool.sh tests.tooling.lock --all --check
 
 ``check`` reads manifests and targets, computes each target's ``requires``
 closure, and reports conflicting placements, duplicate pins, unsupported
-Python versions, platform mismatches, and locks that no longer cover the
-requirements. It downloads nothing. ``--resolve`` additionally compiles every
-target with ``uv pip compile`` to prove the declared dependencies have a
-solution; it uses the same code path as ``lock`` and reads package metadata
-from the configured indexes.
+Python versions, platform mismatches, and repository data that disagrees with
+the manifests. It downloads nothing and needs no lock. ``--inputs-hash`` prints
+the hash of one target's installation inputs and the Python minor they resolve
+to; CI uses it as the environment cache key. ``--resolve`` additionally
+compiles every target with ``uv pip compile`` to prove the declared
+dependencies have a solution; it uses the same code path as ``lock`` and reads
+package metadata from the configured indexes.
 
-``lock`` compiles each target's lock with ``uv pip compile`` and records the
-upstream cutoff as an ``# exclude_newer`` header. ``--check`` recompiles at
-that recorded instant and fails when the result differs from the committed
-lock, so it reports changed manifests or a different resolver rather than
-packages released since. ``lock --all`` reports a target that cannot resolve
+``lock`` compiles a target's reproduction lock with ``uv pip compile`` and
+records the upstream cutoff as an ``# exclude_newer`` header. Locks live under
+``tests/locks/<target>.lock`` and change nothing about what ``install`` does.
+``--check`` recompiles at that recorded instant and fails when the result
+differs from the committed lock, so it reports changed manifests or a different
+resolver rather than packages released since. ``lock --all`` reports a target that cannot resolve
 on the current host and continues with the rest; the ``robotwin`` lock
 needs a Linux host with ``CUDA_HOME`` set because cuRobo builds metadata during
 resolution. Linux locks target the ``manylinux_2_31`` baseline by default

@@ -37,7 +37,7 @@ pytest tests/unit_tests -v
 Inspect any files changed by hooks and rerun affected checks. The
 [unit workflow](../../../.github/workflows/unit.yml) installs the selected
 target (`dev` for installer and repository checks, `unit-cpu` for the rest)
-from its lock and runs the same suite; `fast ci` narrows the selection to the
+from its manifests and runs the same suite; `fast ci` narrows the selection to the
 tests that mirror the changed components. Do not install every robot target for
 an unrelated change.
 

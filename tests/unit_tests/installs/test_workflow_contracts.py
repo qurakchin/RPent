@@ -117,7 +117,7 @@ def test_fast_ci_checks_the_package_for_packaging_changes():
 
     # ``setup.py`` chooses the packages in the wheel and sdist, so it changes
     # what the package job has to verify.
-    assert '{"pyproject.toml", "uv.lock", "setup.py", "MANIFEST.in"}' in script
+    assert '{"pyproject.toml", "setup.py", "MANIFEST.in"}' in script
 
 
 def test_full_ci_does_not_run_on_tags():
@@ -130,10 +130,12 @@ def test_full_ci_does_not_run_on_tags():
     assert set(triggers) == {"schedule", "workflow_dispatch", "workflow_call"}
 
 
-def test_full_ci_lock_check_gates_a_release():
+def test_full_ci_does_not_gate_on_optional_locks():
+    # Installation resolves the manifests; a checked-in lock is a reproduction
+    # artifact, so a release must not fail because one drifted.
     workflow = _workflow("full-ci.yml")
 
-    assert workflow["jobs"]["locks"]["if"] == "inputs.full == true"
+    assert "locks" not in workflow["jobs"]
     assert workflow["jobs"]["unit"]["with"]["target"] == "unit-cpu"
     called = _step(workflow, "scope", "Select the targets and suites")["run"]
     assert '"$EVENT" == "workflow_call" && "$CALLED_FULL" != "true"' in called
@@ -190,4 +192,10 @@ def test_unit_workflow_defaults_to_the_cpu_target():
         "key"
     ]
     assert "inputs.target" in cache_key
+    # The cache follows the manifests, not an optional reproduction lock, so a
+    # manifest edit invalidates it and a stale lock cannot.
+    key_step = _step(workflow, "unit", "Read the environment cache key")["run"]
+    assert "--inputs-hash" in key_step
+    assert "locks/" not in key_step
+    assert "steps.key.outputs.inputs" in cache_key
     assert _step(workflow, "unit", "Report skipped tests")["if"] == "always()"

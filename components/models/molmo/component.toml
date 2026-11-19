@@ -13,7 +13,6 @@ placement = ["in-env", "remote"]
 # to 4.51.3. Install Molmo in its own environment and connect over RPC; placing both
 # in one environment is rejected before installation.
 env_conflicts = ["robotwin"]
-docs = "docs/source-en/rst_source/guides/flash.rst"
 
 dependencies = [
   "transformers>=4.57",

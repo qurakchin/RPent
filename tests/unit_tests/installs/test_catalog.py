@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The checked-in components, targets and locks agree with each other."""
+"""The checked-in components and targets agree with each other."""
 
-from rpent.install.lock_coverage import lock_problems
-from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import resolve
 
 
@@ -42,24 +40,13 @@ def test_every_target_resolves(catalog):
         assert resolution.ok, f"target {name!r}: {'; '.join(resolution.errors)}"
 
 
-def test_every_target_declares_the_lock_it_ships(catalog):
+def test_locks_live_under_tests_and_follow_the_target_name(catalog):
+    # A lock is an optional reproduction artifact. Keeping every one under
+    # ``tests/locks`` gives the repository's install data one home and stops a
+    # manifest from naming a second path for the same target.
+    assert not (catalog.root / "installs" / "locks").exists()
     for name, target in sorted(catalog.targets.items()):
-        # An undeclared lock defaults to ``locks/<name>.lock`` beside the
-        # target directory, so user and test targets keep the same layout.
-        assert target.lock_file(catalog.root).is_file(), (
-            f"target {name!r} needs {target.lock_display()}"
+        assert target.lock_file(catalog.root) == (
+            catalog.root / "tests" / "locks" / f"{name}.lock"
         )
-
-
-def test_every_lock_covers_its_target(catalog):
-    for name, target in sorted(catalog.targets.items()):
-        core = read_core_dependencies(catalog.root) if target.core else ()
-        resolution = resolve(target, catalog, core_dependencies=core)
-        problems = lock_problems(
-            target,
-            resolution,
-            catalog.root,
-            core_dependencies=core,
-        )
-
-        assert not problems, f"target {name!r}: {'; '.join(problems)}"
+        assert target.lock_display() == f"tests/locks/{name}.lock"

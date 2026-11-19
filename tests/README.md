@@ -12,7 +12,7 @@ Environment smoke tests can run without model checkpoints.
 tests/
 ├── README.md
 ├── targets/             # test and development install targets
-├── locks/               # their locks, one per target
+├── locks/               # optional reproduction locks, one per target
 ├── tooling/             # maintainer checks and lock generation
 ├── e2e_tests/
 │   ├── common.py         # shared assertions and runtime lifecycle helpers
@@ -59,7 +59,7 @@ them when the first test for that module lands.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
   `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
-  `installs/{targets,deps,locks}/`, `tests/targets`, `tests/locks`, the
+  `installs/{targets,deps}/`, `tests/targets`, `tests/locks`, the
   authored runner partition, the compatibility extras and conflicts in the
   root `pyproject.toml`, and the workflows that consume them. Do not read the
   real install data from `tests/unit_tests/rpent/install/`; the test path would
@@ -98,7 +98,7 @@ deliberately omits. CI runs this suite in the `unit-cpu` target, which installs
 CPU Torch from the PyTorch CPU index:
 
 ```bash
-scripts/rpent-install.sh install unit-cpu
+./rpent-install.sh install unit-cpu
 .venvs/unit-cpu/bin/python -m pytest tests/unit_tests -v
 ```
 

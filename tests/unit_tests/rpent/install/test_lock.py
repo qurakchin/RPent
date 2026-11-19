@@ -52,7 +52,6 @@ def repo(tmp_path, write_toml):
         kind = "robot"
         probe = "json"
         python = "3.11"
-        lock = "installs/locks/alpha.lock"
         dependencies = ["numpy>=2"]
         """,
     )
@@ -65,7 +64,6 @@ def repo(tmp_path, write_toml):
         probe = "json"
         python = "3.11"
         manylinux = "2_35"
-        lock = "installs/locks/beta.lock"
         """,
     )
     return tmp_path
@@ -104,12 +102,12 @@ def _arguments(fake_uv):
     return (fake_uv.parent / "uv-args").read_text(encoding="utf-8").splitlines()
 
 
-def test_lock_path_uses_declaration_or_convention(make_target, tmp_path):
-    declared = make_target("alpha", lock="custom/alpha.lock")
-    conventional = make_target("beta")
-
-    assert lock_path(tmp_path, declared) == tmp_path / "custom/alpha.lock"
-    assert lock_path(tmp_path, conventional) == tmp_path / "installs/locks/beta.lock"
+def test_lock_path_follows_the_target_name(make_target, tmp_path):
+    # Locks are optional reproduction artifacts named after their target, so no
+    # manifest can point at a different path for the same target.
+    assert lock_path(tmp_path, make_target("alpha")) == (
+        tmp_path / "tests/locks/alpha.lock"
+    )
 
 
 def test_new_lock_timestamp_is_a_utc_cutoff():
@@ -127,7 +125,7 @@ def test_lock_timestamp_rejects_a_missing_or_naive_header():
 
 def test_compile_writes_the_resolved_requirements(repo, fake_uv):
     catalog = discover(repo)
-    output = repo / "installs/locks/alpha.lock"
+    output = repo / "tests/locks/alpha.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
     cutoff = new_lock_timestamp()
 
@@ -152,7 +150,7 @@ def test_compile_writes_the_resolved_requirements(repo, fake_uv):
 
 def test_compile_without_a_cutoff_writes_only_the_python_header(repo, fake_uv):
     catalog = discover(repo)
-    output = repo / "installs/locks/alpha.lock"
+    output = repo / "tests/locks/alpha.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
 
     text = compile_target(
@@ -173,7 +171,7 @@ def test_compile_runs_in_the_checkout(repo, fake_uv, monkeypatch):
     # from a subdirectory would record versions the checkout does not select.
     monkeypatch.chdir(repo / "robots")
     catalog = discover(repo)
-    output = repo / "installs/locks/alpha.lock"
+    output = repo / "tests/locks/alpha.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
 
     compile_target(
@@ -204,7 +202,7 @@ def test_compile_resolves_override_files_against_the_checkout(
     )
     write_toml("robots/alpha/requirements/override.txt", "numpy<3\n")
     catalog = discover(repo)
-    output = repo / "installs/locks/alpha.lock"
+    output = repo / "tests/locks/alpha.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
 
     compile_target(
@@ -219,7 +217,7 @@ def test_compile_resolves_override_files_against_the_checkout(
 
 def test_compile_uses_the_target_manylinux_baseline(repo, fake_uv):
     catalog = discover(repo)
-    output = repo / "installs/locks/beta.lock"
+    output = repo / "tests/locks/beta.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
 
     compile_target(
@@ -256,4 +254,4 @@ def test_resolve_target_compiles_without_writing_a_lock(repo, fake_uv):
     text = resolve_target(catalog.targets["alpha"], catalog, root=repo, uv=str(fake_uv))
 
     assert "numpy>=2" in text
-    assert not (repo / "installs/locks/alpha.lock").exists()
+    assert not (repo / "tests/locks/alpha.lock").exists()

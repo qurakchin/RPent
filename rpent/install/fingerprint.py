@@ -109,8 +109,22 @@ def runtime_platform() -> str:
 
 
 def current_venv() -> Path | None:
-    """Return the active virtual environment, or ``None``."""
+    """Return the virtual environment running this interpreter, or ``None``."""
     prefix = Path(sys.prefix)
     if (prefix / "pyvenv.cfg").is_file():
         return prefix
     return None
+
+
+def activated_venv() -> Path | None:
+    """Return the environment activated in the shell, or ``None``.
+
+    ``VIRTUAL_ENV`` names the environment the user selected, which can differ
+    from the interpreter running a tool installed elsewhere. A path that is no
+    longer a virtual environment (for example a deleted one) is ignored.
+    """
+    value = os.environ.get("VIRTUAL_ENV")
+    if not value:
+        return None
+    path = Path(value)
+    return path if (path / "pyvenv.cfg").is_file() else None

@@ -12,7 +12,6 @@ imports = ["dual_franka"]
 # Franka pins numpy<2 and gymnasium==0.29.1 for franky-control and the camera
 # stack, so it cannot share an environment with the simulator adapters below.
 env_conflicts = ["libero", "robocasa", "robotwin", "robodojo"]
-docs = "docs/source-en/rst_source/real_world_robots/franka.rst"
 
 dependencies = [
   # Keep this list aligned with requirements/embodied/installs/profiles/franka.txt at the

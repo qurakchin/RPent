@@ -18,6 +18,7 @@ import json
 
 from rpent.install.fingerprint import (
     FINGERPRINT_NAME,
+    activated_venv,
     fingerprint_path,
     fingerprint_sha256,
     freeze_sha256,
@@ -46,6 +47,23 @@ def test_missing_or_invalid_fingerprint_reads_as_none(tmp_path):
     assert read_fingerprint(tmp_path) is None
     (tmp_path / FINGERPRINT_NAME).write_text("[]", encoding="utf-8")
     assert read_fingerprint(tmp_path) is None
+
+
+def test_activated_venv_reads_virtual_env_when_it_is_a_venv(tmp_path, monkeypatch):
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    monkeypatch.setenv("VIRTUAL_ENV", str(venv))
+
+    # Without pyvenv.cfg the variable may name a deleted or replaced directory.
+    assert activated_venv() is None
+
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
+    assert activated_venv() == venv
+
+
+def test_activated_venv_is_none_without_the_variable(monkeypatch):
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    assert activated_venv() is None
 
 
 def test_fingerprint_hash_ignores_key_order():

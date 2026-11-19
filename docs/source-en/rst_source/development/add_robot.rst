@@ -81,7 +81,6 @@ current file for each role until that migration lands.
    kind = "robot"
    probe = "robots.myrobot"
    python = ">=3.10,<3.13"
-   docs = "docs/source-en/rst_source/real_world_robots/myrobot.rst"
 
    dependencies = ["my-simulator==1.2"]
 
@@ -94,8 +93,8 @@ A component owns the index its packages come from, so ``index-url``,
 composition target inherits them, adds the component's extra index URLs to its
 own, and fails when two components in one environment ask for different index
 URLs or strategies. ``manylinux`` works the other way: the target states the
-baseline its lock compiles for, and discovery fails when a component needs a
-newer one.
+baseline it installs for, and discovery fails when a component needs a newer
+one.
 
 ``probe`` names the importable package. ``rpent-install install`` and
 ``rpent-install doctor`` import it inside the target environment together with the
@@ -117,10 +116,10 @@ not live under ``robots/``:
    python -m tests.tooling.extras --write
 
 CI runs ``python -m tests.tooling.extras --check``, so a stale block fails the
-build; ``--write`` is the only mode that edits ``pyproject.toml``. A new
-integration also needs a lock for the target its component forms
-(``python -m tests.tooling.lock <component>``) and, if it ships a compound
-environment, a target file under ``installs/targets/``; see
+build; ``--write`` is the only mode that edits ``pyproject.toml``. The
+component is installable under its own name; if it ships a compound
+environment, add a target file under ``installs/targets/``. A reproduction lock
+under ``tests/locks/`` is optional and never required for installation. See
 :doc:`../get_started/installation`.
 
 ``__init__.py`` is the package entry point and must stay lazy. Robot discovery

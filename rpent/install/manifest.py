@@ -101,7 +101,6 @@ _ALLOWED_KEYS = {
             "dependencies",
             "optional",
             "overrides",
-            "docs",
             "extra",
             "core",
             "description",
@@ -109,7 +108,6 @@ _ALLOWED_KEYS = {
             "extra-index-urls",
             "index-strategy",
             "manylinux",
-            "lock",
         }
     ),
     "target": frozenset(
@@ -127,7 +125,6 @@ _ALLOWED_KEYS = {
             "extra-index-urls",
             "index-strategy",
             "manylinux",
-            "lock",
         }
     ),
 }
@@ -285,7 +282,6 @@ def _python_spec(data: dict[str, Any], path: Path, *, required: bool) -> str | N
 class TargetSettings:
     """Install settings shared by components and targets."""
 
-    lock: str | None = None
     core: bool = True
     generate_extra: bool = True
     extra: str | None = None
@@ -322,7 +318,6 @@ def _target_settings(data: dict[str, Any], path: Path, name: str) -> TargetSetti
             f"{path}: 'index-strategy' must be one of {', '.join(INDEX_STRATEGIES)}"
         )
     return TargetSettings(
-        lock=_optional_string(data, "lock", path),
         core=core,
         generate_extra=generate_extra,
         extra=extra,
@@ -353,7 +348,6 @@ class Component:
     dependencies: tuple[str, ...]
     optional: dict[str, tuple[str, ...]]
     overrides: tuple[Path, ...]
-    docs: str | None
     manifest_sha256: str
     settings: TargetSettings = TargetSettings()
 
@@ -403,37 +397,40 @@ class Target:
 
     name: str
     path: Path
-    display_path: str
     python: str
     components: dict[str, Selection]
     dependencies: tuple[str, ...]
     index_url: str | None
     extra_index_urls: tuple[str, ...]
     index_strategy: str | None
-    lock: str | None
     core: bool
     generate_extra: bool
     extra: str | None
     description: str | None
     manylinux: str = "2_31"
-    default_lock_dir: str = "installs/locks"
 
-    @property
-    def relative_path(self) -> str:
-        """Return the file path messages name, relative to the checkout."""
-        return self.display_path
+    def relative_path(self, root: Path) -> str:
+        """Return the manifest path relative to the checkout, for messages.
+
+        Every target names a file: the target manifest for a composition, and
+        ``component.toml`` for a component installed under its own name. The
+        caller supplies the checkout so a manifest cannot report a path that
+        does not exist.
+        """
+        return self.path.relative_to(root).as_posix()
 
     def lock_file(self, root: Path) -> Path:
-        """Return the declared or conventional lock path."""
-        if self.lock:
-            return root / self.lock
-        return root / self.default_lock_dir / f"{self.name}.lock"
+        """Return this target's optional reproduction lock.
+
+        Locks are not installation inputs. Every checked-in lock lives under
+        ``tests/locks`` so the repository's install data has one home, and the
+        path follows the target name rather than a manifest field.
+        """
+        return root / "tests" / "locks" / f"{self.name}.lock"
 
     def lock_display(self) -> str:
         """Return the lock path relative to the repository root, for messages."""
-        if self.lock:
-            return self.lock
-        return f"{self.default_lock_dir}/{self.name}.lock"
+        return f"tests/locks/{self.name}.lock"
 
 
 def load_component(path: Path) -> Component:
@@ -552,7 +549,6 @@ def _component(
         dependencies=_dependency_list(data, "dependencies", path),
         optional=optional,
         overrides=overrides,
-        docs=_optional_string(data, "docs", path),
         manifest_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
         settings=_target_settings(data, path, name),
     )
@@ -589,11 +585,6 @@ def _selections(data: dict[str, Any], path: Path) -> dict[str, Selection]:
     return components
 
 
-def _default_lock_dir(path: Path) -> str:
-    """Return the lock directory beside the target file's root."""
-    return f"{path.parent.parent.name}/locks"
-
-
 def load_target(path: Path) -> Target:
     """Load and validate one target manifest."""
     data = _read_toml(path)
@@ -612,20 +603,17 @@ def load_target(path: Path) -> Target:
     return Target(
         name=name,
         path=path,
-        display_path=f"{path.parent.parent.name}/{path.parent.name}/{path.name}",
         python=python,
         components=_selections(data, path),
         dependencies=_dependency_list(data, "dependencies", path),
         index_url=settings.index_url,
         extra_index_urls=settings.extra_index_urls,
         index_strategy=settings.index_strategy,
-        lock=settings.lock,
         core=settings.core,
         generate_extra=settings.generate_extra,
         extra=settings.extra,
         description=settings.description,
         manylinux=settings.manylinux,
-        default_lock_dir=_default_lock_dir(path),
     )
 
 
@@ -640,18 +628,15 @@ def target_from_component(component: Component) -> Target:
     return Target(
         name=component.name,
         path=component.manifest,
-        display_path=f"{component.path.name}/{component.manifest.name}",
         python=component.python,
         components={component.name: Selection()},
         dependencies=(),
         index_url=settings.index_url,
         extra_index_urls=settings.extra_index_urls,
         index_strategy=settings.index_strategy,
-        lock=settings.lock,
         core=settings.core,
         generate_extra=settings.generate_extra,
         extra=settings.extra,
         description=settings.description,
         manylinux=settings.manylinux,
-        default_lock_dir="installs/locks",
     )

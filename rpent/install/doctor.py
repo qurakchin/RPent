@@ -41,7 +41,7 @@ from rpent.install.installer import (
     venv_python,
 )
 from rpent.install.requirements import (
-    REQUIREMENTS_SCHEMA,
+    INPUT_SCHEMA,
     read_core_dependencies,
     requirements_sha256,
 )
@@ -105,20 +105,31 @@ def check_installation(
     repo_root = (root or get_repo_root()).resolve()
     venv = Path(venv).resolve()
     endpoints = endpoints or {}
-    checks: list[Check] = []
+    checks: list[Check] = [Check(OK, f"venv: {venv}")]
     fingerprint = read_fingerprint(venv)
     if fingerprint is None:
         return [
+            *checks,
             Check(
                 FAIL,
-                f"{venv} has no {FINGERPRINT_NAME}; "
+                f"no {FINGERPRINT_NAME} in {venv}; "
                 f"install it with `rpent-install install <target> --venv {venv}`",
-            )
+            ),
         ]
-    name = target_name or fingerprint.get("target")
+    recorded_target = fingerprint.get("target")
+    name = target_name or recorded_target
     if name is None:
         return [*checks, Check(FAIL, "fingerprint records no target")]
     checks.append(Check(OK, f"target: {name}"))
+    if target_name is not None and target_name != recorded_target:
+        recorded_label = "none" if recorded_target is None else repr(recorded_target)
+        checks.append(
+            Check(
+                WARN,
+                f"--target {target_name!r} overrides the target recorded in the "
+                f"fingerprint ({recorded_label})",
+            )
+        )
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
     try:
         resolution = target_resolution(str(name), discover(repo_root), root=repo_root)
@@ -136,7 +147,7 @@ def check_installation(
         core_dependencies=core,
     )
     recorded_schema = fingerprint.get("schema")
-    if recorded_schema != REQUIREMENTS_SCHEMA:
+    if recorded_schema != INPUT_SCHEMA:
         # `rpent-install` hashes a different set of inputs now, so the recorded
         # hash cannot be compared. Say so instead of reporting drifted inputs.
         interpreted = "unknown" if recorded_schema is None else recorded_schema
@@ -144,7 +155,7 @@ def check_installation(
             Check(
                 FAIL,
                 "fingerprint records installation input mode "
-                f"{interpreted}, current is {REQUIREMENTS_SCHEMA}; rerun "
+                f"{interpreted}, current is {INPUT_SCHEMA}; rerun "
                 f"`rpent-install install {name} --venv {venv}` to record the "
                 "current inputs",
             )
@@ -154,7 +165,7 @@ def check_installation(
             Check(
                 FAIL,
                 "environment is out of date with its recorded inputs (manifests, "
-                f"lock, overrides, or [tool.uv]); rerun "
+                f"overrides, or [tool.uv]); rerun "
                 f"`rpent-install install {name} --venv {venv}`",
             )
         )

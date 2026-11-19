@@ -15,8 +15,9 @@
 """Compile per-target dependency locks with ``uv pip compile``.
 
 ``python -m tests.tooling.lock`` is the maintainer entry point; the compile
-mechanics live here so the installer, ``check --resolve``, and the lock tool
-share one resolver.
+mechanics live here so ``check --resolve`` and the lock tool share one
+resolver. Locks are optional reproduction artifacts: installation resolves
+the manifests and never reads them.
 """
 
 from __future__ import annotations
@@ -46,8 +47,8 @@ PLATFORM_TAG = "x86_64-manylinux_{baseline}"
 #: recompiles at the same instant, so a lock only drifts when its declared
 #: inputs change rather than whenever an upstream project publishes a release.
 LOCK_TIMESTAMP_PREFIX = "# exclude_newer = "
-#: A lock also records the Python minor it resolved for, so an install picks
-#: the same interpreter even when the target's request is a range.
+#: A lock also records the Python minor it resolved for, so regenerating it
+#: keeps an environment on the interpreter it was verified with.
 LOCK_PYTHON_PREFIX = "# python = "
 
 
@@ -90,7 +91,7 @@ def new_lock_timestamp() -> str:
 
 
 def lock_path(root: Path, target: Target) -> Path:
-    """Return the target's declared or conventional lock path."""
+    """Return the target's reproduction lock path under ``tests/locks``."""
     return target.lock_file(root)
 
 
@@ -130,6 +131,7 @@ def compile_target(
     platform_tag = PLATFORM_TAG.format(baseline=target.manylinux)
     requirements = render_requirements(
         resolution,
+        root=root,
         core_dependencies=read_core_dependencies(root) if target.core else (),
     )
     with tempfile.TemporaryDirectory(prefix="rpent-lock-") as directory:

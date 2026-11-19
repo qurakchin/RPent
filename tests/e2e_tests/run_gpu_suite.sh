@@ -248,8 +248,8 @@ run_in_clean_env() {
   local suite_output=$4
   local venv_dir="$venv_root/$name"
 
-  # Install from the target lock and add only the test runner: reproducing a
-  # clean machine from the lock is what this suite exists to prove.
+  # Install the target's dependencies and add only the test runner: proving a
+  # clean machine can install and run the target is what this suite exists for.
   #
   # Torch and torchvision version compatibility come from the target's
   # component manifests and their transitive package metadata. The CUDA wheel

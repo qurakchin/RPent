@@ -3,7 +3,6 @@ kind = "target"
 name = "robot-dual_franka"
 python = "3.11"
 
-lock = "installs/locks/robot-dual_franka.lock"
 extra = "dual-franka"
 description = "Dual-arm Franka with Pi0.5 and SAM 3.0."
 

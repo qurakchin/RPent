@@ -94,7 +94,8 @@ toolkits and model services do not import each other.
    installs/
      targets/        # Supported install targets
      deps/           # Dependency-only component manifests
-     locks/          # One lock per target
+   tests/
+     locks/          # Optional reproduction locks, one per target
 
 Environment Discovery
 ---------------------

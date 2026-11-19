@@ -1,12 +1,11 @@
 name: Full CI
 
-# Proves a clean machine can install from the locks and run: every selected
-# target gets a fresh venv installed from its lock, doctored, and — where a
-# simulator exists — exercised by the GPU suite. `fast ci` calls this workflow
-# with the targets a pull request affects; nightly and manual runs select
-# every target. The publish workflow calls it with `full: true`, which makes
-# this the release gate too: the same run installs every target and recompiles
-# every lock.
+# Proves a clean machine can install and run: every selected target gets a
+# fresh venv installed from its manifests, doctored, and — where a simulator
+# exists — exercised by the GPU suite. `fast ci` calls this workflow with the
+# targets a pull request affects; nightly and manual runs select every target.
+# The publish workflow calls it with `full: true`, which makes this the release
+# gate too: the same run installs and doctors every target.
 on:
   schedule:
     # Offset from other nightly jobs to spread runner load.
@@ -15,7 +14,7 @@ on:
   workflow_call:
     inputs:
       full:
-        description: Install every target and check every lock (release gate)
+        description: Install and doctor every target (release gate)
         required: false
         type: boolean
         default: false
@@ -108,42 +107,3 @@ jobs:
       e2e: ${{ needs.scope.outputs.e2e }}
       toolkit: ${{ needs.scope.outputs.toolkit == 'true' }}
 
-  locks:
-    name: Lock files match the manifests
-    # `lock --check` recompiles at each lock's recorded `exclude_newer`
-    # instant, so it reports changed manifests or a different resolver rather
-    # than upstream releases; it gates a release instead of every night.
-    # GPU locks resolve on the embodied runner: RoboTwin's cuRobo dependency
-    # builds metadata that needs CUDA.
-    if: inputs.full == true
-    runs-on: embodied
-    timeout-minutes: 180
-    env:
-      # Shared install policy used by RLinf's NVIDIA embodied runner.
-      UV_CACHE_DIR: /workspace/dataset/.uv_cache
-      UV_LINK_MODE: symlink
-      UV_PYTHON_INSTALL_DIR: /workspace/dataset/.uv_python
-      UV_TORCH_BACKEND: auto
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          enable-cache: false
-          # `lock --check` recompiles and compares the text, so generation and
-          # verification must use the same resolver. The locks were generated
-          # with this version; bump both together in a relock pull request.
-          version: "0.13.7"
-      - name: Locate the CUDA toolkit
-        # cuRobo builds metadata during resolution; uv reads CUDA_HOME from the
-        # environment. Runners that export it already are left untouched.
-        run: |
-          if [ -z "${CUDA_HOME:-}" ]; then
-            nvcc="$(command -v nvcc || true)"
-            if [ -n "$nvcc" ]; then
-              echo "CUDA_HOME=$(dirname "$(dirname "$nvcc")")" >> "$GITHUB_ENV"
-            fi
-          fi
-      - name: Every lock is up to date
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m tests.tooling.lock --all --check

@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compile or verify the checked-in target locks.
+"""Compile or verify the optional reproduction locks under ``tests/locks``.
 
 ``--check`` recompiles each lock at the cutoff recorded in its header, so a
 lock drifts only when its declared inputs change rather than whenever an
 upstream project publishes a release. Without ``--check`` the lock is rewritten
-with the current cutoff.
+with the current cutoff. Installation never reads these locks.
 
 Usage::
 
@@ -59,8 +59,9 @@ def compile_locks(
     """Compile or verify locks; return a process exit code."""
     catalog = discover(root)
     uv = find_uv()
-    # Every target is installed from a lock, including the ones whose lock
-    # path follows the conventional ``locks/<name>.lock`` layout.
+    # Locks are optional reproduction artifacts; every checked-in lock lives
+    # under ``tests/locks/<name>.lock`` regardless of where the target is
+    # declared. Installing never reads a lock.
     names = targets or sorted(catalog.targets)
     has_drift = False
     for name in names:

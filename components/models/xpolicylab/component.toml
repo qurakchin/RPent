@@ -4,7 +4,6 @@ kind = "model"
 probe = "components.models.xpolicylab.server"
 python = ">=3.10,<3.13"
 placement = ["in-env", "remote"]
-docs = "docs/source-en/rst_source/simulators/robodojo.rst"
 
 # The XPolicyLab policy environment and its model dependencies follow the
 # upstream Awomo05 instructions and are installed separately from this adapter.

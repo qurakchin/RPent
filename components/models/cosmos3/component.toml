@@ -3,7 +3,6 @@ name = "cosmos3"
 kind = "model"
 probe = "components.models.cosmos3.server"
 python = ">=3.10,<3.13"
-docs = "docs/source-en/rst_source/development/add_action_model.rst"
 
 # The RPC worker only reshapes observations and actions; Cosmos3 weights and
 # SGLang run in the separately deployed service it connects to.

@@ -257,7 +257,11 @@ def _installed_components(
     return installed
 
 
-def _inherit_settings(target: Target, components: dict[str, Component]) -> Target:
+def _inherit_settings(
+    target: Target,
+    components: dict[str, Component],
+    root: Path,
+) -> Target:
     """Apply the index settings the target's components declare.
 
     A component owns the index its packages come from, so a composition target
@@ -286,8 +290,8 @@ def _inherit_settings(target: Target, components: dict[str, Component]) -> Targe
     if index_url is None and index_urls:
         if len(index_urls) > 1:
             raise InstallConfigError(
-                f"{target.relative_path}: components declare different index "
-                f"URLs: {_describe_settings(index_urls)}; one environment "
+                f"{target.relative_path(root)}: components declare different "
+                f"index URLs: {_describe_settings(index_urls)}; one environment "
                 "resolves against one index"
             )
         index_url = next(iter(index_urls))
@@ -296,8 +300,8 @@ def _inherit_settings(target: Target, components: dict[str, Component]) -> Targe
     if index_strategy is None and strategies:
         if len(strategies) > 1:
             raise InstallConfigError(
-                f"{target.relative_path}: components declare different index "
-                f"strategies: {_describe_settings(strategies)}; set "
+                f"{target.relative_path(root)}: components declare different "
+                f"index strategies: {_describe_settings(strategies)}; set "
                 "'index-strategy' on the target to decide"
             )
         index_strategy = next(iter(strategies))
@@ -312,7 +316,7 @@ def _inherit_settings(target: Target, components: dict[str, Component]) -> Targe
             if component.settings.manylinux == declared
         )
         raise InstallConfigError(
-            f"{target.relative_path}: manylinux {target.manylinux} cannot serve "
+            f"{target.relative_path(root)}: manylinux {target.manylinux} cannot serve "
             f"{requiring}, which needs manylinux {declared}; raise 'manylinux' "
             "on the target"
         )
@@ -362,12 +366,13 @@ def _targets(repo_root: Path, components: dict[str, Component]) -> dict[str, Tar
         for path in sorted(directory.glob("*.toml")):
             if _is_metadata_file(path):
                 continue
-            target = _inherit_settings(load_target(path), components)
+            target = _inherit_settings(load_target(path), components, repo_root)
             previous = targets.get(target.name)
             if previous is not None:
                 raise InstallConfigError(
                     f"target {target.name!r} is declared twice: "
-                    f"{previous.relative_path} and {target.relative_path}; "
+                    f"{previous.relative_path(repo_root)} and "
+                    f"{target.relative_path(repo_root)}; "
                     "test targets share the user target namespace"
                 )
             targets[target.name] = target
@@ -379,8 +384,9 @@ def _targets(repo_root: Path, components: dict[str, Component]) -> dict[str, Tar
         previous = targets.get(name)
         if previous is not None:
             raise InstallConfigError(
-                f"target {name!r} in {previous.relative_path} duplicates the "
-                f"component {component.manifest_path}; a component is already "
+                f"target {name!r} in {previous.relative_path(repo_root)} "
+                f"duplicates the component {component.manifest_path}; "
+                f"a component is already "
                 "installable by name, so remove the target file or rename it"
             )
         targets[name] = target_from_component(component)

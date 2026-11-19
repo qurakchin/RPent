@@ -41,7 +41,6 @@ def repo(tmp_path, write_toml):
         kind = "robot"
         probe = "json"
         python = "3.11"
-        lock = "installs/locks/alpha.lock"
         dependencies = ["numpy>=2"]
         """,
     )
@@ -97,13 +96,13 @@ def _arguments(fake_uv):
 def test_write_records_the_resolved_requirements(repo, fake_uv, capsys):
     assert lock.main(["alpha"], root=repo) == 0
 
-    destination = repo / "installs/locks/alpha.lock"
+    destination = repo / "tests/locks/alpha.lock"
     text = destination.read_text(encoding="utf-8")
     assert "packaging" in text
     assert "numpy>=2" in text
     assert text.startswith("# python = 3.11\n")
     assert lock_timestamp(text) is not None
-    assert "locked alpha: installs/locks/alpha.lock" in capsys.readouterr().out
+    assert "locked alpha: tests/locks/alpha.lock" in capsys.readouterr().out
     arguments = _arguments(fake_uv)
     assert arguments[arguments.index("--exclude-newer") + 1] == lock_timestamp(text)
 
@@ -124,7 +123,7 @@ def test_write_never_compiles_into_the_previous_lock_file(repo, fake_uv):
     # uv seeds resolution from an existing --output-file, so compiling straight
     # into the tracked lock can keep versions the current index no longer
     # selects and leave `--check` disagreeing with `lock`.
-    destination = repo / "installs/locks/alpha.lock"
+    destination = repo / "tests/locks/alpha.lock"
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text("packaging==0.0.0\n", encoding="utf-8")
 
@@ -145,7 +144,6 @@ def test_write_resolves_override_files_against_the_checkout(repo, fake_uv, write
         kind = "robot"
         probe = "json"
         python = "3.11"
-        lock = "installs/locks/alpha.lock"
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
@@ -160,10 +158,10 @@ def test_write_resolves_override_files_against_the_checkout(repo, fake_uv, write
     assert os.path.isabs(value)
 
 
-def test_all_uses_the_default_lock_path_beside_the_target(repo, fake_uv):
+def test_all_writes_every_lock_under_tests(repo, fake_uv):
     assert lock.main(["--all"], root=repo) == 0
 
-    assert (repo / "installs/locks/alpha.lock").is_file()
+    assert (repo / "tests/locks/alpha.lock").is_file()
     assert (repo / "tests/locks/tool-beta.lock").is_file()
 
 
@@ -183,7 +181,7 @@ def test_check_passes_for_an_unchanged_lock(repo, fake_uv, capsys):
 
 def test_check_reports_a_stale_lock(repo, fake_uv, capsys):
     lock.main(["alpha"], root=repo)
-    destination = repo / "installs/locks/alpha.lock"
+    destination = repo / "tests/locks/alpha.lock"
     destination.write_text(
         f"{LOCK_TIMESTAMP_PREFIX}2026-11-16T00:00:00Z\nstale\n", encoding="utf-8"
     )
@@ -196,7 +194,7 @@ def test_check_reports_a_stale_lock(repo, fake_uv, capsys):
 
 
 def test_check_rejects_a_lock_without_a_timestamp(repo, fake_uv, capsys):
-    destination = repo / "installs/locks/alpha.lock"
+    destination = repo / "tests/locks/alpha.lock"
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text("packaging==24.0\n", encoding="utf-8")
 
@@ -209,7 +207,7 @@ def test_check_rejects_a_lock_without_a_timestamp(repo, fake_uv, capsys):
 def test_check_recompiles_at_the_recorded_timestamp(repo, fake_uv, capsys):
     lock.main(["alpha"], root=repo)
     recorded = lock_timestamp(
-        (repo / "installs/locks/alpha.lock").read_text(encoding="utf-8")
+        (repo / "tests/locks/alpha.lock").read_text(encoding="utf-8")
     )
     capsys.readouterr()
 
@@ -220,12 +218,12 @@ def test_check_recompiles_at_the_recorded_timestamp(repo, fake_uv, capsys):
 
 def test_check_reports_a_missing_lock(repo, fake_uv, capsys):
     assert lock.main(["alpha", "--check"], root=repo) == 1
-    assert "missing lock: installs/locks/alpha.lock" in capsys.readouterr().out
+    assert "missing lock: tests/locks/alpha.lock" in capsys.readouterr().out
 
 
 def test_check_reports_a_lock_that_is_not_utf8(repo, fake_uv, capsys):
     lock.main(["alpha"], root=repo)
-    (repo / "installs/locks/alpha.lock").write_bytes(b"packaging\n\xff\n")
+    (repo / "tests/locks/alpha.lock").write_bytes(b"packaging\n\xff\n")
     capsys.readouterr()
 
     assert lock.main(["alpha", "--check"], root=repo) == 1
@@ -263,4 +261,4 @@ def test_all_reports_failures_and_continues(repo, fake_uv, write_toml, capsys):
     output = capsys.readouterr().out
     assert "lock gamma-env: FAIL" in output
     assert "no supported version" in output
-    assert (repo / "installs/locks/alpha.lock").is_file()
+    assert (repo / "tests/locks/alpha.lock").is_file()

@@ -18,8 +18,9 @@ A component is an install boundary: one directory, one ``component.toml``, one
 import probe, and its direct dependencies. Every component is also an install
 target under its own name; a file in ``installs/targets/<name>.toml`` composes
 several components into one environment. Installed environments carry
-``rpent-install.json`` with the target, component manifests, lock, and freeze
-hashes used by ``rpent-install doctor`` and run artifacts.
+``rpent-install.json`` with the target, the hash of the installation inputs,
+and the installed package set, which ``rpent-install doctor`` and run artifacts
+use.
 """
 
 from rpent.install.discovery import (

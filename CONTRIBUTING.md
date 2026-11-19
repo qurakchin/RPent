@@ -42,17 +42,17 @@ Use a branch name that reflects the change, such as
 ```bash
 # Create and activate the development environment. The launcher runs the
 # installer in a throwaway uv environment until `.venvs/dev` exists.
-scripts/rpent-install.sh install dev
+./rpent-install.sh install dev
 source .venvs/dev/bin/activate
 
 # For robot work, install that target into its own environment. Targets
 # cannot share a virtualenv because their pins differ, and every target
-# installs from its lock.
+# resolves its dependencies from the manifests.
 rpent-install install robot-libero_pro  # LIBERO
 rpent-install install robocasa        # RoboCasa
 rpent-install install robotwin        # RoboTwin
 
-# The lock omits the test runner; add it to the robot environment.
+# The target's dependencies omit the test runner; add it to that environment.
 uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout
 
 # Install and enable the repository hooks.
@@ -77,8 +77,8 @@ Follow these conventions while developing:
   environment in its `robots/<name>/` directory, model services in
   `components/models/<name>/`, and toolkits in `components/toolkits/<name>/`.
   Place shared functionality in common modules with matching responsibilities.
-  Install recipes, dependency-only components, and locks live under
-  `installs/`.
+  Install recipes and dependency-only components live under `installs/`;
+  optional reproduction locks live under `tests/locks/`.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and

@@ -2,7 +2,6 @@ schema = 2
 kind = "target"
 name = "tool-flywheel"
 python = "3.11"
-lock = "installs/locks/tool-flywheel.lock"
 # Flywheel is a core runtime feature with no compatibility extra of its own.
 extra = false
 description = "LeRobot trajectory export and replay without a simulator or policy."

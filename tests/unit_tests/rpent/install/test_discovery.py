@@ -134,7 +134,7 @@ def test_a_component_without_a_target_file_is_installable_by_name(tmp_path, writ
     targets = discover_targets(tmp_path)
 
     assert targets["alpha"].python == "3.11"
-    assert targets["alpha"].relative_path == "alpha/component.toml"
+    assert targets["alpha"].relative_path(tmp_path) == "robots/alpha/component.toml"
     assert list(targets["alpha"].components) == ["alpha"]
 
 

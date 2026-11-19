@@ -15,22 +15,26 @@
 
 set -euo pipefail
 
-# Run the installer on a checkout that has no environment yet.
+# Run one of the repository tools in ``tests/tooling`` from a bare checkout.
 #
-# The ``rpent-install`` console script exists only after a target is installed,
-# so this launcher runs ``rpent.cli.install`` in a throwaway uv environment
-# that adds nothing but the manifest parser dependency. Documentation and CI
-# call it, so the bootstrap interpreter and that dependency are declared once;
-# installer arguments pass straight through.
+# The tools read manifests and reproduction locks and add nothing but
+# ``packaging``, so they do not need an installed target. Pass the module and
+# its arguments;
+# ``tests/tooling/rpent-tool.sh tests.tooling.check --all`` is the form the
+# installation guide uses in place of the explicit ``uv run`` prefix.
 
-repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 
 if ! command -v uv >/dev/null 2>&1; then
-  printf 'uv is required to bootstrap rpent-install; install it from %s\n' \
+  printf 'uv is required to run the repository tools; install it from %s\n' \
     'https://docs.astral.sh/uv/getting-started/installation/' >&2
   exit 1
 fi
 
+if [ "$#" -eq 0 ]; then
+  echo "usage: tests/tooling/rpent-tool.sh <module> [arguments...]" >&2
+  exit 2
+fi
+
 cd -- "$repo_root"
-exec uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install "$@"
+exec uv run --no-project --python 3.11 --with packaging -- python -m "$@"

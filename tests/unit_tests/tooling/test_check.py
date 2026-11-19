@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""``check`` reports broken targets and stale locks without installing."""
+"""``check`` reports broken targets without installing and never needs a lock."""
+
+import pytest
 
 from rpent.install.discovery import discover
 from tests.tooling import check
 
 
-def _write_target(write_toml, name, *, lock=None, core=False, write_lock=True):
-    declared = f'lock = "{lock}"\n' if lock else ""
+def _write_target(write_toml, name, *, core=False):
     core_line = f"core = {str(core).lower()}\n"
     write_toml(
         f"installs/targets/{name}.toml",
@@ -28,15 +29,11 @@ def _write_target(write_toml, name, *, lock=None, core=False, write_lock=True):
         kind = "target"
         name = "{name}"
         python = "3.11"
-        {declared}{core_line}
+        {core_line}
         [components.alpha]
         placement = "in-env"
         """,
     )
-    if write_lock:
-        # Every target installs from a lock; an undeclared one defaults to
-        # ``locks/<name>.lock`` beside its target directory.
-        write_toml(lock or f"installs/locks/{name}.lock", "alpha-dep==1.0.0")
 
 
 def _write_component(write_toml):
@@ -65,26 +62,62 @@ def test_valid_target_reports_what_it_installs(tmp_path, write_toml, capsys):
     assert "installs: alpha" in out
 
 
-def test_missing_declared_lock_fails_the_target(tmp_path, write_toml, capsys):
+def test_a_target_without_a_lock_is_valid(tmp_path, write_toml, capsys):
+    # Locks are optional reproduction artifacts, so a missing one is not a
+    # problem and does not shorten the check.
     _write_component(write_toml)
-    _write_target(
-        write_toml,
-        "alpha-env",
-        lock="installs/locks/alpha-env.lock",
-        write_lock=False,
-    )
+    _write_target(write_toml, "alpha-env")
 
     catalog = discover(tmp_path)
-    problems = check.check_target("alpha-env", catalog, tmp_path)
+    assert check.check_target("alpha-env", catalog, tmp_path) == []
+    assert check.main(["alpha-env"], root=tmp_path) == 0
+    assert "target alpha-env: ok" in capsys.readouterr().out
 
-    assert any("does not exist" in problem for problem in problems)
-    assert check.main(["alpha-env"], root=tmp_path) == 1
-    assert "target alpha-env: FAIL" in capsys.readouterr().out
+
+def test_inputs_hash_reports_the_installation_inputs(tmp_path, write_toml, capsys):
+    _write_component(write_toml)
+    _write_target(write_toml, "alpha-env")
+
+    assert check.main(["alpha-env", "--inputs-hash"], root=tmp_path) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    digest = next(line for line in lines if line.startswith("inputs="))
+    assert digest.removeprefix("inputs=")
+    assert "python=3.11" in lines
+
+    # A manifest edit changes what a reinstall would produce, so the cache key
+    # must change with it.
+    write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 2
+        name = "alpha"
+        kind = "robot"
+        probe = "json"
+        python = "3.11"
+        core = false
+        dependencies = ["alpha-dep", "other-dep"]
+        """,
+    )
+    assert check.main(["alpha-env", "--inputs-hash"], root=tmp_path) == 0
+    changed = next(
+        line
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("inputs=")
+    )
+    assert changed != digest
+
+
+def test_inputs_hash_takes_one_target(tmp_path, write_toml):
+    _write_component(write_toml)
+    _write_target(write_toml, "alpha-env")
+
+    with pytest.raises(SystemExit):
+        check.main(["--all", "--inputs-hash"], root=tmp_path)
 
 
 def test_all_checks_every_target(tmp_path, write_toml, capsys):
     _write_component(write_toml)
-    write_toml("installs/locks/alpha.lock", "alpha-dep==1.0.0")
     _write_target(write_toml, "alpha-env")
     _write_target(write_toml, "alpha-env-2")
 

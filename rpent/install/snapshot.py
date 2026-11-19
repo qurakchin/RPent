@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Expose the installation fingerprint through per-run artifacts."""
+"""Record which installation produced a run."""
 
 from __future__ import annotations
 
 import json
-import platform
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -27,39 +26,26 @@ from rpent.install.fingerprint import (
     current_venv,
     fingerprint_sha256,
     read_fingerprint,
-    runtime_platform,
 )
 
 RUN_MANIFEST_NAME = "run.json"
 
 
 def installation_snapshot(venv: Path | None = None) -> dict[str, Any]:
-    """Return the current environment's installation identity.
+    """Return the installation identity recorded in a run manifest.
 
-    A source checkout that was not installed through ``rpent-install`` still gets a
-    snapshot, but ``target`` and ``install_sha256`` are ``None`` so a run can
-    be traced to the environment that produced it.
+    A run points at the installation that produced it instead of copying the
+    fingerprint: the target name and the fingerprint hash are enough to find
+    that environment again. A checkout that was not installed through
+    ``rpent-install`` records ``None`` for both.
     """
     active = Path(venv).resolve() if venv is not None else current_venv()
     fingerprint = read_fingerprint(active) if active is not None else None
     if fingerprint is None:
-        return {
-            "target": None,
-            "install_sha256": None,
-            "python": platform.python_version(),
-            "platform": runtime_platform(),
-            "venv": str(active) if active is not None else None,
-            "components": [],
-        }
+        return {"target": None, "install_sha256": None}
     return {
         "target": fingerprint.get("target"),
         "install_sha256": fingerprint_sha256(fingerprint),
-        "python": fingerprint.get("python", platform.python_version()),
-        "platform": fingerprint.get("platform", runtime_platform()),
-        "venv": str(active),
-        "components": sorted(fingerprint.get("components", {})),
-        "source_commit": fingerprint.get("source_commit"),
-        "source_dirty": fingerprint.get("source_dirty", False),
     }
 
 

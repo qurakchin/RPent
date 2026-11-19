@@ -3,7 +3,6 @@ kind = "target"
 name = "robot-libero_pro"
 python = "3.11"
 
-lock = "installs/locks/robot-libero_pro.lock"
 extra = "libero-pro"
 description = "LIBERO-PRO with Pi0.5, SAM 3.0, and LeRobot trajectory export and replay."
 

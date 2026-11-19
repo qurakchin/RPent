@@ -31,7 +31,7 @@ jobs:
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m tests.tooling.layout
-      - name: Check every target and its lock coverage
+      - name: Check every target
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m tests.tooling.check --all
@@ -51,27 +51,37 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Pin the target's Python
-        run: uv python install 3.11
       - name: Read the environment cache key
         id: key
         shell: bash
         run: |
-          # User and test targets keep their locks beside their targets.
-          lock="installs/locks/${{ inputs.target }}.lock"
-          [[ -f "$lock" ]] || lock="tests/locks/${{ inputs.target }}.lock"
-          echo "lock=$(sha256sum "$lock" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-      # The prebuilt environment is reproducible from the selected target's
-      # lock, so the cache key is that lock's hash plus the interpreter and
-      # platform. `unit-cpu` supplies CPU Torch for the tests that import model
-      # servers; `dev` alone deliberately has no Torch.
+          # The environment is reproducible from the target's installation
+          # inputs, so the cache key is their hash plus the interpreter the
+          # target resolves to and the platform. A checked-in lock is a
+          # reproduction artifact and plays no part here.
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m tests.tooling.check "${{ inputs.target }}" --inputs-hash \
+            > "$RUNNER_TEMP/inputs"
+          cat "$RUNNER_TEMP/inputs"
+          inputs=$(sed -n 's/^inputs=//p' "$RUNNER_TEMP/inputs")
+          python=$(sed -n 's/^python=//p' "$RUNNER_TEMP/inputs")
+          test -n "$inputs"
+          test -n "$python"
+          {
+            echo "inputs=$inputs"
+            echo "python=$python"
+          } >> "$GITHUB_OUTPUT"
+      - name: Pin the target's Python
+        run: uv python install "${{ steps.key.outputs.python }}"
+      # `unit-cpu` supplies CPU Torch for the tests that import model servers;
+      # `dev` alone deliberately has no Torch.
       - name: Restore the prebuilt environment
         id: env
         uses: actions/cache@v4
         with:
           path: .venv
-          key: rpent-${{ inputs.target }}-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
-      - name: Build the prebuilt environment from the lock
+          key: rpent-${{ inputs.target }}-${{ runner.os }}-py${{ steps.key.outputs.python }}-${{ steps.key.outputs.inputs }}
+      - name: Build the prebuilt environment
         if: steps.env.outputs.cache-hit != 'true'
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
@@ -127,18 +137,31 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Pin the target's Python
-        run: uv python install 3.11
       - name: Read the environment cache key
         id: key
-        run: echo "lock=$(sha256sum installs/locks/minimal.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+        shell: bash
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m tests.tooling.check minimal --inputs-hash \
+            > "$RUNNER_TEMP/inputs"
+          cat "$RUNNER_TEMP/inputs"
+          inputs=$(sed -n 's/^inputs=//p' "$RUNNER_TEMP/inputs")
+          python=$(sed -n 's/^python=//p' "$RUNNER_TEMP/inputs")
+          test -n "$inputs"
+          test -n "$python"
+          {
+            echo "inputs=$inputs"
+            echo "python=$python"
+          } >> "$GITHUB_OUTPUT"
+      - name: Pin the target's Python
+        run: uv python install "${{ steps.key.outputs.python }}"
       - name: Restore the minimal environment
         id: env
         uses: actions/cache@v4
         with:
           path: .venv-minimal
-          key: rpent-minimal-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
-      - name: Build the minimal environment from the lock
+          key: rpent-minimal-${{ runner.os }}-py${{ steps.key.outputs.python }}-${{ steps.key.outputs.inputs }}
+      - name: Build the minimal environment
         if: steps.env.outputs.cache-hit != 'true'
         run: |
           uv run --no-project --python 3.11 --with packaging -- \

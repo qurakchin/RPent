@@ -22,7 +22,7 @@
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   scripts/rpent-install.sh install robot-libero_pro
+   ./rpent-install.sh install robot-libero_pro
    source .venvs/robot-libero_pro/bin/activate
 
 目标会一起锁定 Python、RLinf 版本、Pi0.5、SAM 3.0 和 LIBERO 相关依赖。全部目标、各自的安装命令、独立的模型环境和诊断方法见 :doc:`installation`。

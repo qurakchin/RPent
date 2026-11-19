@@ -16,7 +16,7 @@
 
 Run each tool from the repository root with ``python -m tests.tooling.<tool>``:
 
-- ``check``: manifests, closures, variants, placement, and lock coverage.
+- ``check``: manifests, closures, variants, placement, and input hashes.
 - ``lock``: compile or verify the target locks.
 - ``layout``: directory structure and import boundaries (K1–K7).
 - ``extras``: generate or verify the compatibility extras block.

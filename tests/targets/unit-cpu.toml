@@ -2,7 +2,6 @@ schema = 2
 kind = "target"
 name = "unit-cpu"
 python = "3.10"
-lock = "tests/locks/unit-cpu.lock"
 # Test environments are not a compatibility extra.
 extra = false
 description = "CPU-only unit tests: core, test tools, and the CPU flywheel stack."

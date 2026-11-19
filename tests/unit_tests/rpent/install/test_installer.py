@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The installer resolves one target, installs its lock, and fingerprints it."""
+"""The installer resolves one target, installs its requirements, and fingerprints it."""
 
 import os
 import shlex
@@ -33,7 +33,7 @@ from rpent.install.installer import (
     target_resolution,
 )
 from rpent.install.requirements import (
-    REQUIREMENTS_SCHEMA,
+    INPUT_SCHEMA,
     read_core_dependencies,
     requirements_sha256,
 )
@@ -58,7 +58,6 @@ def repo(tmp_path, write_toml):
         kind = "robot"
         probe = "json"
         python = "{major}.{minor}"
-        lock = "installs/locks/alpha.lock"
         dependencies = ["numpy>=2"]
         """,
     )
@@ -75,13 +74,6 @@ def repo(tmp_path, write_toml):
         """,
     )
     return tmp_path
-
-
-def _write_lock(repo, text="numpy==2.0.0\npackaging==24.0\n"):
-    lock = repo / "installs/locks/alpha.lock"
-    lock.parent.mkdir(parents=True, exist_ok=True)
-    lock.write_text(text, encoding="utf-8")
-    return lock
 
 
 def test_default_venv_is_per_target(repo):
@@ -167,33 +159,34 @@ def _uv_working_directories(tmp_path):
 
 
 def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatch):
-    _write_lock(repo)
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
 
     fingerprint = install("alpha", root=repo, venv=venv, verbose=False)
 
     assert read_fingerprint(venv) == fingerprint
-    assert fingerprint["schema"] == REQUIREMENTS_SCHEMA
+    assert fingerprint["schema"] == INPUT_SCHEMA
     assert fingerprint["target"] == "alpha"
     assert fingerprint["components"]["alpha"]["placement"] == "in-env"
     assert fingerprint["component_targets"]["alpha"] == ["alpha"]
     assert fingerprint["requirements_file"] == ".rpent/requirements/alpha.txt"
+    assert "lock" not in fingerprint
     assert fingerprint["source_commit"] is None
     assert os.path.isfile(venv / "bin" / "python")
 
 
-def test_install_installs_from_the_target_lock(repo, tmp_path, monkeypatch):
-    lock = _write_lock(repo)
+def test_install_installs_from_the_rendered_requirements(repo, tmp_path, monkeypatch):
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
     fingerprint = install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
+    requirements = repo / ".rpent" / "requirements" / "alpha.txt"
     requirements_arguments = install_arguments()[0]
-    assert requirements_arguments[requirements_arguments.index("-r") + 1] == str(lock)
-    assert fingerprint["lock"] == "installs/locks/alpha.lock"
-    # The lock is an input of the requirements hash `doctor` recomputes, so
-    # installing from it does not change the recorded hash.
+    assert requirements_arguments[requirements_arguments.index("-r") + 1] == str(
+        requirements
+    )
+    text = requirements.read_text(encoding="utf-8")
+    assert "numpy>=2" in text
     resolution = target_resolution("alpha", discover(repo), root=repo)
     assert fingerprint["requirements_sha256"] == requirements_sha256(
         resolution,
@@ -202,22 +195,21 @@ def test_install_installs_from_the_target_lock(repo, tmp_path, monkeypatch):
     )
 
 
-def test_install_requires_the_target_lock(repo, tmp_path, monkeypatch):
-    _fake_uv(tmp_path, monkeypatch)
+def test_install_does_not_read_a_checked_in_lock(repo, tmp_path, monkeypatch):
+    # A lock is a reproduction artifact. A stale or missing one must neither
+    # change the installed requirements nor fail the install.
+    stale = repo / "tests" / "locks" / "alpha.lock"
+    stale.parent.mkdir(parents=True, exist_ok=True)
+    stale.write_text("numpy==0.1\n", encoding="utf-8")
+    _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
-    with pytest.raises(
-        InstallError,
-        match="maintainers regenerate it with `python -m tests.tooling.lock",
-    ):
-        install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
-
-def test_install_rejects_a_lock_that_lost_a_requirement(repo, tmp_path, monkeypatch):
-    _write_lock(repo, "numpy==2.0.0\n")
-    _fake_uv(tmp_path, monkeypatch)
-
-    with pytest.raises(InstallError, match="does not cover 'packaging'"):
-        install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    arguments = install_arguments()[0]
+    assert arguments[arguments.index("-r") + 1] == str(
+        repo / ".rpent" / "requirements" / "alpha.txt"
+    )
+    assert str(stale) not in arguments
 
 
 def test_install_passes_override_files_by_absolute_path(
@@ -234,13 +226,11 @@ def test_install_passes_override_files_by_absolute_path(
         kind = "robot"
         probe = "json"
         python = "3.11"
-        lock = "installs/locks/alpha.lock"
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
     )
     write_toml("robots/alpha/requirements/override.txt", "numpy<3\n")
-    _write_lock(repo)
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
     install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
@@ -254,7 +244,6 @@ def test_install_passes_override_files_by_absolute_path(
 def test_install_runs_uv_inside_the_checkout(repo, tmp_path, monkeypatch):
     # uv discovers ``[tool.uv]`` by walking up from its working directory, so
     # installing from a subdirectory must not resolve with other settings.
-    _write_lock(repo)
     _fake_uv(tmp_path, monkeypatch)
     monkeypatch.chdir(repo / "robots")
 
@@ -297,7 +286,6 @@ def test_install_probes_the_deps_components_of_the_environment(
         dependencies = ["packaging"]
         """,
     )
-    write_toml("installs/locks/alpha.lock", "packaging==24.0\n")
     _fake_uv(tmp_path, monkeypatch)
 
     fingerprint = install("alpha", root=tmp_path, venv=tmp_path / "venv", verbose=True)
@@ -309,7 +297,6 @@ def test_install_probes_the_deps_components_of_the_environment(
 def test_install_refuses_a_venv_belonging_to_another_target(
     repo, tmp_path, monkeypatch
 ):
-    _write_lock(repo)
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
     venv.mkdir()
@@ -322,7 +309,6 @@ def test_install_refuses_a_venv_belonging_to_another_target(
 def test_install_refuses_a_non_empty_venv_without_a_fingerprint(
     repo, tmp_path, monkeypatch
 ):
-    _write_lock(repo)
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
     venv.mkdir()
@@ -333,7 +319,6 @@ def test_install_refuses_a_non_empty_venv_without_a_fingerprint(
 
 
 def test_force_installs_into_a_non_empty_venv(repo, tmp_path, monkeypatch):
-    _write_lock(repo)
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
     venv.mkdir()
@@ -345,7 +330,6 @@ def test_force_installs_into_a_non_empty_venv(repo, tmp_path, monkeypatch):
 
 
 def test_core_target_installs_the_editable_checkout(repo, tmp_path, monkeypatch):
-    _write_lock(repo)
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
     install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
@@ -373,7 +357,6 @@ def test_core_false_target_skips_the_editable_checkout(
         dependencies = ["packaging"]
         """,
     )
-    write_toml("installs/locks/beta.lock", "packaging==24.0\n")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
     install("beta", root=tmp_path, venv=tmp_path / "venv", verbose=False)
@@ -384,7 +367,6 @@ def test_core_false_target_skips_the_editable_checkout(
 def test_dry_run_prints_the_requirements_and_creates_nothing(
     repo, tmp_path, monkeypatch, capsys
 ):
-    _write_lock(repo)
     uv, _ = _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
 

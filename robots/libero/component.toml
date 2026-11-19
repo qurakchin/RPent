@@ -10,7 +10,6 @@ requires = ["rlinf"]
 # numpy<2, and RoboTwin's runtime ships incompatible MuJoCo/Torch builds.
 env_conflicts = ["franka", "dual_franka", "robotwin"]
 variant_required = true
-docs = "docs/source-en/rst_source/simulators/libero.rst"
 
 [optional]
 # The variants differ in the simulator package they install, so every target

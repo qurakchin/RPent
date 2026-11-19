@@ -231,7 +231,10 @@ def test_declared_conflict_in_one_environment_is_reported(
 
     assert not resolution.ok
     assert "places 'alpha' and 'beta' in the same environment" in resolution.errors[0]
-    assert "option 1: install beta in a separate environment" in resolution.errors[0]
+    assert (
+        "split alpha and beta into separate targets and connect them by endpoint"
+        in resolution.errors[0]
+    )
 
 
 def test_conflict_reaches_components_pulled_in_by_requires(
