@@ -88,7 +88,9 @@ jobs:
           mapfile -t paths < <(
             python3 -c 'import json, os; print("\n".join(json.loads(os.environ["TESTS"] or "[]")))'
           )
-          if [[ ${#paths[@]} -eq 0 ]]; then
+          # An empty JSON array still yields one empty line, and pytest treats
+          # an empty argument as the repository root, so test for blank too.
+          if [[ ${#paths[@]} -eq 0 || -z "${paths[0]}" ]]; then
             paths=(tests/unit_tests)
           fi
           .venv/bin/python -m pytest "${paths[@]}" -v \

@@ -29,8 +29,13 @@ jobs:
           uv pip install --python .venv-wheel/bin/python dist/*.whl
       - name: Check the wheel install
         run: |
-          .venv-wheel/bin/rpent --help >/dev/null
-          .venv-wheel/bin/python - <<'PY'
+          # Run the checks outside the checkout: from the repository root the
+          # empty sys.path entry resolves `import rpent` to the source tree,
+          # whose sibling robots/ is not part of the wheel.
+          wheel_venv="$GITHUB_WORKSPACE/.venv-wheel"
+          "$wheel_venv/bin/rpent" --help >/dev/null
+          cd "$RUNNER_TEMP"
+          "$wheel_venv/bin/python" - <<'PY'
           from pathlib import Path
 
           import rpent
@@ -45,18 +50,23 @@ jobs:
           PY
       - name: Install the sdist and upgrade it to the wheel
         run: |
-          uv venv --python 3.11 .venv-sdist
-          uv pip install --python .venv-sdist/bin/python dist/*.tar.gz
-          .venv-sdist/bin/rpent --help >/dev/null
-          .venv-sdist/bin/python - <<'PY'
+          sdist_venv="$GITHUB_WORKSPACE/.venv-sdist"
+          uv venv --python 3.11 "$sdist_venv"
+          uv pip install --python "$sdist_venv/bin/python" dist/*.tar.gz
+          # Import from outside the checkout so the sdist's own packages, not
+          # the source tree's, satisfy the imports.
+          cd "$RUNNER_TEMP"
+          "$sdist_venv/bin/rpent" --help >/dev/null
+          "$sdist_venv/bin/python" - <<'PY'
           import components
           import robots
 
           print(robots.__name__, components.__name__)
           PY
-          uv pip install --python .venv-sdist/bin/python --reinstall dist/*.whl
-          .venv-sdist/bin/rpent --help >/dev/null
-          .venv-sdist/bin/python -c "import rpent; print(rpent.__version__)"
+          uv pip install --python "$sdist_venv/bin/python" --reinstall \
+            "$GITHUB_WORKSPACE"/dist/*.whl
+          "$sdist_venv/bin/rpent" --help >/dev/null
+          "$sdist_venv/bin/python" -c "import rpent; print(rpent.__version__)"
       - name: Check source installs outside the checkout
         run: |
           # `uv pip install .` builds the source-scope wheel, so the component
