@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Model-side contracts, clients, facades, backends and platform helpers.
+"""Model-side contracts, clients, facades and backends.
 
 Import the concrete modules (``contracts``, ``client``, ``facade``,
-``backends``, ``platforms``) rather than re-exporting from here, so a service
-only loads what it uses. These bases are pure Python and depend on no model
-service; concrete services live in ``components/models/`` and the core never
-imports them.
+``backends``) rather than re-exporting from here, so a service only loads what
+it uses. These bases are pure Python and depend on no model service; concrete
+services live in ``components/models/`` and the core never imports them. A
+wire-contract copy that names an embodiment lives with the model service that
+validates it under ``components/models/<name>/platforms.py``.
 """

@@ -21,8 +21,8 @@ import numpy as np
 from rpent.models.contracts import AMObservation
 
 #: Camera roles RoboTwin exposes, in the order model adapters expect. The
-#: capability-side copy lives in ``rpent/models/platforms.py``; keep the
-#: two equal.
+#: model-side copies live in ``components/models/{fast_wam,uniwam}/platforms.py``;
+#: keep them equal.
 ROBOTWIN_CAMERAS = ("head", "left_wrist", "right_wrist")
 
 __all__ = ["ROBOTWIN_CAMERAS", "physical_observation"]

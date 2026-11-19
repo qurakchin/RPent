@@ -59,7 +59,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 
    rpent/            # 核心：契约、调度、模型基类
      env/            # 环境契约、client、facade、回执账本
-     models/         # 模型契约、client、facade、后端注册、平台助手
+     models/         # 模型契约、client、facade、后端注册
      cli/            # CLI、Dashboard 启动器、记忆与安装命令
      planner/        # 模型后端与 Planner 基类
      prompt/         # 共享提示词拼装

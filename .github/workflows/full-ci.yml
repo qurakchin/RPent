@@ -18,6 +18,11 @@ on:
         required: false
         type: boolean
         default: false
+      unit:
+        description: Run the whole unit suite (nightly, release and manual runs)
+        required: false
+        type: boolean
+        default: true
       hosted:
         description: JSON array of targets installed on a hosted runner
         required: false
@@ -92,6 +97,9 @@ jobs:
 
   unit:
     name: Unit checks
+    # A pull request already ran the affected unit tests in `fast ci`. Nightly,
+    # release and manual runs still cover the whole suite.
+    if: github.event_name != 'workflow_call' || inputs.unit
     uses: ./.github/workflows/unit.yml
     with:
       tests: "[]"

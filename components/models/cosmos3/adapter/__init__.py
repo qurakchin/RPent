@@ -22,7 +22,7 @@ from components.models.cosmos3.adapter.decode import decode_libero
 from components.models.cosmos3.adapter.encode import encode_libero
 from rpent.models.contracts import WAMModelMeta
 from rpent.models.facade import WAMAdapter, WAMAdapterSpec
-from rpent.models.platforms import LIBERO_OSC
+from components.models.cosmos3.platforms import LIBERO_OSC
 
 ADAPTERS = {
     "libero": WAMAdapterSpec(

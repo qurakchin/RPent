@@ -27,7 +27,7 @@ from rpent.models.facade import (
     WAMAdapter,
     WAMAdapterSpec,
 )
-from rpent.models.platforms import LIBERO_OSC
+from components.models.cosmos_policy.platforms import LIBERO_OSC
 
 ADAPTERS = {
     "libero": WAMAdapterSpec(

@@ -49,6 +49,8 @@ def test_robot_change_narrows_to_its_slice_tests(
     slice_tests.mkdir(parents=True)
     for shared in affected.ROBOT_SHARED_TESTS:
         (tmp_path / shared).write_text("", encoding="utf-8")
+    contracts = tmp_path / affected.CROSS_COMPONENT_TESTS
+    contracts.mkdir(parents=True)
     catalog = make_catalog(
         components=[alpha, beta],
         targets={
@@ -66,6 +68,44 @@ def test_robot_change_narrows_to_its_slice_tests(
     assert scope.pr_targets == ("alpha",)
     assert "tests/unit_tests/robots/alpha" in scope.tests
     assert "tests/unit_tests/robots/test_toolkit_contracts.py" in scope.tests
+    # The cross-component contracts cover this slice too, so they rerun.
+    assert "tests/unit_tests/contracts" in scope.tests
+    assert not scope.full
+
+
+def test_model_change_reruns_the_cross_component_contracts(
+    tmp_path, make_component, make_target, make_catalog
+):
+    sam3 = make_component("sam3", kind="model", placements=("in-env",))
+    (tmp_path / affected.CROSS_COMPONENT_TESTS).mkdir(parents=True)
+    catalog = make_catalog(
+        components=[sam3],
+        targets={"sam3-server": make_target("sam3-server", {"sam3": Selection()})},
+    )
+
+    scope = affected.affected_scope(
+        ["components/models/sam3/platforms.py"], catalog, tmp_path
+    )
+
+    assert "tests/unit_tests/contracts" in scope.tests
+
+
+def test_contract_change_runs_only_the_contract_group(
+    tmp_path, make_component, make_target, make_catalog
+):
+    alpha = make_component("alpha")
+    catalog = make_catalog(
+        components=[alpha],
+        targets={"alpha": make_target("alpha", {"alpha": Selection()})},
+    )
+
+    scope = affected.affected_scope(
+        ["tests/unit_tests/contracts/test_model_platforms.py"], catalog, tmp_path
+    )
+
+    assert scope.tests == ("tests/unit_tests/contracts",)
+    assert scope.targets == ()
+    assert scope.pr_targets == ()
     assert not scope.full
 
 

@@ -32,6 +32,7 @@ tests/
     │   ├── session/
     │   ├── tools/
     │   └── utils/
+    ├── contracts/         # cross-component contracts that need only core and dev
     ├── installs/          # contracts over the real checked-in install data
     ├── tooling/           # tests for tests/tooling/
     ├── robots/<name>/     # tests for one robot slice
@@ -56,6 +57,11 @@ them when the first test for that module lands.
 - Place cross-layer tests with the primary contract owner. Registry and config
   contracts belong to `rpent/robots/`; slice toolkit and schema contracts
   belong to `robots/`; installer units belong to `rpent/install/`.
+- Put cross-component contracts that import only core and `dev` dependencies in
+  `tests/unit_tests/contracts/`, so they run in `dev`; a test that needs a
+  component's own runtime stays under `tests/unit_tests/components/<kind>/<name>/`.
+  The model platform-copy drift test is the current example; a change to either
+  side of a covered contract reruns that group.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
   `tests/unit_tests/installs/` reads the checked-in `component.toml` files,

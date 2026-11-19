@@ -102,6 +102,7 @@ jobs:
               "tests/unit_tests/rpent/install",
               "tests/unit_tests/tooling",
               "tests/unit_tests/installs",
+              "tests/unit_tests/contracts",
           }
           tests = set(scope["tests"])
           target = "dev" if tests and tests <= dev_tests else "unit-cpu"
@@ -152,6 +153,7 @@ jobs:
       needs.changes.outputs.needs_full == 'true'
     uses: ./.github/workflows/full-ci.yml
     with:
+      unit: false
       hosted: ${{ needs.changes.outputs.hosted }}
       gpu: ${{ needs.changes.outputs.gpu }}
       e2e: ${{ needs.changes.outputs.e2e }}

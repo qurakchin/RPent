@@ -69,7 +69,7 @@ toolkits and model services do not import each other.
 
    rpent/            # Core: contracts, scheduling, model bases
      env/            # Environment contracts, client, facade, receipt ledger
-     models/         # Model contracts, client, facade, backends, platforms
+     models/         # Model contracts, client, facade, backends
      cli/            # CLI, Dashboard launcher, memory and install commands
      planner/        # Model backends and Planner base class
      prompt/         # Shared prompt construction

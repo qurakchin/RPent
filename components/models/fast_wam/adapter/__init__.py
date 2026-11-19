@@ -31,7 +31,7 @@ from rpent.models.facade import (
     WAMAdapter,
     WAMAdapterSpec,
 )
-from rpent.models.platforms import (
+from components.models.fast_wam.platforms import (
     LIBERO_OSC,
     ROBOTWIN_CAMERAS,
     ROBOTWIN_QPOS,

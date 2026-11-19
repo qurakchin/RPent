@@ -12,14 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Model-side copies of the wire contracts a robot integration defines.
+"""LIBERO and RoboTwin wire contracts used by the Fast-WAM adapter.
 
-These values describe the native action layout and camera roles a model
-adapter expects. The operational definitions belong to the robot slice
-(``robots/libero/control.py``, ``robots/robotwin/control.py``, and
-``robots/yam/contracts.py``); a capability may not import a robot integration,
-so it keeps its own copy. The two sides must stay equal, which the platform
-contract test enforces.
+A model service may not import a robot slice, so it keeps its own copies of
+the native action layouts and camera roles. The platform contract test keeps
+them equal to ``robots/libero/control.py`` and ``robots/robotwin/``.
 """
 
 from __future__ import annotations
@@ -52,32 +49,5 @@ ROBOTWIN_QPOS = AMControlSpec(
     action_type="qpos",
 )
 
-# Absolute native end-effector poses with wxyz quaternions, left arm first.
-ROBOTWIN_EEF = AMControlSpec(
-    embodiment="robotwin_eef16",
-    action_space="robotwin.eef_pose.absolute.v1",
-    action_schema=[
-        f"{arm}_{field}"
-        for arm in ("left", "right")
-        for field in ("x", "y", "z", "qw", "qx", "qy", "qz", "gripper")
-    ],
-    action_type="ee",
-)
-
-ROBOTWIN_CONTROLLERS = {
-    spec["action_space"]: spec for spec in (ROBOTWIN_QPOS, ROBOTWIN_EEF)
-}
-
+# Camera roles RoboTwin exposes, in the order model adapters expect.
 ROBOTWIN_CAMERAS = ("head", "left_wrist", "right_wrist")
-
-# Identity a YAM Pi0.5 VLA server must report back to the control station.
-YAM_VLA_CONTRACT = {
-    "runtime": "yam_vla",
-    "policy_name": "pi05_yam_joint",
-    "camera_order": ["top", "left", "right"],
-    "state_layout": "qpos14",
-    "action_layout": "qpos14",
-    "action_dim": 14,
-    "action_horizon": 30,
-    "use_length": 5,
-}

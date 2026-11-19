@@ -31,6 +31,11 @@ which environment can be built rather than how a component behaves, so they
 select the repository contract tests and the targets that read the changed
 files. Unrecognised install data widens back to every target.
 
+Cross-component contracts under ``tests/unit_tests/contracts/`` import only the
+core and ``dev`` dependencies. A change confined to that directory runs the
+group without installing a target, and a change to a component the contracts
+cover reruns the group as well.
+
 Narrowing is fail-open throughout: a change no test directory covers, or a
 component whose tests do not exist yet, widens the scope instead of reporting a
 smaller one.
@@ -88,6 +93,10 @@ INSTALL_DATA_ROOT_FILES = ("pyproject.toml",)
 #: ``tests/unit_tests/rpent/install/`` and use synthetic manifests, so the two
 #: groups stay distinguishable by path.
 INSTALL_DATA_TESTS = "tests/unit_tests/installs"
+#: Cross-component contract tests that import only the core and ``dev``
+#: dependencies. They mirror data owned by more than one component, so a change
+#: to either side reruns the group.
+CROSS_COMPONENT_TESTS = "tests/unit_tests/contracts"
 
 
 @dataclass(frozen=True)
@@ -247,9 +256,13 @@ def _tests_for(kind: str, name: str, root: Path) -> list[str]:
         candidates = [
             f"tests/unit_tests/robots/{name}",
             *ROBOT_SHARED_TESTS,
+            CROSS_COMPONENT_TESTS,
         ]
     elif kind == "model":
-        candidates = ["tests/unit_tests/components/models"]
+        candidates = [
+            "tests/unit_tests/components/models",
+            CROSS_COMPONENT_TESTS,
+        ]
     else:
         candidates = ["tests/unit_tests/components/toolkits"]
     return [path for path in candidates if (root / path).exists()]
@@ -272,6 +285,19 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
             targets=targets,
             full=False,
             pr_targets=targets,
+        )
+    if paths and all(
+        path == CROSS_COMPONENT_TESTS
+        or path.startswith(f"{CROSS_COMPONENT_TESTS}/")
+        for path in paths
+    ):
+        # A test-only change installs nothing; the unit job runs the group in
+        # the `dev` target, which provides everything these contracts import.
+        return Scope(
+            components=(),
+            tests=(CROSS_COMPONENT_TESTS,),
+            targets=(),
+            full=False,
         )
     names = affected_components(paths, catalog)
     if names is None or not paths:

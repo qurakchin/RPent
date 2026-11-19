@@ -28,8 +28,8 @@ prints the cache-key inputs an install would record.
 Usage::
 
     python -m tests.tooling.check --all
-    python -m tests.tooling.check robotwin --resolve
-    python -m tests.tooling.check robotwin --inputs-hash
+    python -m tests.tooling.check robot-robotwin --resolve
+    python -m tests.tooling.check robot-robotwin --inputs-hash
 """
 
 from __future__ import annotations

@@ -92,7 +92,7 @@ def test_fast_ci_scopes_full_ci_with_the_pull_request_targets():
     assert 'bool(scope["components"] or scope["targets"])' in script
 
 
-def test_fast_ci_runs_installer_and_install_data_tests_in_the_dev_target():
+def test_fast_ci_runs_dev_test_groups_in_the_dev_target():
     workflow = _workflow("fast-ci.yml")
 
     # These groups need only the core and `dev` dependencies; every other test
@@ -103,6 +103,7 @@ def test_fast_ci_runs_installer_and_install_data_tests_in_the_dev_target():
         "tests/unit_tests/rpent/install",
         "tests/unit_tests/tooling",
         "tests/unit_tests/installs",
+        "tests/unit_tests/contracts",
     }
     assert 'target = "dev" if tests and tests <= dev_tests else "unit-cpu"' in script
     assert workflow["jobs"]["unit"]["with"]["target"] == (
