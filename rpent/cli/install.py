@@ -40,6 +40,7 @@ from rpent.install.installer import (
     resolve_targets,
 )
 from rpent.install.requirements import read_core_dependencies
+from rpent.install.resolve import Resolution
 from rpent.utils.config import get_repo_root
 
 
@@ -72,10 +73,54 @@ def command_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def _report_resolution(
+    label: str,
+    resolution: Resolution,
+    *,
+    root: Path,
+    uv: str | None,
+    platform: str,
+) -> bool:
+    """Print one resolution's verdict and return whether it failed."""
+    if not resolution.ok:
+        print(f"{label}: FAIL")
+        for error in resolution.errors:
+            print(f"  {error}")
+        return True
+    count = len(resolution.components)
+    noun = "component" if count == 1 else "components"
+    if uv is None:
+        print(f"{label}: ok, {count} {noun}")
+        return False
+    python = choose_python(resolution.components.values())
+    try:
+        resolved_text = resolve_resolution(
+            resolution,
+            root=root,
+            uv=uv,
+            python=python,
+            platform=platform,
+            core_dependencies=read_core_dependencies(root),
+        )
+    except InstallError as exc:
+        print(f"{label}: FAIL")
+        print(f"  {exc}")
+        return True
+    pinned = sum(
+        1
+        for line in resolved_text.splitlines()
+        if line and not line.startswith((" ", "#"))
+    )
+    print(f"{label}: ok, {count} {noun}, uv resolved {pinned} packages")
+    return False
+
+
 def command_check(args: argparse.Namespace) -> int:
     """Resolve component environments without installing anything."""
     catalog = discover(args.root)
-    names = sorted(catalog.components) if args.all else args.targets
+    names = (
+        sorted(catalog.components) if args.all else list(dict.fromkeys(args.targets))
+    )
     if not names:
         print("pass a component name or --all", file=sys.stderr)
         return 2
@@ -92,42 +137,31 @@ def command_check(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    for name in names:
-        if name not in catalog.components:
-            continue
-        resolution = resolve_targets([name], catalog, root=args.root)
+    targets = [name for name in names if name in catalog.components]
+    common = {"root": args.root, "uv": uv, "platform": platform}
+
+    if len(targets) > 1 and not args.all:
+        # Naming several components on one command line asks for the
+        # environment ``install`` would create from them, so they resolve
+        # together: components that each resolve alone may still refuse to
+        # share an environment. ``--all`` keeps asking about each component's
+        # own environment, which is also the unit the CI matrix installs.
+        resolution = resolve_targets(targets, catalog, root=args.root)
+        failed |= _report_resolution(" ".join(targets), resolution, **common)
         if not resolution.ok:
-            failed = True
-            print(f"{name}: FAIL")
-            for error in resolution.errors:
-                print(f"  {error}")
-            continue
-        count = len(resolution.components)
-        noun = "component" if count == 1 else "components"
-        if uv is not None:
-            python = choose_python(resolution.components.values())
-            try:
-                resolved_text = resolve_resolution(
-                    resolution,
-                    root=args.root,
-                    uv=uv,
-                    python=python,
-                    platform=platform,
-                    core_dependencies=read_core_dependencies(args.root),
+            # Attribute the failure to the manifests that need changing.
+            for name in targets:
+                failed |= _report_resolution(
+                    name,
+                    resolve_targets([name], catalog, root=args.root),
+                    **common,
                 )
-            except InstallError as exc:
-                failed = True
-                print(f"{name}: FAIL")
-                print(f"  {exc}")
-                continue
-            pinned = sum(
-                1
-                for line in resolved_text.splitlines()
-                if line and not line.startswith((" ", "#"))
-            )
-            print(f"{name}: ok, {count} {noun}, uv resolved {pinned} packages")
-        else:
-            print(f"{name}: ok, {count} {noun}")
+        return 1 if failed else 0
+
+    for name in targets:
+        failed |= _report_resolution(
+            name, resolve_targets([name], catalog, root=args.root), **common
+        )
     return 1 if failed else 0
 
 

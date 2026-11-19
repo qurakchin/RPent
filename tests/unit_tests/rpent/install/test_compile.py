@@ -315,3 +315,44 @@ def test_check_reports_unknown_components(repo, capsys):
     assert env_main(["--root", str(repo), "check", "robot-missing"]) == 1
 
     assert "unknown component 'robot-missing'" in capsys.readouterr().err
+
+
+def _conflicting_components(write_toml):
+    """Declare two components that each resolve alone but not together."""
+    for name, other in (("alpha", "robot-beta"), ("beta", "robot-alpha")):
+        write_toml(
+            f"robots/{name}/component.toml",
+            f"""
+            schema = {SCHEMA}
+            name = "robot-{name}"
+            probe = "json"
+            env_conflicts = ["{other}"]
+            """,
+        )
+
+
+def test_check_resolves_named_components_as_one_environment(repo, write_toml, capsys):
+    # ``install a b`` creates one environment, so ``check a b`` has to judge
+    # that environment: two components that each resolve alone can still refuse
+    # to share one.
+    _conflicting_components(write_toml)
+
+    assert env_main(["--root", str(repo), "check", "robot-alpha", "robot-beta"]) == 1
+
+    output = capsys.readouterr().out
+    assert "robot-alpha robot-beta: FAIL" in output
+    assert "cannot share an environment" in output
+    # The components are still reported one by one, so the failure points at
+    # the manifests that need changing.
+    assert "robot-alpha: ok, 1 component" in output
+    assert "robot-beta: ok, 1 component" in output
+
+
+def test_check_all_keeps_one_environment_per_component(repo, write_toml, capsys):
+    _conflicting_components(write_toml)
+
+    assert env_main(["--root", str(repo), "check", "--all"]) == 0
+
+    output = capsys.readouterr().out
+    assert "robot-alpha: ok, 1 component" in output
+    assert "robot-beta: ok, 1 component" in output

@@ -211,6 +211,21 @@ def test_recorded_interpreter_rejecting_the_components_is_reported(repo, write_t
     )
 
 
+def test_a_venv_installed_for_another_platform_is_reported(repo, monkeypatch):
+    # The packages were resolved for the recorded platform; this machine may
+    # have no wheel for them.
+    venv = _venv(repo)
+    write_fingerprint(venv, _fingerprint(repo, platform="linux-s390x"))
+    _missing_uv(monkeypatch)
+
+    checks = check_installation(venv, root=repo)
+
+    assert any(
+        check.status == FAIL and "installed for linux-s390x" in check.message
+        for check in checks
+    )
+
+
 def test_any_interpreter_inside_the_component_ranges_is_accepted(repo):
     # CI creates an environment with its own minor version while the recorded
     # interpreter is whatever created the venv; it only has to satisfy the

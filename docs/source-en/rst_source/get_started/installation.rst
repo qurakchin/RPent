@@ -89,10 +89,12 @@ List and check components
 ``check`` reads the manifests, computes each component's ``requires`` closure,
 and reports unknown names, unsupported Python versions, platform mismatches,
 conflicting exact pins, and the conflicts components declare with
-``env_conflicts``. It
-downloads nothing. ``--resolve`` additionally uses ``uv pip compile`` to prove
-the declared dependencies have a solution for a platform (``--platform``,
-default ``linux-x86_64``) and discards the compiled file afterwards.
+``env_conflicts``. Naming several components checks the environment they form
+together, which is the one ``install`` creates; ``--all`` checks each component
+in an environment of its own. ``check`` downloads nothing. ``--resolve``
+additionally uses ``uv pip compile`` to prove the declared dependencies have a
+solution for a platform (``--platform``, default ``linux-x86_64``) and discards
+the compiled file afterwards.
 
 Install an environment
 ----------------------
@@ -129,10 +131,14 @@ manifests.
 
 An environment contains exactly the components you named and their closure. A
 venv installed for a different component set is refused; install that set under
-a different ``--venv``. Without ``--venv``, a target set installs into
-``.rpent/venvs/<components joined by +>`` under the checkout; ``.rpent/`` is
-local state and is ignored by git, so later ``install`` and ``doctor`` runs
-find the same environment.
+a different ``--venv``. A venv that already holds packages but was not created
+by ``rpent-install`` is refused too: its packages belong to whoever installed
+them, and only an empty one (a fresh ``uv venv``) is used as it is. The
+rendered requirements and the installed package versions are written into the
+environment itself, so they never outlive it. Without ``--venv``, a target set
+installs into ``.rpent/venvs/<components joined by +>`` under the checkout;
+``.rpent/`` is local state and is ignored by git, so later ``install`` and
+``doctor`` runs find the same environment.
 
 Re-running the command reuses the environment and repairs a stale install. The
 installer generates requirements from the manifests, then lets

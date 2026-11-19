@@ -31,11 +31,13 @@ from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from rpent.install.discovery import Catalog, discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
+    FINGERPRINT_NAME,
     freeze_sha256,
     read_fingerprint,
     runtime_platform,
     source_state,
     write_fingerprint,
+    write_freeze,
 )
 from rpent.install.manifest import Component
 from rpent.install.requirements import (
@@ -47,8 +49,12 @@ from rpent.install.requirements import (
 from rpent.install.resolve import Resolution, python_errors, resolve
 from rpent.utils.config import get_repo_root
 
-#: Per-checkout state: generated requirements and virtualenvs.
+#: Per-checkout state: the virtualenvs an install created.
 STATE_DIR = ".rpent"
+#: The rendered requirements stay inside the environment they describe, next to
+#: the fingerprint. A copy under the checkout would outlive the environment and
+#: duplicate state that belongs to it.
+REQUIREMENTS_NAME = "rpent-install.requirements.txt"
 
 
 def environment_id(targets: Iterable[str]) -> str:
@@ -61,9 +67,9 @@ def default_venv(root: Path, targets: Iterable[str]) -> Path:
     return root / STATE_DIR / "venvs" / environment_id(targets)
 
 
-def requirements_file(root: Path, targets: Iterable[str]) -> Path:
-    """Return the generated requirements path for a target set."""
-    return root / STATE_DIR / "requirements" / f"{environment_id(targets)}.txt"
+def requirements_file(venv: Path) -> Path:
+    """Return the rendered requirements path inside ``venv``."""
+    return Path(venv) / REQUIREMENTS_NAME
 
 
 def venv_python(venv: Path) -> Path:
@@ -186,10 +192,69 @@ def resolve_targets(
     )
 
 
+#: Distributions a virtualenv holds before anything is installed into it.
+_BASE_DISTRIBUTIONS = frozenset(
+    {"distutils", "pip", "pkg-resources", "setuptools", "wheel"}
+)
+
+
+def _installed_distributions(python: Path) -> list[str] | None:
+    """Return the distributions in ``python``'s environment, or ``None``.
+
+    ``None`` means the interpreter could not be asked. It is a broken
+    environment either way, and the install reports that with its own error
+    rather than as an ambiguous package list.
+    """
+    source = (
+        "import importlib.metadata\n"
+        "print('\\n'.join(sorted({"
+        "distribution.metadata['Name'] or '' "
+        "for distribution in importlib.metadata.distributions()"
+        "})))\n"
+    )
+    try:
+        output = run_command([str(python), "-I", "-c", source], capture=True)
+    except (InstallError, OSError):
+        return None
+    return [line for line in output.splitlines() if line]
+
+
+def _reject_foreign_venv(destination: Path) -> None:
+    """Reject a virtualenv that holds packages but no installation fingerprint.
+
+    Such an environment was not created by ``rpent-install``, so its packages
+    belong to whoever installed them; adding this environment's packages would
+    mix two dependency sets in one interpreter. A ``uv venv`` nothing was
+    installed into yet is still empty and is used as it is.
+    """
+    python = venv_python(destination)
+    if not python.exists():
+        return
+    packages = _installed_distributions(python)
+    if packages is None:
+        return
+    foreign = sorted(
+        name
+        for name in packages
+        if name.lower().replace("_", "-") not in _BASE_DISTRIBUTIONS
+    )
+    if not foreign:
+        return
+    shown = ", ".join(foreign[:5])
+    if len(foreign) > 5:
+        shown += f", and {len(foreign) - 5} more"
+    raise InstallError(
+        f"{destination} already contains packages ({shown}) but has no "
+        f"{FINGERPRINT_NAME}, so rpent-install did not create it; install this "
+        "environment under a different `--venv`, or remove it first"
+    )
+
+
 def _check_existing(destination: Path, targets: Sequence[str]) -> None:
-    """Reject a virtualenv that was installed for a different component set."""
+    """Reject a virtualenv that was installed for another component set."""
     existing = read_fingerprint(destination)
     if existing is None:
+        _reject_foreign_venv(destination)
         return
     recorded = existing.get("targets")
     if recorded is None:
@@ -226,7 +291,6 @@ def install(
     core = read_core_dependencies(repo_root)
     requirements = render_requirements(resolution, core_dependencies=core)
     destination = (venv or default_venv(repo_root, resolution.targets)).resolve()
-    requirements_path = requirements_file(repo_root, resolution.targets)
 
     if dry_run:
         print(requirements, end="")
@@ -252,9 +316,6 @@ def install(
             "and rerun with a matching `uv venv --python <version>`"
         )
 
-    requirements_path.parent.mkdir(parents=True, exist_ok=True)
-    requirements_path.write_text(requirements, encoding="utf-8")
-
     uv = find_uv()
     python = venv_python(destination)
     if not python.exists():
@@ -270,6 +331,9 @@ def install(
             f"{destination} exists but has no Python interpreter; remove it and "
             f"rerun `{repair_command(resolution)}`"
         )
+
+    requirements_path = requirements_file(destination)
+    requirements_path.write_text(requirements, encoding="utf-8")
 
     install_command = [uv, "pip", "install", "--python", str(python)]
     install_command.extend(index_options(resolution))
@@ -298,12 +362,13 @@ def install(
         print(f"$ {' '.join(editable)}")
     run_command(editable, cwd=repo_root)
 
-    _probe_components(resolution, python, repo_root, verbose=verbose)
+    _probe_components(resolution, python, verbose=verbose)
     run_command([uv, "pip", "check", "--python", str(python)], cwd=repo_root)
 
     frozen = run_command(
         [uv, "pip", "freeze", "--python", str(python)], capture=True, cwd=repo_root
     )
+    write_freeze(destination, frozen)
     commit, dirty = source_state(repo_root)
     fingerprint = {
         "schema": REQUIREMENTS_SCHEMA,
@@ -322,7 +387,6 @@ def install(
             core_dependencies=core,
         ),
         "freeze_sha256": freeze_sha256(frozen),
-        "requirements_file": str(requirements_path.relative_to(repo_root)),
         "installed_at": datetime.now(timezone.utc)
         .replace(microsecond=0)
         .isoformat()
@@ -359,30 +423,36 @@ def _python_version(python: Path) -> str:
 def probe_source(probe: str) -> str:
     """Return the source an install probe runs for ``probe``.
 
-    Importing the package alone is a weak check: slice entries stay lazy so a
-    missing optional dependency does not break discovery. Probe the slice's
-    role module too, preferring the a_5 name ``adapter`` and falling back to
-    the current ``robot_spec`` until S2 renames it, so the probe verifies real
-    dependencies without pinning the manifest to a file name.
+    Importing the package alone is a weak check: a robot slice's entry point
+    stays lazy so a missing optional dependency does not break discovery. The
+    slice's role module is probed too, so the probe verifies real dependencies
+    without pinning the manifest to a file name; a component that probes a
+    third-party package has no such module and the lookup finds nothing.
     """
-    candidates = "".join(
-        f'    "{probe}.{name}",\n' for name in ("adapter", "robot_spec")
-    )
+    role = f"{probe}.robot_spec"
     return (
         "import importlib\n"
         "import importlib.util\n"
         f"import {probe}\n"
-        "for name in (\n"
-        f"{candidates}"
-        "):\n"
-        "    try:\n"
-        "        found = importlib.util.find_spec(name)\n"
-        "    except (ImportError, AttributeError, ValueError):\n"
-        "        found = None\n"
-        "    if found is not None:\n"
-        "        importlib.import_module(name)\n"
-        "        break\n"
+        f'ROLE = "{role}"\n'
+        "try:\n"
+        "    found = importlib.util.find_spec(ROLE)\n"
+        "except (ImportError, AttributeError, ValueError):\n"
+        "    found = None\n"
+        "if found is not None:\n"
+        "    importlib.import_module(ROLE)\n"
     )
+
+
+def probe_command(python: Path, probe: str) -> list[str]:
+    """Return the command that runs an install probe inside ``python``.
+
+    ``-I`` keeps the caller's environment and working directory out of
+    ``sys.path``, so a probe reports what the environment installed: the
+    editable install of the checkout, not the source tree the command happens
+    to be running in.
+    """
+    return [str(python), "-I", "-c", probe_source(probe)]
 
 
 def repair_command(resolution: Resolution) -> str:
@@ -393,21 +463,15 @@ def repair_command(resolution: Resolution) -> str:
 def _probe_components(
     resolution: Resolution,
     python: Path,
-    root: Path,
     *,
     verbose: bool,
 ) -> None:
-    environment = {**os.environ, "PYTHONPATH": str(root)}
     for name, component in resolution.components.items():
         probe = component.probe
         if verbose:
             print(f"probe {name}: import {probe}")
         try:
-            run_command(
-                [str(python), "-c", probe_source(probe)],
-                env=environment,
-                capture=True,
-            )
+            run_command(probe_command(python, probe), capture=True)
         except InstallError as exc:
             raise InstallError(
                 f"component {name!r} is not importable in {python.parent.parent}\n"

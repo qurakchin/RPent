@@ -26,11 +26,32 @@ from pathlib import Path
 from typing import Any
 
 FINGERPRINT_NAME = "rpent-install.json"
+#: The installed package versions recorded at install time, next to the
+#: fingerprint. The fingerprint stores their hash; this file stores the listing
+#: it hashes, so the versions an environment actually got stay readable after
+#: the environment itself changes.
+FREEZE_NAME = "rpent-install.freeze.txt"
 
 
 def fingerprint_path(venv: Path) -> Path:
     """Return the fingerprint path for ``venv``."""
     return Path(venv) / FINGERPRINT_NAME
+
+
+def freeze_path(venv: Path) -> Path:
+    """Return the recorded package listing path for ``venv``."""
+    return Path(venv) / FREEZE_NAME
+
+
+def _write_atomic(destination: Path, text: str) -> None:
+    """Write ``text`` to ``destination`` without leaving a partial file."""
+    temporary = destination.with_name(f".{destination.name}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8") as file:
+            file.write(text)
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def read_fingerprint(venv: Path) -> dict[str, Any] | None:
@@ -49,14 +70,14 @@ def read_fingerprint(venv: Path) -> dict[str, Any] | None:
 def write_fingerprint(venv: Path, fingerprint: dict[str, Any]) -> Path:
     """Write ``fingerprint`` atomically into ``venv`` and return its path."""
     destination = fingerprint_path(venv)
-    temporary = destination.with_name(f".{destination.name}.tmp")
-    try:
-        with temporary.open("w", encoding="utf-8") as file:
-            json.dump(fingerprint, file, indent=2, sort_keys=True)
-            file.write("\n")
-        os.replace(temporary, destination)
-    finally:
-        temporary.unlink(missing_ok=True)
+    _write_atomic(destination, json.dumps(fingerprint, indent=2, sort_keys=True) + "\n")
+    return destination
+
+
+def write_freeze(venv: Path, frozen: str) -> Path:
+    """Record ``uv pip freeze``'s listing beside the fingerprint and return it."""
+    destination = freeze_path(venv)
+    _write_atomic(destination, frozen if frozen.endswith("\n") else frozen + "\n")
     return destination
 
 

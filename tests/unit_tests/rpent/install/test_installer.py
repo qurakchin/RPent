@@ -31,6 +31,7 @@ from rpent.install.installer import (
     find_uv,
     index_options,
     install,
+    probe_command,
     requirements_file,
     resolve_targets,
 )
@@ -102,13 +103,11 @@ def test_environment_id_is_order_independent():
 
 def test_default_paths_are_named_after_the_target_set(repo):
     targets = ["robot-beta", "robot-alpha"]
+    venv = default_venv(repo, targets)
 
-    assert default_venv(repo, targets) == (
-        repo / ".rpent" / "venvs" / "robot-alpha+robot-beta"
-    )
-    assert requirements_file(repo, targets) == (
-        repo / ".rpent" / "requirements" / "robot-alpha+robot-beta.txt"
-    )
+    assert venv == repo / ".rpent" / "venvs" / "robot-alpha+robot-beta"
+    # The rendered requirements belong to the environment, not to the checkout.
+    assert requirements_file(venv) == venv / "rpent-install.requirements.txt"
 
 
 def test_a_target_set_resolves_its_closure_together(repo):
@@ -211,10 +210,15 @@ def test_install_records_a_fingerprint(repo, tmp_path, monkeypatch, capsys):
     assert fingerprint["schema"] == REQUIREMENTS_SCHEMA
     assert fingerprint["targets"] == ["robot-alpha"]
     assert sorted(fingerprint["components"]) == ["robot-alpha"]
-    assert fingerprint["requirements_file"] == ".rpent/requirements/robot-alpha.txt"
     assert fingerprint["platform"] == runtime_platform()
     assert fingerprint["source_commit"] is None
     assert os.path.isfile(venv / "bin" / "python")
+    # The rendered requirements and the resolved versions stay with the
+    # environment, so what it was installed from remains readable.
+    assert requirements_file(venv).is_file()
+    assert (venv / "rpent-install.freeze.txt").read_text(encoding="utf-8") == (
+        "alpha==1.0.0\n"
+    )
     assert "probe robot-alpha: import json" in capsys.readouterr().out
 
 
@@ -223,13 +227,14 @@ def test_install_installs_the_requirements_then_the_checkout_as_editable(
 ):
     uv, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
-    fingerprint = install(["robot-alpha"], root=repo, venv=tmp_path / "venv")
+    venv = tmp_path / "venv"
+    install(["robot-alpha"], root=repo, venv=venv)
 
     requirements_arguments, editable_arguments = install_arguments()
     assert requirements_arguments[requirements_arguments.index("-r") + 1] == str(
-        repo / ".rpent/requirements/robot-alpha.txt"
+        requirements_file(venv)
     )
-    requirements = (repo / fingerprint["requirements_file"]).read_text()
+    requirements = requirements_file(venv).read_text(encoding="utf-8")
     assert "numpy>=2" in requirements
     assert "packaging" in requirements
     assert editable_arguments[-3:] == ["--no-deps", "-e", str(repo.resolve())]
@@ -307,6 +312,66 @@ def test_install_refuses_a_venv_installed_for_another_target_set(
 
     with pytest.raises(InstallError, match="already installed for robot-beta"):
         install(["robot-alpha"], root=repo, venv=venv, verbose=False)
+
+
+def _plain_venv(tmp_path, *packages):
+    """Create a virtualenv directory whose interpreter reports ``packages``."""
+    venv = tmp_path / "venv"
+    (venv / "bin").mkdir(parents=True)
+    listed = "".join(f"    printf '{name}\\n'\n" for name in packages)
+    python = venv / "bin" / "python"
+    python.write_text(
+        "#!/bin/sh\n"
+        'case "$*" in\n'
+        "  *importlib.metadata*)\n"
+        f"{listed}"
+        "    ;;\n"
+        "  *platform*)\n"
+        "    printf '3.11.9\\n'\n"
+        "    ;;\n"
+        "esac\n"
+        "exit 0\n",
+        encoding="utf-8",
+    )
+    python.chmod(0o755)
+    return venv
+
+
+def test_install_refuses_a_venv_with_packages_and_no_fingerprint(
+    repo, tmp_path, monkeypatch
+):
+    # The packages were installed by someone else, so this environment would
+    # mix two dependency sets in one interpreter.
+    _fake_uv(tmp_path, monkeypatch)
+    _plain_venv(tmp_path, "pip", "numpy")
+
+    with pytest.raises(InstallError, match="already contains packages"):
+        install(["robot-alpha"], root=repo, venv=tmp_path / "venv", verbose=False)
+
+
+def test_install_reuses_a_virtualenv_with_nothing_installed(
+    repo, tmp_path, monkeypatch
+):
+    # ``uv venv`` leaves an empty environment; only the packages an install
+    # would add belong in it.
+    _fake_uv(tmp_path, monkeypatch)
+    _plain_venv(tmp_path, "pip")
+
+    fingerprint = install(
+        ["robot-alpha"], root=repo, venv=tmp_path / "venv", verbose=False
+    )
+
+    assert fingerprint["targets"] == ["robot-alpha"]
+
+
+def test_probe_command_isolates_the_environment(tmp_path):
+    # PYTHONPATH and the caller's directory would let the probe import the
+    # source tree, so an editable install missing from the venv would pass.
+    command = probe_command(tmp_path / "python", "robots.alpha")
+
+    assert command[:3] == [str(tmp_path / "python"), "-I", "-c"]
+    assert "robots.alpha.robot_spec" in command[3]
+    assert "adapter" not in command[3]
 
 
 def test_install_accepts_a_venv_installed_for_the_same_target_set(

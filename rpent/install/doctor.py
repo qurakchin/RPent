@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -32,7 +31,7 @@ from rpent.install.fingerprint import (
 )
 from rpent.install.installer import (
     find_uv,
-    probe_source,
+    probe_command,
     repair_command,
     resolve_targets,
     venv_python,
@@ -140,7 +139,21 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
     )
     if unsupported:
         checks.append(Check(FAIL, "\n".join(unsupported)))
-    checks.append(Check(OK, f"platform: {runtime_platform()}"))
+    current_platform = runtime_platform()
+    recorded_platform = fingerprint.get("platform")
+    if recorded_platform is not None and recorded_platform != current_platform:
+        # The packages were resolved for the recorded platform; running them
+        # here may work by accident or fail on a platform-specific wheel.
+        checks.append(
+            Check(
+                FAIL,
+                f"installed for {recorded_platform}, but this machine is "
+                f"{current_platform}; rerun "
+                f"`{repair_command(resolution)} --venv {venv}`",
+            )
+        )
+    else:
+        checks.append(Check(OK, f"platform: {current_platform}"))
 
     try:
         uv = find_uv()
@@ -167,13 +180,9 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
         else:
             checks.append(Check(OK, "uv pip check"))
 
-    environment = {**os.environ, "PYTHONPATH": str(repo_root)}
     for name, component in resolution.components.items():
         probe = component.probe
-        result = _run(
-            [str(python), "-c", probe_source(probe)],
-            env=environment,
-        )
+        result = _run(probe_command(python, probe))
         if result.returncode != 0:
             checks.append(
                 Check(
