@@ -1,6 +1,6 @@
 schema = 2
 name = "model-molmo"
-probe = "components.models.molmo.server"
+probe = "components.models.molmo"
 python = ">=3.10,<3.13"
 # RoboTwin's stack pins transformers 4.51.3 while Molmo needs >=4.57,
 # so the two cannot share an environment.

@@ -26,7 +26,6 @@ from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import FINGERPRINT_SCHEMA_FIELD, read_fingerprint
 from rpent.install.installer import (
-    choose_python,
     default_venv,
     environment_id,
     find_uv,
@@ -43,7 +42,7 @@ from rpent.install.requirements import (
     read_core_dependencies,
     requirements_sha256,
 )
-from rpent.install.resolve import resolve
+from rpent.install.resolve import choose_python, resolve
 
 
 @pytest.fixture
@@ -413,15 +412,20 @@ def test_probe_checks_the_role_modules_of_each_kind():
     )
     # Infra components install a third-party package and own no roles.
     assert probe_source("rlinf", "infra") == "import rlinf\n"
+    # So does any probe outside the checkout, whatever its kind: the component
+    # does not own modules under the upstream distribution's name.
+    assert probe_source("openpi", "model") == "import openpi\n"
 
 
-def test_a_component_without_its_role_modules_fails_its_probe():
+def test_an_upstream_probe_imports_only_the_distribution():
+    # `json` owns no role modules, so a probe that names it must not append
+    # one: the upstream package the component installs is not named after the
+    # component's role files.
     command = probe_command(Path(sys.executable), "json", "robot")
 
     result = subprocess.run(command, text=True, capture_output=True)
 
-    assert result.returncode != 0
-    assert "json.robot_spec" in result.stderr
+    assert result.returncode == 0, result.stderr
 
 
 def test_install_repairs_an_environment_left_by_a_failed_install(

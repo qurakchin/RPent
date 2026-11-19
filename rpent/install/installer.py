@@ -24,8 +24,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from packaging.specifiers import InvalidSpecifier, SpecifierSet
-
 from rpent.install.discovery import Catalog, discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
@@ -38,14 +36,18 @@ from rpent.install.fingerprint import (
     write_fingerprint,
     write_freeze,
 )
-from rpent.install.manifest import Component
 from rpent.install.requirements import (
     FINGERPRINT_SCHEMA,
     read_core_dependencies,
     render_requirements,
     requirements_sha256,
 )
-from rpent.install.resolve import Resolution, python_errors, resolve
+from rpent.install.resolve import (
+    Resolution,
+    choose_python,
+    python_errors,
+    resolve,
+)
 from rpent.utils.config import get_repo_root
 
 #: Per-checkout state: the virtualenvs an install created.
@@ -136,38 +138,6 @@ def run_command(
             message += f"\n{detail}"
         raise InstallError(message) from exc
     return result.stdout if capture else ""
-
-
-def _supports_python(component: Component, version: str) -> bool:
-    if component.python is None:
-        return True
-    try:
-        supported = SpecifierSet(component.python)
-    except InvalidSpecifier:
-        # ``python_errors`` reports the invalid range with its manifest.
-        return True
-    return supported.contains(version, prereleases=True)
-
-
-#: The Python minors RPent supports, newest first. It mirrors ``requires-python``
-#: in the root ``pyproject.toml``: the interpreter is chosen from the manifests,
-#: never from the shell that happens to run the installer, so the same checkout
-#: produces the same environment on every machine.
-SUPPORTED_PYTHONS = ("3.12", "3.11", "3.10")
-
-
-def choose_python(components: Iterable[Component]) -> str:
-    """Return the newest supported interpreter every component accepts.
-
-    A component with no common version is reported by ``python_errors`` before
-    the environment is created; the newest supported minor is returned here so
-    the error names a version rather than a failed lookup.
-    """
-    components = list(components)
-    for version in SUPPORTED_PYTHONS:
-        if all(_supports_python(component, version) for component in components):
-            return version
-    return SUPPORTED_PYTHONS[0]
 
 
 def resolve_targets(
@@ -424,14 +394,29 @@ def _python_version(python: Path) -> str:
 #: Role modules a component of each kind must import, relative to its ``probe``
 #: package. Importing the package alone is a weak check: a slice's entry point
 #: stays lazy so a missing optional dependency does not break discovery, and a
-#: package that contains nothing would pass. ``infra`` components own no code
-#: and probe the third-party package they install, so they have no roles.
+#: package that contains nothing would pass. A probe outside the checkout names
+#: the upstream distribution the component installs and has no roles; ``infra``
+#: components are always of that kind.
 ROLE_MODULES = {
     "robot": ("robot_spec", "env_client"),
     "sim": ("env_server",),
     "model": ("server",),
     "tool": ("cli",),
 }
+
+
+#: The first segment of a probe that names code in this checkout. Any other
+#: probe names an upstream distribution the component installs, and that
+#: distribution does not own the component's role modules.
+CHECKOUT_PROBES = frozenset({"robots", "components"})
+
+
+def probe_modules(probe: str, kind: str) -> tuple[str, ...]:
+    """Return the modules an install probe imports, in order."""
+    if probe.split(".")[0] not in CHECKOUT_PROBES:
+        return (probe,)
+    roles = ROLE_MODULES.get(kind, ())
+    return (probe, *(f"{probe}.{role}" for role in roles))
 
 
 def probe_source(probe: str, kind: str) -> str:
@@ -441,11 +426,11 @@ def probe_source(probe: str, kind: str) -> str:
     owns, so an environment that installed the package without the component's
     own code fails here rather than the first time the component is used.
     """
-    roles = ROLE_MODULES.get(kind, ())
-    lines = [f"import {probe}"]
-    if roles:
+    modules = probe_modules(probe, kind)
+    lines = [f"import {modules[0]}"]
+    if len(modules) > 1:
         lines.insert(0, "import importlib")
-        lines.extend(f'importlib.import_module("{probe}.{role}")' for role in roles)
+        lines.extend(f'importlib.import_module("{module}")' for module in modules[1:])
     return "\n".join(lines) + "\n"
 
 

@@ -6,6 +6,12 @@ probe = "torch"
 # unit tests import those modules; the CPU wheel keeps the hosted
 # runner small. The extra index lets uv fall through from PyPI to the
 # PyTorch CPU build.
+#
+# The unit suite also exercises the exporter and the dual-arm calibration
+# helpers. Their tests skip themselves when the packages are missing, which
+# would turn a selected test into a green run that checked nothing, so this
+# environment installs what they import.
+requires = ["tool-flywheel"]
 extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
 index-strategy = "unsafe-first-match"
 
@@ -15,5 +21,6 @@ dependencies = [
   "pytest-timeout",
   "omegaconf",
   "gymnasium",
+  "opencv-python-headless",
   "torch==2.6.0+cpu",
 ]

@@ -87,14 +87,37 @@ def test_python_and_platform_ranges_are_checked(make_component, make_catalog):
     assert any("supports linux-x86_64" in error for error in resolution.errors)
 
 
-def test_without_python_and_platform_the_closure_is_only_structurally_checked(
-    make_component, make_catalog
-):
+def test_without_python_a_supported_range_resolves(make_component, make_catalog):
     robot = make_component("robot-alpha", python=">=3.12", platforms=("linux-x86_64",))
 
     resolution = resolve(["robot-alpha"], _catalog(make_catalog, robot))
 
     assert resolution.ok, resolution.errors
+
+
+def test_without_python_an_unsupported_range_is_reported(make_component, make_catalog):
+    # A check does not create the environment, but a closure no supported
+    # interpreter can run must fail here: ``install`` would select one anyway
+    # and reject the component after the command has started.
+    robot = make_component("robot-alpha", python=">=3.13")
+
+    resolution = resolve(["robot-alpha"], _catalog(make_catalog, robot))
+
+    assert not resolution.ok
+    assert any("requires Python >=3.13" in error for error in resolution.errors)
+
+
+def test_without_python_disjoint_ranges_are_reported(make_component, make_catalog):
+    old = make_component("robot-old", python=">=3.10,<3.11")
+    new = make_component("robot-new", python=">=3.11,<3.12")
+
+    resolution = resolve(["robot-old", "robot-new"], _catalog(make_catalog, old, new))
+
+    assert not resolution.ok
+    for name in ("robot-old", "robot-new"):
+        assert any(
+            name in error and "requires Python" in error for error in resolution.errors
+        )
 
 
 def test_a_component_conflict_in_one_environment_is_reported(

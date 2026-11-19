@@ -16,9 +16,10 @@
 
 import pytest
 
+from rpent.install.installer import probe_modules
 from rpent.install.manifest import KINDS
 from rpent.install.requirements import read_core_dependencies
-from rpent.install.resolve import resolve
+from rpent.install.resolve import SUPPORTED_PYTHONS, resolve
 
 
 def test_every_component_manifest_lives_where_its_name_declares_it(catalog):
@@ -47,27 +48,55 @@ def test_every_component_resolves_with_its_requires_closure(catalog):
 
 
 @pytest.mark.parametrize("kind", ["robot", "sim", "model", "tool"])
-def test_every_in_tree_probe_names_an_existing_module(catalog, kind):
+def test_every_probe_names_modules_the_install_can_import(catalog, kind):
     # A probe that names checkout code must point inside the component's own
-    # directory, so a moved or renamed slice fails here instead of at install
-    # time. Probes such as `openpi` name the installed upstream distribution and
-    # are checked by the install itself.
+    # directory, and every module the probe derives for its kind must be one:
+    # the install appends the role modules to whatever the manifest names, so a
+    # probe that already ends in a role module produces a path that cannot
+    # import. Probes such as `openpi` name the installed upstream distribution
+    # and are checked by the install itself.
     for component in catalog.components.values():
         if component.kind != kind:
             continue
-        first = component.probe.split(".")[0]
-        if first not in {"robots", "components"}:
+        modules = probe_modules(component.probe, component.kind)
+        if component.probe.split(".")[0] not in {"robots", "components"}:
+            assert modules == (component.probe,), (
+                f"{component.name}: probe {component.probe!r} names an upstream "
+                "distribution but gains role modules"
+            )
             continue
-        path = catalog.root / component.probe.replace(".", "/")
-        assert path.is_dir() or path.with_suffix(".py").is_file(), (
-            f"{component.name}: probe {component.probe!r} is not a module in the "
-            "checkout"
-        )
-        assert path.is_relative_to(component.path), (
-            f"{component.name}: probe {component.probe!r} points outside "
-            f"{component.path}"
-        )
+        for module in modules:
+            path = catalog.root / module.replace(".", "/")
+            assert path.is_dir() or path.with_suffix(".py").is_file(), (
+                f"{component.name}: probe {component.probe!r} imports "
+                f"{module!r}, which is not a module in the checkout"
+            )
+            assert path.is_relative_to(component.path), (
+                f"{component.name}: probe {component.probe!r} points outside "
+                f"{component.path}"
+            )
 
 
 def test_core_dependencies_are_declared(catalog):
     assert read_core_dependencies(catalog.root)
+
+
+def test_supported_pythons_mirrors_requires_python(catalog):
+    # ``choose_python`` selects from this literal, so a change to the package's
+    # declared range without changing it would create environments the built
+    # distribution does not support.
+    from packaging.specifiers import SpecifierSet
+
+    try:
+        import tomllib
+    except ImportError:  # Python 3.10
+        import tomli as tomllib
+
+    with (catalog.root / "pyproject.toml").open("rb") as file:
+        requires_python = tomllib.load(file)["project"]["requires-python"]
+    specifier = SpecifierSet(requires_python)
+    minors = {
+        f"3.{minor}" for minor in range(8, 14) if specifier.contains(f"3.{minor}")
+    }
+
+    assert set(SUPPORTED_PYTHONS) == minors

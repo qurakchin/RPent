@@ -178,7 +178,7 @@ Common environments
 
 ``infra-minimal`` is the core environment: RPent and its own dependencies with
 no robot, simulator, or model package, which is enough to verify CLI and robot
-discovery. ``infra-dev`` adds the test and lint tools. ``infra-unit_cpu`` adds
+discovery. ``infra-dev`` adds the test tools. ``infra-unit_cpu`` adds
 those tools and a CPU Torch-built model stack for the unit suite. The robot
 environments cover the supported real robots and simulators; see each
 simulator or robot page for platform preparation, checkpoints, and assets.
@@ -203,6 +203,14 @@ user-level ``uv`` configuration (``~/.config/uv``) is outside the comparison.
 A venv installed for a different component set is reported as needing a
 reinstall rather than as drifted. ``--fingerprint`` prints the stored
 fingerprint and its hash instead of running the checks.
+
+``doctor`` describes the environment ``rpent-install`` created from the
+manifests. Some robot and simulator guides add packages to that environment
+afterwards, such as an editable RLinf checkout, an SDK, or an adapter package.
+Those additions change the installed package set, so ``doctor`` reports the
+environment as drifted, and rerunning ``install`` re-records the new set. Run
+``doctor`` on an environment built from the manifests when the fingerprint
+should attest to the component closure alone.
 
 For ``check --resolve``, ``linux-x86_64`` targets ``manylinux_2_31`` (glibc
 2.31, Ubuntu 20.04 or newer): current GPU wheels are published for newer

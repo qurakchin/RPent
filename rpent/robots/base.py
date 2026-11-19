@@ -53,8 +53,17 @@ def _resolve_robot(name: str) -> Any:
 
 
 def enumerate_robots() -> tuple[str, ...]:
-    """Return the names of importable robot packages under ``robots``."""
-    import robots
+    """Return the names of importable robot packages under ``robots``.
+
+    The published wheel ships the core package only, so a plain
+    ``pip install rpent`` has no ``robots`` package. Robot discovery then finds
+    nothing; the CLI and its help still work, and the components come from a
+    source checkout where the manifests live.
+    """
+    try:
+        import robots
+    except ImportError:
+        return ()
 
     return tuple(
         sorted(

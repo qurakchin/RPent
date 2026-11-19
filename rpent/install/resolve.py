@@ -216,6 +216,40 @@ def _override_conflicts(components: dict[str, Component]) -> list[str]:
     return errors
 
 
+#: The Python minors RPent supports, newest first. It mirrors
+#: ``requires-python`` in the root ``pyproject.toml``: the interpreter is chosen
+#: from the manifests, never from the shell that happens to run the installer,
+#: so the same checkout produces the same environment on every machine.
+SUPPORTED_PYTHONS = ("3.12", "3.11", "3.10")
+
+
+def _supports_python(component: Component, version: str) -> bool:
+    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+
+    if component.python is None:
+        return True
+    try:
+        supported = SpecifierSet(component.python)
+    except InvalidSpecifier:
+        # ``python_errors`` reports the invalid range with its manifest.
+        return True
+    return supported.contains(version, prereleases=True)
+
+
+def choose_python(components: Iterable[Component]) -> str:
+    """Return the newest supported interpreter every component accepts.
+
+    A component with no common version is reported by ``python_errors`` before
+    the environment is created; the newest supported minor is returned here so
+    the error names a version rather than a failed lookup.
+    """
+    components = list(components)
+    for version in SUPPORTED_PYTHONS:
+        if all(_supports_python(component, version) for component in components):
+            return version
+    return SUPPORTED_PYTHONS[0]
+
+
 def python_errors(
     version: str,
     components: Iterable[Component],
@@ -302,7 +336,10 @@ def resolve(
     ``python`` and ``platform`` describe the environment that will run the
     components. ``rpent-install check`` passes the platform the environment
     targets — not the machine running the check — and leaves the interpreter
-    out, because a check does not create the environment.
+    out, because a check does not create the environment. Without a chosen
+    interpreter, the closure is still checked against the newest supported one,
+    so a set no interpreter can run fails here instead of after the install
+    selects one.
     """
     names = tuple(sorted(set(targets)))
     resolution = Resolution(targets=names)
@@ -344,6 +381,17 @@ def resolve(
     if python is not None:
         resolution.errors.extend(
             python_errors(python, ordered.values(), owner="the environment")
+        )
+    else:
+        # No environment exists yet, so name the closure that no supported
+        # interpreter can run. ``install`` would otherwise select the newest
+        # supported minor and report the same components one by one.
+        resolution.errors.extend(
+            python_errors(
+                choose_python(ordered.values()),
+                ordered.values(),
+                owner="the environment",
+            )
         )
     if platform is not None:
         resolution.errors.extend(platform_errors(platform, ordered.values()))

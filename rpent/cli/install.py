@@ -33,14 +33,9 @@ from rpent.install.discovery import discover
 from rpent.install.doctor import FAIL, check_installation, inspect_installation
 from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.fingerprint import current_venv
-from rpent.install.installer import (
-    choose_python,
-    find_uv,
-    install,
-    resolve_targets,
-)
+from rpent.install.installer import find_uv, install, resolve_targets
 from rpent.install.requirements import read_core_dependencies
-from rpent.install.resolve import Resolution
+from rpent.install.resolve import Resolution, choose_python
 from rpent.utils.config import get_repo_root
 
 

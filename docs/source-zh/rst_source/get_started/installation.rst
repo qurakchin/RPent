@@ -110,7 +110,7 @@
    rpent-install install model-molmo --venv .venv-molmo
    rpent-install install model-openpi --venv .venv-openpi
 
-``infra-minimal`` 是核心环境：只有 RPent 及其自身依赖，不含任何机器人、仿真器或模型包，足以验证 CLI 和机器人发现。``infra-dev`` 再加上测试和 lint 工具。``infra-unit_cpu`` 在测试工具之外再加一套 CPU Torch 构建的模型依赖，供单元测试使用。机器人环境覆盖受支持的真机和仿真器；平台准备、checkpoint 和资产见各仿真器或机器人页面。``sim-libero_plus`` 替代而不是叠加 ``sim-libero``：LIBERO-plus 要求 robosuite<1.5，两套包不能共用一个环境。
+``infra-minimal`` 是核心环境：只有 RPent 及其自身依赖，不含任何机器人、仿真器或模型包，足以验证 CLI 和机器人发现。``infra-dev`` 再加上测试工具。``infra-unit_cpu`` 在测试工具之外再加一套 CPU Torch 构建的模型依赖，供单元测试使用。机器人环境覆盖受支持的真机和仿真器；平台准备、checkpoint 和资产见各仿真器或机器人页面。``sim-libero_plus`` 替代而不是叠加 ``sim-libero``：LIBERO-plus 要求 robosuite<1.5，两套包不能共用一个环境。
 
 环境诊断
 --------
@@ -121,6 +121,8 @@
    rpent-install doctor --venv .venv-libero --fingerprint
 
 ``doctor`` 将安装指纹与每项记录在案的安装输入比较（每个组件的清单 hash、它的 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查记录的 Python 版本和平台，运行 ``uv pip check`` 与组件探针，并比较当前安装包集合与记录的 freeze hash。``uv`` 的解析在仓库根目录进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内。为其他组件集合安装过的 venv 会报告为需要重装，而不是环境已漂移。``--fingerprint`` 打印存储的指纹及其 hash，不执行上述检查。
+
+``doctor`` 描述的是 ``rpent-install`` 按清单创建的环境。部分真机和仿真器文档会在该环境上继续追加包，例如可编辑安装的 RLinf 检出、SDK 或适配器包。这些追加会改变实际安装的包集合，因此 ``doctor`` 会把环境报告为已漂移，重跑 ``install`` 会记录新的包集合。需要指纹只对应组件闭包时，请在按清单装出的环境上运行 ``doctor``。
 
 执行 ``check --resolve`` 时，``linux-x86_64`` 默认以 ``manylinux_2_31`` 为目标（glibc 2.31，即 Ubuntu 20.04 或更新版本）：当前 GPU wheel 发布在更新的基线上，2.17 的目标解析不到它们。若某组件的依赖包只发布了更新的基线，可在它的清单里写 ``manylinux = "2_35"``，把整个闭包的目标基线提高；``sim-robodojo`` 因 Isaac Sim 就这样声明。对包含 cuRobo 构建的配置使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个组件解析失败时会报告错误并继续检查其余组件。
 

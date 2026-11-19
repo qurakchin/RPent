@@ -28,9 +28,10 @@ from rpent.install.compile import (
 )
 from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
-from rpent.install.installer import choose_python, resolve_targets
+from rpent.install.installer import resolve_targets
 from rpent.install.manifest import SCHEMA
 from rpent.install.requirements import read_core_dependencies
+from rpent.install.resolve import choose_python
 
 
 @pytest.fixture

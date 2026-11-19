@@ -1,6 +1,6 @@
 schema = 2
 name = "model-sam3"
-probe = "components.models.sam3.server"
+probe = "components.models.sam3"
 python = ">=3.10,<3.13"
 
 dependencies = [
