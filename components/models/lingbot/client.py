@@ -21,8 +21,8 @@ from typing import Any
 
 import numpy as np
 
-from robots.robotwin.observation import physical_observation
 from rpent.models.client import BaseVLAClient
+from rpent.models.contracts import AMObservation
 
 
 class LingBotWebSocketTransport:
@@ -96,11 +96,14 @@ class LingBotVLAClient(BaseVLAClient):
                 "Connect to the RoboTwin EEF16 LingBot server."
             )
 
-    def infer(self, observation: dict[str, Any]) -> np.ndarray:
-        """Infer one eef16 action chunk."""
-        physical = physical_observation(observation)
-        views = physical["images"]
-        state = physical["state"]
+    def infer(self, observation: AMObservation) -> np.ndarray:
+        """Infer one eef16 action chunk from a physical observation.
+
+        The robot slice converts its native observation before calling this
+        method, so the model service never reads a simulator's wire format.
+        """
+        views = observation["images"]
+        state = observation["state"]
         left_pose = np.asarray(state["left_eef_pose"], dtype=np.float32)
         right_pose = np.asarray(state["right_eef_pose"], dtype=np.float32)
         if left_pose.shape != (7,) or right_pose.shape != (7,):
@@ -118,7 +121,7 @@ class LingBotVLAClient(BaseVLAClient):
             "observation.images.cam_left_wrist": views["left_wrist"],
             "observation.images.cam_right_wrist": views["right_wrist"],
             "observation.state": policy_state,
-            "task": physical["instruction"],
+            "task": observation["instruction"],
         }
         actions = np.asarray(super().predict(payload)["action"], dtype=np.float64)
         if actions.ndim != 2 or actions.shape[1] != 16:

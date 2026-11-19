@@ -21,11 +21,11 @@ import os
 import socket
 import sys
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
+from robots.robotwin.contracts import MODEL_SPEC, vla_runtime_contract
 from robots.robotwin.memory import prepare_memory, validate_options
 from robots.robotwin.observation import ROBOTWIN_CAMERAS
 from robots.robotwin.prompt_bundle import system_prompt, user_prompt
@@ -84,32 +84,6 @@ ROBOTWIN_READ_TIMEOUT_S = 120.0
 ROBOTWIN_STATE_CHANGE_TIMEOUT_S = 600.0
 
 
-@dataclass(frozen=True)
-class RoboTwinModelSpec:
-    """Values required by the LingBot EEF runtime."""
-
-    policy_name: str
-    robot_config_relpath: str
-    norm_stats: str
-    qwen_base: str
-    camera_order: tuple[str, ...]
-    state_layout: str
-    action_layout: str
-    use_length: int
-
-
-MODEL_SPEC = RoboTwinModelSpec(
-    policy_name="robotwin_eef",
-    robot_config_relpath="configs/robot_configs/robotwin_eef.yaml",
-    norm_stats="norm_stats/robotwin_eef.json",
-    qwen_base="qwen_base",
-    camera_order=("cam_high", "cam_left_wrist", "cam_right_wrist"),
-    state_layout="eef16",
-    action_layout="eef16",
-    use_length=50,
-)
-
-
 def env_runtime_contract(
     *,
     task_name: str,
@@ -143,23 +117,6 @@ def env_runtime_contract(
             "get_task_language": True,
             "plan_arm_path": True,
         },
-    }
-
-
-def vla_runtime_contract() -> dict[str, object]:
-    """Return the identity required from a LingBot RoboTwin server.
-
-    Only the hard contract fields that break inference input/output when
-    mismatched are kept; descriptive behaviour fields live with the
-    implementation (facade/transport), not in the runtime-equality check.
-    """
-    return {
-        "runtime": "lingbotvla",
-        "policy_name": MODEL_SPEC.policy_name,
-        "camera_order": list(MODEL_SPEC.camera_order),
-        "state_layout": MODEL_SPEC.state_layout,
-        "action_layout": MODEL_SPEC.action_layout,
-        "use_length": MODEL_SPEC.use_length,
     }
 
 
@@ -745,7 +702,8 @@ def _spawn_vla_server(
     qwen_path = model_path / MODEL_SPEC.qwen_base
     daemon = am.spawn_worker(
         [
-            str(get_repo_root() / "robots" / "robotwin" / "vla_server.py"),
+            "-m",
+            "components.models.lingbot.server",
             "--model-path",
             str(model_path),
             "--use-length",
@@ -791,7 +749,7 @@ def _build_env_runtime_kwargs(
 
 
 def _build_vla_runtime_kwargs(endpoint: tuple[str, int]) -> dict[str, Any]:
-    from robots.robotwin.vla_client import LingBotVLAClient
+    from components.models.lingbot.client import LingBotVLAClient
 
     host, port = endpoint
     model = LingBotVLAClient(host=host, port=port)

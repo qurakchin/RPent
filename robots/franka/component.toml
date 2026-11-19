@@ -3,7 +3,6 @@ name = "franka"
 kind = "robot"
 probe = "robots.franka"
 python = ">=3.10,<3.13"
-extra = false
 description = "Single-arm Franka hardware without a policy model."
 requires = ["rlinf"]
 # The flash perception tools branch to the dual-arm implementation when the

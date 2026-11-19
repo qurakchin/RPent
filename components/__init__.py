@@ -14,8 +14,8 @@
 
 """Optional components that robot slices and tools install beside the core.
 
-``models/`` holds model inference services and ``toolkits/`` holds reusable
-tool packages. Each subdirectory is one installable component declared by its
-``component.toml``. The core discovers components by name and never imports
-them statically, and the two groups do not import each other.
+``models/`` holds model inference services. Each subdirectory is one
+installable component declared by its ``component.toml``. The core discovers
+components by name and never imports them statically, and model services do
+not import robots or each other.
 """

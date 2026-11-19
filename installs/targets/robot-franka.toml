@@ -3,7 +3,6 @@ kind = "target"
 name = "robot-franka"
 python = "3.11"
 
-extra = "franka"
 description = "Single-arm Franka with Pi0.5."
 
 [components.franka]

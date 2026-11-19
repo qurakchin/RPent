@@ -23,7 +23,7 @@ from pathlib import Path
 import numpy as np
 
 if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from rpent.models.facade import BaseVLAFacade
 

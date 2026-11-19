@@ -24,13 +24,12 @@ Rules:
 - K3: a slice root must not add a retired name, and a migrated slice must not
   keep one. Components that predate the skeleton only warn until their
   migration lands.
-- K4: ``components/models/`` and ``components/toolkits/`` must not import
-  ``robots``, must not import a sibling of their own kind, and must not import
-  each other. A robot slice may import another slice only when its manifest
+- K4: ``components/models/`` must not import ``robots`` or a sibling model
+  service. A robot slice may import another slice only when its manifest
   declares it in ``imports`` and one of the two ``requires`` the other. Core
-  ``rpent/**`` must not import ``components.models``, ``components.toolkits``
-  or a concrete ``robots.<name>``; importing the ``robots`` package itself for
-  discovery is allowed.
+  ``rpent/**`` must not import ``components.models`` or a concrete
+  ``robots.<name>``; importing the ``robots`` package itself for discovery is
+  allowed.
 - K5: core ``rpent/**`` must not name a robot or benchmark (R8).
   ``rpent/models/backends.py`` is exempt while the backend table still names
   the robots it routes to; the wire-contract copies live with the model
@@ -108,7 +107,6 @@ GROUP_PACKAGES = (
     "robots",
     "components",
     "components/models",
-    "components/toolkits",
 )
 #: Files that carry wire data rather than behavior. They may use the standard
 #: library, NumPy, core contracts, and their own group's modules; anything else
@@ -244,7 +242,6 @@ REQUIRED_ROLE_FILES = {
         "prompts/__init__.py",
         "prompts/domain.py",
     ),
-    "toolkit": ("__init__.py", "tool.py", "core.py", "observation.py", "evaluation"),
     # A model service only needs an importable package and its server; config
     # and README are useful conventions, not skeleton requirements.
     "model": ("__init__.py", "server.py"),
@@ -260,7 +257,6 @@ LEGACY_COMPONENTS = frozenset(
         ("robot", "robodojo"),
         ("robot", "robotwin"),
         ("robot", "yam"),
-        ("toolkit", "geometry"),
         ("model", "apxinf"),
         ("model", "cosmos3"),
         ("model", "cosmos_policy"),
@@ -415,8 +411,6 @@ def _owner(path: Path, root: Path) -> tuple[str, str] | None:
         return "robot", relative[1]
     if relative[:2] == ("components", "models") and len(relative) > 2:
         return "model", relative[2]
-    if relative[:2] == ("components", "toolkits") and len(relative) > 2:
-        return "toolkit", relative[2]
     if relative[0] == "rpent":
         return "core", ""
     return None
@@ -478,37 +472,23 @@ def check_imports(root: Path) -> list[Finding]:
         kind, name = owner
         for line, module in _imports(path, root):
             robot = _concrete_robot(module)
-            if kind in {"toolkit", "model"}:
+            if kind == "model":
                 if module == "robots" or robot is not None:
-                    label = (
-                        "toolkits must not import robots"
-                        if kind == "toolkit"
-                        else f"model {name!r} must not import robots"
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"model {name!r} must not import robots",
+                        )
                     )
-                    findings.append(Finding(path, line, label))
-                package = (
-                    "components.toolkits" if kind == "toolkit" else "components.models"
-                )
-                sibling = _sibling_package(module, package)
+                sibling = _sibling_package(module, "components.models")
                 if sibling is not None and sibling != name:
                     findings.append(
                         Finding(
                             path,
                             line,
-                            f"{kind} {name!r} must not import sibling "
+                            f"model {name!r} must not import sibling "
                             f"{sibling!r}; declare a shared contract instead",
-                        )
-                    )
-                other = (
-                    "components.models" if kind == "toolkit" else "components.toolkits"
-                )
-                if _under(module, other):
-                    findings.append(
-                        Finding(
-                            path,
-                            line,
-                            f"{kind} {name!r} must not import {other}; the two "
-                            "component groups communicate through the planner",
                         )
                     )
             elif kind == "robot":
@@ -527,15 +507,6 @@ def check_imports(root: Path) -> list[Finding]:
                         )
                     )
             elif kind == "core":
-                if _under(module, "components.toolkits"):
-                    findings.append(
-                        Finding(
-                            path,
-                            line,
-                            "core must not import toolkits; pass a toolkit "
-                            "through the robot slice",
-                        )
-                    )
                 if _under(module, "components.models"):
                     findings.append(
                         Finding(
@@ -667,7 +638,7 @@ def check_pure_data_imports(root: Path) -> list[Finding]:
     Wire contracts, control/observation adapters, and model platform tables
     must stay importable without a simulator or model runtime. NumPy and core
     contracts are data dependencies; everything else belongs in an adapter,
-    server, or toolkit implementation. A model or toolkit package entry point
+    server implementation. A model package entry point
     follows the same rule: importing the package must not load its runtime.
     """
     findings: list[Finding] = []
@@ -680,7 +651,7 @@ def check_pure_data_imports(root: Path) -> list[Finding]:
             if owner is None or owner[0] == "core":
                 continue
         elif path.name == "__init__.py":
-            if owner is None or owner[0] not in {"model", "toolkit"}:
+            if owner is None or owner[0] != "model":
                 continue
         else:
             continue
@@ -696,7 +667,7 @@ def check_pure_data_imports(root: Path) -> list[Finding]:
                 message = (
                     f"package entry point imports third-party {top!r}; keep "
                     "the package importable without a runtime and move "
-                    "behavior into the server or toolkit implementation"
+                    "behavior into the server implementation"
                 )
             else:
                 message = (
@@ -777,7 +748,6 @@ def check_coverage(root: Path) -> list[Finding]:
     roots = [
         (root / "robots", "robot"),
         (root / "components" / "models", "model"),
-        (root / "components" / "toolkits", "toolkit"),
     ]
     for directory, kind in roots:
         if not directory.is_dir():
@@ -809,7 +779,6 @@ def check_role_files(root: Path, *, today: date | None = None) -> list[Finding]:
     roots = [
         (root / "robots", "robot"),
         (root / "components" / "models", "model"),
-        (root / "components" / "toolkits", "toolkit"),
     ]
     for directory, kind in roots:
         if not directory.is_dir():
@@ -906,7 +875,7 @@ def check_legacy_names(root: Path, *, today: date | None = None) -> list[Finding
 def check_file_sizes(root: Path) -> list[Finding]:
     """Return K7 warnings for role files over their line-count limit."""
     findings: list[Finding] = []
-    for directory in ("robots", "components/models", "components/toolkits"):
+    for directory in ("robots", "components/models"):
         for path in sorted((root / directory).rglob("*.py")):
             limit = LINE_LIMITS.get(path.name)
             if limit is None:

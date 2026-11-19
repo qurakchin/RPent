@@ -3,7 +3,6 @@ name = "robodojo"
 kind = "robot"
 probe = "robots.robodojo"
 python = ">=3.11,<3.12"
-extra = false
 # Isaac Sim 5.1 wheels are published for glibc 2.35 and newer.
 manylinux = "2_35"
 extra-index-urls = ["https://pypi.nvidia.com"]

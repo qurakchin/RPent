@@ -34,11 +34,11 @@ def repo(tmp_path, write_toml):
         """,
     )
     write_toml(
-        "components/toolkits/alpha/component.toml",
+        "components/models/alpha/component.toml",
         """
         schema = 2
         name = "alpha"
-        kind = "toolkit"
+        kind = "model"
         probe = "json"
         python = "3.11"
         dependencies = ["numpy>=2"]
@@ -137,24 +137,24 @@ def test_write_never_compiles_into_the_previous_lock_file(repo, fake_uv):
 
 def test_write_resolves_override_files_against_the_checkout(repo, fake_uv, write_toml):
     write_toml(
-        "components/toolkits/alpha/component.toml",
+        "components/models/alpha/component.toml",
         """
         schema = 2
         name = "alpha"
-        kind = "toolkit"
+        kind = "model"
         probe = "json"
         python = "3.11"
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
     )
-    write_toml("components/toolkits/alpha/requirements/override.txt", "numpy<3\n")
+    write_toml("components/models/alpha/requirements/override.txt", "numpy<3\n")
 
     assert lock.main(["alpha"], root=repo) == 0
 
     arguments = _arguments(fake_uv)
     value = arguments[arguments.index("--overrides") + 1]
-    assert value == str(repo / "components/toolkits/alpha/requirements/override.txt")
+    assert value == str(repo / "components/models/alpha/requirements/override.txt")
     assert os.path.isabs(value)
 
 
@@ -252,7 +252,6 @@ def test_all_reports_failures_and_continues(repo, fake_uv, write_toml, capsys):
         python = "3.11"
 
         [components.gamma]
-        placement = "in-env"
         """,
     )
 

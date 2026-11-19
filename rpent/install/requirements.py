@@ -42,12 +42,11 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 #: changes meaning or the repository layout moves the files the inputs name, not
 #: merely when one is added: ``doctor`` uses it to tell an installation recorded
 #: by an older input mode from one whose inputs drifted.
-INPUT_SCHEMA = 9
+INPUT_SCHEMA = 10
 
 #: ``[tool.uv]`` entries that do not change an installation's contents.
-#: ``conflicts`` only constrains extra combinations in the generated
-#: compatibility block, and ``rpent-install`` installs requirement files rather
-#: than extras.
+#: ``conflicts`` only constrains extra groups, and ``rpent-install`` installs
+#: requirement files rather than extras.
 _UV_IGNORED_SETTINGS = ("conflicts",)
 
 
@@ -76,8 +75,8 @@ def read_uv_settings(root: Path) -> dict[str, Any]:
     """Return the ``[tool.uv]`` settings that apply to installs in this checkout.
 
     ``uv`` reads these settings from the project it runs in, so they decide how
-    a requirement file resolves. The generated ``conflicts`` list is excluded:
-    it constrains extra combinations, which the installer does not use.
+    a requirement file resolves. ``conflicts`` is excluded: it constrains extra
+    groups, which the installer does not use.
     """
     path = root / "pyproject.toml"
     try:
@@ -239,7 +238,6 @@ def requirements_inputs(
     for name, resolved in sorted(resolution.components.items()):
         components[name] = {
             "manifest_sha256": resolved.component.manifest_sha256,
-            "placement": resolved.placement,
             "variant": resolved.variant,
         }
     return {

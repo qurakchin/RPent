@@ -26,8 +26,7 @@ for environment setup and :doc:`../get_started/quickstart` for simulator
 assets; configure API credentials in :doc:`configure_planner`. Install the
 ``robot-libero_pro`` target, which bundles LIBERO-PRO with Pi0.5, SAM 3.0, and
 the export dependencies; the install command is listed on the installation
-page. ``tool-flywheel`` provides the same export dependencies without a
-simulator or policy.
+page.
 
 Record a Trajectory
 -------------------

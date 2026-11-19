@@ -292,8 +292,8 @@ def test_env_connection_checks_action_protocol_before_reset(
 def test_runtime_connects_selected_backend(
     monkeypatch, tmp_path, backend, backend_flag
 ):
-    from robots.robodojo.awomo05_client import Awomo05Client
-    from robots.robodojo.vpp2_client import VPP2Client
+    from components.models.awomo05.client import Awomo05Client
+    from components.models.vpp2.client import VPP2Client
     from rpent.dashboard.events import NullDashboardEventSink
 
     rpc = object()
@@ -670,7 +670,8 @@ def test_flash_rejected_before_services_start(monkeypatch, tmp_path):
 
 @pytest.fixture
 def runtime_services(monkeypatch):
-    from robots.robodojo import env_client, vpp2_server
+    from components.models.vpp2 import server as vpp2_server
+    from robots.robodojo import env_client
 
     events = []
     failure = {}
@@ -717,7 +718,7 @@ def runtime_services(monkeypatch):
         return rpc
 
     monkeypatch.setattr(env_client, "RoboDojoEnvClient", environment)
-    from robots.robodojo import awomo05_client
+    from components.models.awomo05 import client as awomo05_client
 
     original = awomo05_client.Awomo05Client
 
@@ -726,7 +727,7 @@ def runtime_services(monkeypatch):
         return original(rpc)
 
     monkeypatch.setattr(awomo05_client, "Awomo05Client", connect)
-    from robots.robodojo import vpp2_client
+    from components.models.vpp2 import client as vpp2_client
 
     original_vpp2 = vpp2_client.VPP2Client
 
@@ -963,7 +964,7 @@ def test_model_spawn_owns_process_and_borrows_endpoint(monkeypatch, tmp_path, ba
         sys.executable,
         "-u",
         "-m",
-        f"robots.robodojo.{backend}_server",
+        f"components.models.{backend}.server",
     ]
     assert "--parent-watch" in recorded["cmd"]
     assert rpc == ("socket://127.0.0.1:9205", options)

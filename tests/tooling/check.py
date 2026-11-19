@@ -17,7 +17,7 @@
 Loading the catalog already rejects an invalid manifest, a duplicate component
 or target name, a broken ``requires``/``imports``/``env_conflicts`` reference,
 and a deps component with a single consumer. This tool adds the checks that
-need a target: its closure, placement, and variant selection resolve, and every
+need a target: its closure and variant selection resolve, and every
 robot component is selected by an explicit target.
 
 Checked-in locks are optional reproduction artifacts, not installation inputs,

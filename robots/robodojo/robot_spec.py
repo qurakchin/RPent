@@ -513,14 +513,7 @@ def _spawn_sam3_server(
         name="sam3_server",
         cmd=[
             sys.executable,
-            str(
-                get_repo_root()
-                / "rpent"
-                / "robots"
-                / "components"
-                / "sam3"
-                / "server.py"
-            ),
+            str(get_repo_root() / "components" / "models" / "sam3" / "server.py"),
             "--transport",
             "http",
             "--host",
@@ -551,7 +544,7 @@ def _spawn_model_server(
         [
             "-u",
             "-m",
-            f"robots.robodojo.{am.backend}_server",
+            f"components.models.{am.backend}.server",
             "--model-path",
             am.checkpoint,
             "--host",
@@ -585,14 +578,14 @@ def _init_runtime(
     am = select_am(args, "robodojo")
     device = resolve_cuda_device(args, "env")
     if am.backend == "awomo05":
-        from robots.robodojo.awomo05_client import Awomo05Client as VLAClient
-        from robots.robodojo.awomo05_server import model_paths
+        from components.models.awomo05.client import Awomo05Client as VLAClient
+        from components.models.awomo05.server import model_paths
 
         rpc_options = {"enable_sessions": True}
         record_vpp2_history = False
     elif am.backend == "vpp2":
-        from robots.robodojo.vpp2_client import VPP2Client as VLAClient
-        from robots.robodojo.vpp2_server import model_paths
+        from components.models.vpp2.client import VPP2Client as VLAClient
+        from components.models.vpp2.server import model_paths
 
         rpc_options = {}
         record_vpp2_history = True

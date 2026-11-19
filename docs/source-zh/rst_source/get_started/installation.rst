@@ -1,7 +1,7 @@
 安装
 ====
 
-RPent 安装的是具名目标，而不是一组 extra。每个目标选择组件及其放置方式；每个组件在 ``component.toml`` 中声明自己的依赖和 Python 支持范围。``rpent-install`` 创建虚拟环境，按这些清单解析出的依赖安装，对每个在本地安装的组件执行导入探针，并写入安装指纹。
+RPent 安装的是具名目标。每个目标选择组件；每个组件在 ``component.toml`` 中声明自己的依赖和 Python 支持范围。``rpent-install`` 创建虚拟环境，按这些清单解析出的依赖安装，对每个已安装的组件执行导入探针，并写入安装指纹。
 
 环境要求
 --------
@@ -19,9 +19,9 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
 
    rpent-install list
 
-该命令先列出每个组件及其类型和放置方式，再列出每个目标及其 Python 要求和组件。
+该命令先列出每个组件及其类型和说明，再列出每个目标及其 Python 要求和组件。
 
-非机器人组件都可以按自己的名字安装：``rpent-install install sam3`` 安装 SAM 3.0 服务组件及其依赖。机器人只通过目标安装，由目标指明它运行的环境。``installs/targets/`` 或 ``tests/targets/`` 中声明的目标补上单个组件表达不了的组合：同一环境中的多个组件、选定的变体、额外的运行时依赖或兼容 extra。两个目录作为同一个命名空间被发现，显式目标不得复用组件名；唯一的例外是机器人的同名覆盖目标，它必须安装该机器人。测试与开发目标（``dev``、``unit-cpu``、``tool-geometry-eval``）位于 ``tests/targets/``。
+非机器人组件都可以按自己的名字安装：``rpent-install install sam3`` 安装 SAM 3.0 服务组件及其依赖。机器人只通过目标安装，由目标指明它运行的环境。``installs/targets/`` 或 ``tests/targets/`` 中声明的目标补上单个组件表达不了的组合：同一环境中的多个组件、选定的变体或额外的运行时依赖。目标也可以直接选中 ``installs/deps/`` 下的 deps 组件，启用核心代码使用但不属于某个组件的包；只有一个组件消费者的 deps 组件应并入该组件自己的依赖。两个目录作为同一个命名空间被发现，显式目标不得复用组件名；唯一的例外是机器人的同名覆盖目标，它必须安装该机器人。测试与开发目标（``dev``、``unit-cpu``）位于 ``tests/targets/``。
 
 复合目标把仿真器或真机与其使用的模型装在一起，例如 ``robot-libero_pro`` 安装 LIBERO-PRO 并带上 Pi0.5 和 SAM 3.0，``robot-yam`` 安装 YAM 并带上 Pi0.5。目标之间互不引用，仓库没有具名的组合拆成独立的组件环境，运行时用 endpoint 连接。
 
@@ -48,11 +48,11 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
 
 该脚本在一个一次性的 ``uv`` 环境里运行安装器，只额外加入 ``packaging``；本机只需要 ``uv`` 在 ``PATH`` 上。
 
-``rpent-install`` 需要在源码检出中运行。发布到 PyPI 的 wheel 只包含核心 ``rpent`` 包；``robots/``、``components/`` 及其 ``component.toml``、``installs/targets/`` 只随源码检出和 sdist 发布。非可编辑的 ``pip install rpent`` 只提供 CLI；运行具体的机器人、模型服务或工具包请使用源码检出，这样 ``rpent-install`` 才能找到目标。
+``rpent-install`` 需要在源码检出中运行。发布到 PyPI 的 wheel 只包含核心 ``rpent`` 包；``robots/``、``components/`` 及其 ``component.toml``、``installs/targets/`` 只随源码检出和 sdist 发布。非可编辑的 ``pip install rpent`` 只提供 CLI；运行具体的机器人或模型服务请使用源码检出，这样 ``rpent-install`` 才能找到目标。
 
 ``install`` 从清单解析目标，不读取锁：改动清单就会改变下一次安装创建的环境。``tests/locks/<目标>.lock`` 下检入的锁是可选的复现产物，用于按维护者验证过的确切版本重建环境；它们不是安装输入，没有锁时 ``install`` 和 ``check`` 照常工作。用 ``python -m tests.tooling.lock <目标>`` 重新生成锁。
 
-``core = false`` 的目标（例如 ``molmo``）不安装可编辑的 RPent，只包含该服务自己的依赖；启动时按 :doc:`../guides/flash` 的说明把源码目录放进 ``PYTHONPATH``。放在 ``remote`` 的组件只装客户端部分；在服务所在主机上把同一组件（``openpi`` 或 ``sam3``）作为本地目标安装，运行时传入它的 endpoint。重复执行 ``install`` 会复用环境并修复过期安装。
+``core = false`` 的目标（例如 ``molmo``）不安装可编辑的 RPent，只包含该服务自己的依赖；启动时按 :doc:`../guides/flash` 的说明把源码目录放进 ``PYTHONPATH``。为其他环境提供服务的组件在服务所在主机上作为独立目标安装（``openpi`` 或 ``sam3``），调用方运行时传入它的 endpoint。重复执行 ``install`` 会复用环境并修复过期安装。
 
 自定义组合
 ----------
@@ -76,7 +76,7 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
 
    ./rpent-install.sh install my-combo
 
-空的组件表使用该组件的默认放置；写 ``placement = "remote"`` 只安装服务的客户端部分；必须选变体的组件（例如 ``libero``）要写明 ``variant``。解析会按组件声明的索引检查整个闭包，所以 ``env_conflicts``、索引分歧和 Python 范围冲突会在环境建好之前失败；``install --dry-run`` 只打印将要安装的依赖，不实际安装。
+必须选变体的组件（例如 ``libero``）要写明 ``variant``。解析会按组件声明的索引检查整个闭包，所以 ``env_conflicts``、索引分歧和 Python 范围冲突会在环境建好之前失败；``install --dry-run`` 只打印将要安装的依赖，不实际安装。
 
 目标
 ----
@@ -133,14 +133,7 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
    * - ``openpi`` / ``sam3``
      - 3.11
      - 单能力诊断环境。
-   * - ``tool-flywheel``
-     - 3.11
-     - 不含仿真器和策略的 LeRobot 轨迹导出与回放。
-   * - ``tool-geometry-eval``
-     - 3.11
-     - 几何工具包及其冻结的 CPU 评测语料。
-
-其余非机器人组件（``apxinf``、``cosmos3``、``cosmos_policy``、``fast_wam``、``geometry``、``uniwam`` 和 ``xpolicylab``）同样按组件名安装；``rpent-install list`` 会打印完整列表。Python 列给出清单当前解析出的 minor，它可能比清单接受的范围更窄。
+其余非机器人组件（``apxinf``、``cosmos3``、``cosmos_policy``、``fast_wam``、``uniwam`` 和 ``xpolicylab``）同样按组件名安装；``rpent-install list`` 会打印完整列表。Python 列给出清单当前解析出的 minor，它可能比清单接受的范围更窄。
 
 安装命令
 --------
@@ -165,8 +158,6 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
    rpent-install install molmo
    rpent-install install openpi
    rpent-install install sam3
-   rpent-install install tool-flywheel
-   rpent-install install tool-geometry-eval
 
 诊断
 ----
@@ -176,7 +167,7 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
    rpent-install doctor
    rpent-install doctor --venv .venvs/robot-libero_pro
 
-不传 ``--venv`` 时，``doctor`` 检查 shell 中激活的虚拟环境，找不到时退回运行 ``rpent-install`` 的那个环境；输出的第一行会写明实际检查的环境。``--target`` 可以覆盖指纹中记录的目标，两者不一致时报告为警告。``doctor`` 将安装指纹与各项安装输入比较（清单、组件 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查 Python 和平台，运行 ``uv pip check`` 与组件探针，并打印指纹路径及其 SHA-256。``remote`` 组件用 ``--endpoint <名称>=host:port`` 或 ``RPENT_<NAME>_ENDPOINT`` 探测；没有提供 endpoint 的 remote 组件报告为警告。``uv`` 的解析在源码检出中进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内。指纹还记录写入时使用的输入模式，由旧版 ``rpent-install`` 安装的环境会报告为需要重装，而不是环境已漂移。
+不传 ``--venv`` 时，``doctor`` 检查 shell 中激活的虚拟环境，找不到时退回运行 ``rpent-install`` 的那个环境；输出的第一行会写明实际检查的环境。``--target`` 可以覆盖指纹中记录的目标，两者不一致时报告为警告。``doctor`` 将安装指纹与各项安装输入比较（清单、组件 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查 Python 和平台，运行 ``uv pip check`` 与组件探针，并打印指纹路径及其 SHA-256。``doctor`` 还会用 ``--endpoint <名称>=host:port`` 或 ``RPENT_<NAME>_ENDPOINT`` 探测装在另一个环境中的服务，并报告连不上的 endpoint。``uv`` 的解析在源码检出中进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内。指纹还记录写入时使用的输入模式，由旧版 ``rpent-install`` 安装的环境会报告为需要重装，而不是环境已漂移。
 
 运行产物会在 ``run.json`` 中记录安装目标与指纹 hash；指纹本身仍保存在对应环境中。
 
@@ -192,15 +183,10 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
    tests/tooling/rpent-tool.sh tests.tooling.lock robotwin
    tests/tooling/rpent-tool.sh tests.tooling.lock --all --check
 
-``check`` 读取清单和目标，计算每个目标的 ``requires`` 闭包，报告放置方式冲突、重复锁定、不支持的 Python 版本、平台不匹配，以及仓库数据与清单不一致的地方。它不会下载任何依赖，也不需要锁。``--inputs-hash`` 打印单个目标安装输入的 hash 及其解析出的 Python minor；CI 用它作为环境缓存键。加上 ``--resolve`` 后，它还会用 ``uv pip compile`` 编译每个目标，确认声明的依赖可解；这与 ``lock`` 走同一条代码路径，会从配置的索引读取包元数据。
+``check`` 读取清单和目标，计算每个目标的 ``requires`` 闭包，报告重复锁定、不支持的 Python 版本、平台不匹配，以及仓库数据与清单不一致的地方。它不会下载任何依赖，也不需要锁。``--inputs-hash`` 打印单个目标安装输入的 hash 及其解析出的 Python minor；CI 用它作为环境缓存键。加上 ``--resolve`` 后，它还会用 ``uv pip compile`` 编译每个目标，确认声明的依赖可解；这与 ``lock`` 走同一条代码路径，会从配置的索引读取包元数据。
 
 ``lock`` 用 ``uv pip compile`` 生成目标的复现锁，并在首行记录上游截止时间 ``# exclude_newer``。锁位于 ``tests/locks/<目标>.lock``，不改变 ``install`` 的行为。``--check`` 按这个记录的截止时间重新编译，结果与仓库中的锁不同时失败，因此它反映的是清单变化或解析器版本不同，而不是期间的 upstream 发布。``lock --all`` 会报告在当前主机上无法解析的目标并继续处理其余目标；``robotwin`` 的锁需要在设置了 ``CUDA_HOME`` 的 Linux 主机上生成，因为 cuRobo 在解析期间构建元数据。Linux 锁默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本），因为当前 GPU wheel 不再为更早的基线发布。若组件需要更新的基线，目标可用 ``manylinux`` 提高它；例如 ``robot-robodojo`` 为 Isaac Sim 5.1 的 wheel 使用 ``manylinux = "2_35"``。重新生成锁时使用生成当前锁的 ``uv`` 版本（0.13.7）：旧版本对相同输入可能解析出不同版本；升级它时要在同一次 relock 改动里一起修改。
 
-其他维护者工具负责仓库结构和 CI 选择：``python -m tests.tooling.layout`` 检查组件边界，``python -m tests.tooling.extras --check`` 检查生成的 extra，``python -m tests.tooling.matrix`` 和 ``python -m tests.tooling.affected`` 选择并划分测试环境。CI 用上面相同的 ``uv run`` 引导方式运行它们。
-
-兼容 extra
-----------
-
-``python -m tests.tooling.extras`` 根据同一组清单和目标生成 ``pyproject.toml`` 中的 ``[tool.rpent.extras]`` 和 ``[tool.uv].conflicts``。源码安装和可编辑安装由 ``setup.py`` 把 extras 表传给 ``extras_require``，因此 ``pip install -e ".[libero-pro]"`` 在一个发布周期内继续可用；发布的核心 wheel 不带 extras。不要手工修改生成的区块；区块过期时 ``--check`` 会失败。受支持的接口是目标，extra 只用于迁移。
+其他维护者工具负责仓库结构和 CI 选择：``python -m tests.tooling.layout`` 检查组件边界，``python -m tests.tooling.matrix`` 和 ``python -m tests.tooling.affected`` 选择并划分测试环境。CI 用上面相同的 ``uv run`` 引导方式运行它们。
 
 平台准备、checkpoint 和资产见各仿真器或机器人页面。

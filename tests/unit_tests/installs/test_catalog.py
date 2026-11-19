@@ -78,3 +78,12 @@ def test_locks_live_under_tests_and_follow_the_target_name(catalog):
             catalog.root / "tests" / "locks" / f"{name}.lock"
         )
         assert target.lock_display() == f"tests/locks/{name}.lock"
+
+
+def test_repository_manifests_declare_the_robotwin_molmo_conflict(catalog):
+    components = catalog.components
+
+    assert "robotwin" in components["molmo"].env_conflicts
+    assert "molmo" in components["robotwin"].env_conflicts
+    # OpenPI follows Molmo's Transformers range, so they are compatible.
+    assert "molmo" not in components["openpi"].env_conflicts

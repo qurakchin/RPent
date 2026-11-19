@@ -88,9 +88,11 @@ def test_target50_sources_match_manifest_and_documentation():
         "rldx": "rlinf-rldx",
     }
     project = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    component = (REPO_ROOT / "robots" / "robocasa" / "component.toml").read_text(
-        encoding="utf-8"
-    )
+    manifests = {
+        "robosuite": REPO_ROOT / "robots" / "robocasa" / "component.toml",
+        "robocasa": REPO_ROOT / "robots" / "robocasa" / "component.toml",
+        "rldx": REPO_ROOT / "components" / "models" / "rldx" / "component.toml",
+    }
     for name, package in sources.items():
         # The public manifest records the upstream branch the protocol was
         # evaluated against; the install pins a commit on that branch so a
@@ -100,7 +102,7 @@ def test_target50_sources_match_manifest_and_documentation():
         repository = dependencies[name]["repository"]
         requirement = f"{package} @ git+{repository}.git@"
         pinned = re.compile(rf"{re.escape(requirement)}[0-9a-f]{{40}}")
-        assert pinned.search(component)
+        assert pinned.search(manifests[name].read_text(encoding="utf-8"))
         assert pinned.search(project)
         for language in ("en", "zh"):
             guide = (

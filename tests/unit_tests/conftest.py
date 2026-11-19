@@ -102,11 +102,9 @@ def make_component(tmp_path):
     """Build a component without touching the filesystem."""
 
     def _make(name, **values):
-        placements = tuple(values.pop("placements", ("in-env",)))
         kind = values.pop("kind", "robot")
         directory = {
             "model": Path("components") / "models",
-            "toolkit": Path("components") / "toolkits",
         }.get(kind, Path("robots"))
         return Component(
             name=name,
@@ -118,7 +116,6 @@ def make_component(tmp_path):
             requires=tuple(values.pop("requires", ())),
             imports=tuple(values.pop("imports", ())),
             env_conflicts=tuple(values.pop("env_conflicts", ())),
-            placements=placements,
             default_variant=values.pop("default_variant", None),
             variant_required=values.pop("variant_required", False),
             dependencies=tuple(values.pop("dependencies", ())),
@@ -145,8 +142,6 @@ def make_target(tmp_path):
             extra_index_urls=tuple(values.pop("extra_index_urls", ())),
             index_strategy=values.pop("index_strategy", None),
             core=values.pop("core", True),
-            generate_extra=values.pop("generate_extra", False),
-            extra=values.pop("extra", None),
             description=None,
             manylinux=values.pop("manylinux", "2_31"),
         )

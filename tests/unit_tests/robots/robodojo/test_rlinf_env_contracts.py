@@ -21,12 +21,12 @@ import numpy as np
 import pytest
 
 from robots.robodojo import env_server
-from robots.robodojo.awomo05_client import Awomo05Client
+from components.models.awomo05.client import Awomo05Client
 from robots.robodojo.env_client import RoboDojoEnvClient
 from robots.robodojo.env_facade import RoboDojoEnvFacade
 from robots.robodojo.robot_spec import FLYWHEEL_CONFIG
 from robots.robodojo.toolkit import RoboDojoToolkit, _capture_robodojo_call
-from robots.robodojo.vpp2_client import VPP2Client
+from components.models.vpp2.client import VPP2Client
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.flywheel.flywheel import read_frame, resolve_action_config
 from rpent.flywheel.reader import iter_trajectories

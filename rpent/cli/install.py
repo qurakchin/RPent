@@ -53,8 +53,8 @@ def command_list(args: argparse.Namespace) -> int:
     catalog = discover(args.root)
     print("Components")
     for name, component in sorted(catalog.components.items()):
-        placements = ", ".join(component.placements)
-        print(f"  {name:<20} {component.kind:<10} {placements}")
+        description = component.settings.description or ""
+        print(f"  {name:<20} {component.kind:<10} {description}".rstrip())
     print("\nTargets")
     for name, target in sorted(catalog.targets.items()):
         components = ", ".join(sorted(target.components)) or "(core only)"

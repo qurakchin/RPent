@@ -40,25 +40,10 @@ def test_missing_module_names_component_and_install(monkeypatch):
     assert "rpent-install list" in message
 
 
-def test_remote_component_hint_names_its_own_target(monkeypatch):
-    fingerprint = {
-        "target": "robot-libero_pro",
-        "components": {"molmo": {"placement": "remote"}},
-    }
-    monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
-    monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
-
-    with pytest.raises(components.MissingComponentError) as error:
-        components.require("molmo", "definitely_missing_rpent_module")
-
-    assert "runs outside target 'robot-libero_pro'" in str(error.value)
-    assert "rpent-install install robot-libero_pro" in str(error.value)
-
-
-def test_in_environment_component_repairs_its_target(monkeypatch):
+def test_installed_component_repairs_its_target(monkeypatch):
     fingerprint = {
         "target": "alpha",
-        "components": {"sam3": {"placement": "in-env"}},
+        "components": {"sam3": {"variant": None}},
     }
     monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
     monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
@@ -116,7 +101,7 @@ def test_fingerprint_without_a_target_falls_back_to_the_general_hint(monkeypatch
         "install_kind": "component",
         "target": None,
         "component": "sam3",
-        "components": {"sam3": {"placement": "in-env"}},
+        "components": {"sam3": {"variant": None}},
     }
     monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
     monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)

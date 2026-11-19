@@ -39,10 +39,9 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class ResolvedComponent:
-    """One component placed by a target."""
+    """One component installed by a target."""
 
     component: Component
-    placement: str
     variant: str | None
 
     @property
@@ -77,7 +76,7 @@ class Resolution:
         return {
             name: resolved
             for name, resolved in self.components.items()
-            if resolved.placement == "in-env" and not resolved.component.is_deps
+            if not resolved.component.is_deps
         }
 
     def main_deps(self) -> dict[str, ResolvedComponent]:
@@ -259,7 +258,6 @@ def _format_conflict(
     right: ResolvedComponent,
     *,
     target: str,
-    target_path: str,
 ) -> str:
     left_deps = _dependency_pins(left)
     right_deps = _dependency_pins(right)
@@ -274,29 +272,12 @@ def _format_conflict(
             f"  {left.name} and {right.name} declare env_conflicts"
             " (a transitive version incompatibility)"
         ]
-    remote = next(
-        (
-            candidate
-            for candidate in (right, left)
-            if "remote" in candidate.component.placements
-        ),
-        None,
-    )
-    split = (
-        f"split {left.name} and {right.name} into separate targets and connect "
-        "them by endpoint"
-    )
-    suggestion = (
-        f"  option 1: place {remote.name} remotely in {target_path} and run it "
-        f"from its own target\n  option 2: {split}"
-        if remote is not None
-        else f"  {split}"
-    )
     return (
         f"target {target!r} places {left.name!r} and {right.name!r} "
         "in the same environment, but they conflict\n"
         + "\n".join(details)
-        + f"\n{suggestion}"
+        + f"\n  split {left.name} and {right.name} into separate targets and "
+        "connect them by endpoint"
     )
 
 
@@ -384,24 +365,33 @@ def resolve(
     resolution = Resolution(target=target)
     display = target.relative_path(catalog.root)
     selections = dict(target.components)
+    pending: list[str] = []
     for name in sorted(selections):
         if name not in catalog.components:
             resolution.errors.append(
                 f"target {target.name!r} references unknown component {name!r}; "
                 f"known components: {', '.join(sorted(catalog.components))}"
             )
-        elif catalog.components[name].is_deps:
+            continue
+        component = catalog.components[name]
+        if not component.is_deps:
+            pending.append(name)
+            continue
+        # A target selects a deps component to install its packages without
+        # requiring a component: the flywheel runtime is core code, so the
+        # environment that enables it opts in here.
+        selection = selections[name]
+        if selection.variant is not None:
             resolution.errors.append(
-                f"target {target.name!r} selects deps component {name!r}; deps "
-                "components are installed by the components that require them, so "
-                "remove the [components] entry and add "
-                f"'requires = [\"{name}\"]' to a consuming component"
+                f"target {target.name!r} selects deps component {name!r} with "
+                "'variant'; deps components have no code and no optional groups"
             )
-    pending = [
-        name
-        for name in sorted(selections)
-        if name in catalog.components and not catalog.components[name].is_deps
-    ]
+        if name not in resolution.deps:
+            resolution.deps.append(name)
+        resolution.components.setdefault(
+            name,
+            ResolvedComponent(component=component, variant=None),
+        )
     placed: set[str] = set()
     while pending:
         name = pending.pop(0)
@@ -426,20 +416,8 @@ def resolve(
                 f"expected one of {', '.join(sorted(component.optional)) or '<none>'}"
             )
             variant = None
-        placement = (
-            selection.placement
-            if selection is not None and selection.placement is not None
-            else component.default_placement
-        )
-        if placement not in component.placements:
-            resolution.errors.append(
-                f"component {name!r} cannot use placement {placement!r}; "
-                f"allowed: {', '.join(component.placements)}"
-            )
-            placement = component.default_placement
         resolution.components[name] = ResolvedComponent(
             component=component,
-            placement=placement,
             variant=variant,
         )
         for required in component.requires:
@@ -449,13 +427,6 @@ def resolve(
                 )
                 continue
             if catalog.components[required].is_deps:
-                if placement == "remote":
-                    resolution.errors.append(
-                        f"component {name!r} requires deps component {required!r} "
-                        "but is placed remotely; deps components install with the "
-                        "environment of the component that requires them"
-                    )
-                    continue
                 if required not in resolution.deps:
                     resolution.deps.append(required)
                 # One deps component installs once, no matter how many
@@ -465,7 +436,6 @@ def resolve(
                     required,
                     ResolvedComponent(
                         component=catalog.components[required],
-                        placement="in-env",
                         variant=None,
                     ),
                 )
@@ -488,12 +458,7 @@ def resolve(
                 or left_name in right.component.env_conflicts
             ):
                 resolution.errors.append(
-                    _format_conflict(
-                        left,
-                        right,
-                        target=target.name,
-                        target_path=display,
-                    )
+                    _format_conflict(left, right, target=target.name)
                 )
     requirements = [
         (name, requirement)

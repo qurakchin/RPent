@@ -31,7 +31,6 @@ IMPORT_ROOT = Path(rpent.__file__).resolve().parents[1]
 GROUP_INITS = {
     "robots": ("robots",),
     "components/models": ("components", "components/models"),
-    "components/toolkits": ("components", "components/toolkits"),
 }
 
 
@@ -69,7 +68,6 @@ SKELETON = {
         "prompts/__init__.py",
         "prompts/domain.py",
     ),
-    "toolkit": ("__init__.py", "tool.py", "core.py", "observation.py"),
     "model": ("__init__.py", "server.py"),
 }
 
@@ -80,8 +78,6 @@ def _skeleton(directory, kind):
         path.parent.mkdir(parents=True, exist_ok=True)
         if not path.exists():
             path.write_text("", encoding="utf-8")
-    if kind == "toolkit":
-        (directory / "evaluation").mkdir(exist_ok=True)
 
 
 def _write(path, text):
@@ -101,12 +97,14 @@ def _run(root):
 
 def test_missing_component_manifest_is_reported(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
-    (tmp_path / "components" / "toolkits" / "geometry").mkdir(parents=True)
+    directory = tmp_path / "components" / "models" / "sam3"
+    directory.mkdir(parents=True)
+    (directory / "server.py").write_text("", encoding="utf-8")
 
     result = _run(tmp_path)
 
     assert result.returncode == 1
-    assert "toolkit directory has no component.toml" in result.stdout
+    assert "model directory has no component.toml" in result.stdout
 
 
 def test_cross_robot_import_requires_a_declared_extension(tmp_path, write_toml):
@@ -161,20 +159,6 @@ def test_relative_sibling_model_import_is_reported(tmp_path, write_toml):
 
     assert result.returncode == 1
     assert "model 'alpha' must not import sibling 'beta'" in result.stdout
-
-
-def test_relative_toolkit_import_of_a_robot_is_reported(tmp_path, write_toml):
-    _component(write_toml, "robots", "alpha", "robot")
-    _component(write_toml, "components/toolkits", "geometry", "toolkit")
-    _write(
-        tmp_path / "components" / "toolkits" / "geometry" / "core.py",
-        "from ....robots.alpha import spec\n",
-    )
-
-    result = _run(tmp_path)
-
-    assert result.returncode == 1
-    assert "toolkits must not import robots" in result.stdout
 
 
 def test_declared_extension_allows_a_relative_import(tmp_path, write_toml):
@@ -323,17 +307,12 @@ def test_pre_migration_slice_names_only_warn(tmp_path, write_toml):
     assert "robot_spec.py" in result.stdout
 
 
-def test_model_toolkit_and_core_imports_are_rejected(tmp_path, write_toml):
+def test_model_and_core_imports_are_rejected(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
     _component(write_toml, "components/models", "sam3", "model")
-    _component(write_toml, "components/toolkits", "geometry", "toolkit")
     _write(
         tmp_path / "components" / "models" / "sam3" / "client.py",
         "from robots.alpha import robot_spec\n",
-    )
-    _write(
-        tmp_path / "components" / "toolkits" / "geometry" / "tool.py",
-        "import robots\n",
     )
     _write(
         tmp_path / "rpent" / "planner" / "planner.py",
@@ -344,7 +323,6 @@ def test_model_toolkit_and_core_imports_are_rejected(tmp_path, write_toml):
 
     assert result.returncode == 1
     assert "model 'sam3' must not import robots" in result.stdout
-    assert "toolkits must not import robots" in result.stdout
     assert "core must not import concrete robot 'alpha'" in result.stdout
 
 
@@ -361,25 +339,6 @@ def test_bare_alias_is_reported_once(tmp_path, write_toml):
 
     assert result.returncode == 1
     assert result.stdout.count("core must not import model services") == 1
-
-
-def test_models_and_toolkits_must_not_import_each_other(tmp_path, write_toml):
-    _component(write_toml, "components/models", "sam3", "model")
-    _component(write_toml, "components/toolkits", "geometry", "toolkit")
-    _write(
-        tmp_path / "components" / "models" / "sam3" / "client.py",
-        "from components.toolkits.geometry import tool\n",
-    )
-    _write(
-        tmp_path / "components" / "toolkits" / "geometry" / "tool.py",
-        "from components.models.sam3 import client\n",
-    )
-
-    result = _run(tmp_path)
-
-    assert result.returncode == 1
-    assert "model 'sam3' must not import components.toolkits" in result.stdout
-    assert "toolkit 'geometry' must not import components.models" in result.stdout
 
 
 def test_backend_table_may_name_robots(tmp_path, write_toml):

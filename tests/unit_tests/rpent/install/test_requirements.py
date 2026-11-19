@@ -36,21 +36,17 @@ def resolution(make_component, make_target, make_catalog):
         dependencies=["numpy>=2", "torch==2.7.0"],
         optional={"pro": ("extra-package",)},
     )
-    remote = make_component(
+    model = make_component(
         "molmo",
         kind="model",
-        placements=("in-env", "remote"),
         dependencies=["transformers>=4.57"],
     )
     target = make_target(
         "alpha",
-        {
-            "alpha": Selection(variant="pro"),
-            "molmo": Selection(placement="remote"),
-        },
+        {"alpha": Selection(variant="pro"), "molmo": Selection()},
         dependencies=["pytest"],
     )
-    catalog = make_catalog(components=[robot, remote])
+    catalog = make_catalog(components=[robot, model])
     return resolve(target, catalog)
 
 
@@ -72,16 +68,13 @@ def test_render_requirements_groups_core_target_and_components(resolution, tmp_p
     assert "extra-package" in text
 
 
-def test_remote_component_installs_only_its_client(resolution, tmp_path):
+def test_a_selected_model_renders_its_own_packages(resolution, tmp_path):
     text = render_requirements(
         resolution, root=tmp_path, core_dependencies=("packaging",)
     )
 
-    # A remote component runs outside this target; the target needs its
-    # client and contract, not the service's own packages.
-    assert resolution.components["molmo"].placement == "remote"
-    assert "transformers>=4.57" not in text
-    assert "# component molmo" not in text
+    assert "# component molmo" in text
+    assert "transformers>=4.57" in text
 
 
 def test_core_can_be_disabled(make_component, make_target, make_catalog):
@@ -111,7 +104,7 @@ def test_requirements_hash_tracks_manifests_and_options(
     )
     assert inputs["schema"] == INPUT_SCHEMA
     assert inputs["target"]["components"]["alpha"]["variant"] == "pro"
-    assert inputs["target"]["components"]["molmo"]["placement"] == "remote"
+    assert inputs["target"]["components"]["molmo"]["variant"] is None
     assert inputs["target"]["manylinux"] == "2_31"
     assert inputs["core_dependencies"] == ["packaging"]
 
@@ -145,12 +138,9 @@ def test_requirements_inputs_record_deps_components(
     resolution = resolve(target, catalog)
 
     inputs = requirements_inputs(resolution, root=tmp_path)
-    assert inputs["target"]["components"]["rlinf"]["placement"] == "in-env"
-    # A target installs one environment, so a component entry records only
-    # what decides that environment's contents.
+    # A component entry records only what decides the environment's contents.
     assert set(inputs["target"]["components"]["rlinf"]) == {
         "manifest_sha256",
-        "placement",
         "variant",
     }
 

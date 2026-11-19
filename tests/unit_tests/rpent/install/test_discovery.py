@@ -50,10 +50,8 @@ def test_discovery_loads_components_targets_and_conflict_symmetry(tmp_path, writ
         python = "3.11"
 
         [components.alpha]
-        placement = "in-env"
 
         [components.beta]
-        placement = "in-env"
         """,
     )
 
@@ -61,7 +59,7 @@ def test_discovery_loads_components_targets_and_conflict_symmetry(tmp_path, writ
 
     assert sorted(catalog.components) == ["alpha", "beta", "sam3"]
     assert catalog.components["sam3"].kind == "model"
-    assert catalog.targets["gpu"].components["alpha"].placement == "in-env"
+    assert "alpha" in catalog.targets["gpu"].components
 
 
 def test_component_kind_must_match_root(tmp_path, write_toml):
@@ -73,7 +71,7 @@ def test_component_kind_must_match_root(tmp_path, write_toml):
 
 def test_duplicate_component_names_are_rejected(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "robot")
-    _manifest(write_toml, "components/toolkits", "alpha", "toolkit")
+    _manifest(write_toml, "components/models", "alpha", "model")
 
     with pytest.raises(InstallConfigError, match="declared twice"):
         discover_components(tmp_path)
@@ -121,11 +119,11 @@ def test_targets_are_discovered_by_filename(tmp_path, write_toml):
 
 def test_a_component_without_a_target_file_is_installable_by_name(tmp_path, write_toml):
     write_toml(
-        "components/toolkits/alpha/component.toml",
+        "components/models/alpha/component.toml",
         """
         schema = 2
         name = "alpha"
-        kind = "toolkit"
+        kind = "model"
         probe = "alpha"
         python = "3.11"
         """,
@@ -136,7 +134,7 @@ def test_a_component_without_a_target_file_is_installable_by_name(tmp_path, writ
     assert targets["alpha"].python == "3.11"
     assert (
         targets["alpha"].relative_path(tmp_path)
-        == "components/toolkits/alpha/component.toml"
+        == "components/models/alpha/component.toml"
     )
     assert list(targets["alpha"].components) == ["alpha"]
 
@@ -260,17 +258,17 @@ def test_imports_must_name_a_same_kind_component(tmp_path, write_toml):
 
 def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
     write_toml(
-        "components/toolkits/alpha/component.toml",
+        "components/models/alpha/component.toml",
         """
         schema = 2
         name = "alpha"
-        kind = "toolkit"
+        kind = "model"
         probe = "alpha"
         requires = ["beta"]
         imports = ["beta"]
         """,
     )
-    _manifest(write_toml, "components/toolkits", "beta", "toolkit", requires=["alpha"])
+    _manifest(write_toml, "components/models", "beta", "model", requires=["alpha"])
 
     with pytest.raises(InstallConfigError, match="imports is only for robot slices"):
         discover_components(tmp_path)
@@ -439,3 +437,52 @@ def test_a_target_baseline_must_cover_the_components_it_installs(tmp_path, write
 
     with pytest.raises(InstallConfigError, match="cannot serve alpha"):
         discover_targets(tmp_path)
+
+
+def _deps_manifest(write_toml, name):
+    return write_toml(
+        f"installs/deps/{name}.toml",
+        f"""
+        schema = 2
+        name = "{name}"
+        kind = "deps"
+        python = "3.11"
+        probe = "{name}"
+        """,
+    )
+
+
+def test_a_target_may_select_a_deps_component(tmp_path, write_toml):
+    _deps_manifest(write_toml, "shared")
+    _manifest(write_toml, "robots", "alpha", "robot", requires=["shared"])
+    write_toml(
+        "installs/targets/gpu.toml",
+        """
+        schema = 2
+        kind = "target"
+        name = "gpu"
+        python = "3.11"
+
+        [components.alpha]
+
+        [components.shared]
+        """,
+    )
+
+    targets = discover_targets(tmp_path)
+
+    assert "shared" in targets["gpu"].components
+
+
+def test_a_deps_component_needs_two_consumers_or_a_target_selection(
+    tmp_path, write_toml
+):
+    _deps_manifest(write_toml, "shared")
+    _manifest(write_toml, "robots", "alpha", "robot", requires=["shared"])
+
+    with pytest.raises(InstallConfigError, match="no target selects it"):
+        discover_targets(tmp_path)
+
+    _manifest(write_toml, "robots", "beta", "robot", requires=["shared"])
+
+    assert "shared" in discover(tmp_path).components

@@ -45,22 +45,22 @@ def repo(tmp_path, write_toml):
         """,
     )
     write_toml(
-        "components/toolkits/alpha/component.toml",
+        "components/models/alpha/component.toml",
         """
         schema = 2
         name = "alpha"
-        kind = "toolkit"
+        kind = "model"
         probe = "json"
         python = "3.11"
         dependencies = ["numpy>=2"]
         """,
     )
     write_toml(
-        "components/toolkits/beta/component.toml",
+        "components/models/beta/component.toml",
         """
         schema = 2
         name = "beta"
-        kind = "toolkit"
+        kind = "model"
         probe = "json"
         python = "3.11"
         manylinux = "2_35"
@@ -189,18 +189,18 @@ def test_compile_resolves_override_files_against_the_checkout(
     # uv resolves relative paths against its working directory, so a compile
     # from a subdirectory would otherwise miss the override.
     write_toml(
-        "components/toolkits/alpha/component.toml",
+        "components/models/alpha/component.toml",
         """
         schema = 2
         name = "alpha"
-        kind = "toolkit"
+        kind = "model"
         probe = "json"
         python = "3.11"
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
     )
-    write_toml("components/toolkits/alpha/requirements/override.txt", "numpy<3\n")
+    write_toml("components/models/alpha/requirements/override.txt", "numpy<3\n")
     catalog = discover(repo)
     output = repo / "tests/locks/alpha.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -211,7 +211,7 @@ def test_compile_resolves_override_files_against_the_checkout(
 
     arguments = _arguments(fake_uv)
     value = arguments[arguments.index("--overrides") + 1]
-    assert value == str(repo / "components/toolkits/alpha/requirements/override.txt")
+    assert value == str(repo / "components/models/alpha/requirements/override.txt")
     assert os.path.isabs(value)
 
 
@@ -236,7 +236,7 @@ def test_compile_rejects_a_python_request_no_supported_minor_satisfies(
     component = make_component("alpha", python=">=3.10,<3.11")
     target = make_target(
         "alpha",
-        components={"alpha": Selection(placement="in-env")},
+        components={"alpha": Selection()},
         python="3.12",
         core=False,
     )

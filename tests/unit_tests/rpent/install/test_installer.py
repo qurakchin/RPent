@@ -51,11 +51,11 @@ def repo(tmp_path, write_toml):
     )
     major, minor = sys.version_info[:2]
     write_toml(
-        "components/toolkits/alpha/component.toml",
+        "components/models/alpha/component.toml",
         f"""
         schema = 2
         name = "alpha"
-        kind = "toolkit"
+        kind = "model"
         probe = "json"
         python = "{major}.{minor}"
         dependencies = ["numpy>=2"]
@@ -167,7 +167,7 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
     assert read_fingerprint(venv) == fingerprint
     assert fingerprint["schema"] == INPUT_SCHEMA
     assert fingerprint["target"] == "alpha"
-    assert fingerprint["components"]["alpha"]["placement"] == "in-env"
+    assert fingerprint["components"]["alpha"]["variant"] is None
     assert fingerprint["requirements_file"] == "rpent-requirements.txt"
     assert "component_targets" not in fingerprint
     assert "lock" not in fingerprint
@@ -219,25 +219,25 @@ def test_install_passes_override_files_by_absolute_path(
     # be run from a subdirectory, so manifests are resolved against the
     # checkout before being handed over.
     write_toml(
-        "components/toolkits/alpha/component.toml",
+        "components/models/alpha/component.toml",
         """
         schema = 2
         name = "alpha"
-        kind = "toolkit"
+        kind = "model"
         probe = "json"
         python = "3.11"
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
     )
-    write_toml("components/toolkits/alpha/requirements/override.txt", "numpy<3\n")
+    write_toml("components/models/alpha/requirements/override.txt", "numpy<3\n")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
     install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
     arguments = install_arguments()[0]
     value = arguments[arguments.index("--override") + 1]
-    assert value == str(repo / "components/toolkits/alpha/requirements/override.txt")
+    assert value == str(repo / "components/models/alpha/requirements/override.txt")
     assert os.path.isabs(value)
 
 
@@ -266,11 +266,11 @@ def test_install_probes_the_deps_components_of_the_environment(
     major, minor = sys.version_info[:2]
     for name in ("alpha", "beta"):
         write_toml(
-            f"components/toolkits/{name}/component.toml",
+            f"components/models/{name}/component.toml",
             f"""
             schema = 2
             name = "{name}"
-            kind = "toolkit"
+            kind = "model"
             probe = "json"
             python = "{major}.{minor}"
             requires = ["shared"]
@@ -291,7 +291,7 @@ def test_install_probes_the_deps_components_of_the_environment(
     fingerprint = install("alpha", root=tmp_path, venv=tmp_path / "venv", verbose=True)
 
     assert "probe shared: import json" in capsys.readouterr().out
-    assert fingerprint["components"]["shared"]["placement"] == "in-env"
+    assert fingerprint["components"]["shared"]["variant"] is None
 
 
 def test_install_refuses_a_venv_belonging_to_another_target(

@@ -15,7 +15,7 @@
 """Install manifests: code components and the targets users install.
 
 One schema covers both. A directory component (``robots/``,
-``components/models/``, ``components/toolkits/``) declares the packages it owns
+``components/models/``) declares the packages it owns
 and can be installed directly by name. A target is a manifest without code:
 ``installs/targets/<name>.toml`` composes components, ``tests/targets/`` serves
 only tests and CI. Targets may add packages that belong to no component but
@@ -41,14 +41,9 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
 SCHEMA = 2
-KINDS = ("robot", "toolkit", "model", "deps", "target")
+KINDS = ("robot", "model", "deps", "target")
 #: Kinds declared by ``component.toml`` inside the component's own directory.
-DIRECTORY_KINDS = ("robot", "toolkit", "model")
-#: How a target may place a component. ``remote`` means the target installs
-#: only the client and the contract; the service runs outside this repository.
-#: A service that needs its own environment is a separate target, never a
-#: second environment owned by this one.
-PLACEMENTS = ("in-env", "remote")
+DIRECTORY_KINDS = ("robot", "model")
 #: ``uv``'s multi-index strategies; see ``--index-strategy`` in ``uv pip compile``.
 INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
 #: Python minors the repository supports, newest first. A requested range is
@@ -92,7 +87,6 @@ _ALLOWED_KEYS = {
             "kind",
             "probe",
             "python",
-            "placement",
             "variant",
             "variant_required",
             "requires",
@@ -101,7 +95,6 @@ _ALLOWED_KEYS = {
             "dependencies",
             "optional",
             "overrides",
-            "extra",
             "core",
             "description",
             "index-url",
@@ -118,7 +111,6 @@ _ALLOWED_KEYS = {
             "python",
             "components",
             "dependencies",
-            "extra",
             "core",
             "description",
             "index-url",
@@ -212,17 +204,6 @@ def _dependency_list(
     return values
 
 
-def _placement_list(data: dict[str, Any], path: Path) -> tuple[str, ...]:
-    placements = _string_list(data, "placement", path) or ("in-env",)
-    unknown = sorted(set(placements) - set(PLACEMENTS))
-    if unknown:
-        raise InstallConfigError(
-            f"{path}: unknown placement(s) {', '.join(unknown)}; "
-            f"expected one of {', '.join(PLACEMENTS)}"
-        )
-    return placements
-
-
 def _optional_groups(data: dict[str, Any], path: Path) -> dict[str, tuple[str, ...]]:
     optional = data.get("optional", {})
     if not isinstance(optional, dict):
@@ -283,8 +264,6 @@ class TargetSettings:
     """Install settings shared by components and targets."""
 
     core: bool = True
-    generate_extra: bool = True
-    extra: str | None = None
     description: str | None = None
     index_url: str | None = None
     extra_index_urls: tuple[str, ...] = ()
@@ -292,18 +271,7 @@ class TargetSettings:
     manylinux: str = "2_31"
 
 
-def _target_settings(data: dict[str, Any], path: Path, name: str) -> TargetSettings:
-    extra_value = data.get("extra", name)
-    if extra_value is False:
-        generate_extra = False
-        extra = None
-    elif extra_value is True or isinstance(extra_value, str):
-        generate_extra = True
-        extra = name if extra_value is True else extra_value
-        if not extra:
-            raise InstallConfigError(f"{path}: 'extra' must be a non-empty string")
-    else:
-        raise InstallConfigError(f"{path}: 'extra' must be a string or false")
+def _target_settings(data: dict[str, Any], path: Path) -> TargetSettings:
     core = data.get("core", True)
     if not isinstance(core, bool):
         raise InstallConfigError(f"{path}: 'core' must be a boolean")
@@ -319,8 +287,6 @@ def _target_settings(data: dict[str, Any], path: Path, name: str) -> TargetSetti
         )
     return TargetSettings(
         core=core,
-        generate_extra=generate_extra,
-        extra=extra,
         description=_optional_string(data, "description", path),
         index_url=_optional_string(data, "index-url", path),
         extra_index_urls=_string_list(data, "extra-index-urls", path),
@@ -342,7 +308,6 @@ class Component:
     requires: tuple[str, ...]
     imports: tuple[str, ...]
     env_conflicts: tuple[str, ...]
-    placements: tuple[str, ...]
     default_variant: str | None
     variant_required: bool
     dependencies: tuple[str, ...]
@@ -355,16 +320,6 @@ class Component:
     def manifest_path(self) -> Path:
         """Return the manifest path."""
         return self.manifest
-
-    @property
-    def default_placement(self) -> str:
-        """Return where a target installs the component unless it says otherwise.
-
-        Targets write ``placement`` only for ``remote`` components, so a
-        component that can be installed locally always defaults to the
-        target's own environment.
-        """
-        return "in-env" if "in-env" in self.placements else self.placements[0]
 
     @property
     def is_deps(self) -> bool:
@@ -385,9 +340,8 @@ class Component:
 
 @dataclass(frozen=True)
 class Selection:
-    """How a target places one component."""
+    """How a target installs one optional variant of a component."""
 
-    placement: str | None = None
     variant: str | None = None
 
 
@@ -404,8 +358,6 @@ class Target:
     extra_index_urls: tuple[str, ...]
     index_strategy: str | None
     core: bool
-    generate_extra: bool
-    extra: str | None
     description: str | None
     manylinux: str = "2_31"
 
@@ -467,12 +419,7 @@ def load_deps_component(path: Path) -> Component:
     if kind != "deps":
         raise InstallConfigError(
             f"{path}: 'kind' must be 'deps'; use component.toml in a component "
-            "directory for robots, models and toolkits"
-        )
-    if "placement" in data or "default_placement" in data:
-        raise InstallConfigError(
-            f"{path}: deps components follow the components that require them; "
-            "remove 'placement' and 'default_placement'"
+            "directory for robots and models"
         )
     if data.get("imports"):
         raise InstallConfigError(
@@ -504,7 +451,6 @@ def _component(
     if not isinstance(probe, str) or not probe:
         raise InstallConfigError(f"{path}: 'probe' must be a non-empty import path")
     python = _python_spec(data, path, required=False)
-    placements: tuple[str, ...] = () if kind == "deps" else _placement_list(data, path)
     optional = _optional_groups(data, path)
     default_variant = _optional_string(data, "variant", path)
     if default_variant is not None and default_variant not in optional:
@@ -543,14 +489,13 @@ def _component(
         requires=_string_list(data, "requires", path),
         imports=_string_list(data, "imports", path),
         env_conflicts=_string_list(data, "env_conflicts", path),
-        placements=placements,
         default_variant=default_variant,
         variant_required=variant_required,
         dependencies=_dependency_list(data, "dependencies", path),
         optional=optional,
         overrides=overrides,
         manifest_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-        settings=_target_settings(data, path, name),
+        settings=_target_settings(data, path),
     )
 
 
@@ -564,24 +509,18 @@ def _selections(data: dict[str, Any], path: Path) -> dict[str, Selection]:
             raise InstallConfigError(
                 f"{path}: components.{component_name} must be a table"
             )
-        unknown = sorted(set(raw) - {"placement", "variant"})
+        unknown = sorted(set(raw) - {"variant"})
         if unknown:
             raise InstallConfigError(
                 f"{path}: components.{component_name} has unknown field(s): "
                 f"{', '.join(unknown)}"
-            )
-        placement = raw.get("placement")
-        if placement is not None and placement not in PLACEMENTS:
-            raise InstallConfigError(
-                f"{path}: components.{component_name}.placement must be one of "
-                f"{', '.join(PLACEMENTS)}"
             )
         variant = raw.get("variant")
         if variant is not None and not isinstance(variant, str):
             raise InstallConfigError(
                 f"{path}: components.{component_name}.variant must be a string"
             )
-        components[component_name] = Selection(placement=placement, variant=variant)
+        components[component_name] = Selection(variant=variant)
     return components
 
 
@@ -599,7 +538,7 @@ def load_target(path: Path) -> Target:
     if kind != "target":
         raise InstallConfigError(f'{path}: target manifests declare kind = "target"')
     python = _python_spec(data, path, required=True)
-    settings = _target_settings(data, path, name)
+    settings = _target_settings(data, path)
     return Target(
         name=name,
         path=path,
@@ -610,8 +549,6 @@ def load_target(path: Path) -> Target:
         extra_index_urls=settings.extra_index_urls,
         index_strategy=settings.index_strategy,
         core=settings.core,
-        generate_extra=settings.generate_extra,
-        extra=settings.extra,
         description=settings.description,
         manylinux=settings.manylinux,
     )
@@ -635,8 +572,6 @@ def target_from_component(component: Component) -> Target:
         extra_index_urls=settings.extra_index_urls,
         index_strategy=settings.index_strategy,
         core=settings.core,
-        generate_extra=settings.generate_extra,
-        extra=settings.extra,
         description=settings.description,
         manylinux=settings.manylinux,
     )

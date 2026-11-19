@@ -243,7 +243,6 @@ def install(
         "components": {
             name: {
                 "manifest_sha256": resolved.component.manifest_sha256,
-                "placement": resolved.placement,
                 "variant": resolved.variant,
             }
             for name, resolved in sorted(resolution.components.items())

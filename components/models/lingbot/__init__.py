@@ -12,12 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Target localization: point selection, segmentation, back-projection, fitting."""
-
-from components.toolkits.geometry.tool import (
-    GeometryToolConfig,
-    estimate_geometry,
-    geometry,
-)
-
-__all__ = ["GeometryToolConfig", "estimate_geometry", "geometry"]
+"""LingBot-VLA EEF16 action-model package."""

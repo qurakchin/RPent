@@ -455,7 +455,8 @@ def _spawn_vla_server(
         host, port = "127.0.0.1", pick_free_port()
         daemon = am.spawn_worker(
             [
-                str(get_repo_root() / "robots" / "robocasa" / "vla_server.py"),
+                "-m",
+                "components.models.rldx.server",
                 "--model-path",
                 am.checkpoint,
                 "--transport",
@@ -486,7 +487,7 @@ def _init_runtime(
     """
     select_am(args, "robocasa")
     from robots.robocasa.env_client import RoboCasaEnvClient
-    from robots.robocasa.vla_client import RoboCasaVLAClient
+    from components.models.rldx.client import RoboCasaVLAClient
 
     starters = {
         "env": lambda: _spawn_env_server(args, output_dir),

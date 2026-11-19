@@ -3,7 +3,6 @@ name = "yam"
 kind = "robot"
 probe = "robots.yam"
 python = ">=3.11,<3.12"
-extra = "yam"
 description = "Dual-arm YAM control dependencies without a policy model."
 
 dependencies = [

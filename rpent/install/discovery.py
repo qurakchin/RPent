@@ -35,7 +35,6 @@ from rpent.install.manifest import (
 COMPONENT_ROOTS = (
     ("robots/*/component.toml", "robot"),
     ("components/models/*/component.toml", "model"),
-    ("components/toolkits/*/component.toml", "toolkit"),
     ("installs/deps/*.toml", "deps"),
 )
 
@@ -113,7 +112,6 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
             )
         components[component.name] = component
     _check_conflicts(components)
-    _check_deps_consumers(components)
     _check_imports(components)
     return _close_conflicts(components)
 
@@ -157,8 +155,15 @@ def _check_imports(components: dict[str, Component]) -> None:
                 )
 
 
-def _check_deps_consumers(components: dict[str, Component]) -> None:
-    """Require every deps component to serve at least two components."""
+def _check_deps_consumers(
+    components: dict[str, Component], targets: dict[str, Target]
+) -> None:
+    """Require every deps component to earn its indirection.
+
+    A deps component either shares its packages between at least two
+    components, or names a package group that a target installs into its
+    environment on purpose, like the flywheel runtime core code uses.
+    """
     consumers: dict[str, list[str]] = {name: [] for name in components}
     for component in components.values():
         if component.is_deps:
@@ -166,16 +171,24 @@ def _check_deps_consumers(components: dict[str, Component]) -> None:
         for required in component.requires:
             if required in consumers:
                 consumers[required].append(component.name)
+    selected = {
+        name
+        for target in targets.values()
+        for name in target.components
+        if name in consumers and components[name].is_deps
+    }
     for name, component in components.items():
         if not component.is_deps:
             continue
         used_by = sorted(set(consumers[name]))
-        if len(used_by) < 2:
-            raise InstallConfigError(
-                f"{component.manifest_path}: deps component {name!r} is required "
-                f"by {', '.join(used_by) or 'no component'}; a single consumer "
-                "belongs in that component's own dependencies"
-            )
+        if len(used_by) >= 2 or name in selected:
+            continue
+        raise InstallConfigError(
+            f"{component.manifest_path}: deps component {name!r} is required "
+            f"by {', '.join(used_by) or 'no component'} and no target selects "
+            "it; a single consumer belongs in that component's own "
+            "dependencies"
+        )
 
 
 def _check_conflicts(components: dict[str, Component]) -> None:
@@ -226,11 +239,7 @@ def _baseline(value: str) -> tuple[int, int]:
 def _installed_components(
     target: Target, components: dict[str, Component]
 ) -> list[Component]:
-    """Return the closure components this target installs into its environment.
-
-    Remotely placed components install nothing here, so their index and
-    platform requirements do not constrain this environment.
-    """
+    """Return the closure components this target installs into its environment."""
     seen: set[str] = set()
     pending = list(target.components)
     installed: list[Component] = []
@@ -240,19 +249,7 @@ def _installed_components(
             continue
         seen.add(name)
         component = components[name]
-        selection = target.components.get(name)
-        # A deps component always installs with its consumers.
-        placement = (
-            "in-env"
-            if component.is_deps
-            else (
-                selection.placement
-                if selection is not None and selection.placement is not None
-                else component.default_placement
-            )
-        )
-        if placement != "remote":
-            installed.append(component)
+        installed.append(component)
         pending.extend(component.requires)
     return installed
 
@@ -384,6 +381,7 @@ def _targets(repo_root: Path, components: dict[str, Component]) -> dict[str, Tar
             # install.
             continue
         targets[name] = target_from_component(component)
+    _check_deps_consumers(components, targets)
     return targets
 
 

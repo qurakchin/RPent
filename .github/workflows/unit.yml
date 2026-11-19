@@ -35,10 +35,6 @@ jobs:
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m tests.tooling.check --all
-      - name: Check generated extras
-        run: |
-          uv run --no-project --python 3.11 --with packaging -- \
-            python -m tests.tooling.extras --check
       - name: Check the runner partition
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
@@ -166,7 +162,7 @@ jobs:
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m rpent.cli.install install minimal --venv .venv-minimal
-      - name: Check CLI and robot discovery without robot extras
+      - name: Check CLI and robot discovery without robot environments
         run: |
           .venv-minimal/bin/python -c "
           import rpent

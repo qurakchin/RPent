@@ -1,0 +1,11 @@
+schema = 2
+name = "lingbot"
+kind = "model"
+probe = "components.models.lingbot.server"
+python = ">=3.11,<3.12"
+description = "LingBot-VLA EEF16 policy runtime for RoboTwin."
+
+dependencies = [
+  "numpy",
+  "rlinf-lingbotvla==0.1.3",
+]

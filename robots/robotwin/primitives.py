@@ -23,9 +23,10 @@ from typing import Annotated, Any, Literal
 import numpy as np
 from pydantic import Field
 
+from components.models.lingbot.client import LingBotVLAClient
 from robots.robotwin.env_client import RoboTwinEnvClient
+from robots.robotwin.observation import physical_observation
 from robots.robotwin.robot_spec import MODEL_SPEC, ROBOTWIN_CAMERA_NAMES
-from robots.robotwin.vla_client import LingBotVLAClient
 from robots.robotwin.wam_client import RoboTwinWAMClient
 from rpent.session.env_capture import CapturingEnvClient
 from rpent.tools import ToolResult, tool
@@ -317,7 +318,7 @@ class RoboTwinPrimitives:
                 actions = (
                     self.model.predict(observation)
                     if self.policy_kind == "wam"
-                    else self.model.infer(observation)
+                    else self.model.infer(physical_observation(observation))
                 )
                 if use_length is not None:
                     actions = actions[:use_length]

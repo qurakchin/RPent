@@ -179,7 +179,7 @@ VPP2 配置
 
 .. code-block:: bash
 
-   python -m robots.robodojo.vpp2_server --model-path /path/to/vpp2 \
+   python -m components.models.vpp2.server --model-path /path/to/vpp2 \
      --host 127.0.0.1 --port 9201
 
 在 RPent／仿真环境的任务命令中添加 ``--am-endpoint socket://127.0.0.1:9201``。RPent 负责启动和关闭自己创建的模型进程；独立启动的服务由其启动者管理。远端部署见 :doc:`../guides/advanced_deployment`。
@@ -222,7 +222,7 @@ Awomo05 配置
 
 .. code-block:: bash
 
-   python -m robots.robodojo.awomo05_server --model-path /path/to/awomo05 \
+   python -m components.models.awomo05.server --model-path /path/to/awomo05 \
      --host 127.0.0.1 --port 9205
 
 在 RPent／仿真环境的任务命令中添加 ``--am-endpoint socket://127.0.0.1:9205``。RPent 负责启动和关闭自己创建的模型进程；独立启动的服务由其启动者管理。远端部署见 :doc:`../guides/advanced_deployment`。

@@ -88,8 +88,8 @@ def _install_hint(component: str) -> str:
             f"install the environment that provides component {component!r}: "
             f"run `rpent-install list` and install a target that includes it"
         )
-    placement = fingerprint.get("components", {}).get(component)
-    if placement is None:
+    recorded = fingerprint.get("components", {}).get(component)
+    if recorded is None:
         targets = _targets_by_component().get(component, [])
         if targets:
             return (
@@ -100,12 +100,6 @@ def _install_hint(component: str) -> str:
         return (
             f"component {component!r} is not part of target {target!r}; "
             "install a target that includes it"
-        )
-    if placement.get("placement") == "remote":
-        return (
-            f"component {component!r} runs outside target {target!r}; install its "
-            "own target on that host, then rerun "
-            f"`rpent-install install {target}` to restore the client"
         )
     return f"rerun `rpent-install install {target}` to repair the environment"
 

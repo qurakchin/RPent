@@ -74,9 +74,9 @@ Follow these conventions while developing:
   repository-wide cleanup should normally be separate pull requests.
 - **Keep code in the appropriate module.** Reuse existing implementations
   where possible. Put integration code for a specific robot or simulation
-  environment in its `robots/<name>/` directory, model services in
-  `components/models/<name>/`, and toolkits in `components/toolkits/<name>/`.
-  Place shared functionality in common modules with matching responsibilities.
+  environment in its `robots/<name>/` directory and model services in
+  `components/models/<name>/`. Place shared functionality in common modules
+  with matching responsibilities.
   Install recipes and dependency-only components live under `installs/`;
   optional reproduction locks live under `tests/locks/`.
 - **Check responsibilities and impact when changing shared modules, classes,
@@ -90,8 +90,8 @@ Follow these conventions while developing:
 - **Import optional dependencies only where they are used.** For example,
   import `robosuite` inside the RoboCasa code that needs it, not at module
   import time. This keeps `import rpent`, robot discovery, and CLI help usable
-  without every simulator installed. Put integration-only dependencies in an
-  optional extra.
+  without every simulator installed. Put integration-only dependencies in the
+  manifest of the component that uses them.
 - **Keep existing interfaces and behavior compatible.** When changing APIs,
   CLI options, configuration, or stored data formats, check that existing
   callers and data still work. Check changes to parameter meanings, defaults,
@@ -103,8 +103,8 @@ Follow these conventions while developing:
   update the tests and explain why. Unit tests must run offline on an ordinary
   CPU machine; use fakes when model or service output is needed. Installer
   units use synthetic manifests under `tests/unit_tests/rpent/install/`;
-  contracts over the checked-in components, targets, locks, and packaging
-  extras belong in `tests/unit_tests/installs/`.
+  contracts over the checked-in components, targets, and locks belong in
+  `tests/unit_tests/installs/`.
 - **Follow the project style.** Pre-commit handles Ruff formatting and linting.
   Public Python APIs should have type hints and Google-style docstrings, and
   runtime messages should use the project logger rather than `print`.

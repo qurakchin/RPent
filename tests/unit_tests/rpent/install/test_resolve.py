@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Targets resolve into placement groups and actionable configuration errors."""
+"""Targets resolve into environments and actionable configuration errors."""
 
 from rpent.install.manifest import Selection
 from rpent.install.resolve import resolve
@@ -22,18 +22,17 @@ def _catalog(make_catalog, *components):
     return make_catalog(components=list(components))
 
 
-def test_requires_closure_adds_components_with_default_placement(
+def test_requires_closure_adds_components_to_the_environment(
     make_component, make_target, make_catalog
 ):
     robot = make_component("alpha", requires=["sam3"])
-    sam3 = make_component("sam3", kind="model", placements=("in-env", "remote"))
+    sam3 = make_component("sam3", kind="model")
     target = make_target("alpha", {"alpha": Selection()})
     catalog = _catalog(make_catalog, robot, sam3)
 
     resolution = resolve(target, catalog)
 
     assert resolution.ok
-    assert resolution.components["sam3"].placement == "in-env"
     assert sorted(resolution.main_installed()) == ["alpha", "sam3"]
 
 
@@ -124,43 +123,44 @@ def test_deps_component_joins_its_consumers_environment(
     assert sorted(resolution.main_installed()) == ["alpha", "molmo", "rlinf"]
 
 
-def test_remote_placement_installs_no_environment(
+def test_target_selects_a_deps_component_into_its_environment(
     make_component, make_target, make_catalog
 ):
-    molmo = make_component(
-        "molmo",
-        kind="model",
-        placements=("in-env", "remote"),
+    # Core code that needs packages nobody owns is enabled by the environment
+    # that uses it, without a component requiring the deps group.
+    flywheel = make_component(
+        "flywheel", kind="deps", dependencies=("lerobot", "av")
     )
-    target = make_target("flash", {"molmo": Selection(placement="remote")})
-    catalog = make_catalog(components=[molmo])
+    alpha = make_component("alpha")
+    target = make_target(
+        "robot-alpha", {"alpha": Selection(), "flywheel": Selection()}
+    )
+    catalog = _catalog(make_catalog, flywheel, alpha)
 
     resolution = resolve(target, catalog)
 
     assert resolution.ok
-    # A remote component installs nothing locally: it has no dependencies to
-    # render and must not be probed.
-    assert resolution.main_installed() == {}
+    assert resolution.deps == ["flywheel"]
+    assert sorted(resolution.main_installed()) == ["alpha", "flywheel"]
+    assert resolution.components["flywheel"].dependencies() == ("lerobot", "av")
 
 
-def test_remote_consumer_cannot_pull_in_a_deps_component(
+def test_target_cannot_vary_a_deps_component(
     make_component, make_target, make_catalog
 ):
-    molmo = make_component(
-        "molmo",
-        kind="model",
-        placements=("in-env", "remote"),
-        requires=["rlinf"],
+    flywheel = make_component("flywheel", kind="deps")
+    alpha = make_component("alpha")
+    target = make_target(
+        "robot-alpha",
+        {"alpha": Selection(), "flywheel": Selection(variant="cpu")},
     )
-    rlinf = make_component("rlinf", kind="deps")
-    target = make_target("flash", {"molmo": Selection(placement="remote")})
-    catalog = _catalog(make_catalog, molmo, rlinf)
+    catalog = _catalog(make_catalog, flywheel, alpha)
 
     resolution = resolve(target, catalog)
 
     assert not resolution.ok
     assert any(
-        "requires deps component 'rlinf' but is placed remotely" in error
+        "selects deps component 'flywheel' with 'variant'" in error
         for error in resolution.errors
     )
 
@@ -173,20 +173,6 @@ def test_unknown_component_is_reported(make_component, make_target, make_catalog
 
     assert not resolution.ok
     assert "references unknown component 'missing'" in resolution.errors[0]
-
-
-def test_unsupported_placement_falls_back_and_reports(
-    make_component, make_target, make_catalog
-):
-    robot = make_component("alpha", placements=("in-env",))
-    target = make_target("alpha", {"alpha": Selection(placement="remote")})
-    catalog = _catalog(make_catalog, robot)
-
-    resolution = resolve(target, catalog)
-
-    assert not resolution.ok
-    assert resolution.components["alpha"].placement == "in-env"
-    assert "cannot use placement 'remote'" in resolution.errors[0]
 
 
 def test_a_range_the_components_do_not_support_is_reported(
@@ -255,14 +241,10 @@ def test_conflict_reaches_components_pulled_in_by_requires(
     )
 
 
-def test_conflict_suggests_moving_the_component_that_can_leave_the_environment(
+def test_conflict_suggests_separate_targets_connected_by_endpoint(
     make_component, make_target, make_catalog
 ):
-    alpha = make_component(
-        "alpha",
-        env_conflicts=["beta"],
-        placements=("in-env", "remote"),
-    )
+    alpha = make_component("alpha", env_conflicts=["beta"])
     beta = make_component("beta", env_conflicts=["alpha"])
     target = make_target("shared", {"alpha": Selection(), "beta": Selection()})
     catalog = _catalog(make_catalog, alpha, beta)
@@ -270,8 +252,8 @@ def test_conflict_suggests_moving_the_component_that_can_leave_the_environment(
     resolution = resolve(target, catalog)
 
     assert (
-        "option 1: place alpha remotely in installs/targets/shared.toml"
-        in (resolution.errors[0])
+        "split alpha and beta into separate targets and connect them by "
+        "endpoint" in (resolution.errors[0])
     )
 
 
@@ -343,27 +325,15 @@ def test_target_dependencies_outside_the_closure_are_allowed(
     assert resolve(target, catalog).ok
 
 
-def test_declared_conflict_in_separate_environments_is_allowed(
+def test_declared_conflict_is_allowed_across_separate_targets(
     make_component, make_target, make_catalog
 ):
     alpha = make_component("alpha", env_conflicts=["beta"])
-    beta = make_component(
-        "beta",
-        env_conflicts=["alpha"],
-        placements=("in-env", "remote"),
-    )
-    target = make_target(
-        "shared",
-        {
-            "alpha": Selection(),
-            "beta": Selection(placement="remote"),
-        },
-    )
+    beta = make_component("beta", env_conflicts=["alpha"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    resolution = resolve(target, catalog)
-
-    assert resolution.ok
+    assert resolve(make_target("alpha", {"alpha": Selection()}), catalog).ok
+    assert resolve(make_target("beta", {"beta": Selection()}), catalog).ok
 
 
 def test_incompatible_pins_are_reported(make_component, make_target, make_catalog):

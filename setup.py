@@ -24,14 +24,8 @@ sdist is built from the source scope and carries every package (see
 """
 
 import os
-from pathlib import Path
 
 from setuptools import find_packages, setup
-
-try:  # Python 3.11+
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover - Python 3.10
-    import tomli as tomllib
 
 _SOURCE_PACKAGES = ["rpent", "rpent.*"]
 _COMPONENT_PACKAGES = ["robots", "robots.*", "components", "components.*"]
@@ -45,19 +39,4 @@ def _packages() -> list[str]:
     return find_packages(include=include, exclude=_EXCLUDED_PACKAGES)
 
 
-def _extras() -> dict[str, list[str]]:
-    """Return the compatibility extras, or none for the published core wheel."""
-    if os.environ.get("RPENT_WHEEL_SCOPE") == "core":
-        return {}
-    pyproject = Path(__file__).with_name("pyproject.toml")
-    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    return {
-        name: list(dependencies)
-        for name, dependencies in data.get("tool", {})
-        .get("rpent", {})
-        .get("extras", {})
-        .items()
-    }
-
-
-setup(packages=_packages(), extras_require=_extras())
+setup(packages=_packages())

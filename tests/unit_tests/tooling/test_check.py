@@ -31,7 +31,6 @@ def _write_target(write_toml, name, *, core=False):
         python = "3.11"
         {core_line}
         [components.alpha]
-        placement = "in-env"
         """,
     )
 

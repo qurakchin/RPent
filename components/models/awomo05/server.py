@@ -22,8 +22,11 @@ from pathlib import Path
 
 import numpy as np
 
-from robots.robodojo.access import ARX_X5_JOINT_FIELDS, validate_rgb
-from robots.robodojo.awomo05_client import REPLAN_STEPS
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+
+from components.models.awomo05.client import REPLAN_STEPS
+from components.models.awomo05.contracts import ARX_X5_JOINT_FIELDS, validate_rgb
 from rpent.models.facade import BaseVLAFacade
 
 

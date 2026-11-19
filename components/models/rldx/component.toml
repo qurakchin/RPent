@@ -1,0 +1,11 @@
+schema = 2
+name = "rldx"
+kind = "model"
+probe = "components.models.rldx.server"
+python = ">=3.10,<3.11"
+description = "RLDX policy runtime for RoboCasa."
+
+dependencies = [
+  "numpy",
+  "rlinf-rldx @ git+https://github.com/RLinf/RLDX-1.git@ebcfd13df5177e4b3e574bdf5a3b427c7c4a1e8a",
+]

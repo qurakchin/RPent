@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Frozen synthetic-analytic evaluation for the geometry tool."""
+"""Awomo05 native joint action-model package."""

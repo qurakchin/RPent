@@ -131,8 +131,9 @@ def check_installation(
             )
         )
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
+    catalog = discover(repo_root)
     try:
-        resolution = target_resolution(str(name), discover(repo_root), root=repo_root)
+        resolution = target_resolution(str(name), catalog, root=repo_root)
     except (InstallError, ValueError) as exc:
         checks.append(Check(FAIL, f"cannot resolve target {name!r}: {exc}"))
         return checks
@@ -241,24 +242,22 @@ def check_installation(
         else:
             checks.append(Check(OK, f"probe {component.name}: import {probe}"))
 
-    for component in resolution.components.values():
-        if component.placement != "remote" or component.component.is_deps:
-            continue
-        name = component.name
-        endpoint = _endpoint_value(name, endpoints)
-        if endpoint is None:
-            checks.append(
-                Check(
-                    WARN,
-                    f"remote component {name!r} has no endpoint; pass "
-                    f"`--endpoint {name}=host:port` or set "
-                    f"RPENT_{name.upper().replace('-', '_')}_ENDPOINT",
-                )
-            )
-            continue
+    # Services deployed as their own target are reached by endpoint. The
+    # installation no longer records which components run elsewhere, so probe
+    # every endpoint the caller passes and every environment variable that is
+    # set for a known component.
+    configured = dict(endpoints)
+    for component_name in catalog.components:
+        value = _endpoint_value(component_name, {})
+        if value is not None:
+            configured.setdefault(component_name, value)
+    for component_name, endpoint in sorted(configured.items()):
         problem = _probe_endpoint(endpoint)
         checks.append(
-            Check(FAIL if problem else OK, problem or f"endpoint {name}: {endpoint}")
+            Check(
+                FAIL if problem else OK,
+                problem or f"endpoint {component_name}: {endpoint}",
+            )
         )
     checks.append(Check(OK, f"fingerprint: {venv / FINGERPRINT_NAME}"))
     checks.append(Check(OK, f"fingerprint sha256: {fingerprint_sha256(fingerprint)}"))

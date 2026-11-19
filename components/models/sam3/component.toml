@@ -4,7 +4,6 @@ kind = "model"
 probe = "components.models.sam3.server"
 python = ">=3.10,<3.13"
 description = "SAM 3.0 segmentation runtime used as a diagnostic environment."
-placement = ["in-env", "remote"]
 
 dependencies = [
   "sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8",

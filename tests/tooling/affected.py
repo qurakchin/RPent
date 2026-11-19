@@ -57,7 +57,6 @@ from tests.tooling.matrix import MATRICES
 #: Component owner directories, longest prefix first.
 COMPONENT_ROOTS = (
     ("components/models", "model"),
-    ("components/toolkits", "toolkit"),
     ("robots", "robot"),
 )
 #: Tests every component group contributes to, relative to the repository root.
@@ -68,10 +67,10 @@ ROBOT_SHARED_TESTS = (
     "tests/unit_tests/robots/test_toolkit_contracts.py",
 )
 #: Targets a pull request installs when a change affects the core. They cover
-#: the core-only environment and the CPU toolkit without pulling the full GPU
-#: matrix into every core edit; nightly and release runs still install every
-#: target.
-PR_PILOT_TARGETS = ("minimal", "robot-robotwin", "tool-geometry-eval")
+#: the core-only environment and the CPU test environment without pulling the
+#: full GPU matrix into every core edit; nightly and release runs still install
+#: every target.
+PR_PILOT_TARGETS = ("minimal", "robot-robotwin", "unit-cpu")
 #: Paths whose change can alter every installation, so a PR installs every
 #: target instead of the pilot set. Install data changes narrow their own
 #: target set first; a path here in a mixed change still widens it. Packaging
@@ -217,7 +216,7 @@ def _pr_targets(paths: list[str], targets: dict[str, object]) -> tuple[str, ...]
     A component change never reaches this helper: its target set is already the
     resolution closure. For a core change, installing every GPU target proves
     little beyond what nightly proves and costs a self-hosted runner slot, so
-    the PR installs the core-only and CPU toolkit targets. The installer,
+    the PR installs the core-only and CPU test targets. The installer,
     workflows, packaging, and a mixed change that still names one of them keep
     the full set; install data on its own narrows before this helper runs.
     """
@@ -258,13 +257,11 @@ def _tests_for(kind: str, name: str, root: Path) -> list[str]:
             *ROBOT_SHARED_TESTS,
             CROSS_COMPONENT_TESTS,
         ]
-    elif kind == "model":
+    else:
         candidates = [
             "tests/unit_tests/components/models",
             CROSS_COMPONENT_TESTS,
         ]
-    else:
-        candidates = ["tests/unit_tests/components/toolkits"]
     return [path for path in candidates if (root / path).exists()]
 
 

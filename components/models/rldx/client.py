@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""RoboCasa VLA client — thin RPC layer over the VLA server."""
+"""RoboCasa VLA client — thin RPC layer over the RLDX server."""
 
 from __future__ import annotations
 

@@ -23,7 +23,7 @@ from tests.tooling import affected
 
 def test_paths_map_to_their_component(make_component, make_catalog):
     alpha = make_component("alpha")
-    sam3 = make_component("sam3", kind="model", placements=("in-env",))
+    sam3 = make_component("sam3", kind="model")
     catalog = make_catalog(components=[alpha, sam3])
 
     assert affected.affected_components(["robots/alpha/spec.py"], catalog) == {"alpha"}
@@ -76,7 +76,7 @@ def test_robot_change_narrows_to_its_slice_tests(
 def test_model_change_reruns_the_cross_component_contracts(
     tmp_path, make_component, make_target, make_catalog
 ):
-    sam3 = make_component("sam3", kind="model", placements=("in-env",))
+    sam3 = make_component("sam3", kind="model")
     (tmp_path / affected.CROSS_COMPONENT_TESTS).mkdir(parents=True)
     catalog = make_catalog(
         components=[sam3],
@@ -112,7 +112,7 @@ def test_contract_change_runs_only_the_contract_group(
 def test_component_without_tests_runs_the_whole_suite(
     tmp_path, make_component, make_target, make_catalog
 ):
-    sam3 = make_component("sam3", kind="model", placements=("in-env",))
+    sam3 = make_component("sam3", kind="model")
     catalog = make_catalog(
         components=[sam3],
         targets={"sam3-server": make_target("sam3-server", {"sam3": Selection()})},
@@ -176,7 +176,7 @@ def test_core_change_installs_the_pilot_targets_in_a_pull_request(
             "alpha": make_target("alpha", {"alpha": Selection()}),
             "minimal": make_target("minimal", {}),
             "robot-robotwin": make_target("robot-robotwin", {}),
-            "tool-geometry-eval": make_target("tool-geometry-eval", {}),
+            "unit-cpu": make_target("unit-cpu", {}),
         },
     )
 
@@ -188,12 +188,12 @@ def test_core_change_installs_the_pilot_targets_in_a_pull_request(
             "alpha",
             "minimal",
             "robot-robotwin",
-            "tool-geometry-eval",
+            "unit-cpu",
         )
         assert scope.pr_targets == (
             "minimal",
             "robot-robotwin",
-            "tool-geometry-eval",
+            "unit-cpu",
         )
 
 
@@ -205,7 +205,7 @@ def test_installer_change_installs_every_target_in_a_pull_request(
         components=[alpha],
         targets={
             "robot-libero_pro": make_target("robot-libero_pro", {}),
-            "tool-geometry-eval": make_target("tool-geometry-eval", {}),
+            "unit-cpu": make_target("unit-cpu", {}),
         },
     )
 
@@ -213,7 +213,7 @@ def test_installer_change_installs_every_target_in_a_pull_request(
 
     assert scope.full
     assert scope.tests == ("tests/unit_tests",)
-    assert scope.pr_targets == ("robot-libero_pro", "tool-geometry-eval")
+    assert scope.pr_targets == ("robot-libero_pro", "unit-cpu")
 
 
 def _install_data_catalog(make_component, make_target, make_catalog):
@@ -221,8 +221,6 @@ def _install_data_catalog(make_component, make_target, make_catalog):
     shared = make_component(
         "shared",
         kind="deps",
-        placements=(),
-        default_placement=None,
         dependencies=["packaging"],
     )
     alpha = make_component("alpha", requires=("shared",))
@@ -379,7 +377,7 @@ def test_runner_filter_narrows_both_target_sets(tmp_path, write_toml, capsys):
         dependencies = []
         """,
     )
-    for name in ("minimal", "molmo", "tool-geometry-eval"):
+    for name in ("minimal", "molmo", "unit-cpu"):
         write_toml(
             f"installs/targets/{name}.toml",
             f"""

@@ -55,7 +55,7 @@ skeleton is:
 .. code-block:: text
 
    robots/myrobot/
-       component.toml          # kind, probe, dependencies, placement, docs
+       component.toml          # kind, probe, dependencies, docs
        __init__.py             # lazy package entry point
        spec.py                 # RobotSpec, factories, Dashboard spec, runtime hooks
        config.py               # CLI flags, RunConfig, task selection
@@ -84,10 +84,6 @@ current file for each role until that migration lands.
 
    dependencies = ["my-simulator==1.2"]
 
-``placement`` may be omitted: a component installs into the target's own
-environment, and only a component that can also run as a separate service lists
-``remote`` beside the default ``in-env``.
-
 A component owns the index its packages come from, so ``index-url``,
 ``extra-index-urls``, and ``index-strategy`` belong in its own manifest. A
 composition target inherits them, adds the component's extra index URLs to its
@@ -103,21 +99,10 @@ dependencies are present. Keep only this robot's packages in
 ``dependencies``; a package that two or more components need belongs in a
 ``deps`` component under ``installs/deps/``. ``imports`` is only for a robot slice
 that reuses another slice's code: name the other robot, and make one of the
-two ``requires`` the other so the install closure includes both. Toolkits and
-model services share a contract instead of importing each other.
+two ``requires`` the other so the install closure includes both. A robot slice
+and a model service share a contract instead of importing each other.
 
-The compatibility extras in ``pyproject.toml`` are generated from the manifests
-and targets. Adding or renaming a component or target therefore also requires
-regenerating that block, which is the one step of a new integration that does
-not live under ``robots/``:
-
-.. code-block:: bash
-
-   python -m tests.tooling.extras --write
-
-CI runs ``python -m tests.tooling.extras --check``, so a stale block fails the
-build; ``--write`` is the only mode that edits ``pyproject.toml``. A robot is
-installed through a target rather than its component name, so add
+A robot is installed through a target rather than its component name, so add
 ``installs/targets/robot-<name>.toml`` selecting ``[components.<name>]`` (plus
 the models the robot runs) and assign that target to a runner in
 ``tests/tooling/matrix.py``; ``python -m tests.tooling.check --all`` fails

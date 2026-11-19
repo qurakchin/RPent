@@ -37,7 +37,6 @@ def test_component_manifest_reads_declarations(write_toml):
         python = ">=3.11,<3.12"
         requires = ["openpi"]
         env_conflicts = ["beta"]
-        placement = ["in-env", "remote"]
         dependencies = ["numpy>=2,<3"]
         overrides = ["overrides.txt"]
 
@@ -51,10 +50,6 @@ def test_component_manifest_reads_declarations(write_toml):
     assert component.name == "alpha"
     assert component.kind == "robot"
     assert component.python == ">=3.11,<3.12"
-    assert component.placements == ("in-env", "remote")
-    # Profiles write a placement only for remote components, so a component
-    # that can be installed locally defaults to the target's own environment.
-    assert component.default_placement == "in-env"
     assert component.requires == ("openpi",)
     assert component.env_conflicts == ("beta",)
     assert component.overrides == (path.parent / "overrides.txt",)
@@ -158,31 +153,9 @@ def test_component_name_must_match_directory(write_toml):
         load_component(path)
 
 
-@pytest.mark.parametrize(
-    ("placement", "message"),
-    [
-        (["bogus"], "unknown placement"),
-        (["external-env"], "unknown placement"),
-    ],
-)
-def test_component_rejects_invalid_placements(write_toml, placement, message):
-    rendered = ", ".join(f'"{item}"' for item in placement)
-    path = write_toml(
-        "robots/alpha/component.toml",
-        f"""
-        schema = 2
-        name = "alpha"
-        kind = "robot"
-        probe = "robots.alpha"
-        placement = [{rendered}]
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match=message):
-        load_component(path)
-
-
-def test_component_placements_default_to_the_target_environment(write_toml):
+def test_component_rejects_a_removed_placement_field(write_toml):
+    # A service that needs its own environment is installed as its own target
+    # and reached by endpoint; a component never sits outside its target.
     path = write_toml(
         "robots/alpha/component.toml",
         """
@@ -190,11 +163,12 @@ def test_component_placements_default_to_the_target_environment(write_toml):
         name = "alpha"
         kind = "robot"
         probe = "robots.alpha"
-        placement = ["remote"]
+        placement = ["in-env"]
         """,
     )
 
-    assert load_component(path).default_placement == "remote"
+    with pytest.raises(InstallConfigError, match="unknown component field"):
+        load_component(path)
 
 
 def test_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
@@ -328,25 +302,20 @@ def test_target_reads_components_and_disables_generated_extra(write_toml):
         kind = "target"
         name = "alpha"
         python = "3.10"
-        extra = false
         description = "test target"
 
         dependencies = ["pytest"]
 
         [components.alpha]
-        placement = "remote"
         variant = "pro"
 
         [components.beta]
-        placement = "in-env"
         """,
     )
 
     target = load_target(path)
 
     assert target.python == "3.10"
-    assert target.generate_extra is False
-    assert target.extra is None
     assert target.components["alpha"].variant == "pro"
     assert target.dependencies == ("pytest",)
 
@@ -479,17 +448,14 @@ def test_target_rejects_an_invalid_python_request(write_toml):
 
 
 @pytest.mark.parametrize(
-    ("entry", "message"),
+    "entry",
     [
-        ('[components.alpha]\nplacement = "external-env"', "must be one of"),
-        (
-            '[components.alpha]\nplacement = "in-env"\ntarget = "model"',
-            "unknown field",
-        ),
-        ("[components.alpha]\ntypo = true", "unknown field"),
+        '[components.alpha]\nplacement = "in-env"',
+        '[components.alpha]\ntarget = "model"',
+        "[components.alpha]\ntypo = true",
     ],
 )
-def test_target_rejects_inconsistent_placements(write_toml, entry, message):
+def test_target_rejects_an_unknown_component_selection_field(write_toml, entry):
     path = write_toml(
         "installs/targets/alpha.toml",
         f"""
@@ -502,7 +468,7 @@ def test_target_rejects_inconsistent_placements(write_toml, entry, message):
         """,
     )
 
-    with pytest.raises(InstallConfigError, match=message):
+    with pytest.raises(InstallConfigError, match="unknown field"):
         load_target(path)
 
 

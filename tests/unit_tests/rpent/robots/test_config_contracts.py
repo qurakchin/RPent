@@ -169,7 +169,7 @@ def test_local_vla_gpu_override_reaches_worker(
         str(args.cuda_device) if args.cuda_device is not None else None
     ) == shared_device
     if robot_name == "robodojo":
-        assert "robots.robodojo.vpp2_server" in command
+        assert "components.models.vpp2.server" in command
     if robot_name != "dual_franka":
         args.seed = 0
         if robot_name == "libero":

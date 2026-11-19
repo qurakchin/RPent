@@ -6,7 +6,6 @@ python = "3.11"
 # Isaac Sim 5.1 wheels are published for glibc 2.35 and newer.
 # The NVIDIA index comes from the robodojo component, which declares it.
 manylinux = "2_35"
-extra = "robodojo"
 description = "RoboDojo / Isaac Sim with Pi0.5, SAM 3.0, and VPP2 or Awomo05."
 
 [components.robodojo]
@@ -14,3 +13,7 @@ description = "RoboDojo / Isaac Sim with Pi0.5, SAM 3.0, and VPP2 or Awomo05."
 [components.openpi]
 
 [components.sam3]
+
+[components.awomo05]
+
+[components.vpp2]

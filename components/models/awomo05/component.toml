@@ -1,0 +1,11 @@
+schema = 2
+name = "awomo05"
+kind = "model"
+probe = "components.models.awomo05.server"
+python = ">=3.11,<3.12"
+description = "Awomo05 native joint policy for RoboDojo."
+
+dependencies = [
+  "numpy",
+  "pyyaml",
+]

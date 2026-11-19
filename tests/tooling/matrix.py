@@ -45,9 +45,7 @@ HOSTED = (
     "cosmos_policy",
     "dev",
     "fast_wam",
-    "geometry",
     "minimal",
-    "tool-geometry-eval",
     "unit-cpu",
     "uniwam",
     "xpolicylab",
@@ -55,8 +53,11 @@ HOSTED = (
 
 #: Targets that resolve CUDA packages; they need the embodied GPU runner.
 GPU = (
+    "awomo05",
+    "lingbot",
     "molmo",
     "openpi",
+    "rldx",
     "robot-dual_franka",
     "robot-franka",
     "robot-libero_pro",
@@ -68,7 +69,7 @@ GPU = (
     "sim-libero_plus",
     "sim-libero_pro",
     "sim-libero_standard",
-    "tool-flywheel",
+    "vpp2",
 )
 
 MATRICES = {"hosted": HOSTED, "gpu": GPU}

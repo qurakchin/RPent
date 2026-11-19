@@ -12,4 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Reusable tool packages with their own observation contracts and evaluation."""
+"""VPP2 video-prediction action-model package."""

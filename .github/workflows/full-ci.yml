@@ -38,11 +38,6 @@ on:
         required: false
         type: string
         default: ""
-      toolkit:
-        description: Replay the geometry toolkit's frozen corpus
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -56,7 +51,6 @@ jobs:
       hosted: ${{ steps.select.outputs.hosted }}
       gpu: ${{ steps.select.outputs.gpu }}
       e2e: ${{ steps.select.outputs.e2e }}
-      toolkit: ${{ steps.select.outputs.toolkit }}
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
@@ -69,14 +63,12 @@ jobs:
           CALLED_HOSTED: ${{ inputs.hosted }}
           CALLED_GPU: ${{ inputs.gpu }}
           CALLED_E2E: ${{ inputs.e2e }}
-          CALLED_TOOLKIT: ${{ inputs.toolkit }}
         run: |
           set -euo pipefail
           if [[ "$EVENT" == "workflow_call" && "$CALLED_FULL" != "true" ]]; then
             hosted=$CALLED_HOSTED
             gpu=$CALLED_GPU
             e2e=$CALLED_E2E
-            toolkit=$CALLED_TOOLKIT
           else
             # Nightly and manual runs, and a release call with `full: true`,
             # cover every supported target on the runner its authored
@@ -86,13 +78,11 @@ jobs:
             gpu=$(uv run --no-project --python 3.11 --with packaging -- \
               python -m tests.tooling.matrix --runner gpu)
             e2e='["libero","robocasa","robotwin"]'
-            toolkit=true
           fi
           {
             echo "hosted=$hosted"
             echo "gpu=$gpu"
             echo "e2e=$e2e"
-            echo "toolkit=$toolkit"
           } >> "$GITHUB_OUTPUT"
 
   unit:
@@ -113,5 +103,4 @@ jobs:
       hosted: ${{ needs.scope.outputs.hosted }}
       gpu: ${{ needs.scope.outputs.gpu }}
       e2e: ${{ needs.scope.outputs.e2e }}
-      toolkit: ${{ needs.scope.outputs.toolkit == 'true' }}
 

@@ -12,18 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""RoboCasa VLA server — loads RLDX model and exposes inference calls via RPC."""
+"""RoboCasa VLA server — loads the RLDX model and exposes inference via RPC."""
 
 import argparse
 import os
+import sys
+from pathlib import Path
 
 import numpy as np
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
 from rpent.models.facade import BaseVLAFacade
 from rpent.utils.logging import get_logger
 from rpent.utils.rpc.rpc_facade import DEFAULT_SESSION_TIMEOUT_S
 
-logger = get_logger("robocasa_vla_server")
+logger = get_logger("rldx_vla_server")
 
 # Match the support snapshot in the RoboCasa setup guide and Target50 manifest.
 RLDX_BACKBONE_REVISION = "4b9f870d1287e0d38d7eb1445e6d8c60afe66dd7"
@@ -84,7 +89,7 @@ class RoboCasaVLAFacade(BaseVLAFacade):
         self._vdi = np.asarray(mod["video"].delta_indices)
         self._hist_maxlen = int(self._vdi.max() - self._vdi.min()) + 2
         print(
-            f"[vla_server] policy loaded; video_delta_indices={self._vdi.tolist()} "
+            f"[rldx_server] policy loaded; video_delta_indices={self._vdi.tolist()} "
             f"hist_maxlen={self._hist_maxlen} backbone_revision={RLDX_BACKBONE_REVISION}",
             flush=True,
         )

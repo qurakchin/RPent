@@ -3,8 +3,6 @@ kind = "target"
 name = "robot-yam"
 python = "3.11"
 
-# Compatibility extras are a migration aid; this target has no legacy extra.
-extra = false
 description = "Dual-arm YAM with Pi0.5."
 
 [components.yam]

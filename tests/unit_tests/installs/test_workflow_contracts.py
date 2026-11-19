@@ -177,7 +177,7 @@ def test_package_checks_the_core_wheel_and_the_complete_sdist():
     # files the installed package opens, and an editable install must expose
     # the checkout's packages and targets from another directory.
     assert "--no-deps -e ." in source
-    for relative in ("target50.json", "demo_randomized.json", "report_template.md"):
+    for relative in ("target50.json", "demo_randomized.json"):
         assert relative in source
     assert "rpent-install" in source
 

@@ -23,19 +23,19 @@ with documentation instead of assuming either is correct.
   part of the wheel.
 - `robots/<name>/`: each robot or simulator slice, owning native translation
   and its differentiated features.
-- `components/models/<name>/` and `components/toolkits/<name>/`: installable
-  model services and toolkits.
+- `components/models/<name>/`: installable model services.
 - `installs/targets/` and `installs/deps/`: user install targets and
-  dependency-only manifests. Every component is installable under its own
-  name, so these files only add compositions. `tests/targets/` holds
+  dependency-only manifests. Components other than robots are installable
+  under their own names, so these files add compositions and let a target
+  select a `deps` component into its environment. `tests/targets/` holds
   development and test targets in the same namespace, and `tests/locks/` holds
   the optional reproduction locks, one per target.
 - `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
 
 The dependency direction is `robots/` → `components/` → `rpent/`: the core
-discovers components by name and never imports them statically, and toolkits
-and model services do not import each other.
+discovers components by name and never imports them statically, and model
+services do not import robots or each other; they expose contracts instead.
 
 ## Development principles
 

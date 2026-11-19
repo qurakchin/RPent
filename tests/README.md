@@ -40,8 +40,7 @@ tests/
     │   ├── robocasa/
     │   └── robotwin/
     └── components/
-        ├── models/        # model services
-        └── toolkits/      # toolkits and their contracts
+        └── models/        # model services
 ```
 
 Directories that do not yet have tests do not need empty placeholders. Add
@@ -51,9 +50,8 @@ them when the first test for that module lands.
 
 - Mirror core modules under `tests/unit_tests/rpent/`. For example, tests for
   `rpent.utils.rpc` belong in `tests/unit_tests/rpent/utils/rpc/`.
-- Mirror robot slices under `tests/unit_tests/robots/<name>/`, model services
-  under `tests/unit_tests/components/models/`, and toolkits under
-  `tests/unit_tests/components/toolkits/`.
+- Mirror robot slices under `tests/unit_tests/robots/<name>/` and model
+  services under `tests/unit_tests/components/models/`.
 - Place cross-layer tests with the primary contract owner. Registry and config
   contracts belong to `rpent/robots/`; slice toolkit and schema contracts
   belong to `robots/`; installer units belong to `rpent/install/`.
@@ -65,16 +63,15 @@ them when the first test for that module lands.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
   `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
-  `installs/{targets,deps}/`, `tests/targets`, `tests/locks`, the
-  authored runner partition, the compatibility extras and conflicts in the
-  root `pyproject.toml`, and the workflows that consume them. Do not read the
+  `installs/{targets,deps}/`, `tests/targets`, `tests/locks`, the authored
+  runner partition, and the workflows that consume them. Do not read the
   real install data from `tests/unit_tests/rpent/install/`; the test path would
   otherwise hide which layer owns the failure. `installs/` is not a Python
   package, so the test directory mirrors the repository-level data rather than
   a `rpent/` module. Both groups use only the core and `dev` dependencies, and
   `fast ci` runs them in the `dev` target.
 - `tests/tooling/` holds the maintainer entry points that read the real
-  repository data: `python -m tests.tooling.check`, `lock`, `layout`, `extras`,
+  repository data: `python -m tests.tooling.check`, `lock`, `layout`,
   `matrix`, and `affected`. Their tests live in `tests/unit_tests/tooling/`.
   The dependency direction is `tests/tooling/` → `rpent/install/`; the tools
   are not part of the wheel.

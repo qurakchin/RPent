@@ -24,9 +24,9 @@ from typing import Any
 
 # Support direct execution from an RPent checkout before package imports.
 if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from robots.robotwin.robot_spec import MODEL_SPEC, vla_runtime_contract
+from components.models.lingbot.contracts import LINGBOT_MODEL_SPEC, vla_runtime_contract
 from rpent.models.facade import BaseVLAFacade
 from rpent.utils.daemon import watch_parent_death
 
@@ -59,7 +59,9 @@ def main() -> None:
     )
     parser.add_argument("--model-path", required=True)
     parser.add_argument("--norm-path", required=True)
-    parser.add_argument("--use-length", type=int, default=MODEL_SPEC.use_length)
+    parser.add_argument(
+        "--use-length", type=int, default=LINGBOT_MODEL_SPEC["use_length"]
+    )
     parser.add_argument("--port", type=int, required=True)
     parser.add_argument("--num-denoising-step", type=int, default=10)
     parser.add_argument("--use-compile", action="store_true")
