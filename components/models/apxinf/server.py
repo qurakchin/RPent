@@ -35,7 +35,7 @@ from typing import Any
 
 import numpy as np
 
-from rpent.models.facade import BaseVLAFacade
+from rpent.components.models.facade import BaseVLAFacade
 from components.models.apxinf.platforms import YAM_VLA_CONTRACT
 from rpent.utils.logging import get_logger
 from rpent.utils.rpc.main_thread_serve import MainThreadServeMixin

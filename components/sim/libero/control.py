@@ -14,7 +14,7 @@
 
 """LIBERO's native OSC action layout shared by clients and model adapters."""
 
-from rpent.models.contracts import AMControlSpec
+from rpent.components.models.contracts import AMControlSpec
 
 # Values use LIBERO's native OSC scaling and gripper convention. Model
 # adapters restore this representation before handing actions to the env.

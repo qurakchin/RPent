@@ -15,22 +15,22 @@
 """Compatibility aliases for the environment and model base classes.
 
 The implementations moved out of ``rpent/robots/components/``: the env bases
-live in ``rpent/env/`` and the model bases in ``rpent/models/``. This module
-keeps the old import path working for one release; import the new modules
-instead.
+live in ``rpent/components/env/`` and the model bases in
+``rpent/components/models/``. This module keeps the old import path working for
+one release; import the new modules instead.
 """
 
 from importlib import import_module
 
 _ALIASES = {
-    "BaseAMClient": "rpent.models.client",
-    "BaseVLAClient": "rpent.models.client",
-    "BaseWAMClient": "rpent.models.client",
-    "BaseAMFacade": "rpent.models.facade",
-    "BaseVLAFacade": "rpent.models.facade",
-    "BaseWAMFacade": "rpent.models.facade",
-    "BaseEnvClient": "rpent.env.client",
-    "BaseEnvFacade": "rpent.env.facade",
+    "BaseAMClient": "rpent.components.models.client",
+    "BaseVLAClient": "rpent.components.models.client",
+    "BaseWAMClient": "rpent.components.models.client",
+    "BaseAMFacade": "rpent.components.models.facade",
+    "BaseVLAFacade": "rpent.components.models.facade",
+    "BaseWAMFacade": "rpent.components.models.facade",
+    "BaseEnvClient": "rpent.components.env.client",
+    "BaseEnvFacade": "rpent.components.env.facade",
 }
 
 __all__ = sorted(_ALIASES)

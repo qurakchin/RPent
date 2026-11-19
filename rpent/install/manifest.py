@@ -30,9 +30,9 @@ from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterable
 
 from rpent.install.errors import InstallConfigError
 
@@ -487,6 +487,21 @@ def load_target(path: Path) -> Target:
         core=core,
         description=_optional_string(data, "description", path),
     )
+
+
+def compose_target(target: Target, extra_components: Iterable[str]) -> Target:
+    """Return ``target`` with extra components composed into it.
+
+    ``rpent-install install <target> --with <component>`` uses this to add a
+    component to one environment without editing the checked-in target, for
+    example the test tools of ``infra-dev`` beside a robot. The composed target
+    keeps the target's name, dependencies, and index settings, so the
+    fingerprint and ``doctor`` compare the same inputs on both sides.
+    """
+    selected = tuple(dict.fromkeys((*target.components, *extra_components)))
+    if selected == target.components:
+        return target
+    return replace(target, components=selected)
 
 
 def target_from_component(component: Component) -> Target:

@@ -2,14 +2,4 @@ schema = 2
 name = "dev"
 description = "Test dependencies for local development and CI."
 
-dependencies = [
-  "av",
-  "coverage",
-  "gymnasium",
-  "imageio_ffmpeg",
-  "omegaconf",
-  "pytest",
-  "pytest-timeout",
-]
-
-[components]
+[components.infra-dev]

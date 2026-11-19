@@ -310,7 +310,7 @@ def test_dual_franka_spawns_shared_vla_server(monkeypatch, tmp_path):
     from unittest.mock import Mock
 
     from robots.dual_franka import robot_spec
-    from rpent.models import backends as runtime
+    from rpent.components.models import backends as runtime
     from tests.e2e_tests.dual_franka.dual_franka_vla import build_parser
 
     args = build_parser().parse_args(

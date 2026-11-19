@@ -34,6 +34,7 @@ from rpent.install.fingerprint import (
 )
 from rpent.install.installer import (
     find_uv,
+    install_invocation,
     probe_source,
     target_resolution,
     venv_python,
@@ -129,9 +130,22 @@ def check_installation(
             )
         )
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
+    # ``--with`` components are recorded in the fingerprint, so the same
+    # composition is resolved here as the installer resolved.
+    extra_components = tuple(
+        item for item in fingerprint.get("with") or () if isinstance(item, str)
+    )
+    if extra_components:
+        checks.append(Check(OK, f"with: {', '.join(extra_components)}"))
+    rerun = install_invocation(str(name), venv=venv, extra_components=extra_components)
     catalog = discover(repo_root)
     try:
-        resolution = target_resolution(str(name), catalog, root=repo_root)
+        resolution = target_resolution(
+            str(name),
+            catalog,
+            root=repo_root,
+            extra_components=extra_components,
+        )
     except (InstallError, ValueError) as exc:
         checks.append(Check(FAIL, f"cannot resolve target {name!r}: {exc}"))
         return checks
@@ -155,8 +169,7 @@ def check_installation(
                 FAIL,
                 "fingerprint records installation input mode "
                 f"{interpreted}, current is {INPUT_SCHEMA}; rerun "
-                f"`rpent-install install {name} --venv {venv}` to record the "
-                "current inputs",
+                f"`{rerun}` to record the current inputs",
             )
         )
     elif fingerprint.get("requirements_sha256") != expected_requirements:
@@ -164,8 +177,7 @@ def check_installation(
             Check(
                 FAIL,
                 "environment is out of date with its recorded inputs (manifests, "
-                f"overrides, or [tool.uv]); rerun "
-                f"`rpent-install install {name} --venv {venv}`",
+                f"overrides, or [tool.uv]); rerun `{rerun}`",
             )
         )
     else:
@@ -207,7 +219,7 @@ def check_installation(
                 Check(
                     FAIL,
                     "installed packages changed since the fingerprint was written; "
-                    f"rerun `rpent-install install {name} --venv {venv}`",
+                    f"rerun `{rerun}`",
                 )
             )
         else:

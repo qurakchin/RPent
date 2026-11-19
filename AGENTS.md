@@ -7,9 +7,10 @@ with documentation instead of assuming either is correct.
 
 ## Repository map
 
-- `rpent/`: core contracts, scheduling, and model bases. `rpent/env/` and
-  `rpent/models/` hold the environment and model-side contracts, clients,
-  facades, backends, and platform helpers that every slice uses.
+- `rpent/`: core contracts and scheduling. `rpent/components/env/` and
+  `rpent/components/models/` hold the shared environment and model-side
+  contracts, clients, facades, backends, and platform helpers that every slice
+  uses; they are core modules, not installable components.
 - `rpent/planner/`, `rpent/session/`, and `rpent/prompt/`: planner adapters,
   execution sessions, and shared prompt construction.
 - `rpent/tools/` and `rpent/memory/`: tool execution, observations, and memory.
@@ -36,11 +37,12 @@ with documentation instead of assuming either is correct.
 - `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
 
-Component imports only point downward: a robot slice may import model
-services, simulators, tools, and infra; a model service may import tools and
-infra but not robots, simulators, or sibling models; a simulator may import
-tools and infra but not robots or model services. The core discovers components
-by name and never imports them statically.
+Component imports and `requires` edges only point downward: a robot slice may
+import model services, simulators, tools, and infra; a model service may import
+tools and infra but not robots, simulators, or sibling models; a simulator may
+import tools and infra but not robots or model services. Only a robot combines
+a simulator with a model service. The core discovers components by name and
+never imports them statically.
 
 ## Development principles
 

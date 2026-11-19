@@ -23,8 +23,8 @@ from components.models.uniwam import (
 )
 from components.models.uniwam.adapter.decode import decode_robotwin
 from components.models.uniwam.adapter.encode import encode_robotwin
-from rpent.models.contracts import WAMModelMeta
-from rpent.models.facade import WAMAdapter, WAMAdapterSpec
+from rpent.components.models.contracts import WAMModelMeta
+from rpent.components.models.facade import WAMAdapter, WAMAdapterSpec
 from components.models.uniwam.platforms import ROBOTWIN_CAMERAS, ROBOTWIN_QPOS
 
 ADAPTERS = {

@@ -34,7 +34,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from rpent.models.facade import BaseVLAFacade
+from rpent.components.models.facade import BaseVLAFacade
 from rpent.utils.daemon import ProcessDaemon
 from rpent.utils.logging import get_logger
 

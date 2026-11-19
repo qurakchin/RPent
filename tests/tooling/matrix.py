@@ -41,6 +41,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: limits.
 HOSTED = (
     "dev",
+    "infra-dev",
     "minimal",
     "model-apxinf",
     "model-cosmos3",

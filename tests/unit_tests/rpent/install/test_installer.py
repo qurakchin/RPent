@@ -27,6 +27,7 @@ from rpent.install.fingerprint import read_fingerprint
 from rpent.install.installer import (
     VENV_DIR,
     default_venv,
+    environment_name,
     find_uv,
     index_options,
     install,
@@ -79,7 +80,12 @@ def test_default_venv_is_per_target(repo):
     target = discover(repo).targets["model-alpha"]
 
     assert VENV_DIR == ".venvs"
-    assert default_venv(repo, target) == repo / ".venvs" / "model-alpha"
+    assert default_venv(repo, target.name) == repo / ".venvs" / "model-alpha"
+
+
+def test_composition_gets_its_own_environment_name():
+    assert environment_name("robot-libero") == "robot-libero"
+    assert environment_name("robot-libero", ("infra-dev",)) == "robot-libero+infra-dev"
 
 
 def test_target_resolution_selects_the_named_target(repo):
@@ -94,6 +100,40 @@ def test_target_resolution_selects_the_named_target(repo):
 def test_unknown_target_lists_known_targets(repo):
     with pytest.raises(InstallError, match="known targets: beta, model-alpha"):
         target_resolution("missing", discover(repo), root=repo)
+
+
+def test_with_composes_a_component_into_the_resolution(repo, write_toml):
+    write_toml(
+        "components/infra/test_tools/component.toml",
+        """
+        schema = 2
+        name = "infra-test_tools"
+        probe = "json"
+        platforms = ["linux-x86_64", "darwin-arm64"]
+        dependencies = ["pytest"]
+        """,
+    )
+
+    resolution = target_resolution(
+        "model-alpha",
+        discover(repo),
+        root=repo,
+        extra_components=("infra-test_tools",),
+    )
+
+    assert resolution.ok
+    assert "infra-test_tools" in resolution.components
+    assert "model-alpha" in resolution.components
+
+
+def test_with_rejects_an_unknown_component(repo):
+    with pytest.raises(InstallError, match="unknown component\\(s\\) for --with"):
+        target_resolution(
+            "model-alpha",
+            discover(repo),
+            root=repo,
+            extra_components=("infra-missing",),
+        )
 
 
 def test_find_uv_prefers_override(monkeypatch):
@@ -173,6 +213,37 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
     assert "lock" not in fingerprint
     assert fingerprint["source_commit"] is None
     assert os.path.isfile(venv / "bin" / "python")
+
+
+def test_install_records_with_components_in_the_fingerprint(
+    repo, tmp_path, write_toml, monkeypatch
+):
+    write_toml(
+        "components/infra/test_tools/component.toml",
+        """
+        schema = 2
+        name = "infra-test_tools"
+        probe = "json"
+        platforms = ["linux-x86_64", "darwin-arm64"]
+        dependencies = ["pytest"]
+        """,
+    )
+    _fake_uv(tmp_path, monkeypatch)
+
+    fingerprint = install(
+        "model-alpha",
+        root=repo,
+        venv=tmp_path / "venv",
+        verbose=False,
+        extra_components=("infra-test_tools",),
+    )
+
+    assert fingerprint["with"] == ["infra-test_tools"]
+    assert "infra-test_tools" in fingerprint["components"]
+    requirements = (tmp_path / "venv" / "rpent-requirements.txt").read_text(
+        encoding="utf-8"
+    )
+    assert "pytest" in requirements
 
 
 def test_install_installs_from_the_rendered_requirements(repo, tmp_path, monkeypatch):

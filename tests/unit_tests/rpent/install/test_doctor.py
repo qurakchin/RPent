@@ -103,6 +103,48 @@ def test_unchanged_inputs_are_accepted(tmp_path, write_toml, monkeypatch):
     assert not any("out of date" in check.message for check in checks)
 
 
+def test_with_components_are_resolved_from_the_fingerprint(
+    tmp_path, write_toml, monkeypatch
+):
+    _target(write_toml)
+    write_toml(
+        "components/infra/dev/component.toml",
+        """
+        schema = 2
+        name = "infra-dev"
+        probe = "json"
+        platforms = ["linux-x86_64", "darwin-arm64"]
+        dependencies = ["pytest"]
+        """,
+    )
+    venv = _venv(tmp_path)
+    resolution = target_resolution(
+        "alpha",
+        discover(tmp_path),
+        root=tmp_path,
+        extra_components=("infra-dev",),
+    )
+    write_fingerprint(
+        venv,
+        {
+            "schema": INPUT_SCHEMA,
+            "target": "alpha",
+            "with": ["infra-dev"],
+            "python": "3.11.9",
+            "requirements_sha256": requirements_sha256(resolution, root=tmp_path),
+        },
+    )
+    _without_uv(monkeypatch)
+
+    checks = check_installation(venv, root=tmp_path)
+
+    assert any(
+        check.status == OK and check.message == "with: infra-dev" for check in checks
+    )
+    assert any("probe infra-dev" in check.message for check in checks)
+    assert not any("out of date" in check.message for check in checks)
+
+
 def test_stale_fingerprint_fails_before_running_checks(
     tmp_path, write_toml, monkeypatch
 ):

@@ -21,9 +21,9 @@ from unittest.mock import Mock
 import numpy as np
 import pytest
 
-from rpent.models import backends as runtime
-from rpent.models.client import BaseVLAClient, BaseWAMClient
-from rpent.models.facade import BaseVLAFacade, BaseWAMFacade
+from rpent.components.models import backends as runtime
+from rpent.components.models.client import BaseVLAClient, BaseWAMClient
+from rpent.components.models.facade import BaseVLAFacade, BaseWAMFacade
 
 
 @pytest.mark.parametrize("option", ["--am-backend", "--vla-backend", "--wam-backend"])

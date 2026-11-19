@@ -18,7 +18,7 @@ The model-side copies in ``components/models/{fast_wam,uniwam}/platforms.py``
 state what each adapter expects; keep them equal.
 """
 
-from rpent.models.contracts import AMControlSpec
+from rpent.components.models.contracts import AMControlSpec
 
 # Maximum number of executed controller targets retained by the environment client.
 QPOS_HISTORY_CAPACITY = 16

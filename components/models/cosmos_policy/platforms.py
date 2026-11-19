@@ -21,7 +21,7 @@ keeps this copy equal to ``robots/libero/control.py``.
 
 from __future__ import annotations
 
-from rpent.models.contracts import AMControlSpec
+from rpent.components.models.contracts import AMControlSpec
 
 # Values use LIBERO's native OSC scaling and gripper convention. Model
 # adapters restore this representation before handing actions to the env.

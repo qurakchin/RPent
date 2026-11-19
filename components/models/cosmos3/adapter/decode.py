@@ -16,7 +16,7 @@
 
 from typing import Any
 
-from rpent.models.contracts import WAMPrediction
+from rpent.components.models.contracts import WAMPrediction
 
 
 def decode_libero(result: tuple[dict, dict], *, policy: Any) -> WAMPrediction:

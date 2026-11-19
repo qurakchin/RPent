@@ -262,12 +262,50 @@ def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
         "components/models",
         "alpha",
         "model",
-        requires=["model-beta"],
         imports=["model-beta"],
     )
-    _manifest(write_toml, "components/models", "beta", "model", requires=["model-alpha"])
+    _manifest(write_toml, "components/models", "beta", "model")
 
     with pytest.raises(InstallConfigError, match="imports is only for robot slices"):
+        discover_components(tmp_path)
+
+
+def test_a_model_cannot_require_a_simulator(tmp_path, write_toml):
+    _manifest(write_toml, "components/models", "alpha", "model", requires=["sim-beta"])
+    _manifest(write_toml, "components/sim", "beta", "sim")
+
+    with pytest.raises(InstallConfigError, match="a model component may require only"):
+        discover_components(tmp_path)
+
+
+def test_a_simulator_cannot_require_a_model(tmp_path, write_toml):
+    _manifest(write_toml, "components/sim", "alpha", "sim", requires=["model-beta"])
+    _manifest(write_toml, "components/models", "beta", "model")
+
+    with pytest.raises(InstallConfigError, match="a sim component may require only"):
+        discover_components(tmp_path)
+
+
+def test_only_a_robot_requires_a_simulator_and_a_model(tmp_path, write_toml):
+    _manifest(
+        write_toml,
+        "robots",
+        "alpha",
+        "robot",
+        requires=["sim-beta", "model-gamma"],
+    )
+    _manifest(write_toml, "components/sim", "beta", "sim")
+    _manifest(write_toml, "components/models", "gamma", "model")
+
+    components = discover_components(tmp_path)
+
+    assert components["robot-alpha"].requires == ("sim-beta", "model-gamma")
+
+
+def test_requires_must_name_a_known_component(tmp_path, write_toml):
+    _manifest(write_toml, "components/sim", "alpha", "sim", requires=["infra-missing"])
+
+    with pytest.raises(InstallConfigError, match="requires unknown component"):
         discover_components(tmp_path)
 
 

@@ -29,7 +29,7 @@ from components.sim.libero.suites import LIBERO_SUITE_NAMES, resolve_libero_type
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.models.backends import (
+from rpent.components.models.backends import (
     WAM_BACKENDS,
     AMConfig,
     add_am_args,

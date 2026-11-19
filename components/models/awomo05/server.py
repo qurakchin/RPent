@@ -27,7 +27,7 @@ if __package__ in (None, ""):
 
 from components.models.awomo05.client import REPLAN_STEPS
 from components.models.awomo05.contracts import ARX_X5_JOINT_FIELDS, validate_rgb
-from rpent.models.facade import BaseVLAFacade
+from rpent.components.models.facade import BaseVLAFacade
 
 
 def model_paths(model_path: str | Path | None) -> dict[str, Path]:

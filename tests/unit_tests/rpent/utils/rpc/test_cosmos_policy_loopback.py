@@ -23,7 +23,7 @@ import pytest
 from components.models.cosmos_policy.adapter import make_adapter
 from components.models.cosmos_policy.server import CosmosPolicyFacade
 from components.sim.libero.wam_client import LiberoWAMClient, libero_request
-from rpent.models.facade import BaseWAMFacade
+from rpent.components.models.facade import BaseWAMFacade
 
 
 @pytest.fixture

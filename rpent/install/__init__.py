@@ -18,7 +18,9 @@ A component is an install boundary: one directory, one ``component.toml``, one
 import probe, and its direct dependencies. Every non-robot component is also an
 install target under its own name; a robot needs an explicit file in
 ``installs/targets/<name>.toml``, which also composes several components into
-one environment. Installed environments carry
+one environment. ``install <target> --with <component>`` adds one more
+component to that environment and records it in the same fingerprint. Installed
+environments carry
 ``rpent-install.json`` with the target, the hash of the installation inputs,
 and the installed package set, which ``rpent-install doctor`` and run artifacts
 use.

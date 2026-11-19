@@ -21,7 +21,7 @@ from typing import Any
 import numpy as np
 
 from components.models.awomo05.contracts import ARX_X5_JOINT_FIELDS, CAMERAS
-from rpent.models.client import BaseVLAClient
+from rpent.components.models.client import BaseVLAClient
 
 REPLAN_STEPS = 8
 

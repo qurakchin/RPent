@@ -22,8 +22,8 @@ from components.models.cosmos_policy.adapter.encode import (
     STATE_SCHEMA,
     encode_libero,
 )
-from rpent.models.contracts import WAMModelMeta
-from rpent.models.facade import (
+from rpent.components.models.contracts import WAMModelMeta
+from rpent.components.models.facade import (
     WAMAdapter,
     WAMAdapterSpec,
 )

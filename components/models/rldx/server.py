@@ -24,7 +24,7 @@ import numpy as np
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from rpent.models.facade import BaseVLAFacade
+from rpent.components.models.facade import BaseVLAFacade
 from rpent.utils.logging import get_logger
 from rpent.utils.rpc.rpc_facade import DEFAULT_SESSION_TIMEOUT_S
 

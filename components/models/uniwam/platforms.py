@@ -21,7 +21,7 @@ them equal to ``robots/robotwin/``.
 
 from __future__ import annotations
 
-from rpent.models.contracts import AMControlSpec
+from rpent.components.models.contracts import AMControlSpec
 
 # Native joint_action.vector order: left six joint targets and gripper,
 # then right six joint targets and gripper. Preserve native gripper values.

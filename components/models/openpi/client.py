@@ -28,7 +28,7 @@ from typing import Any
 
 import numpy as np
 
-from rpent.models.client import BaseVLAClient
+from rpent.components.models.client import BaseVLAClient
 
 # ---------------------------------------------------------------------------
 # Obs encoder registry

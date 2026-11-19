@@ -48,9 +48,10 @@ robot. Test and development targets (``dev``, ``unit-cpu``) live in
 
 Compound targets install one robot with the simulator and models it runs, for
 example ``robot-libero`` (LIBERO with Pi0.5, SAM 3.0, and LeRobot export) and
-``robot-yam`` (YAM with Pi0.5). Targets do not reference each other, so a
-combination the repository does not name is installed as separate component
-environments and connected at run time with endpoints.
+``robot-yam`` (YAM with Pi0.5). Targets do not reference each other.
+``install --with <component>`` adds a component to one environment without
+editing the target, and services that stay in separate environments are
+connected at run time with endpoints.
 
 ``python`` in a component is either a version (``"3.11"``) or a range
 (``">=3.10,<3.13"``). ``platforms`` lists the hosts a component supports and
@@ -114,13 +115,25 @@ Re-running ``install`` reuses the environment and repairs a stale installation.
 Custom combinations
 -------------------
 
-A combination the repository does not name is a target file, not a list of
-names on the command line. ``install`` accepts one target because the target is
-what resolution, the fingerprint, and later ``doctor`` runs describe; a set of
-components joined on the fly would have no record to compare against.
+A combination the repository keeps is a target file, not a list of target names
+on the command line. ``install`` accepts one target because the target is what
+resolution, the fingerprint, and later ``doctor`` runs describe.
 
-Create the file under ``installs/targets/`` with the name it installs under,
-then install it:
+To add a component to one environment without editing the checked-in target,
+such as the test tools of ``infra-dev``, pass the repeatable ``--with``:
+
+.. code-block:: bash
+
+   rpent-install install robot-libero --with infra-dev
+   source .venvs/robot-libero+infra-dev/bin/activate
+
+The environment is named ``<target>+<component>`` and never shares packages with
+the plain target. The fingerprint records the composition and ``doctor``
+resolves the same one, so the added component stays inside the recorded
+installation instead of drifting past it.
+
+For the target-file form, create the file under ``installs/targets/`` with the
+name it installs under, then install it:
 
 .. code-block:: toml
 
@@ -159,10 +172,14 @@ Targets
    * - ``dev``
      - 3.12
      - Test dependencies for local development and CI.
+   * - ``infra-dev``
+     - 3.12
+     - The test tools behind ``dev``; compose it with ``--with`` to run the
+       offline suite in another environment.
    * - ``unit-cpu``
      - 3.11
-     - CPU-only unit tests: core, test tools, the CPU Torch build, and the
-       CPU flywheel stack.
+     - CPU-only unit tests: core, the ``infra-dev`` test tools, the CPU Torch
+       build, and the CPU flywheel stack.
    * - ``sim-libero``
      - 3.12
      - LIBERO and LIBERO-PRO simulation for adapter development, e2e, and data
@@ -225,6 +242,7 @@ On a fresh checkout, prefix the command as shown above.
 
    rpent-install install minimal
    rpent-install install dev
+   rpent-install install infra-dev
    rpent-install install unit-cpu
    rpent-install install sim-libero
    rpent-install install sim-libero_plus
@@ -294,14 +312,14 @@ prove the declared dependencies have a solution; it uses the same code path as
 selects the host to resolve for and defaults to ``linux-x86_64``.
 
 The remaining maintainer tools under ``tests/tooling/`` are not installed with
-the wheel. Run them from a checkout through ``tests/tooling/rpent-tool.sh``,
+the wheel. Run them from a checkout through ``tests/tooling/run.sh``,
 which passes the module and its arguments to a throwaway ``uv`` environment:
 
 .. code-block:: bash
 
-   tests/tooling/rpent-tool.sh rpent.cli.install check --all
-   tests/tooling/rpent-tool.sh tests.tooling.lock sim-robotwin
-   tests/tooling/rpent-tool.sh tests.tooling.lock --all --check
+   tests/tooling/run.sh rpent.cli.install check --all
+   tests/tooling/run.sh tests.tooling.lock sim-robotwin
+   tests/tooling/run.sh tests.tooling.lock --all --check
 
 ``lock`` compiles a target's reproduction lock with ``uv pip compile`` and
 records the upstream cutoff as an ``# exclude_newer`` header. Locks live under

@@ -35,15 +35,15 @@ from components.sim.robotwin.contracts import (
 )
 from robots.robotwin.memory import prepare_memory, validate_options
 from robots.robotwin.prompt_bundle import system_prompt, user_prompt
-from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
-from rpent.dashboard.spec import DashboardSpec
-from rpent.memory import MemoryManager
-from rpent.models.backends import (
+from rpent.components.models.backends import (
     WAM_BACKENDS,
     add_am_args,
     select_am,
     start_wam_service,
 )
+from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
+from rpent.dashboard.spec import DashboardSpec
+from rpent.memory import MemoryManager
 from rpent.robots.prompt_bundle import PromptBundle
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 from rpent.robots.runtime import (

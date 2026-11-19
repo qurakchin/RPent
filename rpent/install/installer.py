@@ -32,7 +32,7 @@ from rpent.install.fingerprint import (
     source_state,
     write_fingerprint,
 )
-from rpent.install.manifest import Target
+from rpent.install.manifest import compose_target
 from rpent.install.requirements import (
     INPUT_SCHEMA,
     read_core_dependencies,
@@ -48,9 +48,21 @@ VENV_DIR = ".venvs"
 REQUIREMENTS_NAME = "rpent-requirements.txt"
 
 
-def default_venv(root: Path, target: Target) -> Path:
-    """Return the default virtualenv path for ``target``."""
-    return root / VENV_DIR / target.name
+def default_venv(root: Path, target_name: str) -> Path:
+    """Return the default virtualenv path for the environment ``target_name``."""
+    return root / VENV_DIR / target_name
+
+
+def environment_name(target_name: str, extra_components: tuple[str, ...] = ()) -> str:
+    """Return the environment name a target and its ``--with`` components form.
+
+    A plain target keeps the environment named after it. Adding components
+    gives the composition its own environment, so an unmodified install and a
+    test-tool install never reuse each other's packages.
+    """
+    if not extra_components:
+        return target_name
+    return "+".join((target_name, *extra_components))
 
 
 def requirements_file(venv: Path) -> Path:
@@ -123,15 +135,28 @@ def target_resolution(
     *,
     root: Path,
     platform: str | None = None,
+    extra_components: tuple[str, ...] = (),
 ) -> Resolution:
-    """Resolve one named target for ``platform``, defaulting to this host."""
+    """Resolve one named target for ``platform``, defaulting to this host.
+
+    ``extra_components`` extends the target's selection for one environment,
+    the same way ``install --with`` does.
+    """
     found = catalog.targets.get(target)
     if found is None:
         known = ", ".join(sorted(catalog.targets))
         raise InstallError(f"unknown target {target!r}; known targets: {known}")
-    core = read_core_dependencies(root) if found.core else ()
+    unknown = [name for name in extra_components if name not in catalog.components]
+    if unknown:
+        known = ", ".join(sorted(catalog.components))
+        raise InstallError(
+            f"unknown component(s) for --with: {', '.join(unknown)}; "
+            f"known components: {known}"
+        )
+    composed = compose_target(found, extra_components)
+    core = read_core_dependencies(root) if composed.core else ()
     return resolve(
-        found,
+        composed,
         catalog,
         core_dependencies=core,
         platform=platform or runtime_platform(),
@@ -147,17 +172,24 @@ def install(
     verbose: bool = True,
     dry_run: bool = False,
     platform: str | None = None,
+    extra_components: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Install one named target and return the written fingerprint.
 
-    ``dry_run`` stops after resolving and validating the target, printing the
-    requirements it would install. Nothing is written and no virtualenv is
-    created, so the resolved set is reviewable before it costs a download.
+    ``extra_components`` composes additional components, such as the test tools
+    of ``infra-dev``, into the same environment. ``dry_run`` stops after
+    resolving and validating the composition, printing the requirements it
+    would install. Nothing is written and no virtualenv is created, so the
+    resolved set is reviewable before it costs a download.
     """
     repo_root = (root or get_repo_root()).resolve()
     catalog = discover(repo_root)
     resolution = target_resolution(
-        target_name, catalog, root=repo_root, platform=platform
+        target_name,
+        catalog,
+        root=repo_root,
+        platform=platform,
+        extra_components=extra_components,
     )
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
@@ -166,13 +198,15 @@ def install(
     main_requirements = render_requirements(
         resolution, root=repo_root, core_dependencies=core
     )
-    destination = (venv or default_venv(repo_root, target)).resolve()
+    env_name = environment_name(target.name, extra_components)
+    destination = (venv or default_venv(repo_root, env_name)).resolve()
 
     python_version = resolution.python
 
     if dry_run:
+        composed = f" with {', '.join(extra_components)}" if extra_components else ""
         print(
-            f"# target {target.name}: python {python_version} "
+            f"# target {target.name}{composed}: python {python_version} "
             f"on {resolution.platform}"
         )
         print(main_requirements, end="")
@@ -187,7 +221,7 @@ def install(
                 f"{existing_name!r}; environments cannot share a virtualenv "
                 f"because their dependencies differ. Install "
                 f"{target.name!r} into its own environment, for example "
-                f"`--venv {default_venv(repo_root, target)}`"
+                f"`--venv {default_venv(repo_root, env_name)}`"
             )
     elif destination.exists() and any(destination.iterdir()) and not force:
         raise InstallError(
@@ -208,7 +242,7 @@ def install(
     if not python.exists():
         raise InstallError(
             f"{destination} exists but has no Python interpreter; remove it and "
-            f"rerun `rpent-install install {target.name}`"
+            f"rerun `{install_invocation(target.name, extra_components=extra_components)}`"
         )
 
     requirements_path = requirements_file(destination)
@@ -245,7 +279,13 @@ def install(
             print(f"$ {' '.join(editable)}")
         run_command(editable, cwd=repo_root)
 
-    _probe_components(resolution, python, repo_root, verbose=verbose)
+    _probe_components(
+        resolution,
+        python,
+        repo_root,
+        verbose=verbose,
+        extra_components=extra_components,
+    )
     run_command([uv, "pip", "check", "--python", str(python)], cwd=repo_root)
 
     frozen = run_command(
@@ -255,6 +295,7 @@ def install(
     fingerprint = {
         "schema": INPUT_SCHEMA,
         "target": target.name,
+        "with": list(extra_components),
         "python": _python_version(python),
         "source_commit": commit,
         "source_dirty": dirty,
@@ -332,9 +373,26 @@ def probe_source(probe: str) -> str:
     )
 
 
-def repair_command(resolution: Resolution) -> str:
+def install_invocation(
+    target_name: str,
+    *,
+    venv: Path | None = None,
+    extra_components: tuple[str, ...] = (),
+) -> str:
+    """Return the command that reproduces an installation."""
+    command = f"rpent-install install {target_name}"
+    for name in extra_components:
+        command += f" --with {name}"
+    if venv is not None:
+        command += f" --venv {venv}"
+    return command
+
+
+def repair_command(
+    resolution: Resolution, extra_components: tuple[str, ...] = ()
+) -> str:
     """Return the command that rebuilds the same installation."""
-    return f"rpent-install install {resolution.target.name}"
+    return install_invocation(resolution.target.name, extra_components=extra_components)
 
 
 def _probe_components(
@@ -343,6 +401,7 @@ def _probe_components(
     root: Path,
     *,
     verbose: bool,
+    extra_components: tuple[str, ...] = (),
 ) -> None:
     environment = {**os.environ, "PYTHONPATH": str(root)}
     for name, component in sorted(resolution.components.items()):
@@ -359,7 +418,7 @@ def _probe_components(
             raise InstallError(
                 f"component {name!r} is not importable in {python.parent.parent}\n"
                 f"  probe: import {probe}\n"
-                f"  install: {repair_command(resolution)} "
-                f"--venv {python.parent.parent}\n"
+                f"  install: "
+                f"{install_invocation(resolution.target.name, venv=python.parent.parent, extra_components=extra_components)}\n"
                 f"{exc}"
             ) from exc

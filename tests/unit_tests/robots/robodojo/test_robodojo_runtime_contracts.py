@@ -24,7 +24,7 @@ import numpy as np
 import pytest
 
 from robots.robodojo import robot_spec, tools
-from rpent.models import backends as runtime
+from rpent.components.models import backends as runtime
 from rpent.tools import Tool, iter_tools
 
 

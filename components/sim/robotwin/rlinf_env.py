@@ -24,7 +24,7 @@ import torch
 from rlinf.envs.sim.robotwin.robotwin_env import RoboTwinEnv
 
 from components.sim.robotwin.contracts import RoboTwinActionType
-from rpent.env.action_spec import box_action_spec
+from rpent.components.env.action_spec import box_action_spec
 
 __all__ = ["RoboTwinAgentEnv"]
 

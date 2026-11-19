@@ -3,12 +3,7 @@ name = "unit-cpu"
 description = "CPU-only unit tests: core, test tools, and the CPU flywheel stack."
 
 dependencies = [
-  "coverage",
-  "gymnasium",
-  "omegaconf",
   "opencv-python-headless",
-  "pytest",
-  "pytest-timeout",
   # A model server imports Torch at module scope, and many unit tests import
   # those modules. The local version selects the CPU wheel from the extra
   # index, which keeps the hosted runner small and avoids a CUDA dependency
@@ -24,6 +19,7 @@ extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
 # extra index for versions PyPI does not have, like `torch==2.6.0+cpu`.
 index-strategy = "unsafe-first-match"
 
-# The flywheel runtime owns its LeRobot, av, and pyarrow constraints, so the
-# target selects the component instead of repeating them.
+# The test tools own pytest, coverage, and the packages the offline suite
+# imports; the flywheel runtime owns its LeRobot, av, and pyarrow constraints.
+[components.infra-dev]
 [components.tool-flywheel]

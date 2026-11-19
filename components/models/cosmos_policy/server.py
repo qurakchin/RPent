@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from components.models.cosmos_policy.adapter import make_adapter
-from rpent.models.facade import BaseWAMFacade
+from rpent.components.models.facade import BaseWAMFacade
 from rpent.utils.logging import get_logger
 
 logger = get_logger("cosmos_policy_server")

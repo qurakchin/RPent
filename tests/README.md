@@ -106,6 +106,17 @@ CPU Torch from the PyTorch CPU index:
 .venvs/unit-cpu/bin/python -m pytest tests/unit_tests -v
 ```
 
+The same tools are a component, so they can join another target's environment
+without editing the target or installing packages by hand:
+
+```bash
+./rpent-install.sh install robot-libero --with infra-dev
+.venvs/robot-libero+infra-dev/bin/python -m pytest tests/unit_tests -v
+```
+
+The fingerprint records that composition, so `rpent-install doctor` accepts the
+environment instead of reporting packages it did not install.
+
 ## RoboCasa environment smoke tests
 
 RoboCasa separates simulator checks, model component checks and the full call chain:

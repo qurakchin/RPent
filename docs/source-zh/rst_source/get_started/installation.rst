@@ -26,7 +26,7 @@ RPent 安装的是具名目标。每个目标选择组件；每个组件在 ``co
 
 ``installs/targets/`` 或 ``tests/targets/`` 中声明的目标补上单个组件表达不了的组合：同一环境中的多个组件或额外的运行时依赖。两个目录作为同一个命名空间被发现，显式目标不得复用组件名；唯一的例外是机器人的同名覆盖目标，它必须安装该机器人。测试与开发目标（``dev``、``unit-cpu``）位于 ``tests/targets/``。
 
-复合目标把仿真器和真机与它使用的模型装在一起，例如 ``robot-libero`` 安装 LIBERO 并带上 Pi0.5、SAM 3.0 和 LeRobot 导出，``robot-yam`` 安装 YAM 并带上 Pi0.5。目标之间互不引用，仓库没有具名的组合拆成独立的组件环境，运行时用 endpoint 连接。
+复合目标把仿真器和真机与它使用的模型装在一起，例如 ``robot-libero`` 安装 LIBERO 并带上 Pi0.5、SAM 3.0 和 LeRobot 导出，``robot-yam`` 安装 YAM 并带上 Pi0.5。目标之间互不引用。``install --with <组件>`` 可以不改动目标就把一个组件加入同一个环境；留在独立环境中的服务在运行时用 endpoint 连接。
 
 组件的 ``python`` 可以写版本（``"3.11"``），也可以写范围（``">=3.10,<3.13"``）。``platforms`` 列出组件支持的主机，默认是 ``["linux-x86_64"]``。``install`` 从清单解析这两项；当清单现在解析出的输入与指纹记录不同时，``doctor`` 会报告出来。
 
@@ -40,7 +40,7 @@ RPent 安装的是具名目标。每个目标选择组件；每个组件在 ``co
    rpent-install install robot-libero
    source .venvs/robot-libero/bin/activate
 
-不传 ``--venv`` 时，目标安装到源码目录下的 ``.venvs/<目标>``；``.venvs/`` 是被 git 忽略的安装产物，之后的 ``install`` 和 ``doctor`` 会复用同一个环境。用 ``--venv`` 可以把环境放到其他位置。每个目标需要自己的环境：不同目标锁定不同的仿真器、机器人和模型运行时，因此安装器会拒绝安装到其他目标已安装的环境中。``--force`` 允许写入一个没有指纹记录的非空环境。``--dry-run`` 执行同样的解析校验，只打印该目标将要安装的依赖，不创建也不修改环境。
+不传 ``--venv`` 时，目标安装到源码目录下的 ``.venvs/<目标>``；``.venvs/`` 是被 git 忽略的安装产物，之后的 ``install`` 和 ``doctor`` 会复用同一个环境。用 ``--venv`` 可以把环境放到其他位置。每个目标需要自己的环境：不同目标锁定不同的仿真器、机器人和模型运行时，因此安装器会拒绝安装到其他目标已安装的环境中。``--with <组件>`` 把一个组件并入同一环境，可以重复，用法见「自定义组合」。``--force`` 允许写入一个没有指纹记录的非空环境。``--dry-run`` 执行同样的解析校验，只打印该目标将要安装的依赖，不创建也不修改环境。
 
 新检出的仓库还没有 ``rpent-install`` 命令。``./rpent-install.sh`` 负责引导，并把参数原样转给安装器，因此不需要事先准备任何环境：
 
@@ -60,9 +60,18 @@ RPent 安装的是具名目标。每个目标选择组件；每个组件在 ``co
 自定义组合
 ----------
 
-仓库没有具名的组合要写成一个目标文件，而不是在命令行上拼接名字。``install`` 只接受一个目标，因为解析、指纹和之后的 ``doctor`` 都以该目标为描述对象；临时拼接组件装出的环境没有可对照的记录。
+仓库长期维护的组合写成目标文件，而不是在命令行上拼接目标名。``install`` 只接受一个目标，因为解析、指纹和之后的 ``doctor`` 都以该目标为描述对象。
 
-在 ``installs/targets/`` 下按要安装的名字新建文件，然后安装：
+需要不改动检入的目标、只往同一个环境里加一个组件时（例如 ``infra-dev`` 的测试工具），用可重复的 ``--with``：
+
+.. code-block:: bash
+
+   rpent-install install robot-libero --with infra-dev
+   source .venvs/robot-libero+infra-dev/bin/activate
+
+带 ``--with`` 的环境命名为 ``<目标>+<组件>``，不会与不带它的环境共用依赖。指纹记录该组合，``doctor`` 按同一组合重新解析，因此加进来的组件仍属于有记录的环境，不会脱离安装指纹。
+
+写成目标文件时，在 ``installs/targets/`` 下按要安装的名字新建文件，然后安装：
 
 .. code-block:: toml
 
@@ -95,9 +104,12 @@ RPent 安装的是具名目标。每个目标选择组件；每个组件在 ``co
    * - ``dev``
      - 3.12
      - 本地开发和 CI 使用的测试依赖。
+   * - ``infra-dev``
+     - 3.12
+     - ``dev`` 使用的测试工具；用 ``--with`` 并入其他环境即可在其中运行离线测试。
    * - ``unit-cpu``
      - 3.11
-     - 仅 CPU 的单元测试：核心、测试工具、CPU 版 Torch 和 CPU 版 flywheel 依赖。
+     - 仅 CPU 的单元测试：核心、``infra-dev`` 测试工具、CPU 版 Torch 和 CPU 版 flywheel 依赖。
    * - ``sim-libero``
      - 3.12
      - LIBERO 和 LIBERO-PRO 仿真，用于 adapter 开发、e2e 和数据采集。
@@ -152,6 +164,7 @@ RPent 安装的是具名目标。每个目标选择组件；每个组件在 ``co
 
    rpent-install install minimal
    rpent-install install dev
+   rpent-install install infra-dev
    rpent-install install unit-cpu
    rpent-install install sim-libero
    rpent-install install sim-libero_plus
@@ -194,13 +207,13 @@ RPent 安装的是具名目标。每个目标选择组件；每个组件在 ``co
 
 它计算每个目标的 ``requires`` 闭包，报告重复锁定、不支持的 Python 版本、平台不匹配，以及仓库数据与清单不一致的地方。它不会下载任何依赖，也不需要锁。``--inputs-hash`` 打印单个目标安装输入的 hash 及其解析出的 Python minor；CI 用它作为环境缓存键。加上 ``--resolve`` 后，它还会用 ``uv pip compile`` 编译每个目标，确认声明的依赖可解；这与 ``lock`` 走同一条代码路径，会从配置的索引读取包元数据。``--platform`` 指定解析所用的主机，默认 ``linux-x86_64``。
 
-``tests/tooling/`` 下的其余维护者工具不随 wheel 安装。请在源码检出中通过 ``tests/tooling/rpent-tool.sh`` 运行，它把模块名和参数转给一次性的 ``uv`` 环境：
+``tests/tooling/`` 下的其余维护者工具不随 wheel 安装。请在源码检出中通过 ``tests/tooling/run.sh`` 运行，它把模块名和参数转给一次性的 ``uv`` 环境：
 
 .. code-block:: bash
 
-   tests/tooling/rpent-tool.sh rpent.cli.install check --all
-   tests/tooling/rpent-tool.sh tests.tooling.lock sim-robotwin
-   tests/tooling/rpent-tool.sh tests.tooling.lock --all --check
+   tests/tooling/run.sh rpent.cli.install check --all
+   tests/tooling/run.sh tests.tooling.lock sim-robotwin
+   tests/tooling/run.sh tests.tooling.lock --all --check
 
 ``lock`` 用 ``uv pip compile`` 生成目标的复现锁，并在首行记录上游截止时间 ``# exclude_newer``。锁位于 ``tests/locks/<目标>.lock``，不改变 ``install`` 的行为。``--check`` 按这个记录的截止时间重新编译，结果与仓库中的锁不同时失败，因此它反映的是清单变化或解析器版本不同，而不是期间的 upstream 发布。``lock --all`` 会报告在当前主机上无法解析的目标并继续处理其余目标；``sim-robotwin`` 的锁需要在设置了 ``CUDA_HOME`` 的 Linux 主机上生成，因为 cuRobo 在解析期间构建元数据。Linux 锁默认以 ``manylinux_2_31`` 为基线（glibc 2.31，即 Ubuntu 20.04 或更新版本），因为当前 GPU wheel 不再为更早的基线发布。闭包采用其中组件声明的最高基线；例如 ``sim-robodojo`` 为 Isaac Sim 5.1 的 wheel 声明 ``manylinux = "2_35"``。重新生成锁时使用生成当前锁的 ``uv`` 版本（0.13.7）：旧版本对相同输入可能解析出不同版本；升级它时要在同一次 relock 改动里一起修改。
 

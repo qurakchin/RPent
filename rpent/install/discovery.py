@@ -23,6 +23,7 @@ from typing import Iterable
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
     COMPONENT_DIRECTORIES,
+    KINDS,
     Component,
     Target,
     load_component,
@@ -36,6 +37,16 @@ COMPONENT_ROOTS = tuple(
     (f"{directory}/*/component.toml", kind)
     for kind, directory in COMPONENT_DIRECTORIES.items()
 )
+#: Kinds a component may name in ``requires``. A simulator and a model service
+#: meet only in a robot target, so neither may require the other; tool and
+#: infra components stay below both. Only a robot composes the rest.
+REQUIRED_KINDS = {
+    "robot": frozenset(KINDS),
+    "sim": frozenset({"tool", "infra"}),
+    "model": frozenset({"tool", "infra"}),
+    "tool": frozenset({"tool", "infra"}),
+    "infra": frozenset({"tool", "infra"}),
+}
 
 
 @dataclass(frozen=True)
@@ -103,8 +114,35 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
             )
         components[component.name] = component
     _check_conflicts(components)
+    _check_requires(components)
     _check_imports(components)
     return components
+
+
+def _check_requires(components: dict[str, Component]) -> None:
+    """Reject a ``requires`` edge that crosses the kind layering.
+
+    Every required component must exist and belong to a kind the requiring one
+    may build on. A simulator and a model service only meet inside a robot
+    target, so one cannot require the other: the robot adapter is what composes
+    them, and its target selects both.
+    """
+    for component in components.values():
+        allowed = REQUIRED_KINDS[component.kind]
+        for required in component.requires:
+            other = components.get(required)
+            if other is None:
+                raise InstallConfigError(
+                    f"{component.manifest_path}: requires unknown component "
+                    f"{required!r}"
+                )
+            if other.kind not in allowed:
+                raise InstallConfigError(
+                    f"{component.manifest_path}: {component.kind} "
+                    f"{component.name!r} requires {other.kind} {other.name!r}; "
+                    f"a {component.kind} component may require only "
+                    f"{', '.join(sorted(allowed))} components"
+                )
 
 
 def _check_imports(components: dict[str, Component]) -> None:

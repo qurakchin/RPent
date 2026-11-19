@@ -35,7 +35,7 @@ Rules:
   ``robots`` package itself for discovery is allowed. A thin CLI shim to an
   out-of-tree component tool is exempt while it keeps the import lazy.
 - K5: core ``rpent/**`` must not name a robot or benchmark (R8).
-  ``rpent/models/backends.py`` is exempt while the backend table still names
+  ``rpent/components/models/backends.py`` is exempt while the backend table still names
   the robots it routes to; the wire-contract copies live with the model
   services under ``components/models/<name>/platforms.py``.
 - K6: a slice ``robots/<name>/__init__.py`` only re-exports lazily.
@@ -97,7 +97,7 @@ IGNORED_TOP_LEVEL = frozenset({"memory", "__pycache__"})
 #: an error, so a temporary exception cannot become permanent by being
 #: forgotten.
 CORE_NAME_EXEMPTIONS = {
-    "rpent/models/backends.py": (
+    "rpent/components/models/backends.py": (
         "the backend table names the robots it routes to; removing it needs the "
         "slice configuration that owns that choice",
         date(2027, 6, 30),
@@ -618,7 +618,7 @@ def check_imports(root: Path, *, today: date | None = None) -> list[Finding]:
                     (
                         "components.models",
                         "core must not import model services; keep them "
-                        "behind the rpent.models client contract",
+                        "behind the rpent.components.models client contract",
                     ),
                     (
                         "components.sim",

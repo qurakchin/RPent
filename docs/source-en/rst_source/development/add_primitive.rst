@@ -92,7 +92,7 @@ the transport thread over via a work queue:
 .. code-block:: python
 
    from rpent.utils.rpc.main_thread_serve import MainThreadServeMixin
-   from rpent.env.facade import BaseEnvFacade
+   from rpent.components.env.facade import BaseEnvFacade
 
    class MyEnvFacade(MainThreadServeMixin, BaseEnvFacade):
        ...

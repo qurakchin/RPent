@@ -1,0 +1,25 @@
+schema = 2
+
+name = "infra-dev"
+probe = "pytest"
+description = "Test and development tools for the offline suite and repository checks."
+
+# The offline suite imports these directly; anything only one runtime needs
+# stays with that component. The set is platform-neutral, so a developer can
+# compose it into a robot environment on any supported host.
+platforms = [
+  "linux-x86_64",
+  "linux-aarch64",
+  "darwin-arm64",
+  "darwin-x86_64",
+]
+
+dependencies = [
+  "av",
+  "coverage",
+  "gymnasium",
+  "imageio_ffmpeg",
+  "omegaconf",
+  "pytest",
+  "pytest-timeout",
+]

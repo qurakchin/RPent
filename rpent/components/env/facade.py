@@ -25,7 +25,7 @@ class BaseEnvFacade(RpcFacade):
     State-caching principle:
         The server side does **not** cache any observation results. Cache
         variables such as ``_last_obs`` / ``_terminated`` live only on the
-        client side (see ``BaseEnvClient`` in ``rpent.env.client.py``).
+        client side (see ``BaseEnvClient`` in ``rpent.components.env.client.py``).
         The server is stateless (apart from the env's own physical state) and
         re-reads the env on every request.
 

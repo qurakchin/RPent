@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-from rpent.models.contracts import AMObservation
+from rpent.components.models.contracts import AMObservation
 
 #: Camera roles RoboTwin exposes, in the order model adapters expect. The
 #: model-side copies live in ``components/models/{fast_wam,uniwam}/platforms.py``;

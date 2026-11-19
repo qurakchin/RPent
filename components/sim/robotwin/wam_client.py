@@ -25,8 +25,8 @@ from components.sim.robotwin.control import (
     ROBOTWIN_QPOS,
 )
 from components.sim.robotwin.observation import physical_observation
-from rpent.models.client import BaseWAMClient
-from rpent.models.contracts import (
+from rpent.components.models.client import BaseWAMClient
+from rpent.components.models.contracts import (
     AMControlSpec,
     WAMPrediction,
     WAMRequest,

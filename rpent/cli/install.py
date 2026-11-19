@@ -16,8 +16,10 @@
 
 A target is a non-robot component installed under its own name, or a file in
 ``installs/targets/`` or ``tests/targets/`` that composes components or selects
-a robot. Lock generation stays a maintainer tool under ``tests/tooling/``;
-``check`` resolves targets without installing anything.
+a robot. ``install --with <component>`` adds a component to one environment
+without editing the target, for example ``infra-dev`` beside a robot. Lock
+generation stays a maintainer tool under ``tests/tooling/``; ``check`` resolves
+targets without installing anything.
 """
 
 from __future__ import annotations
@@ -62,6 +64,7 @@ def command_install(args: argparse.Namespace) -> int:
         force=args.force,
         verbose=True,
         dry_run=args.dry_run,
+        extra_components=tuple(args.with_components),
     )
     return 0
 
@@ -131,6 +134,15 @@ def build_parser() -> argparse.ArgumentParser:
         "install", help="install one named target into a virtualenv"
     )
     installer.add_argument("target")
+    installer.add_argument(
+        "--with",
+        dest="with_components",
+        action="append",
+        default=[],
+        metavar="COMPONENT",
+        help="also install this component into the same environment; may be "
+        "repeated, for example --with infra-dev",
+    )
     installer.add_argument("--venv", type=Path, help="virtualenv path")
     installer.add_argument(
         "--force",
