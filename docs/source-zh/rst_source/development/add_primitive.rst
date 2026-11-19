@@ -76,7 +76,7 @@ VLA/WAM 的服务、客户端、adapter 与会话生命周期见 :doc:`add_actio
 
    facade.serve(transport="http", host=host, port=port)  # dispatch 在主线程串行
 
-mixin 覆盖的 ``serve`` 与 :class:`~rpent.utils.rpc.RpcFacade` 的 ``serve`` 契约一致：同样支持 ``healthz`` / ``shutdown``、父进程退出检测和会话管理（构造时传入 ``enable_sessions=True``，则调用 ``serve`` 时仍须传入 ``session_sweep_s``）。子类直接继承即可，无需重写 ``serve`` 再转发调用，参考 ``robots/robocasa/env_server.py`` 中的 ``RoboCasaEnvFacade``。没有 EGL 单线程要求的后端直接使用基类默认的 ``serve``。
+mixin 覆盖的 ``serve`` 与 :class:`~rpent.utils.rpc.RpcFacade` 的 ``serve`` 契约一致：同样支持 ``healthz`` / ``shutdown``、父进程退出检测和会话管理（构造时传入 ``enable_sessions=True``，则调用 ``serve`` 时仍须传入 ``session_sweep_s``）。子类直接继承即可，无需重写 ``serve`` 再转发调用，参考 ``components/sim/robocasa/env_server.py`` 中的 ``RoboCasaEnvFacade``。没有 EGL 单线程要求的后端直接使用基类默认的 ``serve``。
 
 新原语的设计原则
 ----------------

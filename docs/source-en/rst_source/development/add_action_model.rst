@@ -77,13 +77,13 @@ For a WAM worker, the call chain is:
 
    robot_spec._init_runtime()
      -> runtime.select_am(args, platform): resolve AMConfig and model options
-     -> robots.runtime.try_spawn_server(spawn_fn)
+     -> rpent.robots.runtime.try_spawn_server(spawn_fn)
           -> runtime.start_wam_service(config, output_dir)
                -> AMConfig.spawn_worker() -> ProcessDaemon.start()
                -> make_rpc_client()
                -> return daemon + RPC client
           -> register owned daemon
-     -> robots.runtime.try_wait_server(post_fn)
+     -> rpent.robots.runtime.try_wait_server(post_fn)
           -> wait for readiness
           -> create platform WAM client and check control compatibility
           -> report ready to Dashboard
@@ -92,7 +92,7 @@ VLA launchers also use ``AMConfig.spawn_worker()``. Platforms retain their
 transport and model command arguments, including LingBot's native WebSocket
 connection and RoboCasa's session-enabled RPC. ``ProcessDaemon`` closes its
 log on a failed spawn. The shared
-``robots/runtime.py`` owns readiness, component status and group cleanup after
+``rpent/robots/runtime.py`` owns readiness, component status and group cleanup after
 resource handoff. Borrowed endpoints return no owned daemon.
 
 ``runtime.add_am_args(parser, platform=...)`` registers supported backends
