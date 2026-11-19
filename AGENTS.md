@@ -7,9 +7,10 @@ with documentation instead of assuming either is correct.
 
 ## Repository map
 
-- `rpent/`: core contracts, scheduling, and model bases. `rpent/env/` and
-  `rpent/models/` hold the environment and model-side contracts, clients,
-  facades, backends, and platform helpers that every slice uses.
+- `rpent/`: core contracts, scheduling, and model bases.
+  `rpent/components/env/` and `rpent/components/models/` hold the environment
+  and model-side contracts, clients, facades, backends, and platform helpers
+  that every slice uses.
 - `rpent/planner/`, `rpent/session/`, and `rpent/prompt/`: planner adapters,
   execution sessions, and shared prompt construction.
 - `rpent/tools/` and `rpent/memory/`: tool execution, observations, and memory.
@@ -22,8 +23,8 @@ with documentation instead of assuming either is correct.
 - `components/sim/<name>/`: installable simulator services.
 - `components/models/<name>/`: installable model services.
 - `components/tools/<name>/`: installable tools such as the flywheel exporter.
-- `installs/infra-<name>.toml`: infrastructure components that install packages
-  for an environment without owning code.
+- `components/infra/<name>/`: infrastructure components that install packages
+  for an environment without owning code; the directory holds only the manifest.
 - `rpent-install.sh`: the checkout-level bootstrap for the installer; a fresh
   checkout has no `rpent-install` console script yet.
 - `tests/`: offline tests, integration checks, repository structure checks, and

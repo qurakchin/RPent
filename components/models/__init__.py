@@ -15,6 +15,6 @@
 """Model inference services, one installable component per subdirectory.
 
 Each service is declared by its ``component.toml`` and builds on the contracts,
-clients and facades in ``rpent/models/``. This package must not import
+clients and facades in ``rpent/components/models/``. This package must not import
 ``robots`` or a sibling service.
 """

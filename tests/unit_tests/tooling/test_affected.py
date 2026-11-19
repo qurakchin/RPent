@@ -222,7 +222,9 @@ def test_install_data_change_runs_the_repository_contract_tests(
 ):
     catalog = _install_data_catalog(make_catalog, make_component)
 
-    scope = affected.affected_scope(["installs/infra-rlinf.toml"], catalog, tmp_path)
+    scope = affected.affected_scope(
+        ["components/infra/rlinf/component.toml"], catalog, tmp_path
+    )
 
     assert not scope.full
     assert scope.components == ()
@@ -236,7 +238,9 @@ def test_install_data_change_reaches_the_environments_that_require_it(
 ):
     catalog = _install_data_catalog(make_catalog, make_component)
 
-    scope = affected.affected_scope(["installs/infra-minimal.toml"], catalog, tmp_path)
+    scope = affected.affected_scope(
+        ["components/infra/minimal/component.toml"], catalog, tmp_path
+    )
 
     assert scope.installs == ("infra-minimal",)
 
@@ -275,7 +279,9 @@ def test_unrecognised_install_data_widens_to_every_environment(
 ):
     catalog = _install_data_catalog(make_catalog, make_component)
 
-    scope = affected.affected_scope(["installs/matrix.toml"], catalog, tmp_path)
+    scope = affected.affected_scope(
+        ["components/infra/matrix/component.toml"], catalog, tmp_path
+    )
 
     assert scope.tests == ("tests/unit_tests/installs", "tests/unit_tests/tooling")
     assert scope.installs == ("infra-minimal", "infra-rlinf", "robot-alpha")
@@ -287,7 +293,7 @@ def test_mixed_install_and_core_change_widens_to_everything(
     catalog = _install_data_catalog(make_catalog, make_component)
 
     scope = affected.affected_scope(
-        ["installs/infra-minimal.toml", "rpent/session/session.py"],
+        ["components/infra/minimal/component.toml", "rpent/session/session.py"],
         catalog,
         tmp_path,
     )
@@ -346,7 +352,7 @@ def test_runner_filter_narrows_every_environment_set(
         """,
     )
     write_toml(
-        "installs/infra-minimal.toml",
+        "components/infra/minimal/component.toml",
         """
         schema = 2
         name = "infra-minimal"

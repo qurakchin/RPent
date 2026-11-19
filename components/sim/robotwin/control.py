@@ -14,11 +14,11 @@
 
 """RoboTwin action layouts for native qpos and end-effector execution.
 
-The capability-side copy in ``rpent/models/platforms.py`` states what a
+The capability-side copy in ``rpent/components/models/platforms.py`` states what a
 model adapter expects; keep the two equal.
 """
 
-from rpent.models.contracts import AMControlSpec
+from rpent.components.models.contracts import AMControlSpec
 
 # Maximum number of executed controller targets retained by the environment client.
 QPOS_HISTORY_CAPACITY = 16

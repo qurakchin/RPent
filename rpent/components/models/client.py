@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from rpent.models.contracts import (
+from rpent.components.models.contracts import (
     AMControlSpec,
     WAMModelMeta,
     WAMPrediction,

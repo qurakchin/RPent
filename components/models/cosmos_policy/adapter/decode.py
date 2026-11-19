@@ -18,7 +18,7 @@ from typing import Any
 
 import numpy as np
 
-from rpent.models.contracts import WAMPrediction
+from rpent.components.models.contracts import WAMPrediction
 
 
 def decode_libero(

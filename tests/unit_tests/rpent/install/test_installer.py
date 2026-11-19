@@ -74,7 +74,7 @@ def repo(tmp_path, write_toml):
         """,
     )
     write_toml(
-        "installs/infra-dev.toml",
+        "components/infra/dev/component.toml",
         f"""
         schema = {SCHEMA}
         name = "infra-dev"

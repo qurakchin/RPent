@@ -21,7 +21,7 @@ from components.models.openpi.server import (
     Pi05VLAFacade,
     build_model_cfg,
 )
-from rpent.models.facade import BaseVLAFacade
+from rpent.components.models.facade import BaseVLAFacade
 
 
 @pytest.mark.parametrize("embodiment", ["dual_franka", "yam"])

@@ -70,11 +70,12 @@ them when the first test for that module lands.
   belong to `robots/`; installer units belong to `rpent/install/`.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
-  `tests/unit_tests/installs/` reads the checked-in `component.toml` files and
-  `installs/infra-*.toml`. Do not read the real install data from
-  `tests/unit_tests/rpent/install/`; the test path would otherwise hide which
-  layer owns the failure. `installs/` is not a Python package, so the test
-  directory mirrors the repository-level data rather than a `rpent/` module.
+  `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
+  including the manifest-only `components/infra/` components. Do not read the
+  real install data from `tests/unit_tests/rpent/install/`; the test path would
+  otherwise hide which layer owns the failure. The install data is not a Python
+  package, so the test directory mirrors the repository layout rather than a
+  `rpent/` module.
   The installer units and the install-data contracts use only the core and
   `infra-dev` dependencies, and `fast ci` runs them in the `infra-dev`
   environment.

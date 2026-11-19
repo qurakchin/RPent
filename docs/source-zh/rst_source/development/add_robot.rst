@@ -62,7 +62,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 除非清单列出 ``platforms``，组件默认支持 ``linux-x86_64``；只有需要更窄的平台集合时才写这个字段。
 
-``name`` 必须是 ``robot-`` 加上目录名，前缀说明组件类型，也决定代码所在位置。``requires`` 声明这个环境同时安装的组件；机器人环境正是通过它带上仿真器和模型服务。``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；多个组件都需要的包应放进 ``installs/`` 下的基础设施组件。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。工具包与模型服务之间共享契约，不互相 import。
+``name`` 必须是 ``robot-`` 加上目录名，前缀说明组件类型，也决定代码所在位置。``requires`` 声明这个环境同时安装的组件；机器人环境正是通过它带上仿真器和模型服务。``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；多个组件都需要的包应放进 ``components/infra/`` 下的基础设施组件。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。工具包与模型服务之间共享契约，不互相 import。
 
 ``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的依赖包。通过 ``__getattr__`` 暴露工厂：
 
@@ -163,11 +163,11 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 1.1 Env client（agent 侧）
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-继承 :class:`rpent.env.client.BaseEnvClient`。它已经负责启动时校验 ``env.get_env_meta``、执行首次 reset、缓存 ``last_obs``，并实现公共的 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 和 ``get_task_language`` RPC。子类只需增加环境专用方法；扩展方法需要独立超时时，再扩展超时表。RPC 名称需要保持稳定，因为服务端 facade 会显式注册每个名称。
+继承 :class:`rpent.components.env.client.BaseEnvClient`。它已经负责启动时校验 ``env.get_env_meta``、执行首次 reset、缓存 ``last_obs``，并实现公共的 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 和 ``get_task_language`` RPC。子类只需增加环境专用方法；扩展方法需要独立超时时，再扩展超时表。RPC 名称需要保持稳定，因为服务端 facade 会显式注册每个名称。
 
 .. code-block:: python
 
-   from rpent.env.client import BaseEnvClient
+   from rpent.components.env.client import BaseEnvClient
 
    class MyEnvClient(BaseEnvClient):
        _TIMEOUT_S = {
@@ -188,12 +188,12 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 在 ``env_server`` 中定义与 client API 对应的 facade 类，例如 ``MyEnvFacade``。该类继承
-:class:`rpent.env.facade.BaseEnvFacade`；基类已提供公共 RPC 路由和
+:class:`rpent.components.env.facade.BaseEnvFacade`；基类已提供公共 RPC 路由和
 读写分派锁。子类实现公共环境方法，并通过 ``_register_rpc`` 增加环境专用路由。方法接收与 client 一致的位置参数和关键字参数，返回传输层支持的 Python / NumPy 值（不要返回 torch；agent 进程不导入 torch）。
 
 .. code-block:: python
 
-   from rpent.env.facade import BaseEnvFacade
+   from rpent.components.env.facade import BaseEnvFacade
 
    class MyEnvFacade(BaseEnvFacade):
        def __init__(self, env, meta):

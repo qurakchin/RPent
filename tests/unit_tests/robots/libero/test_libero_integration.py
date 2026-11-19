@@ -27,8 +27,8 @@ from components.tools.flywheel.reader import iter_trajectories
 from robots.libero import robot_spec
 from robots.libero import toolkit as libero_toolkit
 from robots.libero.tools import LiberoPrimitives
+from rpent.components.env.action_spec import validate_action
 from rpent.dashboard.events import NullDashboardEventSink
-from rpent.env.action_spec import validate_action
 from rpent.memory import MemoryManager
 from rpent.planner.api_loop import ApiAgentLoop
 from rpent.session import EnvState, Payload

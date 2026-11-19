@@ -18,14 +18,7 @@ import pytest
 
 from rpent.install.discovery import discover, discover_components
 from rpent.install.errors import InstallConfigError
-from rpent.install.manifest import SCHEMA
-
-DIRECTORIES = {
-    "robot": "robots",
-    "sim": "components/sim",
-    "model": "components/models",
-    "tool": "components/tools",
-}
+from rpent.install.manifest import COMPONENT_DIRECTORIES, SCHEMA
 
 
 def _component(write_toml, kind, short, *, conflicts=(), requires=(), imports=()):
@@ -34,7 +27,7 @@ def _component(write_toml, kind, short, *, conflicts=(), requires=(), imports=()
     required = ", ".join(f'"{item}"' for item in requires)
     imported = ", ".join(f'"{item}"' for item in imports)
     return write_toml(
-        f"{DIRECTORIES[kind]}/{short}/component.toml",
+        f"{COMPONENT_DIRECTORIES[kind]}/{short}/component.toml",
         f"""
         schema = {SCHEMA}
         name = "{name}"
@@ -46,17 +39,14 @@ def _component(write_toml, kind, short, *, conflicts=(), requires=(), imports=()
     )
 
 
-def _infra(write_toml, short, *, requires=(), conflicts=()):
-    required = ", ".join(f'"{item}"' for item in requires)
-    rendered = ", ".join(f'"{item}"' for item in conflicts)
+def _component_without_code(write_toml, kind, short):
+    """Write a manifest for a component that installs packages and no code."""
     return write_toml(
-        f"installs/infra-{short}.toml",
+        f"{COMPONENT_DIRECTORIES[kind]}/{short}/component.toml",
         f"""
         schema = {SCHEMA}
-        name = "infra-{short}"
+        name = "{kind}-{short}"
         probe = "{short}"
-        requires = [{required}]
-        env_conflicts = [{rendered}]
         """,
     )
 
@@ -67,7 +57,7 @@ def test_discovery_loads_every_kind(tmp_path, write_toml):
     _component(write_toml, "sim", "alpha")
     _component(write_toml, "model", "alpha")
     _component(write_toml, "tool", "alpha")
-    _infra(write_toml, "alpha")
+    _component(write_toml, "infra", "alpha")
 
     catalog = discover(tmp_path)
 
@@ -84,36 +74,20 @@ def test_discovery_loads_every_kind(tmp_path, write_toml):
     assert catalog.components["infra-alpha"].is_infra
 
 
-def _package(write_toml, kind, short, *, requires=()):
-    required = ", ".join(f'"{item}"' for item in requires)
-    return write_toml(
-        f"installs/{kind}-{short}.toml",
-        f"""
-        schema = {SCHEMA}
-        name = "{kind}-{short}"
-        probe = "{short}"
-        requires = [{required}]
-        """,
-    )
-
-
-def test_a_package_manifest_is_discovered_without_a_directory(tmp_path, write_toml):
-    _package(write_toml, "sim", "variant_plus")
-    _package(write_toml, "infra", "runtime")
+def test_a_component_without_code_is_discovered_from_its_directory(
+    tmp_path, write_toml
+):
+    _component_without_code(write_toml, "sim", "variant_plus")
+    _component_without_code(write_toml, "infra", "runtime")
 
     catalog = discover(tmp_path)
 
     assert sorted(catalog.components) == ["infra-runtime", "sim-variant_plus"]
     assert catalog.components["sim-variant_plus"].kind == "sim"
-    assert catalog.components["sim-variant_plus"].path is None
-
-
-def test_a_component_declared_twice_is_rejected(tmp_path, write_toml):
-    _component(write_toml, "sim", "alpha")
-    _package(write_toml, "sim", "alpha")
-
-    with pytest.raises(InstallConfigError, match="declared twice"):
-        discover(tmp_path)
+    assert (
+        catalog.components["sim-variant_plus"].path
+        == (tmp_path / "components" / "sim" / "variant_plus").resolve()
+    )
 
 
 def test_component_name_must_match_its_directory(tmp_path, write_toml):
@@ -220,9 +194,18 @@ def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
 
 def test_apple_double_metadata_is_ignored(tmp_path, write_toml):
     _component(write_toml, "robot", "alpha")
-    _infra(write_toml, "dev")
-    # A network filesystem stores macOS extended attributes as ._<name> files.
-    (tmp_path / "installs" / "._infra-dev.toml").write_bytes(b"\xa3 metadata")
+    _component_without_code(write_toml, "infra", "dev")
+    # A network filesystem stores macOS extended attributes as ``._<name>``
+    # entries next to the original, and the layout gives a leading underscore
+    # the same meaning; neither names a component.
+    write_toml(
+        "components/infra/._dev/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "infra-._dev"
+        probe = "json"
+        """,
+    )
     (tmp_path / "robots" / "._alpha").mkdir()
 
     assert sorted(discover_components(tmp_path)) == ["infra-dev", "robot-alpha"]

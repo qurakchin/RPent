@@ -252,7 +252,7 @@ def test_check_targets_the_newest_baseline_in_the_closure(repo, fake_uv, write_t
 
 def test_check_passes_the_components_index_settings(repo, fake_uv, write_toml):
     write_toml(
-        "installs/infra-unit_cpu.toml",
+        "components/infra/unit_cpu/component.toml",
         f"""
         schema = {SCHEMA}
         name = "infra-unit_cpu"

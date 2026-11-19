@@ -34,9 +34,9 @@ from robots.robocasa.env_client import RoboCasaEnvClient
 from robots.robocasa.primitives import RoboCasaPrimitives
 from robots.robocasa.prompt_bundle import system_prompt
 from robots.robocasa.toolkit import _capture_robocasa_call
+from rpent.components.env.action_spec import box_action_spec
+from rpent.components.env.facade import BaseEnvFacade
 from rpent.dashboard.events import NullDashboardEventSink
-from rpent.env.action_spec import box_action_spec
-from rpent.env.facade import BaseEnvFacade
 from rpent.memory import MemoryManager
 from rpent.prompt.utils import format_prompt
 from rpent.session import EnvState, Payload

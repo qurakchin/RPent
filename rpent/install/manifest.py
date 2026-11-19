@@ -24,12 +24,14 @@ prefix          location                          example
 ``sim-``        ``components/sim/<name>/``        ``sim-alpha``
 ``model-``      ``components/models/<name>/``     ``model-openpi``
 ``tool-``       ``components/tools/<name>/``      ``tool-flywheel``
-``infra-``      ``installs/<name>.toml``          ``infra-unit_cpu``
+``infra-``      ``components/infra/<name>/``      ``infra-unit_cpu``
 ==============  ================================  ====================
 
-An environment contains exactly the components named on the command line plus
-the closure of their ``requires``. A manifest owns its component's packages and
-nothing else adds or removes them.
+Every component is one directory holding its ``component.toml``; the directory
+also holds the component's code unless it owns none, which infra components and
+a separately packaged simulator variant do. An environment contains exactly the
+components named on the command line plus the closure of their ``requires``. A
+manifest owns its component's packages and nothing else adds or removes them.
 """
 
 from __future__ import annotations
@@ -52,14 +54,14 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 SCHEMA = 2
 #: Component kinds in the order ``rpent-install list`` prints them.
 KINDS = ("robot", "sim", "model", "tool", "infra")
-#: Kind -> the directory holding ``component.toml`` files, relative to the
-#: checkout root. ``infra`` components have no code directory; a component of
-#: any kind that owns no code declares itself in ``installs/<kind>-<name>.toml``.
+#: Kind -> the directory holding one ``<name>/component.toml`` per component,
+#: relative to the checkout root.
 COMPONENT_DIRECTORIES = {
     "robot": "robots",
     "sim": "components/sim",
     "model": "components/models",
     "tool": "components/tools",
+    "infra": "components/infra",
 }
 #: ``uv``'s multi-index strategies; see ``--index-strategy`` in ``uv pip compile``.
 INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
@@ -217,10 +219,9 @@ class Component:
 
     name: str
     kind: str
-    #: The component's code directory; ``None`` for a manifest under
-    #: ``installs/``, which installs packages on behalf of an environment
-    #: rather than owning code.
-    path: Path | None
+    #: The component's directory: it holds the manifest and, unless the
+    #: component owns no code, its package.
+    path: Path
     manifest: Path
     probe: str
     python: str | None
@@ -251,54 +252,18 @@ class Component:
 def load_component(path: Path, kind: str) -> Component:
     """Load one ``<component directory>/component.toml``.
 
+    The name must be ``kind``'s prefix plus the directory name, so a component
+    cannot sit in one place and call itself another.
+
     Raises:
-        InstallConfigError: ``kind`` is not a directory kind, or the manifest
-            is invalid or does not match the directory it lives in.
+        InstallConfigError: the manifest is invalid or does not match the
+            directory it lives in.
     """
-    if kind not in COMPONENT_DIRECTORIES:
-        raise InstallConfigError(
-            f"{path}: {kind!r} components have no directory of their own; "
-            f"their manifests are installs/{prefix(kind)}<name>.toml"
-        )
     data = _read_toml(path)
     _schema(data, path)
     _fields(data, path)
     name = _name(data, path, f"{prefix(kind)}{path.parent.name}")
-    return _component(data, path, name=name, kind=kind, directory=path.parent)
-
-
-def load_package_component(path: Path, kind: str) -> Component:
-    """Load one ``installs/<kind>-<name>.toml`` manifest.
-
-    A component without a code directory still installs into an environment:
-    the infrastructure components provide the runtime packages every robot
-    environment shares, and a separately packaged simulator variant installs
-    the packages whose environment server another component already owns.
-
-    Raises:
-        InstallConfigError: the manifest is invalid, its name does not carry
-            ``kind``'s prefix, or it declares a relation that needs a code
-            directory.
-    """
-    data = _read_toml(path)
-    _schema(data, path)
-    _fields(data, path)
-    name = _name(data, path, path.stem)
-    if not name.startswith(prefix(kind)):
-        raise InstallConfigError(
-            f"{path}: {kind} component names start with {prefix(kind)!r}"
-        )
-    if data.get("imports"):
-        raise InstallConfigError(
-            f"{path}: a component without a code directory has nothing to "
-            "import; remove 'imports'"
-        )
-    if data.get("overrides"):
-        raise InstallConfigError(
-            f"{path}: a component without a code directory cannot resolve "
-            "override paths; remove 'overrides'"
-        )
-    return _component(data, path, name=name, kind=kind, directory=None)
+    return _component(data, path, name=name, kind=kind)
 
 
 def _component(
@@ -307,9 +272,9 @@ def _component(
     *,
     name: str,
     kind: str,
-    directory: Path | None,
 ) -> Component:
     """Build a component from parsed data, validating shared fields."""
+    directory = path.parent
     probe = data.get("probe")
     if not isinstance(probe, str) or not probe:
         raise InstallConfigError(f"{path}: 'probe' must be a non-empty import path")
@@ -320,11 +285,7 @@ def _component(
                 f"{path}: override {relative!r} must be relative to the "
                 "component directory, so the checkout can move"
             )
-    overrides = (
-        tuple(directory / relative for relative in declared_overrides)
-        if directory is not None
-        else ()
-    )
+    overrides = tuple(directory / relative for relative in declared_overrides)
     for override in overrides:
         if not override.is_file():
             raise InstallConfigError(f"{path}: override file not found: {override}")

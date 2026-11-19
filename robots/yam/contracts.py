@@ -14,7 +14,7 @@ from dataclasses import dataclass
 import numpy as np
 
 #: Identity a YAM Pi0.5 VLA server must report back to the control station.
-#: The capability-side copies in ``rpent/models/platforms.py`` state what
+#: The capability-side copies in ``rpent/components/models/platforms.py`` state what
 #: each model server expects; keep them equal.
 YAM_VLA_CONTRACT = {
     "runtime": "yam_vla",

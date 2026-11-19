@@ -33,9 +33,9 @@ from typing import Any
 
 import numpy as np
 
+from rpent.components.models.facade import BaseVLAFacade
+from rpent.components.models.platforms import YAM_VLA_CONTRACT
 from rpent.install import require
-from rpent.models.facade import BaseVLAFacade
-from rpent.models.platforms import YAM_VLA_CONTRACT
 from rpent.utils.config import get_pi05_checkpoint_path
 from rpent.utils.logging import get_logger
 

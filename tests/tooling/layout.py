@@ -33,7 +33,7 @@ Rules:
   ``robots.<name>``; importing the ``robots`` package itself for discovery is
   allowed.
 - K5: core ``rpent/**`` must not name a robot or benchmark (R8).
-  ``rpent/models/`` is exempt: model-side contracts and the backend table name
+  ``rpent/components/models/`` is exempt: model-side contracts and the backend table name
   the embodiment they speak to.
 - K6: a slice ``robots/<name>/__init__.py`` only re-exports lazily.
 - K7: ``spec.py`` > 80, ``adapter.py`` > 400, and ``native_tools.py`` > 100
@@ -59,9 +59,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 #: Directories the layout registers an owner for. Hidden directories are tool
 #: configuration and are exempt.
-ALLOWED_TOP_LEVEL = frozenset(
-    {"rpent", "robots", "components", "installs", "tests", "docs"}
-)
+ALLOWED_TOP_LEVEL = frozenset({"rpent", "robots", "components", "tests", "docs"})
 #: Root files the layout allows next to the top-level directories.
 ALLOWED_ROOT_FILES = (
     "pyproject.toml",
@@ -84,7 +82,7 @@ IGNORED_TOP_LEVEL = frozenset({"memory", "__pycache__"})
 #: embodiment they control. An expired entry is an error, so a temporary
 #: exception cannot become permanent by being forgotten.
 CORE_NAME_EXEMPTIONS = {
-    "rpent/models": (
+    "rpent/components/models": (
         "model-side wire contracts and the backend table name the embodiment "
         "they speak to",
         date(2027, 6, 30),
@@ -505,7 +503,7 @@ def check_imports(root: Path) -> list[Finding]:
                             path,
                             line,
                             "core must not import model services; keep them "
-                            "behind the rpent.models client contract",
+                            "behind the rpent.components.models client contract",
                         )
                     )
                 elif _under(module, "components.sim"):
@@ -514,7 +512,7 @@ def check_imports(root: Path) -> list[Finding]:
                             path,
                             line,
                             "core must not import simulator components; keep "
-                            "them behind the rpent.env contract",
+                            "them behind the rpent.components.env contract",
                         )
                     )
                 elif _under(module, "components.tools"):
@@ -811,16 +809,13 @@ def check_coverage(root: Path) -> list[Finding]:
         components = discover_components(root)
     except InstallConfigError as exc:
         return [Finding(root / "component.toml", 0, str(exc))]
-    declared = {
-        component.path.resolve()
-        for component in components.values()
-        if component.path is not None
-    }
+    declared = {component.path.resolve() for component in components.values()}
     roots = [
         (root / "robots", "robot"),
         (root / "components" / "models", "model"),
         (root / "components" / "sim", "sim"),
         (root / "components" / "tools", "tool"),
+        (root / "components" / "infra", "infra"),
     ]
     for directory, kind in roots:
         if not directory.is_dir():
@@ -861,7 +856,9 @@ def check_role_files(root: Path, *, today: date | None = None) -> list[Finding]:
         for child in sorted(directory.iterdir()):
             if not child.is_dir() or child.name.startswith((".", "_")):
                 continue
-            if kind == "model" and not any(child.glob("*.py")):
+            if not any(child.glob("*.py")):
+                # A component that owns no code has no role files to check; its
+                # manifest is what it contributes.
                 continue
             required = REQUIRED_ROLE_FILES[kind]
             missing = [name for name in required if not (child / name).exists()]

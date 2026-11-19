@@ -44,15 +44,15 @@ The name prefix says what a component is and where its code lives:
      - ``components/tools/<name>/``
      - A tool that depends only on the core, such as the flywheel exporter.
    * - ``infra-``
-     - ``installs/infra-<name>.toml``
+     - ``components/infra/<name>/``
      - Packages an environment needs without owning code (RLinf runtime, test
        tools, CPU Torch).
 
-A component that installs packages for code it does not own has no directory:
-its manifest lives in ``installs/<prefix>-<name>.toml`` instead of the
-location above. The ``infra-`` components are all of this shape, and
-``sim-libero_plus`` installs the LIBERO-plus package whose environment server
-ships with ``sim-libero``.
+Every component is one directory holding its ``component.toml``. A component
+that installs packages for code it does not own contributes only that manifest:
+the ``infra-`` components are all of this shape, and ``sim-libero_plus``
+installs the LIBERO-plus package whose environment server ships with
+``sim-libero``.
 
 The dependency direction is ``rpent`` ← ``components/sim`` ←
 ``components/models`` ← ``robots``; ``components/tools`` depends only on

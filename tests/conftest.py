@@ -57,20 +57,12 @@ def make_component(tmp_path):
         prefix = name.split("-", 1)[0]
         kind = values.pop("kind", prefix if prefix in KINDS else "robot")
         subject = name.split("-", 1)[1] if "-" in name else name
-        directory = (
-            None
-            if kind == "infra"
-            else tmp_path / COMPONENT_DIRECTORIES[kind] / subject
-        )
+        directory = tmp_path / COMPONENT_DIRECTORIES[kind] / subject
         return Component(
             name=name,
             kind=kind,
             path=directory,
-            manifest=(
-                tmp_path / "installs" / f"{name}.toml"
-                if directory is None
-                else directory / "component.toml"
-            ),
+            manifest=directory / "component.toml",
             probe=values.pop("probe", f"rpent.{subject}"),
             python=values.pop("python", None),
             platforms=tuple(values.pop("platforms", ())),

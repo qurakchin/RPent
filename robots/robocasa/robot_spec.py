@@ -37,13 +37,13 @@ from robots.robocasa.prompt_bundle import (
     system_prompt,
     user_prompt,
 )
-from rpent.dashboard.events import DashboardEventSink
-from rpent.dashboard.spec import DashboardSpec
-from rpent.memory import MemoryManager
-from rpent.models.backends import (
+from rpent.components.models.backends import (
     add_am_args,
     select_am,
 )
+from rpent.dashboard.events import DashboardEventSink
+from rpent.dashboard.spec import DashboardSpec
+from rpent.memory import MemoryManager
 from rpent.robots.prompt_bundle import PromptBundle
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 from rpent.robots.runtime import try_spawn_server, try_wait_server

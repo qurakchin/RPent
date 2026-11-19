@@ -77,7 +77,7 @@ PR_PILOT_COMPONENTS = ("infra-minimal",)
 #: decides which environments a change runs, so both widen the same way.
 PR_ALL_INSTALL_PREFIXES = (
     "rpent/install/",
-    "installs/",
+    "components/infra/",
     ".github/",
     "rpent-install.sh",
     "tests/tooling/",
@@ -85,7 +85,7 @@ PR_ALL_INSTALL_PREFIXES = (
 #: The repository's install data: the infrastructure manifests that decide what
 #: each environment contains, and the packaging settings that decide what the
 #: core adds to every one of them.
-INSTALL_DATA_PREFIXES = ("installs/",)
+INSTALL_DATA_PREFIXES = ("components/infra/",)
 INSTALL_DATA_ROOT_FILES = ("pyproject.toml",)
 #: Repository contract tests read that data. Installer unit tests live under
 #: ``tests/unit_tests/rpent/install/`` and use synthetic manifests, so the two
@@ -183,10 +183,8 @@ def _installs_for_install_data(paths: list[str], catalog: Catalog) -> tuple[str,
             # A test-only change installs nothing; the unit job still runs it.
             continue
         parts = path.split("/")
-        stem = parts[1] if len(parts) > 1 else ""
-        if len(parts) == 2 and stem.startswith("infra-") and stem.endswith(".toml"):
-            name = stem[: -len(".toml")]
-            required = _installs_containing({name}, catalog)
+        if len(parts) >= 3 and parts[:2] == ["components", "infra"]:
+            required = _installs_containing({f"infra-{parts[2]}"}, catalog)
             if required is None:
                 return every
             selected.update(required)

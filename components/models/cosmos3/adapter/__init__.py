@@ -20,9 +20,9 @@ from typing import Any
 from components.models.cosmos3 import USES_SESSIONS
 from components.models.cosmos3.adapter.decode import decode_libero
 from components.models.cosmos3.adapter.encode import encode_libero
-from rpent.models.contracts import WAMModelMeta
-from rpent.models.facade import WAMAdapter, WAMAdapterSpec
-from rpent.models.platforms import LIBERO_OSC
+from rpent.components.models.contracts import WAMModelMeta
+from rpent.components.models.facade import WAMAdapter, WAMAdapterSpec
+from rpent.components.models.platforms import LIBERO_OSC
 
 ADAPTERS = {
     "libero": WAMAdapterSpec(

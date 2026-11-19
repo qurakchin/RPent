@@ -23,8 +23,8 @@ import numpy as np
 
 from components.sim.libero.control import LIBERO_OSC
 from components.sim.libero.observation import physical_observation
-from rpent.models.client import BaseWAMClient
-from rpent.models.contracts import (
+from rpent.components.models.client import BaseWAMClient
+from rpent.components.models.contracts import (
     AMControlSpec,
     WAMPrediction,
     WAMRequest,

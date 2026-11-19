@@ -18,7 +18,7 @@ from components.sim.libero import control as libero_control
 from components.sim.robotwin import control as robotwin_control
 from components.sim.robotwin import observation as robotwin_observation
 from robots.yam import contracts as yam_contracts
-from rpent.models import platforms as am_platforms
+from rpent.components.models import platforms as am_platforms
 
 
 def test_robot_and_capability_copies_agree():

@@ -35,10 +35,10 @@
      - ``components/tools/<name>/``
      - 只依赖核心的工具，例如 flywheel 导出器。
    * - ``infra-``
-     - ``installs/infra-<name>.toml``
+     - ``components/infra/<name>/``
      - 环境需要但不拥有代码的依赖包（RLinf 运行时、测试工具、CPU Torch）。
 
-为不属于自己的代码安装依赖包的组件没有代码目录，清单放在 ``installs/<前缀>-<name>.toml`` 而不是上表的位置。``infra-`` 组件全部属于这种形态，``sim-libero_plus`` 则是为 ``sim-libero`` 自带的 env server 安装 LIBERO-plus 包。
+每个组件都是一个目录，目录里放着它的 ``component.toml``。为不属于自己的代码安装依赖包的组件只贡献这份清单：``infra-`` 组件全部属于这种形态，``sim-libero_plus`` 则是为 ``sim-libero`` 自带的 env server 安装 LIBERO-plus 包。
 
 依赖方向是 ``rpent`` ← ``components/sim`` ← ``components/models`` ← ``robots``；``components/tools`` 只依赖 ``rpent``。因此机器人环境会自动带上它的仿真器和模型服务：
 

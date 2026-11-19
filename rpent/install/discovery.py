@@ -23,22 +23,17 @@ from typing import Iterable
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
     COMPONENT_DIRECTORIES,
-    KINDS,
     Component,
     load_component,
-    load_package_component,
-    prefix,
 )
 from rpent.utils.config import get_repo_root
 
-#: Every component root: the glob that finds it, the kind it declares, and
-#: whether the manifest sits in a code directory of its own. A manifest under
-#: ``installs/`` may declare any kind; it names the packages an environment
-#: needs for code that ships with the checkout.
+#: Every component root: the glob that finds one ``component.toml`` per
+#: component directory, and the kind that directory declares.
 COMPONENT_ROOTS = tuple(
-    (f"{directory}/*/component.toml", kind, True)
+    (f"{directory}/*/component.toml", kind)
     for kind, directory in COMPONENT_DIRECTORIES.items()
-) + tuple((f"installs/{prefix(kind)}*.toml", kind, False) for kind in KINDS)
+)
 
 
 @dataclass(frozen=True)
@@ -49,27 +44,28 @@ class Catalog:
     components: dict[str, Component]
 
 
-def _is_metadata_file(path: Path) -> bool:
-    """Return whether ``path`` is an AppleDouble or other dot metadata file.
+def _is_metadata_directory(directory: Path) -> bool:
+    """Return whether ``directory`` is AppleDouble or other private metadata.
 
-    Network filesystems store macOS extended attributes as ``._<name>`` files
-    next to the original, so a synced checkout can gain ``._component.toml``
-    entries that are not manifests.
+    Network filesystems store macOS extended attributes as ``._<name>`` entries
+    next to the original, so a synced checkout can gain directories that are not
+    components. An underscore marks the same kind of private entry, which is how
+    the repository layout names them.
     """
-    return path.name.startswith(".")
+    return directory.name.startswith((".", "_"))
 
 
-def _component_manifests(root: Path) -> Iterable[tuple[Path, str, bool]]:
+def _component_manifests(root: Path) -> Iterable[tuple[Path, str]]:
     seen: set[Path] = set()
-    for pattern, kind, has_directory in COMPONENT_ROOTS:
+    for pattern, kind in COMPONENT_ROOTS:
         for manifest in sorted(root.glob(pattern)):
-            if _is_metadata_file(manifest):
+            if _is_metadata_directory(manifest.parent):
                 continue
             resolved = manifest.resolve()
             if resolved in seen:
                 continue
             seen.add(resolved)
-            yield manifest, kind, has_directory
+            yield manifest, kind
 
 
 def discover_components(root: Path | None = None) -> dict[str, Component]:
@@ -81,11 +77,8 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
     """
     repo_root = (root or get_repo_root()).resolve()
     components: dict[str, Component] = {}
-    for manifest, kind, has_directory in _component_manifests(repo_root):
-        if has_directory:
-            component = load_component(manifest, kind)
-        else:
-            component = load_package_component(manifest, kind)
+    for manifest, kind in _component_manifests(repo_root):
+        component = load_component(manifest, kind)
         previous = components.get(component.name)
         if previous is not None:
             raise InstallConfigError(

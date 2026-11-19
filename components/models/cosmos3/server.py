@@ -20,7 +20,7 @@ import argparse
 from typing import Any
 
 from components.models.cosmos3.adapter import ADAPTERS, make_adapter
-from rpent.models.facade import BaseWAMFacade
+from rpent.components.models.facade import BaseWAMFacade
 
 
 class Cosmos3Facade(BaseWAMFacade):

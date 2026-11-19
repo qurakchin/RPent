@@ -27,7 +27,7 @@ if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from components.models.lingbot.contract import MODEL_SPEC, vla_runtime_contract
-from rpent.models.facade import BaseVLAFacade
+from rpent.components.models.facade import BaseVLAFacade
 from rpent.utils.daemon import watch_parent_death
 
 

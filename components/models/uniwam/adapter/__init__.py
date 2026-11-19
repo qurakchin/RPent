@@ -23,9 +23,9 @@ from components.models.uniwam import (
 )
 from components.models.uniwam.adapter.decode import decode_robotwin
 from components.models.uniwam.adapter.encode import encode_robotwin
-from rpent.models.contracts import WAMModelMeta
-from rpent.models.facade import WAMAdapter, WAMAdapterSpec
-from rpent.models.platforms import ROBOTWIN_QPOS
+from rpent.components.models.contracts import WAMModelMeta
+from rpent.components.models.facade import WAMAdapter, WAMAdapterSpec
+from rpent.components.models.platforms import ROBOTWIN_QPOS
 
 ADAPTERS = {
     "robotwin": WAMAdapterSpec(

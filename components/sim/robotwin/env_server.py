@@ -30,7 +30,7 @@ import numpy as np
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from rpent.env.facade import BaseEnvFacade
+from rpent.components.env.facade import BaseEnvFacade
 from rpent.utils.logging import get_logger
 from rpent.utils.serialization import to_numpy_tree
 
@@ -85,9 +85,11 @@ from omegaconf import OmegaConf  # noqa: E402
 from robotwin.assets import validate_root  # noqa: E402
 from robotwin.config import load_task_config  # noqa: E402
 
-from components.sim.robotwin.reward_compat import install_native_reward_compat  # noqa: E402
-from components.sim.robotwin.rlinf_env import RoboTwinAgentEnv  # noqa: E402
 from components.sim.robotwin.contract import RoboTwinActionType  # noqa: E402
+from components.sim.robotwin.reward_compat import (  # noqa: E402
+    install_native_reward_compat,
+)
+from components.sim.robotwin.rlinf_env import RoboTwinAgentEnv  # noqa: E402
 
 
 class RoboTwinEnvFacade(BaseEnvFacade):

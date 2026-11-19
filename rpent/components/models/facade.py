@@ -22,7 +22,7 @@ from typing import Any, Callable
 
 import numpy as np
 
-from rpent.models.contracts import (
+from rpent.components.models.contracts import (
     WAMModelMeta,
     WAMPrediction,
     WAMRequest,

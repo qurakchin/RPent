@@ -24,7 +24,7 @@ import numpy as np
 
 from components.models.uniwam.adapter import make_adapter
 from components.models.uniwam.runtime_config import validate_options
-from rpent.models.facade import BaseWAMFacade
+from rpent.components.models.facade import BaseWAMFacade
 
 
 class UniWAMFacade(BaseWAMFacade):

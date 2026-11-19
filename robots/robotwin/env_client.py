@@ -31,7 +31,7 @@ from robots.robotwin.robot_spec import (
     ROBOTWIN_STATE_CHANGE_TIMEOUT_S,
     ROBOTWIN_STATUS_KEYS,
 )
-from rpent.env.client import BaseEnvClient
+from rpent.components.env.client import BaseEnvClient
 from rpent.utils.rpc import RpcClient
 
 

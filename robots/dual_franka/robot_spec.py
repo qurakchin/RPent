@@ -32,14 +32,14 @@ from robots.franka.runtime_config import (
     set_robot_config_path,
     validate_calibration_sources,
 )
-from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
-from rpent.dashboard.spec import DashboardSpec
-from rpent.memory import MemoryManager
-from rpent.models.backends import (
+from rpent.components.models.backends import (
     AMConfig,
     add_am_args,
     select_am,
 )
+from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
+from rpent.dashboard.spec import DashboardSpec
+from rpent.memory import MemoryManager
 from rpent.robots.prompt_bundle import PromptBundle
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 from rpent.robots.runtime import try_spawn_server, try_wait_server

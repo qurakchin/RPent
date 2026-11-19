@@ -22,7 +22,6 @@ from rpent.install.manifest import (
     DEFAULT_PLATFORMS,
     SCHEMA,
     load_component,
-    load_package_component,
 )
 
 
@@ -108,9 +107,11 @@ def test_component_kind_comes_from_the_directory_root(write_toml):
     assert load_component(path, "model").kind == "model"
 
 
-def test_infra_manifest_has_no_code_directory(write_toml):
+def test_infra_manifest_lives_in_a_directory_without_code(write_toml):
+    # An infra component owns no code, but it is still one directory: the
+    # manifest is all it contributes.
     path = write_toml(
-        "installs/infra-dev.toml",
+        "components/infra/dev/component.toml",
         f"""
         schema = {SCHEMA}
         name = "infra-dev"
@@ -119,17 +120,17 @@ def test_infra_manifest_has_no_code_directory(write_toml):
         """,
     )
 
-    component = load_package_component(path, "infra")
+    component = load_component(path, "infra")
 
     assert component.kind == "infra"
-    assert component.path is None
+    assert component.path == path.parent
     assert component.is_infra
     assert component.dependencies == ("pytest",)
 
 
-def test_infra_manifest_name_must_match_its_file(write_toml):
+def test_component_name_must_match_its_directory(write_toml):
     path = write_toml(
-        "installs/infra-dev.toml",
+        "components/infra/dev/component.toml",
         f"""
         schema = {SCHEMA}
         name = "infra-unit"
@@ -138,51 +139,31 @@ def test_infra_manifest_name_must_match_its_file(write_toml):
     )
 
     with pytest.raises(InstallConfigError, match="must be 'infra-dev'"):
-        load_package_component(path, "infra")
+        load_component(path, "infra")
 
 
-@pytest.mark.parametrize(
-    ("entry", "message"),
-    [
-        ('imports = ["robot-alpha"]', "has nothing to import"),
-        ('overrides = ["extra.txt"]', "cannot resolve override paths"),
-    ],
-)
-def test_infra_manifest_rejects_code_relations(write_toml, entry, message):
+def test_component_manifest_must_match_the_kind_of_its_directory(write_toml):
+    # The same manifest read as a sim would have to be ``sim-dev``, so a
+    # misplaced directory is reported instead of producing a second name.
     path = write_toml(
-        "installs/infra-dev.toml",
+        "components/infra/dev/component.toml",
         f"""
         schema = {SCHEMA}
         name = "infra-dev"
         probe = "pytest"
-        {entry}
         """,
     )
 
-    with pytest.raises(InstallConfigError, match=message):
-        load_package_component(path, "infra")
+    with pytest.raises(InstallConfigError, match="must be 'sim-dev'"):
+        load_component(path, "sim")
 
 
-def test_infra_kind_needs_no_directory_manifest(write_toml):
-    path = write_toml(
-        "components/models/sam3/component.toml",
-        f"""
-        schema = {SCHEMA}
-        name = "model-sam3"
-        probe = "components.models.sam3.server"
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="no directory of their own"):
-        load_component(path, "infra")
-
-
-def test_package_manifest_keeps_its_kind(write_toml):
+def test_a_packaged_simulator_variant_keeps_its_kind(write_toml):
     # A component that installs packages for code it does not own declares the
     # kind it serves, so `check` still reports the right Python and platform
     # range and `list` groups it with its kind.
     path = write_toml(
-        "installs/sim-libero_plus.toml",
+        "components/sim/libero_plus/component.toml",
         f"""
         schema = {SCHEMA}
         name = "sim-libero_plus"
@@ -190,40 +171,11 @@ def test_package_manifest_keeps_its_kind(write_toml):
         """,
     )
 
-    component = load_package_component(path, "sim")
+    component = load_component(path, "sim")
 
     assert component.kind == "sim"
-    assert component.path is None
+    assert component.path == path.parent
     assert not component.is_infra
-
-
-def test_package_manifest_name_must_carry_the_kind_prefix(write_toml):
-    path = write_toml(
-        "installs/sim-libero_plus.toml",
-        f"""
-        schema = {SCHEMA}
-        name = "model-libero_plus"
-        probe = "liberoplus"
-        """,
-    )
-
-    # The name must match the file, so a kind/prefix mismatch is caught first.
-    with pytest.raises(InstallConfigError, match="must be 'sim-libero_plus'"):
-        load_package_component(path, "sim")
-
-
-def test_package_manifest_kind_must_match_its_prefix(write_toml):
-    path = write_toml(
-        "installs/infra-dev.toml",
-        f"""
-        schema = {SCHEMA}
-        name = "infra-dev"
-        probe = "pytest"
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="sim component names start with"):
-        load_package_component(path, "sim")
 
 
 def test_unknown_fields_and_old_schema_are_rejected(write_toml):
@@ -340,9 +292,9 @@ def test_component_rejects_missing_override(write_toml):
 
 
 def test_index_strategy_is_optional_and_validated(write_toml):
-    default = load_package_component(
+    default = load_component(
         write_toml(
-            "installs/infra-dev.toml",
+            "components/infra/dev/component.toml",
             f"""
             schema = {SCHEMA}
             name = "infra-dev"
@@ -352,7 +304,7 @@ def test_index_strategy_is_optional_and_validated(write_toml):
         "infra",
     )
     invalid = write_toml(
-        "installs/infra-unit.toml",
+        "components/infra/unit/component.toml",
         f"""
         schema = {SCHEMA}
         name = "infra-unit"
@@ -363,13 +315,13 @@ def test_index_strategy_is_optional_and_validated(write_toml):
 
     assert default.index_strategy is None
     with pytest.raises(InstallConfigError, match="'index-strategy' must be one of"):
-        load_package_component(invalid, "infra")
+        load_component(invalid, "infra")
 
 
 def test_manylinux_defaults_to_the_repository_baseline(write_toml):
-    default = load_package_component(
+    default = load_component(
         write_toml(
-            "installs/infra-dev.toml",
+            "components/infra/dev/component.toml",
             f"""
             schema = {SCHEMA}
             name = "infra-dev"
@@ -378,9 +330,9 @@ def test_manylinux_defaults_to_the_repository_baseline(write_toml):
         ),
         "infra",
     )
-    raised = load_package_component(
+    raised = load_component(
         write_toml(
-            "installs/infra-gpu.toml",
+            "components/infra/gpu/component.toml",
             f"""
             schema = {SCHEMA}
             name = "infra-gpu"
@@ -391,7 +343,7 @@ def test_manylinux_defaults_to_the_repository_baseline(write_toml):
         "infra",
     )
     invalid = write_toml(
-        "installs/infra-unit.toml",
+        "components/infra/unit/component.toml",
         f"""
         schema = {SCHEMA}
         name = "infra-unit"
@@ -403,4 +355,4 @@ def test_manylinux_defaults_to_the_repository_baseline(write_toml):
     assert default.manylinux == DEFAULT_MANYLINUX
     assert raised.manylinux == "2_35"
     with pytest.raises(InstallConfigError, match="'manylinux' must name a glibc"):
-        load_package_component(invalid, "infra")
+        load_component(invalid, "infra")

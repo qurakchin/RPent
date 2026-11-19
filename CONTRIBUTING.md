@@ -72,7 +72,7 @@ Follow these conventions while developing:
   `components/models/<name>/`.
   Place shared functionality in common modules with matching responsibilities.
   Infrastructure components that install packages without owning code live in
-  `installs/infra-<name>.toml`.
+  `components/infra/<name>/`, which holds their `component.toml` and no code.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and
