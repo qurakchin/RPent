@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Model-side copies of the wire contracts a robot integration defines.
+"""Model-side copies of the wire contracts a platform integration defines.
 
 These values describe the native action layout and camera roles a model
-adapter expects. The operational definitions belong to the robot slice
-(``robots/libero/control.py``, ``robots/robotwin/control.py``, and
-``robots/yam/contracts.py``); a capability may not import a robot integration,
-so it keeps its own copy. The two sides must stay equal, which the platform
-contract test enforces.
+adapter expects. The operational definitions belong to the platform side
+(``components/sim/libero/control.py``, ``components/sim/robotwin/control.py``,
+and ``robots/yam/contracts.py``); a model service keeps its own copy rather
+than depend on a simulator install. The two sides must stay equal, which the
+platform contract test enforces.
 """
 
 from __future__ import annotations

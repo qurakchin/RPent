@@ -32,14 +32,14 @@ VLA 和 WAM 通过公共 AM 基类复用 RPC 注册与推理转发。VLA 保留�
 
    * - 位置
      - 职责
-   * - ``robots/<platform>/observation.py``
+   * - ``components/sim/<platform>/observation.py``
      - 提取具名物理传感器与状态，不做模型归一化。
-   * - ``robots/<platform>/control.py``
+   * - ``components/sim/<platform>/control.py``
      - 定义原生动作的字段顺序、含义和执行模式。
-   * - ``robots/<platform>/wam_client.py``
+   * - ``components/sim/<platform>/wam_client.py``
      - 选择兼容控制方式，给物理观测附加执行身份。
    * - ``rpent/components/models/contracts.py``
-     - 分节声明共享物理观测、原生控制，以及 WAM 专用的能力、请求和结果字典。
+     - 分节声明共享物理观测、原生控制及其上的 AM 请求，以及 WAM 专用的能力、请求和结果字典。
    * - ``rpent/components/models/client.py``
      - 定义公共 ``BaseAMClient`` 及 VLA/WAM 子类，共享推理转发和超时处理，各自保留协议参数与检查。
    * - ``rpent/components/models/facade.py``

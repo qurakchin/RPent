@@ -41,14 +41,14 @@ toolkit owns registration, cancellation, state capture and recording.
 
    * - Location
      - Responsibility
-   * - ``robots/<platform>/observation.py``
+   * - ``components/sim/<platform>/observation.py``
      - Extract named physical sensors and state. No model normalization.
-   * - ``robots/<platform>/control.py``
+   * - ``components/sim/<platform>/control.py``
      - Define native action order, semantics and execution mode.
-   * - ``robots/<platform>/wam_client.py``
+   * - ``components/sim/<platform>/wam_client.py``
      - Select a compatible controller and attach execution identity to observations.
    * - ``rpent/components/models/contracts.py``
-     - Declare shared physical observations/native control and WAM-specific capability, request and result dictionaries in separate sections.
+     - Declare shared physical observations/native control and the AM request built on them, then WAM-specific capability, request and result dictionaries in separate sections.
    * - ``rpent/components/models/client.py``
      - Define the shared ``BaseAMClient`` and its VLA/WAM subclasses; share prediction dispatch and timeouts, keeping each contract's arguments and checks.
    * - ``rpent/components/models/facade.py``
