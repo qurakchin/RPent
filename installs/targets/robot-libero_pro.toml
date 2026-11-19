@@ -1,0 +1,20 @@
+schema = 2
+kind = "target"
+name = "robot-libero_pro"
+python = "3.11"
+
+extra = "libero-pro"
+description = "LIBERO-PRO with Pi0.5, SAM 3.0, and LeRobot trajectory export and replay."
+
+dependencies = [
+  "lerobot>=0.3.3,<0.4",
+  "av<19",
+  "pyarrow<26",
+]
+
+[components.libero]
+variant = "pro"
+
+[components.openpi]
+
+[components.sam3]

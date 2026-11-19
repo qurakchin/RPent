@@ -20,8 +20,8 @@ set -euo pipefail
 unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX
 
 if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <robot-libero_pro|sim-robocasa|sim-robotwin> <output-dir> <venv-root>"
-  echo "Targets are the robot-libero_pro, sim-robocasa, and sim-robotwin profiles."
+  echo "Usage: $0 <robot-libero_pro|robot-robocasa|robot-robotwin> <output-dir> <venv-root>"
+  echo "Targets are the robot-libero_pro, robot-robocasa, and robot-robotwin targets."
   exit 2
 fi
 
@@ -243,19 +243,19 @@ install_test_runner() {
 
 run_in_clean_env() {
   local name=$1
-  local profile=$2
+  local target=$2
   local test_dir=$3
   local suite_output=$4
   local venv_dir="$venv_root/$name"
 
-  # Install from the profile's lock and add only the test runner: reproducing a
-  # clean machine from the lock is what this suite exists to prove.
+  # Install the target's dependencies and add only the test runner: proving a
+  # clean machine can install and run the target is what this suite exists for.
   #
-  # Torch and torchvision version compatibility come from the profile's
+  # Torch and torchvision version compatibility come from the target's
   # component manifests and their transitive package metadata. The CUDA wheel
   # backend is the separate runner/install-policy input UV_TORCH_BACKEND.
   # Do not hide a dependency-contract failure with a workflow-only version pin.
-  run_rpent_install 3.11 install "$profile" --venv "$venv_dir"
+  run_rpent_install 3.11 install "$target" --venv "$venv_dir"
   install_test_runner "$venv_dir/bin/python"
   (
     cd "$repo_root"
@@ -303,14 +303,14 @@ case "$target" in
     )
     find "$venv_dir" -depth -delete
     ;;
-  sim-robocasa)
+  robot-robocasa)
     require_dir RLDX_MODEL_PATH
     require_dir ROBOCASA_ASSETS_PATH
     export RPENT_RUN_ROBOCASA_INTEGRATION=1
     run_in_clean_env \
-      sim-robocasa sim-robocasa tests/e2e_tests/robocasa "$output_dir/robocasa"
+      robocasa robot-robocasa tests/e2e_tests/robocasa "$output_dir/robocasa"
     ;;
-  sim-robotwin)
+  robot-robotwin)
     require_dir LINGBOT_MODEL_PATH
     require_dir ROBOTWIN_ASSETS_PATH
     if [[ ! -d "$LINGBOT_MODEL_PATH/qwen_base" ]]; then
@@ -318,7 +318,7 @@ case "$target" in
       exit 1
     fi
     run_in_clean_env \
-      sim-robotwin sim-robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
+      robotwin robot-robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
     ;;
   *)
     echo "Unknown target: $target"

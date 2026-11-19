@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Assign every install profile to the runner that installs it in full CI.
+"""Assign every install target to the runner that installs it in full CI.
 
-Profiles are discovered, but the workflow needs a static matrix. The partition
-below is authored on purpose: a generated matrix would follow the profiles it
-is supposed to cover, so a profile that nobody classified would quietly install
-nowhere. ``--check`` compares the table with ``installs/profiles/*.toml`` and
-``tests/profiles/*.toml`` and fails when a profile is missing or no longer
-exists, which makes adding a profile also a decision about where it is
-installed.
+Targets are discovered, but the workflow needs a static matrix. The partition
+below is authored on purpose: a generated matrix would follow the targets it is
+supposed to cover, so a target that nobody classified would quietly install
+nowhere. ``--check`` compares the table with ``installs/targets/*.toml``,
+``tests/targets/*.toml`` and the target every component forms, and fails when an
+entry is missing or no longer exists, which makes adding a component or target
+also a decision about where it is installed.
 
-Hosted runners install the profiles whose lock pulls no CUDA packages; the GPU
+Hosted runners install the targets whose lock pulls no CUDA packages; the GPU
 runner installs everything that does.
 """
 
@@ -33,32 +33,41 @@ import json
 import sys
 from pathlib import Path
 
-from rpent.install.discovery import discover_profiles
+from rpent.install.discovery import discover_targets
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-#: CPU-only profiles: installable on a hosted runner within its disk and time
+#: CPU-only targets: installable on a hosted runner within its disk and time
 #: limits.
-HOSTED = ("dev", "minimal", "real-yam", "tool-geometry", "unit-cpu")
+HOSTED = (
+    "apxinf",
+    "cosmos3",
+    "cosmos_policy",
+    "dev",
+    "fast_wam",
+    "geometry",
+    "minimal",
+    "tool-geometry-eval",
+    "unit-cpu",
+    "uniwam",
+    "xpolicylab",
+)
 
-#: Profiles that resolve CUDA packages; they need the embodied GPU runner.
+#: Targets that resolve CUDA packages; they need the embodied GPU runner.
 GPU = (
-    "model-molmo",
-    "model-openpi",
-    "model-sam3",
-    "real-dual_franka",
-    "real-franka",
+    "molmo",
+    "openpi",
     "robot-dual_franka",
     "robot-franka",
     "robot-libero_pro",
+    "robot-robocasa",
     "robot-robodojo",
+    "robot-robotwin",
     "robot-yam",
+    "sam3",
     "sim-libero_plus",
     "sim-libero_pro",
     "sim-libero_standard",
-    "sim-robocasa",
-    "sim-robodojo",
-    "sim-robotwin",
     "tool-flywheel",
 )
 
@@ -66,22 +75,22 @@ MATRICES = {"hosted": HOSTED, "gpu": GPU}
 
 
 def problems(
-    profiles: dict[str, object],
+    targets: dict[str, object],
     matrices: dict[str, tuple[str, ...]] | None = None,
     *,
     root: Path = REPO_ROOT,
 ) -> list[str]:
-    """Return every way the partition disagrees with ``profiles``."""
+    """Return every way the partition disagrees with ``targets``."""
     table = MATRICES if matrices is None else matrices
     found: list[str] = []
     for runner, names in table.items():
         duplicates = sorted({name for name in names if names.count(name) > 1})
         for name in duplicates:
-            found.append(f"{runner} lists profile {name!r} more than once")
+            found.append(f"{runner} lists target {name!r} more than once")
         for name in names:
-            if name not in profiles:
+            if name not in targets:
                 found.append(
-                    f"{runner} lists profile {name!r}, but no profile file "
+                    f"{runner} lists target {name!r}, but no target file "
                     f"declares it; remove it from tests/tooling/matrix.py"
                 )
     assigned = {name for names in table.values() for name in names}
@@ -89,51 +98,51 @@ def problems(
         runners = [runner for runner, names in table.items() if name in names]
         if len(runners) > 1:
             found.append(
-                f"profile {name!r} is assigned to both "
+                f"target {name!r} is assigned to both "
                 f"{' and '.join(sorted(set(runners)))}; keep it on one runner"
             )
-    for name in sorted(set(profiles) - assigned):
-        path = getattr(profiles[name], "path", None)
+    for name in sorted(set(targets) - assigned):
+        path = getattr(targets[name], "path", None)
         declared = (
             path.relative_to(root)
             if isinstance(path, Path) and path.is_relative_to(root)
             else name
         )
         found.append(
-            f"profile {name!r} ({declared}) is not installed by any runner; "
+            f"target {name!r} ({declared}) is not installed by any runner; "
             "add it to HOSTED or GPU in tests/tooling/matrix.py"
         )
     return found
 
 
 def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
-    """Check the partition or print one runner's profiles as JSON."""
+    """Check the partition or print one runner's targets as JSON."""
     parser = argparse.ArgumentParser(
         prog="python -m tests.tooling.matrix",
-        description="Assign profiles to the runner that installs them.",
+        description="Assign targets to the runner that installs them.",
     )
     parser.add_argument(
         "--runner",
         choices=sorted(MATRICES),
-        help="print the profiles for one runner as a JSON array",
+        help="print the targets for one runner as a JSON array",
     )
     parser.add_argument(
         "--check",
         action="store_true",
-        help="fail when the table and the checked-in profiles disagree",
+        help="fail when the table and the checked-in targets disagree",
     )
     args = parser.parse_args(argv)
 
     if not args.check and args.runner is None:
         parser.error("pass --check or --runner")
     if args.check:
-        found = problems(discover_profiles(root), root=root)
+        found = problems(discover_targets(root), root=root)
         for problem in found:
             print(f"error: {problem}", file=sys.stderr)
         if found:
             return 1
     if args.runner is not None:
-        # Read the table without loading the profiles: the workflow needs the
+        # Read the table without loading the targets: the workflow needs the
         # matrix before any install runs, and --check owns the drift check.
         print(json.dumps(list(MATRICES[args.runner])))
     return 0

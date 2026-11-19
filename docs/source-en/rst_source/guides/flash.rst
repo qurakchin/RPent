@@ -54,10 +54,10 @@ Molmo runs in its own Python environment because its model stack pins its own
 Torch and Transformers versions. Molmo's model code also needs
 ``transformers>=4.57``, while the RoboTwin stack is pinned to ``4.51.3``; the
 component manifests declare those two mutually exclusive, so
-``python -m tests.tooling.check`` reports a profile that places both in
+``python -m tests.tooling.check`` reports a target that places both in
 one environment as a conflict.
 
-Install the ``model-molmo`` profile into a separate environment with the command
+Install the ``molmo`` target into a separate environment with the command
 from :doc:`../get_started/installation`; its lock installs the pinned PyTorch
 and torchvision. If your GPU or driver needs a different CUDA build, reinstall
 the pair from the PyTorch index afterwards, replacing ``<CUDA_TAG>`` with a
@@ -66,7 +66,7 @@ compatible build such as ``cu126`` or ``cu128`` (see the
 
 .. code-block:: bash
 
-   uv pip install --python .venvs/model-molmo/bin/python \
+   uv pip install --python .venvs/molmo/bin/python \
      --reinstall-package torch --reinstall-package torchvision \
      torch torchvision --index-url "https://download.pytorch.org/whl/<CUDA_TAG>/"
 
@@ -80,7 +80,7 @@ Download ``allenai/Molmo2-8B`` from `Hugging Face
 .. code-block:: bash
 
    export MOLMO_CHECKPOINT_PATH=/path/to/Molmo2-8B
-   PYTHONPATH=/path/to/RPent .venvs/model-molmo/bin/python \
+   PYTHONPATH=/path/to/RPent .venvs/molmo/bin/python \
      components/models/molmo/server.py \
      --transport http --host 127.0.0.1 --port 20703
 

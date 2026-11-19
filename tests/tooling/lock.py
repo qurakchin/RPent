@@ -12,17 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compile or verify the checked-in profile locks.
+"""Compile or verify the optional reproduction locks under ``tests/locks``.
 
 ``--check`` recompiles each lock at the cutoff recorded in its header, so a
 lock drifts only when its declared inputs change rather than whenever an
 upstream project publishes a release. Without ``--check`` the lock is rewritten
-with the current cutoff.
+with the current cutoff. Installation never reads these locks.
 
 Usage::
 
     python -m tests.tooling.lock --all
-    python -m tests.tooling.lock sim-robotwin --check
+    python -m tests.tooling.lock robotwin --check
 """
 
 from __future__ import annotations
@@ -39,8 +39,9 @@ from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.installer import find_uv
 from rpent.install.lock import (
     LOCK_TIMESTAMP_PREFIX,
-    compile_profile,
+    compile_target,
     lock_path,
+    lock_python,
     lock_timestamp,
     new_lock_timestamp,
 )
@@ -58,16 +59,29 @@ def compile_locks(
     """Compile or verify locks; return a process exit code."""
     catalog = discover(root)
     uv = find_uv()
-    # Every profile is installed from a lock, including the ones whose lock
-    # path follows the conventional ``locks/<name>.lock`` layout.
-    names = targets or sorted(catalog.profiles)
+    # Locks are optional reproduction artifacts; every checked-in lock lives
+    # under ``tests/locks/<name>.lock`` regardless of where the target is
+    # declared. Installing never reads a lock.
+    names = targets or sorted(catalog.targets)
     has_drift = False
     for name in names:
-        profile = catalog.profiles.get(name)
-        if profile is None:
-            raise InstallError(f"unknown profile {name!r}")
-        destination = lock_path(root, profile)
+        target = catalog.targets.get(name)
+        if target is None:
+            raise InstallError(f"unknown target {name!r}")
+        destination = lock_path(root, target)
         destination.parent.mkdir(parents=True, exist_ok=True)
+        # Keep the interpreter the checked-in lock was verified with while its
+        # constraints still accept it, so regenerating does not silently move
+        # every environment to a newer Python minor.
+        try:
+            previous_text = (
+                read_requirement_text(destination) if destination.is_file() else None
+            )
+        except InstallConfigError:
+            previous_text = None
+        previous_python = (
+            lock_python(previous_text) if previous_text is not None else None
+        )
         try:
             if not check:
                 # Compile into a temporary file: uv reuses an existing output
@@ -78,13 +92,14 @@ def compile_locks(
                     prefix="rpent-lock-write-"
                 ) as directory:
                     candidate = Path(directory) / destination.name
-                    compile_profile(
-                        profile,
+                    compile_target(
+                        target,
                         catalog,
                         root=root,
                         uv=uv,
                         output=candidate,
                         exclude_newer=new_lock_timestamp(),
+                        python=previous_python,
                     )
                     shutil.copyfile(candidate, destination)
                 print(f"locked {name}: {destination.relative_to(root)}")
@@ -96,7 +111,7 @@ def compile_locks(
             try:
                 current = read_requirement_text(destination)
             except InstallConfigError as exc:
-                # A corrupted lock must not hide the state of the other profiles.
+                # A corrupted lock must not hide the state of the other targets.
                 print(f"lock {name}: FAIL\n  {exc}")
                 has_drift = True
                 continue
@@ -119,17 +134,18 @@ def compile_locks(
                 continue
             with tempfile.TemporaryDirectory(prefix="rpent-lock-check-") as directory:
                 candidate = Path(directory) / destination.name
-                compile_profile(
-                    profile,
+                compile_target(
+                    target,
                     catalog,
                     root=root,
                     uv=uv,
                     output=candidate,
                     exclude_newer=timestamp,
+                    python=previous_python,
                 )
                 expected = candidate.read_text(encoding="utf-8")
         except InstallError as exc:
-            # One profile that cannot resolve on this host must not hide the
+            # One target that cannot resolve on this host must not hide the
             # state of the others; for example a simulator may need CUDA to lock.
             print(f"lock {name}: FAIL\n  {exc}")
             has_drift = True
@@ -157,22 +173,22 @@ def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
     """Compile locks, or verify them with ``--check``."""
     parser = argparse.ArgumentParser(
         prog="python -m tests.tooling.lock",
-        description="Compile or verify the checked-in profile locks.",
+        description="Compile or verify the checked-in target locks.",
     )
-    parser.add_argument("profiles", nargs="*", help="profile names to lock")
+    parser.add_argument("targets", nargs="*", help="target names to lock")
     parser.add_argument(
         "--all",
         action="store_true",
-        help="lock every profile",
+        help="lock every target",
     )
     parser.add_argument(
         "--check", action="store_true", help="fail when a lock is out of date"
     )
     args = parser.parse_args(argv)
-    if not args.all and not args.profiles:
-        parser.error("pass a profile name or --all")
+    if not args.all and not args.targets:
+        parser.error("pass a target name or --all")
     try:
-        return compile_locks(args.profiles, root=root, check=args.check)
+        return compile_locks(args.targets, root=root, check=args.check)
     except InstallError as exc:
         print(str(exc), file=sys.stderr)
         return 1

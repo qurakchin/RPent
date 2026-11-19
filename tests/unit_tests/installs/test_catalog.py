@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The checked-in components, profiles and locks agree with each other."""
+"""The checked-in components and targets agree with each other."""
 
-from rpent.install.lock_coverage import lock_problems
-from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import resolve
 
 
@@ -29,37 +27,54 @@ def test_every_component_manifest_lives_where_its_kind_declares_it(catalog):
         assert component.manifest == expected
 
 
-def test_every_profile_selects_known_components(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
-        missing = sorted(set(profile.components) - set(catalog.components))
-        assert not missing, f"profile {name!r} selects unknown components {missing}"
+def test_every_target_selects_known_components(catalog):
+    for name, target in sorted(catalog.targets.items()):
+        missing = sorted(set(target.components) - set(catalog.components))
+        assert not missing, f"target {name!r} selects unknown components {missing}"
 
 
-def test_every_profile_resolves(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
-        resolution = resolve(profile, catalog)
+def test_every_robot_is_selected_by_a_target(catalog):
+    # Installing a robot means choosing the environment it runs in, which only
+    # a target file declares; a robot that no target selects cannot be
+    # installed at all.
+    for name, component in sorted(catalog.components.items()):
+        if component.kind != "robot":
+            continue
+        providers = [
+            target.name
+            for target in catalog.targets.values()
+            if name in target.components
+        ]
+        assert providers, f"robot component {name!r} has no install target"
 
-        assert resolution.ok, f"profile {name!r}: {'; '.join(resolution.errors)}"
+
+def test_a_robot_target_is_a_file_not_the_component_manifest(catalog):
+    # A same-name target is an explicit override, never the synthesized target
+    # a non-robot component would get.
+    for name, component in sorted(catalog.components.items()):
+        if component.kind != "robot":
+            continue
+        target = catalog.targets.get(name)
+        if target is None:
+            continue
+        assert target.path != component.manifest
+        assert name in target.components
 
 
-def test_every_profile_declares_the_lock_it_ships(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
-        # An undeclared lock defaults to ``locks/<name>.lock`` beside the
-        # profile directory, so user and test profiles keep the same layout.
-        assert profile.lock_file(catalog.root).is_file(), (
-            f"profile {name!r} needs {profile.lock_display()}"
+def test_every_target_resolves(catalog):
+    for name, target in sorted(catalog.targets.items()):
+        resolution = resolve(target, catalog)
+
+        assert resolution.ok, f"target {name!r}: {'; '.join(resolution.errors)}"
+
+
+def test_locks_live_under_tests_and_follow_the_target_name(catalog):
+    # A lock is an optional reproduction artifact. Keeping every one under
+    # ``tests/locks`` gives the repository's install data one home and stops a
+    # manifest from naming a second path for the same target.
+    assert not (catalog.root / "installs" / "locks").exists()
+    for name, target in sorted(catalog.targets.items()):
+        assert target.lock_file(catalog.root) == (
+            catalog.root / "tests" / "locks" / f"{name}.lock"
         )
-
-
-def test_every_lock_covers_its_profile(catalog):
-    for name, profile in sorted(catalog.profiles.items()):
-        core = read_core_dependencies(catalog.root) if profile.core else ()
-        resolution = resolve(profile, catalog, core_dependencies=core)
-        problems = lock_problems(
-            profile,
-            resolution,
-            catalog.root,
-            core_dependencies=core,
-        )
-
-        assert not problems, f"profile {name!r}: {'; '.join(problems)}"
+        assert target.lock_display() == f"tests/locks/{name}.lock"

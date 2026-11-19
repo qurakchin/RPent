@@ -34,42 +34,80 @@ class MissingComponentError(ImportError):
     """An optional module is missing from the environment that should own it."""
 
 
+#: Component -> targets whose resolution closure contains it, or ``None`` until
+#: the checkout is read for the first failure in this process.
+_TARGETS_BY_COMPONENT: dict[str, list[str]] | None = None
+
+
+def _targets_by_component() -> dict[str, list[str]]:
+    """Return the component -> targets index read from the checkout.
+
+    Which targets include a component is a property of the manifests, so read
+    them at the point of failure rather than from the fingerprint: an installed
+    environment predates targets added afterwards, and a stale reverse index
+    would name the wrong repair command. A broken checkout must not mask the
+    missing import that triggered the hint, so failures leave an empty index.
+    """
+    global _TARGETS_BY_COMPONENT
+    if _TARGETS_BY_COMPONENT is not None:
+        return _TARGETS_BY_COMPONENT
+    index: dict[str, list[str]] = {}
+    try:
+        from rpent.install.discovery import discover
+        from rpent.install.resolve import resolve
+        from rpent.utils.config import get_repo_root
+
+        catalog = discover(get_repo_root())
+        included: dict[str, set[str]] = {}
+        for name, target in catalog.targets.items():
+            resolution = resolve(target, catalog)
+            if not resolution.ok:
+                continue
+            for component in resolution.components:
+                included.setdefault(component, set()).add(name)
+        index = {name: sorted(targets) for name, targets in included.items()}
+    except Exception:  # noqa: BLE001 - the hint must not replace the import error
+        index = {}
+    _TARGETS_BY_COMPONENT = index
+    return index
+
+
 def _install_hint(component: str) -> str:
     venv = current_venv()
     fingerprint = read_fingerprint(venv) if venv is not None else None
     if fingerprint is None:
         return (
             f"install the environment that provides component {component!r}: "
-            f"run `rpent-install list` and install a profile that includes it"
+            f"run `rpent-install list` and install a target that includes it"
         )
-    profile = fingerprint.get("profile")
-    if not profile:
-        # A fingerprint written before profiles became the only install target
-        # records no profile; name the component without inventing one.
+    target = fingerprint.get("target")
+    if not target:
+        # A fingerprint written before targets became the only install unit
+        # records no target; name the component without inventing one.
         return (
             f"install the environment that provides component {component!r}: "
-            f"run `rpent-install list` and install a profile that includes it"
+            f"run `rpent-install list` and install a target that includes it"
         )
     placement = fingerprint.get("components", {}).get(component)
     if placement is None:
-        profiles = fingerprint.get("component_profiles", {}).get(component, [])
-        if profiles:
+        targets = _targets_by_component().get(component, [])
+        if targets:
             return (
-                f"component {component!r} is not part of profile {profile!r}; "
-                f"install one of the profiles that includes it: "
-                f"{', '.join(profiles)}"
+                f"component {component!r} is not part of target {target!r}; "
+                f"install one of the targets that includes it: "
+                f"{', '.join(targets)}"
             )
         return (
-            f"component {component!r} is not part of profile {profile!r}; "
-            "install a profile that includes it"
+            f"component {component!r} is not part of target {target!r}; "
+            "install a target that includes it"
         )
     if placement.get("placement") == "remote":
         return (
-            f"component {component!r} runs outside profile {profile!r}; install its "
-            "own profile on that host, then rerun "
-            f"`rpent-install install {profile}` to restore the client"
+            f"component {component!r} runs outside target {target!r}; install its "
+            "own target on that host, then rerun "
+            f"`rpent-install install {target}` to restore the client"
         )
-    return f"rerun `rpent-install install {profile}` to repair the environment"
+    return f"rerun `rpent-install install {target}` to repair the environment"
 
 
 def require(component: str, module: str) -> ModuleType:

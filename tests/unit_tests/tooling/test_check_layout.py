@@ -41,7 +41,7 @@ def _component(write_toml, root, name, kind, *, requires=(), imports=()):
     manifest = write_toml(
         f"{root}/{name}/component.toml",
         f"""
-        schema = 1
+        schema = 2
         name = "{name}"
         kind = "{kind}"
         probe = "{name}"
@@ -382,11 +382,11 @@ def test_models_and_toolkits_must_not_import_each_other(tmp_path, write_toml):
     assert "toolkit 'geometry' must not import components.models" in result.stdout
 
 
-def test_model_contracts_may_name_robots(tmp_path, write_toml):
-    # Model-side wire contracts and the backend table name the embodiment they
-    # speak to; only scheduling code in the rest of rpent/ is checked.
+def test_backend_table_may_name_robots(tmp_path, write_toml):
+    # The backend table names the robots it routes to until slice
+    # configuration owns that choice; only the rest of rpent/ is checked.
     _component(write_toml, "robots", "alpha", "robot")
-    _write(tmp_path / "rpent" / "models" / "platforms.py", 'ALPHA_OSC = "alpha"\n')
+    _write(tmp_path / "rpent" / "models" / "backends.py", 'ALPHA_BACKEND = "alpha"\n')
 
     result = _run(tmp_path)
 
@@ -467,27 +467,28 @@ def test_pure_data_module_accepts_numpy_and_core_contracts(tmp_path, write_toml)
 
 def test_core_name_exemption_warns_while_it_applies(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
-    _write(tmp_path / "rpent" / "models" / "platforms.py", 'ALPHA_OSC = "alpha"\n')
+    _write(tmp_path / "rpent" / "models" / "backends.py", 'ALPHA_BACKEND = "alpha"\n')
 
     findings = layout.check_core_robot_names(tmp_path, today=date(2026, 11, 16))
 
     assert [finding for finding in findings if finding.level == layout.ERROR] == []
     warnings = [finding.message for finding in findings]
     assert any(
-        "K5 exemption for rpent/models applies until 2027-06-30" in message
+        "K5 exemption for rpent/models/backends.py applies until 2027-06-30" in message
         for message in warnings
     )
 
 
 def test_core_name_exemption_fails_once_it_expires(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
-    _write(tmp_path / "rpent" / "models" / "platforms.py", 'ALPHA_OSC = "alpha"\n')
+    _write(tmp_path / "rpent" / "models" / "backends.py", 'ALPHA_BACKEND = "alpha"\n')
 
     findings = layout.check_core_robot_names(tmp_path, today=date(2030, 1, 1))
 
     errors = [finding.message for finding in findings if finding.level == layout.ERROR]
     assert any(
-        "exemption for 'rpent/models' expired on 2027-06-30" in m for m in errors
+        "exemption for 'rpent/models/backends.py' expired on 2027-06-30" in m
+        for m in errors
     )
     assert any("core names 'ALPHA'" in message for message in errors)
 

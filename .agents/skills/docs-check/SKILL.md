@@ -39,8 +39,8 @@ HTML; a warning-free build does not establish correct rendering.
 - Match neighboring pages for headings, links, code blocks, and examples.
   Keep comments near their owning contract and avoid repeating the same rule
   across several files.
-- Robot, simulator, and guide pages install a named profile with
-  `rpent-install install <profile>`. Configuration extras are a migration interface:
+- Robot, simulator, and guide pages install a named target with
+  `rpent-install install <target>`. Configuration extras are a migration interface:
   document them only on the installation page, not as the primary command for a
   platform.
 - Inspect prompts and tool descriptions as model inputs: check tool names,

@@ -95,13 +95,13 @@ LIBERO
 
 首次使用 LIBERO-PRO，请先完成 :doc:`../get_started/quickstart` 的安装、资源下载和模型配置。本页用于选择更多任务与复现实验。
 
-其他 LIBERO 版本请按 :doc:`../get_started/installation` 在独立环境中安装对应配方，再下载资源；每个 Python 环境只安装一种 LIBERO 版本：
+其他 LIBERO 版本请按 :doc:`../get_started/installation` 在独立环境中安装对应目标，再下载资源；每个 Python 环境只安装一种 LIBERO 版本：
 
 .. list-table::
    :header-rows: 1
 
    * - 版本
-     - 配方
+     - 目标
      - 资源下载
    * - ``standard``
      - ``sim-libero_standard``
@@ -113,7 +113,7 @@ LIBERO
      - ``sim-libero_plus``
      - ``liberoplus-download-assets --skip-existing``
 
-``sim-libero_*`` 配方包含仿真器和 RLinf 运行时（``rpent-rlinf``），不含模型；``robot-libero_pro`` 额外包含 Pi0.5（``rpent-openpi``）、SAM3 和 flywheel 依赖。standard 或 plus 需要在本机运行 Pi0.5 和 SAM3 时，把对应的 ``model-*`` 配方装到独立环境并传入 endpoint。模型权重需按下文单独下载。
+``sim-libero_*`` 目标包含仿真器和 RLinf 运行时（``rpent-rlinf``），不含模型；``robot-libero_pro`` 额外包含 Pi0.5（``rpent-openpi``）、SAM3 和 flywheel 依赖。standard 或 plus 需要在本机运行 Pi0.5 和 SAM3 时，把 ``openpi`` 和 ``sam3`` 目标装到独立环境并传入 endpoint。模型权重需按下文单独下载。
 
 运行时通过 ``--libero-type`` 选择与安装包一致的版本。
 

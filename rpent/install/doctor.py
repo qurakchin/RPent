@@ -28,6 +28,7 @@ from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     FINGERPRINT_NAME,
+    SUPPORTED_PLATFORM,
     fingerprint_sha256,
     freeze_sha256,
     read_fingerprint,
@@ -36,14 +37,15 @@ from rpent.install.fingerprint import (
 from rpent.install.installer import (
     find_uv,
     probe_source,
-    profile_resolution,
+    target_resolution,
     venv_python,
 )
 from rpent.install.requirements import (
-    REQUIREMENTS_SCHEMA,
+    INPUT_SCHEMA,
     read_core_dependencies,
     requirements_sha256,
 )
+from rpent.install.resolve import python_accepted
 from rpent.utils.config import get_repo_root
 
 OK = "ok"
@@ -95,7 +97,7 @@ def _probe_endpoint(endpoint: str) -> str | None:
 def check_installation(
     venv: Path,
     *,
-    profile_name: str | None = None,
+    target_name: str | None = None,
     endpoints: dict[str, str] | None = None,
     root: Path | None = None,
 ) -> list[Check]:
@@ -103,38 +105,49 @@ def check_installation(
     repo_root = (root or get_repo_root()).resolve()
     venv = Path(venv).resolve()
     endpoints = endpoints or {}
-    checks: list[Check] = []
+    checks: list[Check] = [Check(OK, f"venv: {venv}")]
     fingerprint = read_fingerprint(venv)
     if fingerprint is None:
         return [
+            *checks,
             Check(
                 FAIL,
-                f"{venv} has no {FINGERPRINT_NAME}; "
-                f"install it with `rpent-install install <profile> --venv {venv}`",
-            )
+                f"no {FINGERPRINT_NAME} in {venv}; "
+                f"install it with `rpent-install install <target> --venv {venv}`",
+            ),
         ]
-    name = profile_name or fingerprint.get("profile")
+    recorded_target = fingerprint.get("target")
+    name = target_name or recorded_target
     if name is None:
-        return [*checks, Check(FAIL, "fingerprint records no profile")]
-    checks.append(Check(OK, f"profile: {name}"))
+        return [*checks, Check(FAIL, "fingerprint records no target")]
+    checks.append(Check(OK, f"target: {name}"))
+    if target_name is not None and target_name != recorded_target:
+        recorded_label = "none" if recorded_target is None else repr(recorded_target)
+        checks.append(
+            Check(
+                WARN,
+                f"--target {target_name!r} overrides the target recorded in the "
+                f"fingerprint ({recorded_label})",
+            )
+        )
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
     try:
-        resolution = profile_resolution(str(name), discover(repo_root), root=repo_root)
+        resolution = target_resolution(str(name), discover(repo_root), root=repo_root)
     except (InstallError, ValueError) as exc:
-        checks.append(Check(FAIL, f"cannot resolve profile {name!r}: {exc}"))
+        checks.append(Check(FAIL, f"cannot resolve target {name!r}: {exc}"))
         return checks
     if not resolution.ok:
         checks.append(Check(FAIL, "\n".join(resolution.errors)))
         return checks
-    profile = resolution.profile
-    core = read_core_dependencies(repo_root) if profile.core else ()
+    target = resolution.target
+    core = read_core_dependencies(repo_root) if target.core else ()
     expected_requirements = requirements_sha256(
         resolution,
         root=repo_root,
         core_dependencies=core,
     )
     recorded_schema = fingerprint.get("schema")
-    if recorded_schema != REQUIREMENTS_SCHEMA:
+    if recorded_schema != INPUT_SCHEMA:
         # `rpent-install` hashes a different set of inputs now, so the recorded
         # hash cannot be compared. Say so instead of reporting drifted inputs.
         interpreted = "unknown" if recorded_schema is None else recorded_schema
@@ -142,7 +155,7 @@ def check_installation(
             Check(
                 FAIL,
                 "fingerprint records installation input mode "
-                f"{interpreted}, current is {REQUIREMENTS_SCHEMA}; rerun "
+                f"{interpreted}, current is {INPUT_SCHEMA}; rerun "
                 f"`rpent-install install {name} --venv {venv}` to record the "
                 "current inputs",
             )
@@ -152,7 +165,7 @@ def check_installation(
             Check(
                 FAIL,
                 "environment is out of date with its recorded inputs (manifests, "
-                f"lock, overrides, or [tool.uv]); rerun "
+                f"overrides, or [tool.uv]); rerun "
                 f"`rpent-install install {name} --venv {venv}`",
             )
         )
@@ -164,22 +177,22 @@ def check_installation(
         checks.append(Check(FAIL, f"no Python interpreter in {venv}"))
         return checks
     checks.append(Check(OK, f"python: {fingerprint.get('python', '?')}"))
-    expected_python = profile.python
-    if not str(fingerprint.get("python", "")).startswith(expected_python + "."):
+    installed_python = str(fingerprint.get("python", ""))
+    if not installed_python or not python_accepted(resolution, installed_python):
         checks.append(
             Check(
                 FAIL,
-                f"profile {profile.name!r} requires Python {expected_python}, "
+                f"target {target.name!r} requires Python {target.python}, "
                 f"found {fingerprint.get('python', '?')}",
             )
         )
     current_platform = runtime_platform()
-    if profile.platform != current_platform:
+    if current_platform != SUPPORTED_PLATFORM:
         checks.append(
             Check(
                 FAIL,
-                f"profile {profile.name!r} targets {profile.platform}, "
-                f"this host is {current_platform}",
+                f"this host is {current_platform}, but RPent installs only "
+                f"{SUPPORTED_PLATFORM}",
             )
         )
     else:

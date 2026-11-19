@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compatibility extras mirror profiles, component closures, and conflicts."""
+"""Compatibility extras mirror targets, component closures, and conflicts."""
 
 import pytest
 
@@ -21,33 +21,33 @@ from tests.tooling.extras import BEGIN_MARKER, END_MARKER, generate, replace_blo
 
 
 @pytest.fixture
-def catalog(make_component, make_profile, make_catalog):
+def catalog(make_component, make_target, make_catalog):
     alpha = make_component("alpha", dependencies=["alpha-dep"], env_conflicts=["beta"])
     beta = make_component("beta", dependencies=["beta-dep"], env_conflicts=["alpha"])
     gamma = make_component(
         "gamma", kind="model", dependencies=["gamma-dep"], requires=["delta"]
     )
     delta = make_component("delta", kind="model", dependencies=["delta-dep"])
-    profiles = {
-        "alpha": make_profile(
+    catalog_targets = {
+        "alpha": make_target(
             "alpha",
             {"alpha": Selection()},
             generate_extra=True,
             extra="alpha",
         ),
-        "beta": make_profile(
+        "beta": make_target(
             "beta",
             {"beta": Selection()},
             generate_extra=True,
             extra="beta",
         ),
-        "deep": make_profile(
+        "deep": make_target(
             "deep",
             {"gamma": Selection()},
             generate_extra=True,
             extra="deep",
         ),
-        "dev": make_profile(
+        "dev": make_target(
             "dev",
             {},
             generate_extra=True,
@@ -57,11 +57,11 @@ def catalog(make_component, make_profile, make_catalog):
     }
     return make_catalog(
         components=[alpha, beta, gamma, delta],
-        profiles=profiles,
+        targets=catalog_targets,
     )
 
 
-def test_extras_cover_profiles_components_and_dev(catalog):
+def test_extras_cover_targets_components_and_dev(catalog):
     generated = generate(catalog)
 
     assert generated.extras["alpha"] == ("alpha-dep",)

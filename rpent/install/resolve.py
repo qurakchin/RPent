@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Resolve a profile into environments, dependencies, and configuration errors."""
+"""Resolve a target into environments, dependencies, and configuration errors."""
 
 from __future__ import annotations
 
@@ -20,7 +20,13 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from rpent.install.discovery import Catalog
-from rpent.install.manifest import Component, Profile, Selection
+from rpent.install.manifest import (
+    PYTHON_MINORS,
+    Component,
+    Selection,
+    Target,
+    python_specifier,
+)
 
 if TYPE_CHECKING:
     from packaging.specifiers import SpecifierSet
@@ -33,7 +39,7 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class ResolvedComponent:
-    """One component placed by a profile."""
+    """One component placed by a target."""
 
     component: Component
     placement: str
@@ -51,12 +57,14 @@ class ResolvedComponent:
 
 @dataclass
 class Resolution:
-    """The components and diagnostics produced by one profile."""
+    """The components and diagnostics produced by one target."""
 
-    profile: Profile
+    target: Target
     components: dict[str, ResolvedComponent] = field(default_factory=dict)
     #: Deps components pulled in by a consumer installed in this environment.
     deps: list[str] = field(default_factory=list)
+    #: Concrete Python minor the target resolves to, newest supported first.
+    python: str | None = None
     errors: list[str] = field(default_factory=list)
 
     @property
@@ -65,7 +73,7 @@ class Resolution:
         return not self.errors
 
     def main_components(self) -> dict[str, ResolvedComponent]:
-        """Return components installed into the profile's environment."""
+        """Return components installed into the target's environment."""
         return {
             name: resolved
             for name, resolved in self.components.items()
@@ -77,7 +85,7 @@ class Resolution:
         return {name: self.components[name] for name in self.deps}
 
     def main_installed(self) -> dict[str, ResolvedComponent]:
-        """Return every component installed into the profile's environment.
+        """Return every component installed into the target's environment.
 
         This is what the environment must be able to import: components with
         code and the deps groups their consumers require.
@@ -198,26 +206,26 @@ def _override_conflicts(resolution: Resolution) -> list[str]:
             continue
         errors.append(
             f"components {', '.join(repr(name) for name in names)} both override "
-            f"{package!r} in profile {resolution.profile.name!r}; move the "
+            f"{package!r} in target {resolution.target.name!r}; move the "
             "constraint into the component that needs it or merge the override "
             "files"
         )
     return errors
 
 
-def _profile_duplicate_dependencies(resolution: Resolution) -> list[str]:
-    """Return errors for profile dependencies a component already declares.
+def _target_duplicate_dependencies(resolution: Resolution) -> list[str]:
+    """Return errors for target dependencies a component already declares.
 
-    A profile's ``dependencies`` carry only packages no component in its
+    A target's ``dependencies`` carry only packages no component in its
     closure owns; repeating a component's requirement hides which component
     owns the version and breaks the single-owner rule.
     """
-    profile = resolution.profile
-    if not profile.dependencies:
+    target = resolution.target
+    if not target.dependencies:
         return []
     declared = {
         identity[0]
-        for identity in map(_canonical, profile.dependencies)
+        for identity in map(_canonical, target.dependencies)
         if identity is not None
     }
     errors: list[str] = []
@@ -229,7 +237,7 @@ def _profile_duplicate_dependencies(resolution: Resolution) -> list[str]:
         }
         for package in sorted(declared & owned):
             errors.append(
-                f"profile {profile.name!r} lists {package!r} in its own "
+                f"target {target.name!r} lists {package!r} in its own "
                 f"dependencies, but component {name!r} already requires it; "
                 "keep the requirement where its owner declares it"
             )
@@ -250,8 +258,8 @@ def _format_conflict(
     left: ResolvedComponent,
     right: ResolvedComponent,
     *,
-    profile: str,
-    profile_path: str,
+    target: str,
+    target_path: str,
 ) -> str:
     left_deps = _dependency_pins(left)
     right_deps = _dependency_pins(right)
@@ -274,70 +282,117 @@ def _format_conflict(
         ),
         None,
     )
+    split = (
+        f"split {left.name} and {right.name} into separate targets and connect "
+        "them by endpoint"
+    )
     suggestion = (
-        f"  option 1: place {remote.name} remotely in {profile_path} and run it "
-        "from its own profile"
+        f"  option 1: place {remote.name} remotely in {target_path} and run it "
+        f"from its own target\n  option 2: {split}"
         if remote is not None
-        else f"  option 1: install {right.name} in a separate environment with "
-        "its own profile"
+        else f"  {split}"
     )
     return (
-        f"profile {profile!r} places {left.name!r} and {right.name!r} "
+        f"target {target!r} places {left.name!r} and {right.name!r} "
         "in the same environment, but they conflict\n"
         + "\n".join(details)
-        + f"\n{suggestion}\n"
-        f"  option 2: install without {right.name}: "
-        f"rpent-install install {profile}"
+        + f"\n{suggestion}"
     )
 
 
-def _check_component_range(resolved: ResolvedComponent, profile: Profile) -> list[str]:
-    from packaging.specifiers import InvalidSpecifier, SpecifierSet
+def _choose_python(
+    target: Target,
+    components: list[ResolvedComponent],
+    errors: list[str],
+    display: str,
+) -> str | None:
+    """Return the newest supported Python minor every constraint accepts.
 
-    errors: list[str] = []
-    component = resolved.component
-    if component.python is not None:
+    The target's request and each component's range are both constraints. A
+    target that writes ``3.11`` pins the minor; a target that writes
+    ``>=3.10,<3.13`` lets the resolver pick the newest of :data:`PYTHON_MINORS`
+    that all components accept.
+    """
+    from packaging.specifiers import InvalidSpecifier
+
+    try:
+        requested = python_specifier(target.python)
+    except InvalidSpecifier as exc:
+        errors.append(f"{display}: invalid python request {target.python!r}: {exc}")
+        return None
+    ranges: list[tuple[str, SpecifierSet]] = []
+    for resolved in components:
+        component = resolved.component
+        if component.python is None:
+            continue
         try:
-            supported = SpecifierSet(component.python)
+            ranges.append((component.name, python_specifier(component.python)))
         except InvalidSpecifier as exc:
             errors.append(
                 f"{component.manifest_path}: invalid python range "
                 f"{component.python!r}: {exc}"
             )
-        else:
-            if not supported.contains(profile.python, prereleases=True):
-                errors.append(
-                    f"component {component.name!r} requires Python "
-                    f"{component.python}, but profile {profile.name!r} uses "
-                    f"{profile.python}"
-                )
-    if component.platforms and profile.platform not in component.platforms:
-        errors.append(
-            f"component {component.name!r} supports "
-            f"{', '.join(component.platforms)}, but profile "
-            f"{profile.name!r} targets {profile.platform}"
-        )
-    return errors
+    for minor in PYTHON_MINORS:
+        if not requested.contains(minor, prereleases=True):
+            continue
+        rejected = [
+            name
+            for name, supported in ranges
+            if not supported.contains(minor, prereleases=True)
+        ]
+        if not rejected:
+            return minor
+    details = "\n".join(
+        f"  {name}: Python {supported}"
+        for name, supported in sorted(ranges, key=lambda item: item[0])
+    )
+    errors.append(
+        f"target {target.name!r} requests Python {target.python}, but no "
+        f"supported version ({', '.join(PYTHON_MINORS)}) satisfies every "
+        f"component" + (f"\n{details}" if details else "")
+    )
+    return None
+
+
+def python_accepted(resolution: Resolution, version: str) -> bool:
+    """Return whether every constraint in ``resolution`` accepts ``version``."""
+    from packaging.specifiers import InvalidSpecifier
+
+    try:
+        if not python_specifier(resolution.target.python).contains(
+            version, prereleases=True
+        ):
+            return False
+        for resolved in resolution.components.values():
+            declared = resolved.component.python
+            if declared is not None and not python_specifier(declared).contains(
+                version, prereleases=True
+            ):
+                return False
+    except InvalidSpecifier:
+        return False
+    return True
 
 
 def resolve(
-    profile: Profile,
+    target: Target,
     catalog: Catalog,
     *,
     core_dependencies: tuple[str, ...] = (),
 ) -> Resolution:
-    """Place the profile's components, compute closure, and report conflicts."""
-    resolution = Resolution(profile=profile)
-    selections = dict(profile.components)
+    """Place the target's components, compute closure, and report conflicts."""
+    resolution = Resolution(target=target)
+    display = target.relative_path(catalog.root)
+    selections = dict(target.components)
     for name in sorted(selections):
         if name not in catalog.components:
             resolution.errors.append(
-                f"profile {profile.name!r} references unknown component {name!r}; "
+                f"target {target.name!r} references unknown component {name!r}; "
                 f"known components: {', '.join(sorted(catalog.components))}"
             )
         elif catalog.components[name].is_deps:
             resolution.errors.append(
-                f"profile {profile.name!r} selects deps component {name!r}; deps "
+                f"target {target.name!r} selects deps component {name!r}; deps "
                 "components are installed by the components that require them, so "
                 "remove the [components] entry and add "
                 f"'requires = [\"{name}\"]' to a consuming component"
@@ -362,7 +417,7 @@ def resolve(
             resolution.errors.append(
                 f"component {name!r} requires a variant; add "
                 f"'variant = \"...\"' under [components.{name}] in "
-                f"{profile.relative_path}; expected one of "
+                f"{display}; expected one of "
                 f"{', '.join(sorted(component.optional))}"
             )
         elif variant is not None and variant not in component.optional:
@@ -419,8 +474,9 @@ def resolve(
                 selections[required] = Selection()
             pending.append(required)
 
-    for resolved in resolution.components.values():
-        resolution.errors.extend(_check_component_range(resolved, profile))
+    resolution.python = _choose_python(
+        target, list(resolution.components.values()), resolution.errors, display
+    )
 
     installed = sorted(resolution.main_installed())
     for index, left_name in enumerate(installed):
@@ -435,8 +491,8 @@ def resolve(
                     _format_conflict(
                         left,
                         right,
-                        profile=profile.name,
-                        profile_path=profile.relative_path,
+                        target=target.name,
+                        target_path=display,
                     )
                 )
     requirements = [
@@ -444,18 +500,16 @@ def resolve(
         for name in installed
         for requirement in resolution.components[name].dependencies()
     ]
+    requirements.extend((target.name, requirement) for requirement in core_dependencies)
     requirements.extend(
-        (profile.name, requirement) for requirement in core_dependencies
-    )
-    requirements.extend(
-        (profile.name, requirement) for requirement in profile.dependencies
+        (target.name, requirement) for requirement in target.dependencies
     )
     for package, pins in _pin_conflicts(requirements).items():
         lines = "\n".join(f"  {owner}: {package} {pin}" for owner, pin in pins)
         resolution.errors.append(
-            f"profile {profile.name!r} has conflicting pins for {package!r}\n{lines}"
+            f"target {target.name!r} has conflicting pins for {package!r}\n{lines}"
         )
     resolution.errors.extend(_override_conflicts(resolution))
-    resolution.errors.extend(_profile_duplicate_dependencies(resolution))
+    resolution.errors.extend(_target_duplicate_dependencies(resolution))
     resolution.errors = sorted(dict.fromkeys(resolution.errors))
     return resolution

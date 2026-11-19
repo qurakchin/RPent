@@ -14,8 +14,8 @@
 
 """RoboTwin action layouts for native qpos and end-effector execution.
 
-The capability-side copy in ``rpent/models/platforms.py`` states what a
-model adapter expects; keep the two equal.
+The model-side copies in ``components/models/{fast_wam,uniwam}/platforms.py``
+state what each adapter expects; keep them equal.
 """
 
 from rpent.models.contracts import AMControlSpec

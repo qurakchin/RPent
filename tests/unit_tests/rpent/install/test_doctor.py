@@ -16,6 +16,7 @@
 
 import socket
 
+from rpent.cli import install as install_cli
 from rpent.install.discovery import discover
 from rpent.install.doctor import (
     FAIL,
@@ -28,24 +29,24 @@ from rpent.install.doctor import (
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     fingerprint_sha256,
-    runtime_platform,
     write_fingerprint,
 )
-from rpent.install.installer import profile_resolution
-from rpent.install.requirements import REQUIREMENTS_SCHEMA, requirements_sha256
+from rpent.install.installer import target_resolution
+from rpent.install.requirements import INPUT_SCHEMA, requirements_sha256
 
 
-def _profile(write_toml, *, core=False, lock=None):
-    declared = f'lock = "{lock}"\n' if lock else ""
+def _target(write_toml, *, core=False, dependencies=()):
+    declared = "".join(f'        "{item}",\n' for item in dependencies)
+    body = f"dependencies = [\n{declared}        ]\n" if dependencies else ""
     write_toml(
-        "installs/profiles/alpha.toml",
+        "installs/targets/alpha.toml",
         f"""
-        schema = 1
+        schema = 2
+        kind = "target"
         name = "alpha"
         python = "3.11"
-        platform = "{runtime_platform()}"
         core = {str(core).lower()}
-        {declared}
+        {body}
         """,
     )
 
@@ -53,6 +54,7 @@ def _profile(write_toml, *, core=False, lock=None):
 def _venv(tmp_path):
     venv = tmp_path / "venv"
     (venv / "bin").mkdir(parents=True)
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
     python = venv / "bin" / "python"
     python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     python.chmod(0o755)
@@ -67,25 +69,27 @@ def _without_uv(monkeypatch):
 
 
 def _inputs_hash(root, name="alpha"):
-    resolution = profile_resolution(name, discover(root), root=root)
+    resolution = target_resolution(name, discover(root), root=root)
     return requirements_sha256(resolution, root=root)
 
 
 def test_missing_fingerprint_reports_install_command(tmp_path):
     checks = check_installation(tmp_path / "venv", root=tmp_path)
 
-    assert checks[0].status == FAIL
-    assert "rpent-install install <profile>" in checks[0].message
+    assert checks[0].status == OK
+    assert checks[0].message == f"venv: {tmp_path / 'venv'}"
+    assert checks[1].status == FAIL
+    assert "rpent-install install <target>" in checks[1].message
 
 
 def test_unchanged_inputs_are_accepted(tmp_path, write_toml, monkeypatch):
-    _profile(write_toml)
+    _target(write_toml)
     venv = _venv(tmp_path)
     write_fingerprint(
         venv,
         {
-            "schema": REQUIREMENTS_SCHEMA,
-            "profile": "alpha",
+            "schema": INPUT_SCHEMA,
+            "target": "alpha",
             "python": "3.11.9",
             "requirements_sha256": _inputs_hash(tmp_path),
         },
@@ -104,13 +108,13 @@ def test_unchanged_inputs_are_accepted(tmp_path, write_toml, monkeypatch):
 def test_stale_fingerprint_fails_before_running_checks(
     tmp_path, write_toml, monkeypatch
 ):
-    _profile(write_toml)
+    _target(write_toml)
     venv = _venv(tmp_path)
     write_fingerprint(
         venv,
         {
-            "schema": REQUIREMENTS_SCHEMA,
-            "profile": "alpha",
+            "schema": INPUT_SCHEMA,
+            "target": "alpha",
             "python": "3.11.9",
             "requirements_sha256": "stale",
         },
@@ -119,8 +123,8 @@ def test_stale_fingerprint_fails_before_running_checks(
 
     checks = check_installation(venv, root=tmp_path)
 
-    assert [check.status for check in checks[:3]] == [OK, OK, FAIL]
-    assert "out of date" in checks[2].message
+    assert [check.status for check in checks[:4]] == [OK, OK, OK, FAIL]
+    assert "out of date" in checks[3].message
     assert any(
         check.status == WARN and "uv missing" in check.message for check in checks
     )
@@ -129,16 +133,16 @@ def test_stale_fingerprint_fails_before_running_checks(
 def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
     tmp_path, write_toml, monkeypatch
 ):
-    _profile(write_toml)
+    _target(write_toml)
     venv = _venv(tmp_path)
     recorded = {
-        "profile": "alpha",
+        "target": "alpha",
         "python": "3.11.9",
         "requirements_sha256": "written by an older rpent-install",
     }
     _without_uv(monkeypatch)
 
-    older = REQUIREMENTS_SCHEMA - 1
+    older = INPUT_SCHEMA - 1
     for schema, label in ((older, str(older)), (None, "unknown")):
         fingerprint = dict(recorded)
         if schema is not None:
@@ -156,17 +160,16 @@ def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
         assert not any("out of date" in check.message for check in checks)
 
 
-def test_lock_edited_after_install_makes_the_environment_stale(
+def test_manifest_edited_after_install_makes_the_environment_stale(
     tmp_path, write_toml, monkeypatch
 ):
-    _profile(write_toml, lock="installs/locks/alpha.lock")
-    lock = write_toml("installs/locks/alpha.lock", "packaging==24.0")
+    _target(write_toml)
     venv = _venv(tmp_path)
     write_fingerprint(
         venv,
         {
-            "schema": REQUIREMENTS_SCHEMA,
-            "profile": "alpha",
+            "schema": INPUT_SCHEMA,
+            "target": "alpha",
             "python": "3.11.9",
             "requirements_sha256": _inputs_hash(tmp_path),
         },
@@ -179,8 +182,9 @@ def test_lock_edited_after_install_makes_the_environment_stale(
         for check in checks
     )
 
-    # The profile did not change, so only the lock hash can notice this.
-    lock.write_text("packaging==25.0\n", encoding="utf-8")
+    # The target gained a requirement after the install, so the recorded input
+    # hash no longer describes what a reinstall would produce.
+    _target(write_toml, dependencies=("packaging",))
     checks = check_installation(venv, root=tmp_path)
 
     assert any(
@@ -188,34 +192,34 @@ def test_lock_edited_after_install_makes_the_environment_stale(
     )
 
 
-def test_profile_name_overrides_the_fingerprint(tmp_path, write_toml, monkeypatch):
-    _profile(write_toml)
+def test_target_name_overrides_the_fingerprint(tmp_path, write_toml, monkeypatch):
+    _target(write_toml)
     venv = _venv(tmp_path)
     write_fingerprint(
         venv,
         {
-            "schema": REQUIREMENTS_SCHEMA,
-            "profile": "alpha",
+            "schema": INPUT_SCHEMA,
+            "target": "alpha",
             "python": "3.11.9",
             "requirements_sha256": _inputs_hash(tmp_path),
         },
     )
     _without_uv(monkeypatch)
 
-    checks = check_installation(venv, profile_name="missing", root=tmp_path)
+    checks = check_installation(venv, target_name="missing", root=tmp_path)
 
     assert any(
-        check.status == FAIL and "cannot resolve profile 'missing'" in check.message
+        check.status == FAIL and "cannot resolve target 'missing'" in check.message
         for check in checks
     )
 
 
 def test_fingerprint_identity_is_reported(tmp_path, write_toml, monkeypatch):
-    _profile(write_toml)
+    _target(write_toml)
     venv = _venv(tmp_path)
     fingerprint = {
-        "schema": REQUIREMENTS_SCHEMA,
-        "profile": "alpha",
+        "schema": INPUT_SCHEMA,
+        "target": "alpha",
         "python": "3.11.9",
         "requirements_sha256": _inputs_hash(tmp_path),
     }
@@ -227,6 +231,57 @@ def test_fingerprint_identity_is_reported(tmp_path, write_toml, monkeypatch):
     assert f"fingerprint sha256: {fingerprint_sha256(fingerprint)}" in {
         check.message for check in checks
     }
+
+
+def test_target_override_is_reported(tmp_path, write_toml, monkeypatch):
+    _target(write_toml)
+    venv = _venv(tmp_path)
+    write_fingerprint(
+        venv,
+        {
+            "schema": INPUT_SCHEMA,
+            "target": "alpha",
+            "python": "3.11.9",
+            "requirements_sha256": _inputs_hash(tmp_path),
+        },
+    )
+    _without_uv(monkeypatch)
+
+    checks = check_installation(venv, target_name="alpha", root=tmp_path)
+    assert not any("overrides the target" in check.message for check in checks)
+
+    # Checking a different target keeps working, but a mismatch with what was
+    # installed is worth surfacing rather than silently reinterpreting the venv.
+    checks = check_installation(venv, target_name="missing", root=tmp_path)
+    assert any(
+        check.status == WARN and "overrides the target" in check.message
+        for check in checks
+    )
+
+
+def test_doctor_prefers_the_activated_environment(tmp_path, monkeypatch):
+    venv = _venv(tmp_path)
+    monkeypatch.setenv("VIRTUAL_ENV", str(venv))
+    monkeypatch.setattr("rpent.cli.install._require_supported_platform", lambda: None)
+    inspected = []
+
+    def _record(path, **kwargs):
+        inspected.append(path)
+        return []
+
+    monkeypatch.setattr("rpent.cli.install.check_installation", _record)
+
+    assert install_cli.main(["doctor"]) == 0
+    assert inspected == [venv]
+
+
+def test_doctor_without_an_environment_says_how_to_select_one(monkeypatch, capsys):
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    monkeypatch.setattr("rpent.cli.install._require_supported_platform", lambda: None)
+    monkeypatch.setattr("rpent.cli.install.current_venv", lambda: None)
+
+    assert install_cli.main(["doctor"]) == 2
+    assert "pass --venv <path>" in capsys.readouterr().err
 
 
 def test_endpoint_address_accepts_host_port_and_url():

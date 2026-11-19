@@ -1,11 +1,10 @@
-schema = 1
+schema = 2
 name = "sam3"
 kind = "model"
 probe = "components.models.sam3.server"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
+description = "SAM 3.0 segmentation runtime used as a diagnostic environment."
 placement = ["in-env", "remote"]
-docs = "docs/source-en/rst_source/guides/advanced_deployment.rst"
 
 dependencies = [
   "sam3 @ git+https://github.com/RLinf/sam3.git@c1f6b1e83967c912f675d8975d437ccdc41e17d8",

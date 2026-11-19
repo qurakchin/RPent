@@ -23,7 +23,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 * **控制机**：连接双臂的 CAN 接口和三路 RealSense 相机，运行 ENV 服务及 RPent。
 * **推理机**：使用 NVIDIA GPU 运行 Pi0.5 VLA 服务。
 
-两台机器使用同一份 RPent 代码和相同的 RLinf 提交。先准备两份仓库，再按下文在两台机器上安装 ``robot-yam`` 配方：
+两台机器使用同一份 RPent 代码和相同的 RLinf 提交。先准备两份仓库，再按下文在两台机器上安装 ``robot-yam`` 目标：
 
 .. code-block:: bash
 
@@ -35,7 +35,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 
 **控制机安装**
 
-在控制机按 :doc:`../get_started/installation` 把 ``robot-yam`` 配方安装到 ``.venvs/robot-yam``，再补充 RLinf、i2rt SDK 和对应的构建依赖：
+在控制机按 :doc:`../get_started/installation` 把 ``robot-yam`` 目标安装到 ``.venvs/robot-yam``，再补充 RLinf、i2rt SDK 和对应的构建依赖：
 
 .. code-block:: bash
 
@@ -49,7 +49,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 
 **推理机安装**
 
-在推理机先用 RLinf 的安装脚本把 YAM 和 OpenPI 依赖装进 ``.venvs/robot-yam``，再按 :doc:`../get_started/installation` 把 ``robot-yam`` 配方安装到同一环境。该环境已由 RLinf 安装脚本创建，因此安装配方时要加 ``--force``：
+在推理机先用 RLinf 的安装脚本把 YAM 和 OpenPI 依赖装进 ``.venvs/robot-yam``，再按 :doc:`../get_started/installation` 把 ``robot-yam`` 目标安装到同一环境。该环境已由 RLinf 安装脚本创建，因此安装目标时要加 ``--force``：
 
 .. code-block:: bash
 

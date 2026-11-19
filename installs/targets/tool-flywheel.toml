@@ -1,0 +1,18 @@
+schema = 2
+kind = "target"
+name = "tool-flywheel"
+python = "3.11"
+# Flywheel is a core runtime feature with no compatibility extra of its own.
+extra = false
+description = "LeRobot trajectory export and replay without a simulator or policy."
+
+# Flywheel's code lives in core ``rpent/flywheel/``; the packages it needs have
+# no component owner, so this target owns them. A target cannot require
+# another target, so composite targets that enable flywheel repeat these.
+dependencies = [
+  "lerobot>=0.3.3,<0.4",
+  "av<19",
+  "pyarrow<26",
+]
+
+[components]

@@ -26,15 +26,15 @@ from components.models.fast_wam.adapter.encode import (
     encode_libero,
     encode_robotwin,
 )
+from components.models.fast_wam.platforms import (
+    LIBERO_OSC,
+    ROBOTWIN_CAMERAS,
+    ROBOTWIN_QPOS,
+)
 from rpent.models.contracts import WAMModelMeta
 from rpent.models.facade import (
     WAMAdapter,
     WAMAdapterSpec,
-)
-from rpent.models.platforms import (
-    LIBERO_OSC,
-    ROBOTWIN_CAMERAS,
-    ROBOTWIN_QPOS,
 )
 
 

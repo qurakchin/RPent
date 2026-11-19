@@ -71,7 +71,7 @@ jobs:
         run: |
           # `uv pip install .` builds the source-scope wheel, so the component
           # data files must be package data. An editable install must expose
-          # the checkout's robots, components, and profiles from any directory.
+          # the checkout's robots, components, and targets from any directory.
           # Runtime dependencies are skipped: `find_spec` reads the installed
           # layout without importing pydantic.
           uv venv --python 3.11 "$RUNNER_TEMP/venv-source"

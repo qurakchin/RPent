@@ -22,12 +22,12 @@ from components.models.cosmos_policy.adapter.encode import (
     STATE_SCHEMA,
     encode_libero,
 )
+from components.models.cosmos_policy.platforms import LIBERO_OSC
 from rpent.models.contracts import WAMModelMeta
 from rpent.models.facade import (
     WAMAdapter,
     WAMAdapterSpec,
 )
-from rpent.models.platforms import LIBERO_OSC
 
 ADAPTERS = {
     "libero": WAMAdapterSpec(

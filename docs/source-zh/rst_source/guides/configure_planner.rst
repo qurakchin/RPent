@@ -222,7 +222,7 @@ Codex 独立配置与登录
 
 使用独立目录，避免与日常 Codex 开发混用配置和会话记录。
 
-在运行 RPent 的终端激活该配方的虚拟环境（例如 ``.venvs/robot-libero_pro``），从仓库根目录设置独立的 Codex 配置与会话目录。每次新开运行 RPent 的终端都需执行：
+在运行 RPent 的终端激活该目标的虚拟环境（例如 ``.venvs/robot-libero_pro``），从仓库根目录设置独立的 Codex 配置与会话目录。每次新开运行 RPent 的终端都需执行：
 
 .. code-block:: bash
 

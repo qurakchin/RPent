@@ -1,21 +1,18 @@
-schema = 1
+schema = 2
 name = "libero"
 kind = "robot"
 probe = "robots.libero"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
 # Runtime only: which policy and segmentation model runs with LIBERO is the
-# profile's choice, so they are not in `requires`.
+# target's choice, so they are not in `requires`.
 requires = ["rlinf"]
 # LIBERO measures task success inside robosuite; the Franka stack pins
 # numpy<2, and RoboTwin's runtime ships incompatible MuJoCo/Torch builds.
 env_conflicts = ["franka", "dual_franka", "robotwin"]
-placement = ["in-env"]
 variant_required = true
-docs = "docs/source-en/rst_source/simulators/libero.rst"
 
 [optional]
-# The variants differ in the simulator package they install, so every profile
+# The variants differ in the simulator package they install, so every target
 # that includes LIBERO must pick one. `plus` cannot inherit `standard` because
 # LIBERO-plus requires robosuite<1.5, while the standard package pins a newer
 # robosuite.

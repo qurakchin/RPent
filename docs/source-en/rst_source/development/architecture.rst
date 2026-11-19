@@ -71,7 +71,7 @@ toolkits and model services do not import each other.
 
    rpent/            # Core: contracts, scheduling, model bases
      env/            # Environment contracts, client, facade, receipt ledger
-     models/         # Model contracts, client, facade, backends, platforms
+     models/         # Model contracts, client, facade, backends
      cli/            # CLI, Dashboard launcher, memory and install commands
      planner/        # Model backends and Planner base class
      prompt/         # Shared fragments, fixed-order assembly, run artifacts
@@ -94,9 +94,10 @@ toolkits and model services do not import each other.
      models/         # Model services, one installable component each
      toolkits/       # Toolkits with their own evaluation corpus
    installs/
-     profiles/       # Supported install targets
+     targets/        # Supported install targets
      deps/           # Dependency-only component manifests
-     locks/          # One lock per profile
+   tests/
+     locks/          # Optional reproduction locks, one per target
 
 Environment Discovery
 ---------------------

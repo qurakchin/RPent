@@ -34,6 +34,12 @@ WAM_BACKENDS = {
     "fast-wam": "fast_wam",
 }
 BACKEND_ALIASES = {"cosmos": "cosmos-policy", "fast_wam": "fast-wam", "rlinf": "pi05"}
+# The core's backend registry. The CLI chooses an action model per platform, so
+# this table names platforms and ``WAM_BACKENDS`` maps each backend to the
+# component directory that provides its worker and runtime configuration.
+# Adding an integration edits these tables; the K5 exemption in
+# ``tests/tooling/layout.py`` tracks the coupling until slice configuration owns
+# the choice.
 PLATFORM_VLA_BACKENDS = {
     "libero": ("pi05",),
     "robotwin": ("lingbot",),
@@ -43,6 +49,8 @@ PLATFORM_VLA_BACKENDS = {
     "franka": ("pi05",),
     "yam": ("pi05",),
 }
+#: These platforms run the control station, not the model, so they always
+#: connect to an externally deployed service.
 REMOTE_ONLY_PLATFORMS = {"franka", "yam"}
 
 

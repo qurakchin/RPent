@@ -1,11 +1,8 @@
-schema = 1
+schema = 2
 name = "cosmos_policy"
 kind = "model"
 probe = "components.models.cosmos_policy.server"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
-placement = ["in-env"]
-docs = "docs/source-en/rst_source/development/add_action_model.rst"
 
 # The server loads the official checkpoint from its own interpreter; RPent only
 # maps observations and predictions at the RPC boundary.

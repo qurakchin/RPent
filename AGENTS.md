@@ -25,10 +25,11 @@ with documentation instead of assuming either is correct.
   and its differentiated features.
 - `components/models/<name>/` and `components/toolkits/<name>/`: installable
   model services and toolkits.
-- `installs/profiles/`, `installs/deps/`, and `installs/locks/`: user install
-  recipes, dependency-only manifests, and one lock per profile.
-  `tests/profiles/` and `tests/locks/` hold development and test profiles in
-  the same namespace.
+- `installs/targets/` and `installs/deps/`: user install targets and
+  dependency-only manifests. Every component is installable under its own
+  name, so these files only add compositions. `tests/targets/` holds
+  development and test targets in the same namespace, and `tests/locks/` holds
+  the optional reproduction locks, one per target.
 - `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
 

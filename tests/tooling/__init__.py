@@ -16,14 +16,14 @@
 
 Run each tool from the repository root with ``python -m tests.tooling.<tool>``:
 
-- ``check``: manifests, closures, variants, placement, and lock coverage.
-- ``lock``: compile or verify the profile locks.
+- ``check``: manifests, closures, variants, placement, and input hashes.
+- ``lock``: compile or verify the target locks.
 - ``layout``: directory structure and import boundaries (K1–K7).
 - ``extras``: generate or verify the compatibility extras block.
-- ``matrix``: print one runner's profiles or check the partition.
-- ``affected``: select the profiles and test directories a change affects.
+- ``matrix``: print one runner's targets or check the partition.
+- ``affected``: select the targets and test directories a change affects.
 
-The tools read the same component manifests and profiles as ``rpent-install``;
+The tools read the same component manifests and targets as ``rpent-install``;
 the dependency runs only this way, ``tests.tooling`` → ``rpent.install``. They
 are not part of the wheel and are never exposed as ``rpent-install``
 subcommands.

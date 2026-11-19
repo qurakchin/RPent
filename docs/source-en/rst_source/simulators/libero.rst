@@ -98,7 +98,7 @@ Installation and Resources
 
 For a first LIBERO-PRO run, complete the installation, asset downloads, and model setup in :doc:`../get_started/quickstart`. Continue here to select tasks and reproduce experiments.
 
-For another variant, install the matching profile from
+For another variant, install the matching target from
 :doc:`../get_started/installation` in an isolated environment, then download
 its assets. Install only one LIBERO variant per Python environment:
 
@@ -106,7 +106,7 @@ its assets. Install only one LIBERO variant per Python environment:
    :header-rows: 1
 
    * - Variant
-     - Profile
+     - Target
      - Assets
    * - ``standard``
      - ``sim-libero_standard``
@@ -118,10 +118,10 @@ its assets. Install only one LIBERO variant per Python environment:
      - ``sim-libero_plus``
      - ``liberoplus-download-assets --skip-existing``
 
-A ``sim-libero_*`` profile contains the simulator and the RLinf runtime
+A ``sim-libero_*`` target contains the simulator and the RLinf runtime
 (``rpent-rlinf``) but no model. ``robot-libero_pro`` adds Pi0.5
 (``rpent-openpi``), SAM3, and the flywheel dependencies. To run standard or
-plus with Pi0.5 and SAM3 locally, install the matching ``model-*`` profiles in
+plus with Pi0.5 and SAM3 locally, install the ``openpi`` and ``sam3`` targets in
 their own environments and pass the endpoints. Download model weights
 separately as described below.
 

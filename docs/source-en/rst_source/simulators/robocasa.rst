@@ -83,14 +83,14 @@ Installation and Resources
 
 Use Linux, an NVIDIA GPU, working CUDA/EGL, ``git``, and
 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_. The
-``sim-robocasa`` profile needs Python 3.10; install it as described in
+``robot-robocasa`` target needs Python 3.10; install it as described in
 :doc:`../get_started/installation`:
 
 .. code-block:: bash
 
-   rpent-install install sim-robocasa
+   rpent-install install robot-robocasa
 
-The profile installs a CUDA-enabled Torch and torchvision pair; RLDX requires Torch >= 2.7 and
+The target installs a CUDA-enabled Torch and torchvision pair; RLDX requires Torch >= 2.7 and
 torchvision >= 0.22. If your driver needs a different build, reinstall the
 matching pair with ``uv pip install`` using the
 `PyTorch instructions <https://pytorch.org/get-started/locally/>`_.
@@ -99,13 +99,13 @@ matching pair with ``uv pip install`` using the
    :header-rows: 1
 
    * - Environment
-     - Profile
+     - Target
      - Assets
    * - RoboCasa365
      - ``robocasa``
      - ``robocasa-download-assets`` (command below)
 
-The profile installs RPent's RoboCasa, RLDX and Robosuite forks at pinned
+The target installs RPent's RoboCasa, RLDX and Robosuite forks at pinned
 commits. Do not also install ``rlinf-robocasa365``, which provides the same
 import package.
 
@@ -279,7 +279,7 @@ local exploration output and custom sources.
    Each run starts a fresh record of selected files, missing layers and actual
    reads, even when reusing an output directory. Zero or partial reads can produce
    valid environment results; missing or corrupt audits are reported separately.
-   Results record the profile and task-family identity for boundary checks.
+   Results record the target and task-family identity for boundary checks.
 
    .. rubric:: Custom Memory Sources
 
@@ -570,9 +570,9 @@ VLA Inference Check
 ~~~~~~~~~~~~~~~~~~~
 
 Complete :ref:`VLA configuration <robocasa-vla-configuration>`, then select an
-available GPU and a fresh output directory. The profile's lock omits the test
-runner; add it to the environment with
-``uv pip install --python .venvs/sim-robocasa/bin/python pytest pytest-timeout``.
+available GPU and a fresh output directory. The target's dependencies omit the
+test runner; add it to the environment with
+``uv pip install --python .venvs/robocasa/bin/python pytest pytest-timeout``.
 
 .. code-block:: bash
 
@@ -632,12 +632,12 @@ Downloads and Assets
 Startup and Inference
 ~~~~~~~~~~~~~~~~~~~~~
 
-- **Missing RLDX interfaces in an old environment:** reinstall the ``sim-robocasa`` profile, then reinstall ``rlinf-rldx`` in the
+- **Missing RLDX interfaces in an old environment:** reinstall the ``robocasa`` target, then reinstall ``rlinf-rldx`` in the
   environment. Older PyPI wheels can lack required interfaces even with the same
   version number.
 - **Missing navigation camera:** if the error names ``mobilebase0_navview``,
-  reinstall the ``sim-robocasa`` profile to update Robosuite rather than patching XML.
-- **Directory permission errors:** use the source dependencies installed by the ``sim-robocasa`` profile; XML conversion should write temporary files. Set
+  reinstall the ``robocasa`` target to update Robosuite rather than patching XML.
+- **Directory permission errors:** use the source dependencies installed by the ``robocasa`` target; XML conversion should write temporary files. Set
   ``NUMBA_CACHE_DIR`` to a writable directory without changing package permissions.
 - **CUDA/EGL unavailable:** select Torch/torchvision for your machine, then run
   the :ref:`environment checks <environment-smoke-tests>` to verify GPU operations

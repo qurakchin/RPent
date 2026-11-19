@@ -76,16 +76,25 @@ current file for each role until that migration lands.
 
 .. code-block:: toml
 
-   schema = 1
+   schema = 2
    name = "myrobot"
    kind = "robot"
    probe = "robots.myrobot"
    python = ">=3.10,<3.13"
-   platforms = ["linux-x86_64"]
-   placement = ["in-env"]
-   docs = "docs/source-en/rst_source/real_world_robots/myrobot.rst"
 
    dependencies = ["my-simulator==1.2"]
+
+``placement`` may be omitted: a component installs into the target's own
+environment, and only a component that can also run as a separate service lists
+``remote`` beside the default ``in-env``.
+
+A component owns the index its packages come from, so ``index-url``,
+``extra-index-urls``, and ``index-strategy`` belong in its own manifest. A
+composition target inherits them, adds the component's extra index URLs to its
+own, and fails when two components in one environment ask for different index
+URLs or strategies. ``manylinux`` works the other way: the target states the
+baseline it installs for, and discovery fails when a component needs a newer
+one.
 
 ``probe`` names the importable package. ``rpent-install install`` and
 ``rpent-install doctor`` import it inside the target environment together with the
@@ -98,7 +107,7 @@ two ``requires`` the other so the install closure includes both. Toolkits and
 model services share a contract instead of importing each other.
 
 The compatibility extras in ``pyproject.toml`` are generated from the manifests
-and profiles. Adding or renaming a component or profile therefore also requires
+and targets. Adding or renaming a component or target therefore also requires
 regenerating that block, which is the one step of a new integration that does
 not live under ``robots/``:
 
@@ -107,9 +116,13 @@ not live under ``robots/``:
    python -m tests.tooling.extras --write
 
 CI runs ``python -m tests.tooling.extras --check``, so a stale block fails the
-build; ``--write`` is the only mode that edits ``pyproject.toml``. A new
-integration also needs a profile under ``installs/profiles/`` and a lock
-generated with ``python -m tests.tooling.lock <profile>``; see
+build; ``--write`` is the only mode that edits ``pyproject.toml``. A robot is
+installed through a target rather than its component name, so add
+``installs/targets/robot-<name>.toml`` selecting ``[components.<name>]`` (plus
+the models the robot runs) and assign that target to a runner in
+``tests/tooling/matrix.py``; ``python -m tests.tooling.check --all`` fails
+while a robot has no target. A reproduction lock under ``tests/locks/`` is
+optional and never required for installation. See
 :doc:`../get_started/installation`.
 
 ``__init__.py`` is the package entry point and must stay lazy. Robot discovery
@@ -694,6 +707,6 @@ errors, expected observation artifacts exist, and owned daemons have exited.
 Task success is not required for this bounded integration check.
 
 Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``. After
-installing the robot's profile and preparing its GPU/checkpoint/assets resources,
+installing the robot's target and preparing its GPU/checkpoint/assets resources,
 run ``pytest tests/e2e_tests/myrobot -v``. See ``tests/README.md`` and
 ``tests/e2e_tests/run_gpu_suite.sh`` for running GPU suites in clean environments.

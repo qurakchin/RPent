@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""``rpent-install``: list, install, and diagnose profile environments.
+"""``rpent-install``: list, install, and diagnose target environments.
 
-Supported targets are the named profiles in ``installs/profiles/`` and
-``tests/profiles/``. Repository checks and lock generation are maintainer
-tools under ``tests/tooling/`` and are not part of this command.
+A target is a non-robot component installed under its own name, or a file in
+``installs/targets/`` or ``tests/targets/`` that composes components or selects
+a robot. Repository checks and lock generation are maintainer tools under
+``tests/tooling/`` and are not part of this command.
 """
 
 from __future__ import annotations
@@ -28,33 +29,49 @@ from pathlib import Path
 from rpent.install.discovery import discover
 from rpent.install.doctor import FAIL, check_installation
 from rpent.install.errors import InstallConfigError, InstallError
-from rpent.install.fingerprint import current_venv
+from rpent.install.fingerprint import (
+    SUPPORTED_PLATFORM,
+    activated_venv,
+    current_venv,
+    runtime_platform,
+)
 from rpent.install.installer import install
 from rpent.utils.config import get_repo_root
 
 
+def _require_supported_platform() -> None:
+    """Reject hosts RPent does not install wheels for."""
+    current = runtime_platform()
+    if current != SUPPORTED_PLATFORM:
+        raise InstallError(
+            f"RPent installs only on {SUPPORTED_PLATFORM}; this host is {current}"
+        )
+
+
 def command_list(args: argparse.Namespace) -> int:
-    """Print components and profiles."""
+    """Print components and targets."""
     catalog = discover(args.root)
     print("Components")
     for name, component in sorted(catalog.components.items()):
         placements = ", ".join(component.placements)
         print(f"  {name:<20} {component.kind:<10} {placements}")
-    print("\nProfiles")
-    for name, profile in sorted(catalog.profiles.items()):
-        components = ", ".join(sorted(profile.components)) or "(core only)"
-        print(f"  {name:<28} python {profile.python:<4} {components}")
+    print("\nTargets")
+    for name, target in sorted(catalog.targets.items()):
+        components = ", ".join(sorted(target.components)) or "(core only)"
+        print(f"  {name:<28} python {target.python:<12} {components}")
     return 0
 
 
 def command_install(args: argparse.Namespace) -> int:
-    """Create or reuse a virtualenv and install one profile."""
+    """Create or reuse a virtualenv and install one target."""
+    _require_supported_platform()
     install(
-        args.profile,
+        args.target,
         root=args.root,
         venv=args.venv,
         force=args.force,
         verbose=True,
+        dry_run=args.dry_run,
     )
     return 0
 
@@ -71,16 +88,19 @@ def _parse_endpoints(values: list[str]) -> dict[str, str]:
 
 def command_doctor(args: argparse.Namespace) -> int:
     """Check the current or selected virtualenv."""
-    venv = args.venv or current_venv()
+    _require_supported_platform()
+    # Prefer the environment the user activated: `rpent-install` may be running
+    # from a tool environment while the target environment is activated.
+    venv = args.venv or activated_venv() or current_venv()
     if venv is None:
         print(
-            "no active virtualenv; activate one or pass --venv",
+            "no active virtualenv; activate one or pass --venv <path>",
             file=sys.stderr,
         )
         return 2
     checks = check_installation(
         venv,
-        profile_name=args.profile,
+        target_name=args.target,
         endpoints=_parse_endpoints(args.endpoint),
         root=args.root,
     )
@@ -93,7 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Return the argument parser for ``rpent-install``."""
     parser = argparse.ArgumentParser(
         prog="rpent-install",
-        description="Install and diagnose RPent profile environments.",
+        description="Install and diagnose RPent target environments.",
     )
     parser.add_argument(
         "--root",
@@ -103,24 +123,29 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
-    listing = subcommands.add_parser("list", help="list components and profiles")
+    listing = subcommands.add_parser("list", help="list components and targets")
     listing.set_defaults(handler=command_list)
 
     installer = subcommands.add_parser(
-        "install", help="install one named profile into a virtualenv"
+        "install", help="install one named target into a virtualenv"
     )
-    installer.add_argument("profile")
+    installer.add_argument("target")
     installer.add_argument("--venv", type=Path, help="virtualenv path")
     installer.add_argument(
         "--force",
         action="store_true",
         help="install into a non-empty virtualenv that records no fingerprint",
     )
+    installer.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="print the requirements the target resolves to without installing",
+    )
     installer.set_defaults(handler=command_install)
 
     doctor = subcommands.add_parser("doctor", help="diagnose an installed venv")
     doctor.add_argument("--venv", type=Path)
-    doctor.add_argument("--profile", help="profile name; defaults to fingerprint")
+    doctor.add_argument("--target", help="target name; defaults to fingerprint")
     doctor.add_argument(
         "--endpoint",
         action="append",

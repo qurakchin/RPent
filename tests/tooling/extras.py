@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Generate compatibility extras and uv conflicts from manifests and profiles.
+"""Generate compatibility extras and uv conflicts from manifests and targets.
 
 The generated tables are a one-release compatibility alias for
 ``pip install -e ".[<extra>]"``. ``rpent-install`` is the supported entry point;
@@ -46,7 +46,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 END_MARKER = "# --- END GENERATED EXTRAS ---"
 #: Profiles whose extra is a development alias and must not enter uv conflicts.
 DEV_PROFILES = {"dev"}
-#: Pre-migration extras whose component or profile now has a different name.
+#: Pre-migration extras whose component or target now has a different name.
 #: They keep working for the compatibility release.
 EXTRA_ALIASES = {
     "geometry-eval": "geometry",
@@ -110,14 +110,14 @@ def _component_closure(component: Component, catalog: Catalog) -> tuple[str, ...
     return tuple(sorted(dict.fromkeys(dependencies)))
 
 
-def _profile_extra(
-    profile_name: str, catalog: Catalog
+def _target_extra(
+    target_name: str, catalog: Catalog
 ) -> tuple[tuple[str, ...], frozenset[str]]:
-    profile = catalog.profiles[profile_name]
-    resolution = resolve(profile, catalog)
+    target = catalog.targets[target_name]
+    resolution = resolve(target, catalog)
     if not resolution.ok:
         raise ValueError(
-            f"profile {profile_name!r} is invalid:\n" + "\n".join(resolution.errors)
+            f"target {target_name!r} is invalid:\n" + "\n".join(resolution.errors)
         )
     dependencies = installed_dependencies(resolution)
     members = frozenset(
@@ -142,12 +142,12 @@ def generate(
     extras: dict[str, tuple[str, ...]] = {}
     members: dict[str, frozenset[str]] = {}
     covered: set[str] = set()
-    for name, profile in sorted(catalog.profiles.items()):
-        if not profile.generate_extra or profile.extra is None:
+    for name, target in sorted(catalog.targets.items()):
+        if not target.generate_extra or target.extra is None:
             continue
-        dependencies, components = _profile_extra(name, catalog)
-        extras[profile.extra] = dependencies
-        members[profile.extra] = components
+        dependencies, components = _target_extra(name, catalog)
+        extras[target.extra] = dependencies
+        members[target.extra] = components
         if name not in DEV_PROFILES:
             covered.update(components)
     for name, component in sorted(catalog.components.items()):
@@ -155,7 +155,7 @@ def generate(
         if extra in extras:
             continue
         # A model or deps component keeps its own compatibility extra even when
-        # a profile installs it, so ``pip install -e ".[sam3]"`` and
+        # a target installs it, so ``pip install -e ".[sam3]"`` and
         # ``pip install -e ".[rlinf]"`` keep working during the migration.
         if name in covered and component.kind not in {"model", "deps"}:
             continue
@@ -168,9 +168,9 @@ def generate(
             members.setdefault(alias, members[extra])
 
     dev_extras = {
-        profile.extra
-        for name, profile in catalog.profiles.items()
-        if name in DEV_PROFILES and profile.extra is not None
+        target.extra
+        for name, target in catalog.targets.items()
+        if name in DEV_PROFILES and target.extra is not None
     }
     conflicts: set[tuple[str, str]] = set()
     for left, right in itertools.combinations(sorted(catalog.components), 2):
@@ -226,7 +226,7 @@ def _render(
             "[tool.uv]",
             'prerelease = "allow"',
             "",
-            "# Each profile pulls a separately pinned simulator or model runtime whose",
+            "# Each target pulls a separately pinned simulator or model runtime whose",
             "# Torch, Transformers, Tokenizers, or Diffusers versions are mutually",
             "# incompatible with the others. Generated from component env_conflicts.",
             "conflicts = [",

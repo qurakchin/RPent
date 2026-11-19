@@ -40,19 +40,19 @@ Use a branch name that reflects the change, such as
 ### Step 2. Set up the development environment
 
 ```bash
-# Create and activate the development environment.
-uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install dev
+# Create and activate the development environment. The launcher runs the
+# installer in a throwaway uv environment until `.venvs/dev` exists.
+./rpent-install.sh install dev
 source .venvs/dev/bin/activate
 
-# For robot work, install that profile into its own environment. Profiles
-# cannot share a virtualenv because their pins differ, and every profile
-# installs from its lock.
+# For robot work, install that target into its own environment. Targets
+# cannot share a virtualenv because their pins differ, and every target
+# resolves its dependencies from the manifests.
 rpent-install install robot-libero_pro  # LIBERO
-rpent-install install sim-robocasa    # RoboCasa
-rpent-install install sim-robotwin    # RoboTwin
+rpent-install install robot-robocasa    # RoboCasa
+rpent-install install robot-robotwin    # RoboTwin
 
-# The lock omits the test runner; add it to the robot environment.
+# The target's dependencies omit the test runner; add it to that environment.
 uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout
 
 # Install and enable the repository hooks.
@@ -60,11 +60,11 @@ uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-The robot commands are alternatives: install only the profile relevant to the
+The robot commands are alternatives: install only the target relevant to the
 change. See the [installation guide](docs/source-en/rst_source/get_started/installation.rst)
 for environment-specific setup and the
 [test guide](tests/README.md#test-suite-structure) for how each suite selects
-its profile.
+its target.
 
 ### Step 3. Develop
 
@@ -77,8 +77,8 @@ Follow these conventions while developing:
   environment in its `robots/<name>/` directory, model services in
   `components/models/<name>/`, and toolkits in `components/toolkits/<name>/`.
   Place shared functionality in common modules with matching responsibilities.
-  Install recipes, dependency-only components, and locks live under
-  `installs/`.
+  Install recipes and dependency-only components live under `installs/`;
+  optional reproduction locks live under `tests/locks/`.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and
@@ -103,7 +103,7 @@ Follow these conventions while developing:
   update the tests and explain why. Unit tests must run offline on an ordinary
   CPU machine; use fakes when model or service output is needed. Installer
   units use synthetic manifests under `tests/unit_tests/rpent/install/`;
-  contracts over the checked-in components, profiles, locks, and packaging
+  contracts over the checked-in components, targets, locks, and packaging
   extras belong in `tests/unit_tests/installs/`.
 - **Follow the project style.** Pre-commit handles Ruff formatting and linting.
   Public Python APIs should have type hints and Google-style docstrings, and

@@ -88,7 +88,7 @@ multi-pixel-median tip from the perception protocol.
 
 ## 2. Setup (do these once on a fresh checkout)
 
-Install the `robot-libero_pro` profile; it pins LIBERO-PRO at a commit from the
+Install the `robot-libero_pro` target; it pins LIBERO-PRO at a commit from the
 `rpent` branch and installs the perception stack (Pi0.5 and SAM 3.0) into one
 environment:
 
@@ -96,7 +96,7 @@ environment:
 rpent-install install robot-libero_pro
 ```
 
-The profile covers the liberopro install and its benchmark registration. The
+The target covers the liberopro install and its benchmark registration. The
 remaining steps are the assets, the dataset snapshot, and the verification check
 described below. The perception observables (depth + both cameras + hi-res) are
 unconditional once the runner launches with `--libero-type pro`; there is
@@ -104,7 +104,7 @@ nothing perception-specific to install beyond the PRO setup itself.
 
 ### 2.1. LIBERO-PRO repo
 
-Installed into the profile's environment from
+Installed into the target's environment from
 `https://github.com/RLinf/LIBERO-PRO.git`, pinned to a commit on the `rpent`
 branch. Confirm it from
 inside that environment:

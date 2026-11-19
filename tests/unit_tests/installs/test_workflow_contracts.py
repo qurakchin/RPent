@@ -75,39 +75,39 @@ def test_fast_ci_has_one_aggregate_required_check():
         assert f"{job}:${{{{ needs.{job}.result }}}}" in results
 
 
-def test_fast_ci_scopes_full_ci_with_the_pull_request_profiles():
+def test_fast_ci_scopes_full_ci_with_the_pull_request_targets():
     script = _step(_workflow("fast-ci.yml"), "changes", "Map changed paths to a scope")[
         "run"
     ]
 
-    # A core change keeps the full profile set for nightly and release runs,
+    # A core change keeps the full target set for nightly and release runs,
     # while a pull request installs the pilot set; a component change already
-    # narrows ``profiles`` to its closure.
-    assert 'scope.get("pr_profiles", scope["profiles"])' in script
-    assert (
-        'e2e = sorted(suites) if set(selected) == set(scope["profiles"]) else []'
-        in (script)
+    # narrows ``targets`` to its closure.
+    assert 'scope.get("pr_targets", scope["targets"])' in script
+    assert 'e2e = sorted(suites) if set(selected) == set(scope["targets"]) else []' in (
+        script
     )
-    # Install data changes narrow the profile set but still call full CI for
-    # those profiles.
-    assert 'bool(scope["components"] or scope["profiles"])' in script
+    # Install data changes narrow the target set but still call full CI for
+    # those targets.
+    assert 'bool(scope["components"] or scope["targets"])' in script
 
 
-def test_fast_ci_runs_installer_and_install_data_tests_in_the_dev_profile():
+def test_fast_ci_runs_dev_test_groups_in_the_dev_target():
     workflow = _workflow("fast-ci.yml")
 
     # These groups need only the core and `dev` dependencies; every other test
-    # path may import a model server, which needs the CPU Torch profile.
+    # path may import a model server, which needs the CPU Torch target.
     script = _step(workflow, "changes", "Map changed paths to a scope")["run"]
     block = script.split("dev_tests = {", 1)[1].split("}", 1)[0]
     assert set(re.findall(r'"([^"]+)"', block)) == {
         "tests/unit_tests/rpent/install",
         "tests/unit_tests/tooling",
         "tests/unit_tests/installs",
+        "tests/unit_tests/contracts",
     }
-    assert 'profile = "dev" if tests and tests <= dev_tests else "unit-cpu"' in script
-    assert workflow["jobs"]["unit"]["with"]["profile"] == (
-        "${{ needs.changes.outputs.profile }}"
+    assert 'target = "dev" if tests and tests <= dev_tests else "unit-cpu"' in script
+    assert workflow["jobs"]["unit"]["with"]["target"] == (
+        "${{ needs.changes.outputs.target }}"
     )
 
 
@@ -118,7 +118,7 @@ def test_fast_ci_checks_the_package_for_packaging_changes():
 
     # ``setup.py`` chooses the packages in the wheel and sdist, so it changes
     # what the package job has to verify.
-    assert '{"pyproject.toml", "uv.lock", "setup.py", "MANIFEST.in"}' in script
+    assert '{"pyproject.toml", "setup.py", "MANIFEST.in"}' in script
 
 
 def test_full_ci_does_not_run_on_tags():
@@ -131,12 +131,14 @@ def test_full_ci_does_not_run_on_tags():
     assert set(triggers) == {"schedule", "workflow_dispatch", "workflow_call"}
 
 
-def test_full_ci_lock_check_gates_a_release():
+def test_full_ci_does_not_gate_on_optional_locks():
+    # Installation resolves the manifests; a checked-in lock is a reproduction
+    # artifact, so a release must not fail because one drifted.
     workflow = _workflow("full-ci.yml")
 
-    assert workflow["jobs"]["locks"]["if"] == "inputs.full == true"
-    assert workflow["jobs"]["unit"]["with"]["profile"] == "unit-cpu"
-    called = _step(workflow, "scope", "Select the profiles and suites")["run"]
+    assert "locks" not in workflow["jobs"]
+    assert workflow["jobs"]["unit"]["with"]["target"] == "unit-cpu"
+    called = _step(workflow, "scope", "Select the targets and suites")["run"]
     assert '"$EVENT" == "workflow_call" && "$CALLED_FULL" != "true"' in called
 
 
@@ -173,22 +175,28 @@ def test_package_checks_the_core_wheel_and_the_complete_sdist():
     ]
     # A source-scope wheel is what `pip install .` produces; it must carry the
     # files the installed package opens, and an editable install must expose
-    # the checkout's packages and profiles from another directory.
+    # the checkout's packages and targets from another directory.
     assert "--no-deps -e ." in source
     for relative in ("target50.json", "demo_randomized.json", "report_template.md"):
         assert relative in source
     assert "rpent-install" in source
 
 
-def test_unit_workflow_defaults_to_the_cpu_profile():
+def test_unit_workflow_defaults_to_the_cpu_target():
     workflow = _workflow("unit.yml")
     inputs = _triggers(workflow)["workflow_call"]["inputs"]
 
-    # ``dev`` deliberately has no Torch; the CPU profile supplies it so the
+    # ``dev`` deliberately has no Torch; the CPU target supplies it so the
     # full unit suite can import model servers.
-    assert inputs["profile"]["default"] == "unit-cpu"
+    assert inputs["target"]["default"] == "unit-cpu"
     cache_key = _step(workflow, "unit", "Restore the prebuilt environment")["with"][
         "key"
     ]
-    assert "inputs.profile" in cache_key
+    assert "inputs.target" in cache_key
+    # The cache follows the manifests, not an optional reproduction lock, so a
+    # manifest edit invalidates it and a stale lock cannot.
+    key_step = _step(workflow, "unit", "Read the environment cache key")["run"]
+    assert "--inputs-hash" in key_step
+    assert "locks/" not in key_step
+    assert "steps.key.outputs.inputs" in cache_key
     assert _step(workflow, "unit", "Report skipped tests")["if"] == "always()"

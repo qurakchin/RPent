@@ -32,8 +32,9 @@ Rules:
   or a concrete ``robots.<name>``; importing the ``robots`` package itself for
   discovery is allowed.
 - K5: core ``rpent/**`` must not name a robot or benchmark (R8).
-  ``rpent/models/`` is exempt: model-side contracts and the backend table name
-  the embodiment they speak to.
+  ``rpent/models/backends.py`` is exempt while the backend table still names
+  the robots it routes to; the wire-contract copies live with the model
+  services under ``components/models/<name>/platforms.py``.
 - K6: a slice ``robots/<name>/__init__.py`` only re-exports lazily.
 - K7: ``spec.py`` > 80, ``adapter.py`` > 400, and ``native_tools.py`` > 100
   lines are reported as warnings until the slice split lands.
@@ -59,7 +60,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: Directories the layout registers an owner for. Hidden directories are tool
 #: configuration and are exempt.
 ALLOWED_TOP_LEVEL = frozenset(
-    {"rpent", "robots", "components", "installs", "tests", "docs"}
+    {
+        "rpent",
+        "robots",
+        "components",
+        "installs",
+        "tests",
+        "docs",
+    }
 )
 #: Root files the layout allows next to the top-level directories.
 ALLOWED_ROOT_FILES = (
@@ -71,25 +79,24 @@ ALLOWED_ROOT_FILES = (
     "CLAUDE.md",
     "MANIFEST.in",
     "setup.py",
+    # The install bootstrap for a checkout with no environment yet; the
+    # maintainer launcher lives under ``tests/tooling``.
+    "rpent-install.sh",
     ".gitignore",
     ".pre-commit-config.yaml",
 )
 #: Generated, gitignored directories that may appear in a working checkout.
 IGNORED_TOP_LEVEL = frozenset({"memory", "__pycache__"})
-#: Core subdirectories K5 does not scan, with the reason and the date by which
-#: the exception must be removed or renewed. Model-side wire contracts name the
-#: embodiment they control; the install tooling holds the authored profile
-#: partition and the published extra names. An expired entry is an error, so a
-#: temporary exception cannot become permanent by being forgotten.
+#: Core paths K5 does not scan, with the reason and the date by which the
+#: exception must be removed or renewed. Only the backend table names robots,
+#: because it routes each platform to the action models that serve it; a file
+#: path keeps the exception from covering new core modules. An expired entry is
+#: an error, so a temporary exception cannot become permanent by being
+#: forgotten.
 CORE_NAME_EXEMPTIONS = {
-    "rpent/models": (
-        "model-side wire contracts and the backend table name the embodiment "
-        "they speak to",
-        date(2027, 6, 30),
-    ),
-    "rpent/install": (
-        "the authored profile partition and generated extra names are data, "
-        "not scheduling logic",
+    "rpent/models/backends.py": (
+        "the backend table names the robots it routes to; removing it needs the "
+        "slice configuration that owns that choice",
         date(2027, 6, 30),
     ),
 }
@@ -463,7 +470,7 @@ def check_imports(root: Path) -> list[Finding]:
         if path.name.startswith("."):
             # AppleDouble metadata for a synced checkout, not source.
             continue
-        if any(part in {".git", ".rpent", "tests", "docs"} for part in path.parts):
+        if any(part in {".git", "tests", "docs"} for part in path.parts):
             continue
         owner = _owner(path, root)
         if owner is None:
@@ -587,7 +594,7 @@ def check_core_robot_names(root: Path, *, today: date | None = None) -> list[Fin
             )
     used: set[Path] = set()
     for path in sorted((root / "rpent").rglob("*.py")):
-        if any(part in {".git", ".rpent", "__pycache__"} for part in path.parts):
+        if any(part in {".git", "__pycache__"} for part in path.parts):
             continue
         exemption = next(
             (
@@ -666,7 +673,7 @@ def check_pure_data_imports(root: Path) -> list[Finding]:
     findings: list[Finding] = []
     stdlib = sys.stdlib_module_names
     for path in sorted(root.rglob("*.py")):
-        if any(part in {".git", ".rpent", "tests", "docs"} for part in path.parts):
+        if any(part in {".git", "tests", "docs"} for part in path.parts):
             continue
         owner = _owner(path, root)
         if path.name in PURE_DATA_FILES:

@@ -26,7 +26,7 @@ Use Linux and Python 3.11. This guide uses two machines:
 * **Inference machine**: runs the Pi0.5 VLA service on an NVIDIA GPU.
 
 Use the same RPent code and RLinf commit on both machines. Prepare both checkouts
-first, then install the ``robot-yam`` profile on each machine as described below:
+first, then install the ``robot-yam`` target on each machine as described below:
 
 .. code-block:: bash
 
@@ -39,7 +39,7 @@ described in :doc:`../get_started/installation`.
 
 **Control machine installation**
 
-Install the ``robot-yam`` profile from :doc:`../get_started/installation` into
+Install the ``robot-yam`` target from :doc:`../get_started/installation` into
 ``.venvs/robot-yam``, then add RLinf, the i2rt SDK and the required build
 dependencies:
 
@@ -56,7 +56,7 @@ dependencies:
 **Inference machine installation**
 
 On the inference machine, use RLinf's installer to install YAM and OpenPI
-dependencies into ``.venvs/robot-yam``, then install the ``robot-yam`` profile
+dependencies into ``.venvs/robot-yam``, then install the ``robot-yam`` target
 from :doc:`../get_started/installation` into the same environment. RLinf's
 installer creates the environment first, so pass ``--force``:
 

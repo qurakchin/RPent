@@ -17,7 +17,6 @@
 import json
 import sys
 
-from rpent.install.fingerprint import runtime_platform
 from rpent.install.manifest import Selection
 from tests.tooling import affected
 
@@ -42,7 +41,7 @@ def test_an_unowned_path_means_everything(make_component, make_catalog):
 
 
 def test_robot_change_narrows_to_its_slice_tests(
-    tmp_path, make_component, make_profile, make_catalog
+    tmp_path, make_component, make_target, make_catalog
 ):
     alpha = make_component("alpha")
     beta = make_component("beta")
@@ -50,33 +49,73 @@ def test_robot_change_narrows_to_its_slice_tests(
     slice_tests.mkdir(parents=True)
     for shared in affected.ROBOT_SHARED_TESTS:
         (tmp_path / shared).write_text("", encoding="utf-8")
+    contracts = tmp_path / affected.CROSS_COMPONENT_TESTS
+    contracts.mkdir(parents=True)
     catalog = make_catalog(
         components=[alpha, beta],
-        profiles={
-            "alpha": make_profile("alpha", {"alpha": Selection()}),
-            "beta": make_profile("beta", {"beta": Selection()}),
+        targets={
+            "alpha": make_target("alpha", {"alpha": Selection()}),
+            "beta": make_target("beta", {"beta": Selection()}),
         },
     )
 
     scope = affected.affected_scope(["robots/alpha/spec.py"], catalog, tmp_path)
 
     assert scope.components == ("alpha",)
-    assert scope.profiles == ("alpha",)
+    assert scope.targets == ("alpha",)
     # A component change already narrows to its resolution closure, so a pull
-    # request installs exactly the profiles a full run would install for it.
-    assert scope.pr_profiles == ("alpha",)
+    # request installs exactly the targets a full run would install for it.
+    assert scope.pr_targets == ("alpha",)
     assert "tests/unit_tests/robots/alpha" in scope.tests
     assert "tests/unit_tests/robots/test_toolkit_contracts.py" in scope.tests
+    # The cross-component contracts cover this slice too, so they rerun.
+    assert "tests/unit_tests/contracts" in scope.tests
+    assert not scope.full
+
+
+def test_model_change_reruns_the_cross_component_contracts(
+    tmp_path, make_component, make_target, make_catalog
+):
+    sam3 = make_component("sam3", kind="model", placements=("in-env",))
+    (tmp_path / affected.CROSS_COMPONENT_TESTS).mkdir(parents=True)
+    catalog = make_catalog(
+        components=[sam3],
+        targets={"sam3-server": make_target("sam3-server", {"sam3": Selection()})},
+    )
+
+    scope = affected.affected_scope(
+        ["components/models/sam3/platforms.py"], catalog, tmp_path
+    )
+
+    assert "tests/unit_tests/contracts" in scope.tests
+
+
+def test_contract_change_runs_only_the_contract_group(
+    tmp_path, make_component, make_target, make_catalog
+):
+    alpha = make_component("alpha")
+    catalog = make_catalog(
+        components=[alpha],
+        targets={"alpha": make_target("alpha", {"alpha": Selection()})},
+    )
+
+    scope = affected.affected_scope(
+        ["tests/unit_tests/contracts/test_model_platforms.py"], catalog, tmp_path
+    )
+
+    assert scope.tests == ("tests/unit_tests/contracts",)
+    assert scope.targets == ()
+    assert scope.pr_targets == ()
     assert not scope.full
 
 
 def test_component_without_tests_runs_the_whole_suite(
-    tmp_path, make_component, make_profile, make_catalog
+    tmp_path, make_component, make_target, make_catalog
 ):
     sam3 = make_component("sam3", kind="model", placements=("in-env",))
     catalog = make_catalog(
         components=[sam3],
-        profiles={"sam3-server": make_profile("sam3-server", {"sam3": Selection()})},
+        targets={"sam3-server": make_target("sam3-server", {"sam3": Selection()})},
     )
 
     scope = affected.affected_scope(
@@ -86,13 +125,13 @@ def test_component_without_tests_runs_the_whole_suite(
     assert scope.tests == ("tests/unit_tests",)
 
 
-def test_docs_only_change_needs_no_tests_or_profiles(
-    tmp_path, make_component, make_profile, make_catalog
+def test_docs_only_change_needs_no_tests_or_targets(
+    tmp_path, make_component, make_target, make_catalog
 ):
     alpha = make_component("alpha")
     catalog = make_catalog(
         components=[alpha],
-        profiles={"alpha": make_profile("alpha", {"alpha": Selection()})},
+        targets={"alpha": make_target("alpha", {"alpha": Selection()})},
     )
 
     scope = affected.affected_scope(
@@ -101,18 +140,18 @@ def test_docs_only_change_needs_no_tests_or_profiles(
 
     assert scope.docs
     assert scope.tests == ()
-    assert scope.profiles == ()
-    assert scope.pr_profiles == ()
+    assert scope.targets == ()
+    assert scope.pr_targets == ()
     assert not scope.full
 
 
-def test_unmapped_path_selects_every_component_and_profile(
-    tmp_path, make_component, make_profile, make_catalog
+def test_unmapped_path_selects_every_component_and_target(
+    tmp_path, make_component, make_target, make_catalog
 ):
     alpha = make_component("alpha")
     catalog = make_catalog(
         components=[alpha],
-        profiles={"alpha": make_profile("alpha", {"alpha": Selection()})},
+        targets={"alpha": make_target("alpha", {"alpha": Selection()})},
     )
 
     for path in ("setup.py", "MANIFEST.in"):
@@ -121,23 +160,23 @@ def test_unmapped_path_selects_every_component_and_profile(
         assert scope.full
         assert scope.components == ("alpha",)
         assert scope.tests == ("tests/unit_tests",)
-        assert scope.profiles == ("alpha",)
+        assert scope.targets == ("alpha",)
         # Packaging decides what every environment installs, so a pull request
-        # keeps the full profile set rather than the pilot one.
-        assert scope.pr_profiles == ("alpha",)
+        # keeps the full target set rather than the pilot one.
+        assert scope.pr_targets == ("alpha",)
 
 
-def test_core_change_installs_the_pilot_profiles_in_a_pull_request(
-    tmp_path, make_component, make_profile, make_catalog
+def test_core_change_installs_the_pilot_targets_in_a_pull_request(
+    tmp_path, make_component, make_target, make_catalog
 ):
     alpha = make_component("alpha")
     catalog = make_catalog(
         components=[alpha],
-        profiles={
-            "alpha": make_profile("alpha", {"alpha": Selection()}),
-            "minimal": make_profile("minimal", {}),
-            "sim-robotwin": make_profile("sim-robotwin", {}),
-            "tool-geometry": make_profile("tool-geometry", {}),
+        targets={
+            "alpha": make_target("alpha", {"alpha": Selection()}),
+            "minimal": make_target("minimal", {}),
+            "robot-robotwin": make_target("robot-robotwin", {}),
+            "tool-geometry-eval": make_target("tool-geometry-eval", {}),
         },
     )
 
@@ -145,24 +184,28 @@ def test_core_change_installs_the_pilot_profiles_in_a_pull_request(
         scope = affected.affected_scope([path], catalog, tmp_path)
 
         assert scope.full
-        assert scope.profiles == (
+        assert scope.targets == (
             "alpha",
             "minimal",
-            "sim-robotwin",
-            "tool-geometry",
+            "robot-robotwin",
+            "tool-geometry-eval",
         )
-        assert scope.pr_profiles == ("minimal", "sim-robotwin", "tool-geometry")
+        assert scope.pr_targets == (
+            "minimal",
+            "robot-robotwin",
+            "tool-geometry-eval",
+        )
 
 
-def test_installer_change_installs_every_profile_in_a_pull_request(
-    tmp_path, make_component, make_profile, make_catalog
+def test_installer_change_installs_every_target_in_a_pull_request(
+    tmp_path, make_component, make_target, make_catalog
 ):
     alpha = make_component("alpha")
     catalog = make_catalog(
         components=[alpha],
-        profiles={
-            "robot-libero_pro": make_profile("robot-libero_pro", {}),
-            "tool-geometry": make_profile("tool-geometry", {}),
+        targets={
+            "robot-libero_pro": make_target("robot-libero_pro", {}),
+            "tool-geometry-eval": make_target("tool-geometry-eval", {}),
         },
     )
 
@@ -170,11 +213,11 @@ def test_installer_change_installs_every_profile_in_a_pull_request(
 
     assert scope.full
     assert scope.tests == ("tests/unit_tests",)
-    assert scope.pr_profiles == ("robot-libero_pro", "tool-geometry")
+    assert scope.pr_targets == ("robot-libero_pro", "tool-geometry-eval")
 
 
-def _install_data_catalog(make_component, make_profile, make_catalog):
-    """Build a catalog with two profiles and a deps component."""
+def _install_data_catalog(make_component, make_target, make_catalog):
+    """Build a catalog with two targets and a deps component."""
     shared = make_component(
         "shared",
         kind="deps",
@@ -185,110 +228,106 @@ def _install_data_catalog(make_component, make_profile, make_catalog):
     alpha = make_component("alpha", requires=("shared",))
     return make_catalog(
         components=[alpha, shared],
-        profiles={
-            "alpha": make_profile(
-                "alpha",
-                {"alpha": Selection()},
-                lock="installs/locks/alpha.lock",
-            ),
-            "minimal": make_profile("minimal", {}),
+        targets={
+            "alpha": make_target("alpha", {"alpha": Selection()}),
+            "minimal": make_target("minimal", {}),
         },
     )
 
 
 def test_install_data_change_runs_the_repository_contract_tests(
-    tmp_path, make_component, make_profile, make_catalog
+    tmp_path, make_component, make_target, make_catalog
 ):
-    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+    catalog = _install_data_catalog(make_component, make_target, make_catalog)
 
     scope = affected.affected_scope(
-        ["installs/profiles/minimal.toml"], catalog, tmp_path
+        ["installs/targets/minimal.toml"], catalog, tmp_path
     )
 
     assert not scope.full
     assert scope.components == ()
     assert scope.tests == ("tests/unit_tests/installs",)
-    assert scope.profiles == ("minimal",)
-    assert scope.pr_profiles == ("minimal",)
+    assert scope.targets == ("minimal",)
+    assert scope.pr_targets == ("minimal",)
 
 
-def test_deps_change_reaches_the_profiles_that_require_it(
-    tmp_path, make_component, make_profile, make_catalog
+def test_deps_change_reaches_the_targets_that_require_it(
+    tmp_path, make_component, make_target, make_catalog
 ):
-    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+    catalog = _install_data_catalog(make_component, make_target, make_catalog)
 
     scope = affected.affected_scope(["installs/deps/shared.toml"], catalog, tmp_path)
 
     assert scope.tests == ("tests/unit_tests/installs",)
-    assert scope.profiles == ("alpha",)
+    assert scope.targets == ("alpha",)
 
 
-def test_lock_change_reaches_the_profile_that_reads_it(
-    tmp_path, make_component, make_profile, make_catalog
+def test_lock_change_reaches_the_target_it_reproduces(
+    tmp_path, make_component, make_target, make_catalog
 ):
-    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+    catalog = _install_data_catalog(make_component, make_target, make_catalog)
 
-    scope = affected.affected_scope(["installs/locks/alpha.lock"], catalog, tmp_path)
+    scope = affected.affected_scope(["tests/locks/alpha.lock"], catalog, tmp_path)
 
     assert scope.tests == ("tests/unit_tests/installs",)
-    assert scope.profiles == ("alpha",)
+    assert scope.targets == ("alpha",)
 
 
-def test_packaging_settings_keep_every_profile(
-    tmp_path, make_component, make_profile, make_catalog
+def test_packaging_settings_keep_every_target(
+    tmp_path, make_component, make_target, make_catalog
 ):
-    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+    catalog = _install_data_catalog(make_component, make_target, make_catalog)
 
     scope = affected.affected_scope(["pyproject.toml"], catalog, tmp_path)
 
     assert not scope.full
     assert scope.components == ()
     assert scope.tests == ("tests/unit_tests/installs",)
-    assert scope.profiles == ("alpha", "minimal")
-    assert scope.pr_profiles == ("alpha", "minimal")
+    assert scope.targets == ("alpha", "minimal")
+    assert scope.pr_targets == ("alpha", "minimal")
 
 
-def test_repository_contract_test_change_installs_no_profile(
-    tmp_path, make_component, make_profile, make_catalog
+def test_repository_contract_test_change_installs_no_target(
+    tmp_path, make_component, make_target, make_catalog
 ):
-    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+    catalog = _install_data_catalog(make_component, make_target, make_catalog)
 
     scope = affected.affected_scope(
         ["tests/unit_tests/installs/test_catalog.py"], catalog, tmp_path
     )
 
     assert scope.tests == ("tests/unit_tests/installs",)
-    assert scope.profiles == ()
-    assert scope.pr_profiles == ()
+    assert scope.targets == ()
+    assert scope.pr_targets == ()
     assert not scope.full
 
 
-def test_unrecognised_install_data_widens_to_every_profile(
-    tmp_path, make_component, make_profile, make_catalog
+def test_unrecognised_install_data_widens_to_every_target(
+    tmp_path, make_component, make_target, make_catalog
 ):
-    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+    catalog = _install_data_catalog(make_component, make_target, make_catalog)
 
     scope = affected.affected_scope(["installs/matrix.toml"], catalog, tmp_path)
 
     assert scope.tests == ("tests/unit_tests/installs",)
-    assert scope.profiles == ("alpha", "minimal")
+    assert scope.targets == ("alpha", "minimal")
 
 
 def test_mixed_install_and_core_change_widens_to_everything(
-    tmp_path, make_component, make_profile, make_catalog
+    tmp_path, make_component, make_target, make_catalog
 ):
-    catalog = _install_data_catalog(make_component, make_profile, make_catalog)
+    catalog = _install_data_catalog(make_component, make_target, make_catalog)
 
     scope = affected.affected_scope(
-        ["installs/profiles/minimal.toml", "rpent/session/session.py"],
+        ["installs/targets/minimal.toml", "rpent/session/session.py"],
         catalog,
         tmp_path,
     )
 
     assert scope.full
     assert scope.tests == ("tests/unit_tests",)
-    assert scope.profiles == ("alpha", "minimal")
-    assert scope.pr_profiles == ("alpha", "minimal")
+    assert scope.targets == ("alpha", "minimal")
+    assert scope.pr_targets == ("alpha", "minimal")
 
 
 def test_main_prints_scope_as_json(tmp_path, write_toml, capsys):
@@ -300,26 +339,26 @@ def test_main_prints_scope_as_json(tmp_path, write_toml, capsys):
         dependencies = []
         """,
     )
+    major, minor = sys.version_info[:2]
     write_toml(
         "robots/alpha/component.toml",
-        """
-        schema = 1
+        f"""
+        schema = 2
         name = "alpha"
         kind = "robot"
         probe = "json"
+        python = "{major}.{minor}"
         """,
     )
-    major, minor = sys.version_info[:2]
     write_toml(
-        "installs/profiles/alpha.toml",
+        "installs/targets/robot-alpha.toml",
         f"""
-        schema = 1
-        name = "alpha"
+        schema = 2
+        kind = "target"
+        name = "robot-alpha"
         python = "{major}.{minor}"
-        platform = "{runtime_platform()}"
 
         [components.alpha]
-        placement = "in-env"
         """,
     )
 
@@ -327,11 +366,11 @@ def test_main_prints_scope_as_json(tmp_path, write_toml, capsys):
 
     scope = json.loads(capsys.readouterr().out)
     assert scope["components"] == ["alpha"]
-    assert scope["profiles"] == ["alpha"]
+    assert scope["targets"] == ["robot-alpha"]
     assert not scope["full"]
 
 
-def test_runner_filter_narrows_both_profile_sets(tmp_path, write_toml, capsys):
+def test_runner_filter_narrows_both_target_sets(tmp_path, write_toml, capsys):
     write_toml(
         "pyproject.toml",
         """
@@ -340,14 +379,14 @@ def test_runner_filter_narrows_both_profile_sets(tmp_path, write_toml, capsys):
         dependencies = []
         """,
     )
-    for name in ("minimal", "model-molmo", "tool-geometry"):
+    for name in ("minimal", "molmo", "tool-geometry-eval"):
         write_toml(
-            f"installs/profiles/{name}.toml",
+            f"installs/targets/{name}.toml",
             f"""
-            schema = 1
+            schema = 2
+            kind = "target"
             name = "{name}"
             python = "3.11"
-            platform = "linux-x86_64"
 
             [components]
             """,
@@ -359,5 +398,5 @@ def test_runner_filter_narrows_both_profile_sets(tmp_path, write_toml, capsys):
     )
 
     scope = json.loads(capsys.readouterr().out)
-    assert scope["profiles"] == ["model-molmo"]
-    assert scope["pr_profiles"] == []
+    assert scope["targets"] == ["molmo"]
+    assert scope["pr_targets"] == []
