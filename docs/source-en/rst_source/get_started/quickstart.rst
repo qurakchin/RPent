@@ -22,7 +22,7 @@ Create the LIBERO-PRO environment and activate it:
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   ./scripts/rpent-install.sh install robot-libero --venv .venv-libero
+   ./rpent-install.sh install robot-libero --venv .venv-libero
    source .venv-libero/bin/activate
 
 The components pin Python, the RLinf revision, Pi0.5, SAM 3.0, and the LIBERO

@@ -38,7 +38,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 .. code-block:: bash
 
    cd /path/to/RPent
-   ./scripts/rpent-install.sh install robot-yam --venv .venv-yam-real
+   ./rpent-install.sh install robot-yam --venv .venv-yam-real
    source .venv-yam-real/bin/activate
    uv pip install --torch-backend cpu \
      --build-constraints /path/to/RLinf/requirements/embodied/installs/profiles/yam-build-constraints.txt \
@@ -57,7 +57,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
      --venv /path/to/RPent/.venv-yam-real --install-rlinf
    cd /path/to/RPent
    source .venv-yam-real/bin/activate
-   ./scripts/rpent-install.sh install robot-yam --venv .venv-yam-real
+   ./rpent-install.sh install robot-yam --venv .venv-yam-real
    uv pip check
 
 已安装系统依赖时，可在安装命令末尾加上 ``--no-root``。

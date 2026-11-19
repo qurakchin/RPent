@@ -82,7 +82,7 @@ RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVC
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-robotwin --venv .venv-robotwin
+   ./rpent-install.sh install robot-robotwin --venv .venv-robotwin
    source .venv-robotwin/bin/activate
 
 国内网络可在执行该安装命令前设置 uv 的镜像环境变量：
@@ -94,11 +94,11 @@ RoboTwin 要求 Python 3.11。宿主机需预先具备兼容的 CUDA toolkit/NVC
 
 .. note::
 
-   ``robotwin`` extra 使用 SAPIEN 3.0.0b1。其他版本可能改变仿真观测，导致模型效果下降。
+   ``sim-robotwin`` 环境使用 SAPIEN 3.0.0b1。其他版本可能改变仿真观测，导致模型效果下降。
 
 .. note::
 
-   ``robotwin`` extra 中的 RoboTwin 与 LingBot 运行时已作为发布包安装到 PyPI； cuRobo 仍从 GitHub 官方 tag 源码构建，因此即使配置了 PyPI 镜像，安装时仍需能访问 GitHub。
+   ``sim-robotwin`` 和 ``model-lingbot`` 安装的 RoboTwin 与 LingBot 运行时已作为发布包上架 PyPI；cuRobo 仍从 GitHub 官方 tag 源码构建，因此即使配置了 PyPI 镜像，安装时仍需能访问 GitHub。
 
 下载仿真资源
 ------------

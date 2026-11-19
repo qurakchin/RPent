@@ -218,7 +218,7 @@ def test_workflows_bootstrap_the_tools_through_launchers():
     # change reaches the workflows, the pre-commit hook, and the GPU suite
     # together instead of drifting between copies.
     launchers = (
-        REPO_ROOT / "scripts" / "rpent-install.sh",
+        REPO_ROOT / "rpent-install.sh",
         REPO_ROOT / "tests" / "tooling" / "run.sh",
     )
     for launcher in launchers:

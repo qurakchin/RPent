@@ -38,7 +38,7 @@ planner、robot 或 tool 集成，都能帮助项目持续发展。
 
 ```bash
 # 创建并启用开发环境。
-./scripts/rpent-install.sh install infra-dev --venv .venv-dev
+./rpent-install.sh install infra-dev --venv .venv-dev
 source .venv-dev/bin/activate
 
 # 开发 robot 时，把该机器人和测试工具装进它自己的虚拟环境。

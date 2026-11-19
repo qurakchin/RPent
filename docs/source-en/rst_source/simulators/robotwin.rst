@@ -85,7 +85,7 @@ to run the RLinf installer or clone RoboTwin separately:
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-robotwin --venv .venv-robotwin
+   ./rpent-install.sh install robot-robotwin --venv .venv-robotwin
    source .venv-robotwin/bin/activate
 
 For networks closer to Chinese mirrors, set uv's index environment variables
@@ -98,15 +98,15 @@ before running that install command:
 
 .. note::
 
-   The ``robotwin`` extra uses SAPIEN 3.0.0b1. Other versions can change simulator
-   observations and reduce model performance.
+   The ``sim-robotwin`` environment uses SAPIEN 3.0.0b1. Other versions can
+   change simulator observations and reduce model performance.
 
 .. note::
 
-   The RoboTwin and LingBot runtimes in the ``robotwin`` extra are installed from
-   released PyPI packages. cuRobo is still built from a GitHub official tag,
-   so the installation needs access to GitHub even when a PyPI mirror is
-   configured.
+   The RoboTwin and LingBot runtimes that ``sim-robotwin`` and ``model-lingbot``
+   install come from released PyPI packages. cuRobo is still built from a GitHub
+   official tag, so the installation needs access to GitHub even when a PyPI
+   mirror is configured.
 
 Download Assets
 ---------------

@@ -17,23 +17,37 @@
 from __future__ import annotations
 
 import tempfile
+from collections.abc import Iterable
 from pathlib import Path
 
 from rpent.install.errors import InstallError
 from rpent.install.installer import index_options, run_command
+from rpent.install.manifest import DEFAULT_MANYLINUX, Component
 from rpent.install.requirements import render_requirements
 from rpent.install.resolve import Resolution
 
 # Pin the manylinux baseline instead of uv's default glibc 2.17 target: current
 # GPU wheels are published for newer baselines (rerun-sdk for manylinux_2_31,
-# Isaac Sim for manylinux_2_35), so a 2.17 baseline cannot resolve them.
-DEFAULT_MANYLINUX = "2_31"
+# Isaac Sim for manylinux_2_35), so a 2.17 baseline cannot resolve them. A
+# component that needs a newer baseline raises it for its whole environment.
 PLATFORM_TAGS = {
     "linux-x86_64": "x86_64-manylinux_{baseline}",
     "linux-aarch64": "aarch64-manylinux_{baseline}",
     "darwin-arm64": "aarch64-apple-darwin",
     "darwin-x86_64": "x86_64-apple-darwin",
 }
+
+
+def manylinux_baseline(components: Iterable[Component]) -> str:
+    """Return the newest glibc baseline any component in the closure needs."""
+    baselines = [component.manylinux for component in components]
+    if not baselines:
+        return DEFAULT_MANYLINUX
+    return max(baselines, key=_baseline_key)
+
+
+def _baseline_key(value: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in value.split("_"))
 
 
 def compile_resolution(
@@ -55,7 +69,9 @@ def compile_resolution(
         raise InstallError(
             f"unknown platform {platform!r}; known: {', '.join(sorted(PLATFORM_TAGS))}"
         )
-    platform_tag = platform_template.format(baseline=DEFAULT_MANYLINUX)
+    platform_tag = platform_template.format(
+        baseline=manylinux_baseline(resolution.components.values())
+    )
     requirements = render_requirements(resolution, core_dependencies=core_dependencies)
     name = "+".join(resolution.targets)
     with tempfile.TemporaryDirectory(prefix="rpent-requirements-") as directory:

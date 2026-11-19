@@ -24,8 +24,8 @@ with documentation instead of assuming either is correct.
 - `components/tools/<name>/`: installable tools such as the flywheel exporter.
 - `installs/infra-<name>.toml`: infrastructure components that install packages
   for an environment without owning code.
-- `scripts/`: checkout-level launchers; `scripts/rpent-install.sh` bootstraps
-  the installer without installing RPent.
+- `rpent-install.sh`: the checkout-level bootstrap for the installer; a fresh
+  checkout has no `rpent-install` console script yet.
 - `tests/`: offline tests, integration checks, repository structure checks, and
   the selection of test environments for a change under `tests/tooling/`; see
   [tests/README.md](tests/README.md).

@@ -77,7 +77,7 @@ NVIDIA 驱动版本建议参考 `Isaac Sim 5.1 官方系统要求 <https://docs.
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-robodojo --venv .venv-robodojo
+   ./rpent-install.sh install robot-robodojo --venv .venv-robodojo
    source .venv-robodojo/bin/activate
 
 该组件闭包安装 RoboDojo 运行时、SAM 3.0 和 Pi0.5。

@@ -61,13 +61,22 @@ services automatically:
 
    rpent-install list
 
-``robot-libero`` requires ``sim-libero``, ``model-openpi``, and
-``model-sam3``; ``robot-robocasa`` requires ``sim-robocasa`` and
+``robot-libero`` requires ``sim-libero``, ``model-openpi``, ``model-sam3``,
+and ``tool-flywheel``; ``robot-robocasa`` requires ``sim-robocasa`` and
 ``model-rldx``; ``robot-robodojo`` requires ``sim-robodojo``, ``model-sam3``,
 ``model-openpi``, ``model-awomo05``, and ``model-vpp2``. Model services no
 robot requires (``model-molmo``, ``model-cosmos3``, ``model-cosmos_policy``,
 ``model-fast_wam``, ``model-apxinf``, ``model-uniwam``) install in their own
 environment.
+
+A ``robot-`` component is installed in one step: its environment holds the
+planner, the tools, the simulator, and the model servers the robot needs, so
+``install robot-libero`` needs no second environment for the models or the
+exporter. Every other component installs in an environment of its own with the
+core ``rpent`` package, and a robot environment reaches it through the
+component's client instead of importing it. ``robot-yam`` is the exception: its
+slice carries the YAM runtime and connects to a Pi0.5 policy installed
+separately as ``model-openpi``.
 
 List and check components
 -------------------------
@@ -96,19 +105,20 @@ From a checkout, install a component into its own virtual environment:
    source .venv-libero/bin/activate
 
 On a fresh checkout the ``rpent-install`` console script does not exist yet.
-``scripts/rpent-install.sh`` bootstraps it without installing RPent first:
+``rpent-install.sh`` bootstraps it without installing RPent first:
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-libero --venv .venv-libero
+   ./rpent-install.sh install robot-libero --venv .venv-libero
 
-Name several components to compose one environment. The second command below
-installs LIBERO with the LeRobot exporter in the same venv, which is how the
-exporter reads the robot's environment:
+Name several components to compose one environment. A non-robot component
+installs on its own host this way, and the robot environment connects to it
+over its client:
 
 .. code-block:: bash
 
-   rpent-install install robot-libero tool-flywheel --venv .venv-libero-flywheel
+   rpent-install install model-openpi --venv .venv-openpi
+   rpent-install install sim-libero_plus model-openpi model-sam3 --venv .venv-libero-plus
 
 ``rpent-install`` runs from a checkout. The wheel published to PyPI contains
 only the core ``rpent`` package; ``robots/`` and ``components/`` with their
@@ -185,7 +195,10 @@ fingerprint and its hash instead of running the checks.
 
 For ``check --resolve``, ``linux-x86_64`` targets ``manylinux_2_31`` (glibc
 2.31, Ubuntu 20.04 or newer): current GPU wheels are published for newer
-baselines, so a 2.17 target cannot resolve them. Checking a configuration that
+baselines, so a 2.17 target cannot resolve them. A component whose packages are
+published only for a newer baseline raises the target for its whole closure
+with ``manylinux = "2_35"`` in its manifest; ``sim-robodojo`` does this for
+Isaac Sim. Checking a configuration that
 builds cuRobo with ``--resolve`` needs a Linux host with ``CUDA_HOME`` set
 because cuRobo builds metadata during resolution. A failed resolution is
 reported without stopping checks of the remaining components.

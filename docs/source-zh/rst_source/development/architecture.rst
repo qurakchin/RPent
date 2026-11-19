@@ -84,10 +84,9 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      tools/          # 只依赖 rpent 的工具
    installs/
      infra-*.toml    # 不拥有代码的基础设施组件
-   scripts/
-     rpent-install.sh  # 在全新检出中引导安装器
+   rpent-install.sh  # 在全新检出中引导安装器
    tests/
-     tooling/          # 仓库检查与 CI 选路
+     tooling/        # 仓库检查与 CI 选路
 
 环境发现与接入
 ---------------------

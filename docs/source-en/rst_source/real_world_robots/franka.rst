@@ -23,7 +23,7 @@ Install ``robot-franka`` into its own environment:
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-franka --venv .venv-franka-real
+   ./rpent-install.sh install robot-franka --venv .venv-franka-real
    source .venv-franka-real/bin/activate
 
 It includes RLinf, ``rpent-openpi``, and the Franka camera, gripper, and

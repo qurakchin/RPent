@@ -47,9 +47,8 @@ try:  # Python 3.11+
 except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
-#: Manifest layout version. Bumped from the profile-era format, which carried
-#: placement and variant fields, so a stale manifest fails to load instead of
-#: being read as if it still described an installation.
+#: Manifest layout version. A stale manifest fails to load instead of being
+#: read as if its fields still described an installation.
 SCHEMA = 2
 #: Component kinds in the order ``rpent-install list`` prints them.
 KINDS = ("robot", "sim", "model", "tool", "infra")
@@ -64,8 +63,13 @@ COMPONENT_DIRECTORIES = {
 }
 #: ``uv``'s multi-index strategies; see ``--index-strategy`` in ``uv pip compile``.
 INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
-#: Fields a manifest may declare. Anything else is a typo or a field from the
-#: profile-era format, so it is rejected rather than silently ignored.
+#: The glibc baseline a component's packages are resolved against when it does
+#: not ask for a newer one. Current GPU wheels are published for baselines newer
+#: than uv's default ``manylinux_2_17`` target.
+DEFAULT_MANYLINUX = "2_31"
+#: Fields a manifest may declare. Anything else is a typo or belongs to a layout
+#: the schema version does not describe, so it is rejected rather than silently
+#: ignored.
 FIELDS = frozenset(
     {
         "schema",
@@ -73,6 +77,7 @@ FIELDS = frozenset(
         "probe",
         "python",
         "platforms",
+        "manylinux",
         "requires",
         "imports",
         "env_conflicts",
@@ -87,6 +92,7 @@ FIELDS = frozenset(
 #: dependency declaration install different code tomorrow.
 _FULL_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _VERSION_TAG = re.compile(r"^v?\d+(?:\.\d+)*(?:[-+][0-9A-Za-z.-]+)?$")
+_MANYLINUX = re.compile(r"^\d+_\d+$")
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -215,6 +221,8 @@ class Component:
     probe: str
     python: str | None
     platforms: tuple[str, ...]
+    #: The oldest glibc baseline this component's packages are published for.
+    manylinux: str
     requires: tuple[str, ...]
     imports: tuple[str, ...]
     env_conflicts: tuple[str, ...]
@@ -321,6 +329,11 @@ def _component(
         raise InstallConfigError(
             f"{path}: 'index-strategy' must be one of {', '.join(INDEX_STRATEGIES)}"
         )
+    manylinux = _optional_string(data, "manylinux", path) or DEFAULT_MANYLINUX
+    if not _MANYLINUX.fullmatch(manylinux):
+        raise InstallConfigError(
+            f"{path}: 'manylinux' must name a glibc baseline such as '2_31'"
+        )
     return Component(
         name=name,
         kind=kind,
@@ -329,6 +342,7 @@ def _component(
         probe=probe,
         python=_optional_string(data, "python", path),
         platforms=_string_list(data, "platforms", path),
+        manylinux=manylinux,
         requires=_string_list(data, "requires", path),
         imports=_string_list(data, "imports", path),
         env_conflicts=_string_list(data, "env_conflicts", path),

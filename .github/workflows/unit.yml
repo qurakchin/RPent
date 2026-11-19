@@ -30,7 +30,7 @@ jobs:
       - name: Check the component layout
         run: ./tests/tooling/run.sh layout
       - name: Check every component
-        run: ./scripts/rpent-install.sh check --all
+        run: ./rpent-install.sh check --all
       - name: Check the runner partition
         run: ./tests/tooling/run.sh matrix --check
 
@@ -56,7 +56,7 @@ jobs:
         # install path.
         run: uv venv --python ${{ matrix.python }} .venv
       - name: Install the test environment from its component
-        run: ./scripts/rpent-install.sh install "${{ inputs.components }}" --venv .venv
+        run: ./rpent-install.sh install "${{ inputs.components }}" --venv .venv
       - name: Run the selected tests
         shell: bash
         env:
@@ -112,7 +112,7 @@ jobs:
       - name: Pin the environment's Python
         run: uv python install 3.11
       - name: Install the minimal environment
-        run: ./scripts/rpent-install.sh install infra-minimal --venv .venv-minimal
+        run: ./rpent-install.sh install infra-minimal --venv .venv-minimal
       - name: Check CLI and robot discovery without robot dependencies
         run: |
           .venv-minimal/bin/python -c "
@@ -125,4 +125,4 @@ jobs:
           .venv-minimal/bin/rpent --help >/dev/null
           .venv-minimal/bin/rpent-install list >/dev/null
       - name: Doctor the minimal environment
-        run: ./scripts/rpent-install.sh doctor --venv .venv-minimal
+        run: ./rpent-install.sh doctor --venv .venv-minimal

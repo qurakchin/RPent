@@ -94,10 +94,9 @@ model services do not import each other.
      tools/          # Tools that depend only on rpent
    installs/
      infra-*.toml    # Infrastructure components without code of their own
-   scripts/
-     rpent-install.sh  # Bootstrap the installer from a fresh checkout
+   rpent-install.sh  # Bootstrap the installer from a fresh checkout
    tests/
-     tooling/          # Repository checks and CI selection
+     tooling/        # Repository checks and CI selection
 
 Environment Discovery
 ---------------------

@@ -21,7 +21,7 @@ arms, local SAM 3.0, and their dependencies:
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-dual_franka \
+   ./rpent-install.sh install robot-dual_franka \
      --venv .venv-dual-franka-real
    source .venv-dual-franka-real/bin/activate
 

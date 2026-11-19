@@ -17,7 +17,7 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-dual_franka \
+   ./rpent-install.sh install robot-dual_franka \
      --venv .venv-dual-franka-real
    source .venv-dual-franka-real/bin/activate
 

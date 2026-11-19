@@ -60,7 +60,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: Directories the layout registers an owner for. Hidden directories are tool
 #: configuration and are exempt.
 ALLOWED_TOP_LEVEL = frozenset(
-    {"rpent", "robots", "components", "installs", "tests", "docs", "scripts"}
+    {"rpent", "robots", "components", "installs", "tests", "docs"}
 )
 #: Root files the layout allows next to the top-level directories.
 ALLOWED_ROOT_FILES = (
@@ -74,6 +74,8 @@ ALLOWED_ROOT_FILES = (
     "setup.py",
     ".gitignore",
     ".pre-commit-config.yaml",
+    # The installer bootstrap; a checkout has no console script yet.
+    "rpent-install.sh",
 )
 #: Generated, gitignored directories that may appear in a working checkout.
 IGNORED_TOP_LEVEL = frozenset({"memory", "__pycache__"})

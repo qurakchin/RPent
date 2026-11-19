@@ -127,13 +127,13 @@ RPent is built for four kinds of users:
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # Recommended default (LIBERO-PRO):
-./scripts/rpent-install.sh install robot-libero --venv .venv-libero
+./rpent-install.sh install robot-libero --venv .venv-libero
 source .venv-libero/bin/activate
 
 # Other robots install the same way, each into its own environment.
-./scripts/rpent-install.sh install robot-robocasa --venv .venv-robocasa
-./scripts/rpent-install.sh install robot-robotwin --venv .venv-robotwin
-./scripts/rpent-install.sh install robot-franka --venv .venv-franka
+./rpent-install.sh install robot-robocasa --venv .venv-robocasa
+./rpent-install.sh install robot-robotwin --venv .venv-robotwin
+./rpent-install.sh install robot-franka --venv .venv-franka
 ```
 
 `robot-libero` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every component and diagnostics.

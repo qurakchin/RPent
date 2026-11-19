@@ -15,12 +15,12 @@
 
 Run manually with::
 
-    MOLMO_CHECKPOINT_PATH=/path/to/molmo PYTHONPATH=/path/to/RPent \
-        python -m components.models.molmo.server \
+    MOLMO_CHECKPOINT_PATH=/path/to/molmo \
+        .venv-molmo/bin/python -m components.models.molmo.server \
         --transport http --host 127.0.0.1 --port 8115
 
-Runs under the ``molmo`` extra's own interpreter, which does not have RPent
-installed -- hence the explicit ``PYTHONPATH``.
+``rpent-install install model-molmo`` installs the core checkout editable, so
+the interpreter it creates imports both ``rpent`` and ``components``.
 
 The ``molmo.ground`` RPC selects an open-vocabulary point over HTTP or socket.
 Flash uses the manipulation prompt. Geometry requests a single native point and

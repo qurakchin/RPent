@@ -88,7 +88,7 @@ range:
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-robocasa --venv .venv-robocasa
+   ./rpent-install.sh install robot-robocasa --venv .venv-robocasa
    source .venv-robocasa/bin/activate
 
 The component closure installs a CUDA-enabled Torch and torchvision pair; RLDX requires
@@ -632,12 +632,15 @@ Downloads and Assets
 Startup and Inference
 ~~~~~~~~~~~~~~~~~~~~~
 
-- **Missing RLDX interfaces in an old environment:** reinstall the ``robocasa`` extra, then reinstall ``rlinf-rldx`` in the
+- **Missing RLDX interfaces in an old environment:** rerun
+  ``rpent-install install robot-robocasa``, then reinstall ``rlinf-rldx`` in the
   environment. Older PyPI wheels can lack required interfaces even with the same
   version number.
 - **Missing navigation camera:** if the error names ``mobilebase0_navview``,
-  reinstall the ``robocasa`` extra to update Robosuite rather than patching XML.
-- **Directory permission errors:** use the source dependencies installed by the ``robocasa`` extra; XML conversion should write temporary files. Set
+  rerun ``rpent-install install robot-robocasa`` to update Robosuite rather than
+  patching XML.
+- **Directory permission errors:** use the source dependencies installed by
+  ``sim-robocasa``; XML conversion should write temporary files. Set
   ``NUMBA_CACHE_DIR`` to a writable directory without changing package permissions.
 - **CUDA/EGL unavailable:** select Torch/torchvision for your machine, then run
   the :ref:`environment checks <environment-smoke-tests>` to verify GPU operations

@@ -41,7 +41,7 @@ Use a branch name that reflects the change, such as
 
 ```bash
 # Create and activate the development environment.
-./scripts/rpent-install.sh install infra-dev --venv .venv-dev
+./rpent-install.sh install infra-dev --venv .venv-dev
 source .venv-dev/bin/activate
 
 # For robot work, install that robot into its own virtualenv together with the

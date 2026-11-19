@@ -37,7 +37,7 @@ Molmo 在自己的 Python 环境中运行，因为它的模型栈锁定了独立
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install model-molmo --venv .venv-molmo
+   ./rpent-install.sh install model-molmo --venv .venv-molmo
 
 若 GPU 或驱动需要其他 CUDA 构建，之后再从 PyTorch 镜像重装这一对包，按 `PyTorch 安装指南 <https://pytorch.org/get-started/locally/>`_ 选择兼容构建并把 ``<CUDA_TAG>`` 替换为 ``cu126`` 或 ``cu128`` 等值（下例使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_）：
 
@@ -54,7 +54,7 @@ Molmo 在自己的 Python 环境中运行，因为它的模型栈锁定了独立
 .. code-block:: bash
 
    export MOLMO_CHECKPOINT_PATH=/path/to/Molmo2-8B
-   PYTHONPATH=/path/to/RPent .venv-molmo/bin/python \
+   .venv-molmo/bin/python \
      components/models/molmo/server.py \
      --transport http --host 127.0.0.1 --port 20703
 

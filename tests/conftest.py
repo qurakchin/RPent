@@ -19,7 +19,12 @@ from pathlib import Path
 import pytest
 
 from rpent.install.discovery import Catalog, discover
-from rpent.install.manifest import COMPONENT_DIRECTORIES, KINDS, Component
+from rpent.install.manifest import (
+    COMPONENT_DIRECTORIES,
+    DEFAULT_MANYLINUX,
+    KINDS,
+    Component,
+)
 
 #: Repository root: this file sits one directory below it.
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -77,6 +82,7 @@ def make_component(tmp_path):
             index_url=values.pop("index_url", None),
             extra_index_urls=tuple(values.pop("extra_index_urls", ())),
             index_strategy=values.pop("index_strategy", None),
+            manylinux=values.pop("manylinux", DEFAULT_MANYLINUX),
             manifest_sha256=values.pop("manifest_sha256", name),
         )
 

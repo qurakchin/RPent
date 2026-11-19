@@ -23,7 +23,7 @@ set -euo pipefail
 # hook, and the GPU suite call it, so the bootstrap interpreter and that
 # dependency are declared once; installer arguments pass straight through.
 
-repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 if ! command -v uv >/dev/null 2>&1; then
   echo "uv is required to bootstrap rpent-install:" >&2

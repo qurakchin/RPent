@@ -46,7 +46,9 @@
 
    rpent-install list
 
-``robot-libero`` 需要 ``sim-libero``、``model-openpi`` 和 ``model-sam3``；``robot-robocasa`` 需要 ``sim-robocasa`` 和 ``model-rldx``；``robot-robodojo`` 需要 ``sim-robodojo``、``model-sam3``、``model-openpi``、``model-awomo05`` 和 ``model-vpp2``。没有机器人需要的模型服务（``model-molmo``、``model-cosmos3``、``model-cosmos_policy``、``model-fast_wam``、``model-apxinf``、``model-uniwam``）装进自己的环境。
+``robot-libero`` 需要 ``sim-libero``、``model-openpi``、``model-sam3`` 和 ``tool-flywheel``；``robot-robocasa`` 需要 ``sim-robocasa`` 和 ``model-rldx``；``robot-robodojo`` 需要 ``sim-robodojo``、``model-sam3``、``model-openpi``、``model-awomo05`` 和 ``model-vpp2``。没有机器人需要的模型服务（``model-molmo``、``model-cosmos3``、``model-cosmos_policy``、``model-fast_wam``、``model-apxinf``、``model-uniwam``）装进自己的环境。
+
+``robot-`` 组件一次装齐：它的环境里同时有 planner、工具、仿真器和机器人需要的模型服务，所以 ``install robot-libero`` 不需要再为模型或导出器准备第二个环境。其他前缀的组件各自装进独立的环境（同样带核心 ``rpent`` 包），机器人环境通过该组件的 client 访问它，而不是直接导入。``robot-yam`` 是例外：它的切片自带 YAM 运行时，Pi0.5 策略则作为 ``model-openpi`` 单独安装。
 
 查看与检查组件
 --------------
@@ -68,17 +70,18 @@
    rpent-install install robot-libero --venv .venv-libero
    source .venv-libero/bin/activate
 
-新检出的仓库还没有 ``rpent-install`` 命令。``scripts/rpent-install.sh`` 会先引导它，不需要预先安装 RPent：
+新检出的仓库还没有 ``rpent-install`` 命令。``rpent-install.sh`` 会先引导它，不需要预先安装 RPent：
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-libero --venv .venv-libero
+   ./rpent-install.sh install robot-libero --venv .venv-libero
 
-写出多个组件名可以组合成一个环境。下面的命令把 LeRobot 导出器和 LIBERO 装进同一个 venv，导出器就是在该环境里读取机器人的依赖：
+写出多个组件名可以组合成一个环境。非 robot 组件这样装在自己的主机上，机器人环境通过 client 访问它：
 
 .. code-block:: bash
 
-   rpent-install install robot-libero tool-flywheel --venv .venv-libero-flywheel
+   rpent-install install model-openpi --venv .venv-openpi
+   rpent-install install sim-libero_plus model-openpi model-sam3 --venv .venv-libero-plus
 
 ``rpent-install`` 需要在源码检出中运行。发布到 PyPI 的 wheel 只包含核心 ``rpent`` 包；``robots/`` 和 ``components/`` 及其 ``component.toml`` 只随源码检出和 sdist 发布。非可编辑的 ``pip install rpent`` 只提供 CLI；运行具体的机器人或模型服务请使用源码检出（或 sdist），因为 ``rpent-install`` 要在其中找到清单。
 
@@ -119,6 +122,6 @@
 
 ``doctor`` 将安装指纹与每项记录在案的安装输入比较（每个组件的清单 hash、它的 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查记录的 Python 版本和平台，运行 ``uv pip check`` 与组件探针，并比较当前安装包集合与记录的 freeze hash。``uv`` 的解析在仓库根目录进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内。为其他组件集合安装过的 venv 会报告为需要重装，而不是环境已漂移。``--fingerprint`` 打印存储的指纹及其 hash，不执行上述检查。
 
-执行 ``check --resolve`` 时，``linux-x86_64`` 默认以 ``manylinux_2_31`` 为目标（glibc 2.31，即 Ubuntu 20.04 或更新版本）：当前 GPU wheel 发布在更新的基线上，2.17 的目标解析不到它们。对包含 cuRobo 构建的配置使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个组件解析失败时会报告错误并继续检查其余组件。
+执行 ``check --resolve`` 时，``linux-x86_64`` 默认以 ``manylinux_2_31`` 为目标（glibc 2.31，即 Ubuntu 20.04 或更新版本）：当前 GPU wheel 发布在更新的基线上，2.17 的目标解析不到它们。若某组件的依赖包只发布了更新的基线，可在它的清单里写 ``manylinux = "2_35"``，把整个闭包的目标基线提高；``sim-robodojo`` 因 Isaac Sim 就这样声明。对包含 cuRobo 构建的配置使用 ``--resolve`` 需要设置了 ``CUDA_HOME`` 的 Linux 主机，因为 cuRobo 在解析期间构建元数据。某个组件解析失败时会报告错误并继续检查其余组件。
 
 发布工作流以 ``full: true`` 调用 Full CI，在发布前安装并诊断每个组件环境。

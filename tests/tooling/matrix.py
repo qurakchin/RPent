@@ -65,8 +65,6 @@ GPU = (
     ("robot-dual_franka",),
     ("robot-franka",),
     ("robot-libero",),
-    # A multi-target environment: the exporter runs in the robot's environment.
-    ("robot-libero", "tool-flywheel"),
     ("robot-robocasa",),
     ("robot-robodojo",),
     ("robot-robotwin",),

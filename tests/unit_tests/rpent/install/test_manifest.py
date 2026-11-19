@@ -18,6 +18,7 @@ import pytest
 
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
+    DEFAULT_MANYLINUX,
     SCHEMA,
     load_component,
     load_package_component,
@@ -344,4 +345,44 @@ def test_index_strategy_is_optional_and_validated(write_toml):
 
     assert default.index_strategy is None
     with pytest.raises(InstallConfigError, match="'index-strategy' must be one of"):
+        load_package_component(invalid, "infra")
+
+
+def test_manylinux_defaults_to_the_repository_baseline(write_toml):
+    default = load_package_component(
+        write_toml(
+            "installs/infra-dev.toml",
+            f"""
+            schema = {SCHEMA}
+            name = "infra-dev"
+            probe = "pytest"
+            """,
+        ),
+        "infra",
+    )
+    raised = load_package_component(
+        write_toml(
+            "installs/infra-gpu.toml",
+            f"""
+            schema = {SCHEMA}
+            name = "infra-gpu"
+            probe = "pytest"
+            manylinux = "2_35"
+            """,
+        ),
+        "infra",
+    )
+    invalid = write_toml(
+        "installs/infra-unit.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "infra-unit"
+        probe = "pytest"
+        manylinux = "manylinux2.35"
+        """,
+    )
+
+    assert default.manylinux == DEFAULT_MANYLINUX
+    assert raised.manylinux == "2_35"
+    with pytest.raises(InstallConfigError, match="'manylinux' must name a glibc"):
         load_package_component(invalid, "infra")

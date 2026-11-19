@@ -184,6 +184,40 @@ def test_check_uses_the_default_manylinux_baseline(repo, fake_uv):
     )
 
 
+def test_check_targets_the_newest_baseline_in_the_closure(repo, fake_uv, write_toml):
+    # A GPU component may publish wheels for a newer glibc than the repository
+    # default; resolving the closure against the default would report packages
+    # uv cannot install on the target.
+    write_toml(
+        "components/sim/alpha/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "sim-alpha"
+        probe = "json"
+        platforms = ["linux-x86_64"]
+        manylinux = "2_35"
+        """,
+    )
+    write_toml(
+        "robots/alpha/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
+        probe = "json"
+        platforms = ["linux-x86_64"]
+        requires = ["sim-alpha"]
+        dependencies = ["numpy>=2"]
+        """,
+    )
+
+    assert env_main(["--root", str(repo), "check", "robot-alpha", "--resolve"]) == 0
+
+    arguments = _arguments(fake_uv)
+    assert arguments[arguments.index("--python-platform") + 1] == (
+        "x86_64-manylinux_2_35"
+    )
+
+
 def test_check_passes_the_components_index_settings(repo, fake_uv, write_toml):
     write_toml(
         "installs/infra-unit_cpu.toml",

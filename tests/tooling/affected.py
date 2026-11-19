@@ -79,7 +79,7 @@ PR_ALL_INSTALL_PREFIXES = (
     "rpent/install/",
     "installs/",
     ".github/",
-    "scripts/",
+    "rpent-install.sh",
     "tests/tooling/",
 )
 #: The repository's install data: the infrastructure manifests that decide what

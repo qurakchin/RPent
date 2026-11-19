@@ -123,7 +123,7 @@ omits. CI runs this suite in the `infra-unit_cpu` environment, which installs
 CPU Torch from the PyTorch CPU index:
 
 ```bash
-./scripts/rpent-install.sh install infra-unit_cpu --venv .venv-unit-cpu
+./rpent-install.sh install infra-unit_cpu --venv .venv-unit-cpu
 .venv-unit-cpu/bin/python -m pytest tests/unit_tests -v
 ```
 

@@ -42,7 +42,7 @@ i2rt SDK and the required build dependencies:
 .. code-block:: bash
 
    cd /path/to/RPent
-   ./scripts/rpent-install.sh install robot-yam --venv .venv-yam-real
+   ./rpent-install.sh install robot-yam --venv .venv-yam-real
    source .venv-yam-real/bin/activate
    uv pip install --torch-backend cpu \
      --build-constraints /path/to/RLinf/requirements/embodied/installs/profiles/yam-build-constraints.txt \
@@ -63,7 +63,7 @@ the same environment:
      --venv /path/to/RPent/.venv-yam-real --install-rlinf
    cd /path/to/RPent
    source .venv-yam-real/bin/activate
-   ./scripts/rpent-install.sh install robot-yam --venv .venv-yam-real
+   ./rpent-install.sh install robot-yam --venv .venv-yam-real
    uv pip check
 
 If system dependencies are already installed, append ``--no-root`` to the installer

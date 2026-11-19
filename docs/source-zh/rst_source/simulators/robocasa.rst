@@ -85,7 +85,7 @@ Target50 包含以下任务类别，完整任务、seed 和运行限制见本页
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install robot-robocasa --venv .venv-robocasa
+   ./rpent-install.sh install robot-robocasa --venv .venv-robocasa
    source .venv-robocasa/bin/activate
 
 该组件闭包会安装一组成对的 CUDA Torch 与 torchvision；RLDX 要求 Torch >= 2.7、torchvision >= 0.22。若驱动需要其他构建，可按 `PyTorch 安装说明 <https://pytorch.org/get-started/locally/>`_ 用 ``uv pip install`` 重新安装匹配的版本；国内可使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_。
@@ -486,9 +486,9 @@ VLA 推理检查
 启动与推理
 ~~~~~~~~~~~~
 
-- **旧环境缺少 RLDX 接口：** 重新安装 ``robocasa`` extra，再在环境中重装 ``rlinf-rldx``。旧 PyPI wheel 即使版本号相同，也可能缺少所需接口。
-- **缺少导航相机：** 若报错包含 ``mobilebase0_navview``，重新安装 ``robocasa`` extra 以更新 Robosuite，不要手改 XML。
-- **目录权限错误：** 使用 ``robocasa`` extra 安装的源码依赖，XML 转换应写入临时目录。将 ``NUMBA_CACHE_DIR`` 指向可写目录，无需修改包权限。
+- **旧环境缺少 RLDX 接口：** 重新执行 ``rpent-install install robot-robocasa``，再在环境中重装 ``rlinf-rldx``。旧 PyPI wheel 即使版本号相同，也可能缺少所需接口。
+- **缺少导航相机：** 若报错包含 ``mobilebase0_navview``，重新执行 ``rpent-install install robot-robocasa`` 以更新 Robosuite，不要手改 XML。
+- **目录权限错误：** 使用 ``sim-robocasa`` 安装的源码依赖，XML 转换应写入临时目录。将 ``NUMBA_CACHE_DIR`` 指向可写目录，无需修改包权限。
 - **CUDA/EGL 不可用：** 按本机配置选择 Torch/torchvision，再运行 :ref:`环境自检 <environment-smoke-tests>` 验证 GPU 运算和渲染；仅查看驱动版本不足以确认可用。
 - **离线找不到模型文件：** 核对 :ref:`支持文件和缓存路径 <robocasa-vla-configuration>`。``NO_ALBUMENTATIONS_UPDATE=1`` 只关闭更新检查，无需因此修改图像处理或 geometry fallback 参数。
 - **RPC 连接受代理影响：** ``127.0.0.1`` 和 ``localhost`` 自动直连。其他服务若也需直连，将其准确主机名加入 ``NO_PROXY`` 和 ``no_proxy``，保留远程规划器的代理设置。

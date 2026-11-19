@@ -127,13 +127,13 @@ RPent 面向以下四类用户：
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # 默认推荐（LIBERO-PRO）：
-./scripts/rpent-install.sh install robot-libero --venv .venv-libero
+./rpent-install.sh install robot-libero --venv .venv-libero
 source .venv-libero/bin/activate
 
 # 其他机器人用同样的方式安装到各自的环境。
-./scripts/rpent-install.sh install robot-robocasa --venv .venv-robocasa
-./scripts/rpent-install.sh install robot-robotwin --venv .venv-robotwin
-./scripts/rpent-install.sh install robot-franka --venv .venv-franka
+./rpent-install.sh install robot-robocasa --venv .venv-robocasa
+./rpent-install.sh install robot-robotwin --venv .venv-robotwin
+./rpent-install.sh install robot-franka --venv .venv-franka
 ```
 
 `robot-libero` 是默认推荐。全部组件和诊断方法见

@@ -61,7 +61,7 @@ the pinned PyTorch and torchvision:
 
 .. code-block:: bash
 
-   ./scripts/rpent-install.sh install model-molmo --venv .venv-molmo
+   ./rpent-install.sh install model-molmo --venv .venv-molmo
 
 If your GPU or driver needs a different CUDA build, reinstall the pair from the
 PyTorch index afterwards, replacing ``<CUDA_TAG>`` with a
@@ -84,7 +84,7 @@ Download ``allenai/Molmo2-8B`` from `Hugging Face
 .. code-block:: bash
 
    export MOLMO_CHECKPOINT_PATH=/path/to/Molmo2-8B
-   PYTHONPATH=/path/to/RPent .venv-molmo/bin/python \
+   .venv-molmo/bin/python \
      components/models/molmo/server.py \
      --transport http --host 127.0.0.1 --port 20703
 
