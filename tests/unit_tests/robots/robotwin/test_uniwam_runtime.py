@@ -20,7 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from components.models.uniwam.adapter import make_adapter
+from components.models.uniwam.adapter import ADAPTERS
 from components.sim.robotwin.wam_client import RoboTwinWAMClient
 from robots.robotwin import robot_spec
 from rpent.components.models import backends as am_runtime
@@ -45,7 +45,7 @@ def test_backend_default_and_checkpoint_environment_are_separate(monkeypatch):
 
 
 def test_uniwam_external_endpoint_needs_no_local_model_paths(monkeypatch, tmp_path):
-    meta, _ = make_adapter("robotwin", "external")
+    meta = ADAPTERS["robotwin"](checkpoint="external")
     rpc = SimpleNamespace(call=lambda *a, **kw: meta, close=lambda: None)
     monkeypatch.setattr(am_runtime, "make_rpc_client", lambda *a, **kw: rpc)
     monkeypatch.setattr(robot_spec, "try_wait_server", lambda *args, post_fn: post_fn())

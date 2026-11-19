@@ -322,11 +322,11 @@ def _build_vla_runtime_kwargs(vla_rpc: Any) -> dict[str, Any]:
     from components.models.openpi.client import Pi05VLAClient
 
     expected_meta = vla_runtime_contract()
-    actual_meta = vla_rpc.call("vla.get_model_meta", timeout_s=30.0)
-    if actual_meta != expected_meta:
+    model = Pi05VLAClient(vla_rpc, embodiment="yam")
+    if model.model_meta != expected_meta:
         raise RuntimeError(
             "YAM VLA metadata mismatch: "
-            f"expected={expected_meta!r} actual={actual_meta!r}. "
+            f"expected={expected_meta!r} actual={model.model_meta!r}. "
             "Connect to the Pi0.5 YAM qpos14 VLA server."
         )
-    return {"model": Pi05VLAClient(vla_rpc, embodiment="yam")}
+    return {"model": model}
