@@ -35,16 +35,18 @@ pytest tests/unit_tests -v
 ```
 
 Inspect any files changed by hooks and rerun affected checks. The
-[unit-test workflow](../../../.github/workflows/unittest.yml) defines the full
-Python matrix and additional Flywheel dependencies; one local environment does
-not cover that matrix. Do not install every robot extra for an unrelated change.
+[unit workflow](../../../.github/workflows/unit.yml) installs the selected
+target (`dev` for installer and repository checks, `unit-cpu` for the rest)
+from its manifests and runs the same suite; `fast ci` narrows the selection to the
+tests that mirror the changed components. Do not install every robot target for
+an unrelated change.
 
 For the supported GPU suites, follow the environment setup in the test guide
 and call [the existing runner](../../../tests/e2e_tests/run_gpu_suite.sh):
 
 ```bash
 bash tests/e2e_tests/run_gpu_suite.sh \
-  <libero-pro|robocasa|robotwin> \
+  <robot-libero_pro|robot-robocasa|robot-robotwin> \
   /path/to/new-output-dir \
   /path/to/new-venv-root
 ```

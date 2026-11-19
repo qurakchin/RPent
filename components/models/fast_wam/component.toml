@@ -1,0 +1,9 @@
+schema = 2
+name = "fast_wam"
+kind = "model"
+probe = "components.models.fast_wam.server"
+python = ">=3.10,<3.13"
+
+# Model weights and the Fast-WAM runtime are supplied by the deployment; the
+# RPent worker owns only request translation.
+dependencies = []

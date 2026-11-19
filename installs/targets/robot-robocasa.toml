@@ -1,0 +1,9 @@
+schema = 2
+kind = "target"
+name = "robot-robocasa"
+python = "3.10"
+
+extra = "robocasa"
+description = "RoboCasa simulation with RLinf's RoboCasa365 and RLDX stack."
+
+[components.robocasa]

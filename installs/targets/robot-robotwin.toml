@@ -1,0 +1,9 @@
+schema = 2
+kind = "target"
+name = "robot-robotwin"
+python = "3.11"
+
+extra = "robotwin"
+description = "RoboTwin simulation with LingBot-VLA and cuRobo."
+
+[components.robotwin]

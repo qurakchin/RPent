@@ -12,9 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""RoboTwin action layouts for native qpos and end-effector execution."""
+"""RoboTwin action layouts for native qpos and end-effector execution.
 
-from rpent.robots.components.am_contracts import AMControlSpec
+The model-side copies in ``components/models/{fast_wam,uniwam}/platforms.py``
+state what each adapter expects; keep them equal.
+"""
+
+from rpent.models.contracts import AMControlSpec
+
+# Maximum number of executed controller targets retained by the environment client.
+QPOS_HISTORY_CAPACITY = 16
 
 # Native joint_action.vector order: left six joint targets and gripper,
 # then right six joint targets and gripper. Preserve native gripper values.
@@ -40,3 +47,5 @@ ROBOTWIN_EEF = AMControlSpec(
 ROBOTWIN_CONTROLLERS = {
     spec["action_space"]: spec for spec in (ROBOTWIN_QPOS, ROBOTWIN_EEF)
 }
+
+__all__ = ["ROBOTWIN_CONTROLLERS", "ROBOTWIN_EEF", "ROBOTWIN_QPOS"]

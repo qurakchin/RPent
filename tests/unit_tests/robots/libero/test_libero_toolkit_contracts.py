@@ -27,17 +27,20 @@ from typing import Any
 import numpy as np
 import pytest
 
+from components.models.sam3.client import Sam3Result
 from robots.libero import robot_spec, toolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
 from rpent.robots import RunConfig
-from rpent.robots.components.sam3_client import Sam3Result
 from rpent.session import EnvState
 from rpent.tools import Toolkit, ToolResult
 from rpent.tools.common import CommonTools
 from rpent.utils import templates
 
 COMMON_TOOLS = {"read_text_file", "write_text_file", "list_dir", "finish"}
+# File writes and the terminal halt are not readonly; they opt out of the
+# observation capture instead.
+READONLY_COMMON_TOOLS = COMMON_TOOLS - {"write_text_file", "finish"}
 
 EVALUATION_TOOLS = COMMON_TOOLS | {
     "view_env_state",
@@ -108,10 +111,19 @@ def test_wam_configuration_and_toolkit_use_local_memory(tmp_path, monkeypatch, b
     assert "wam" in {
         item["name"] for item in spec.resolve_dashboard(args)["runtime_components"]
     }
-    for name in ("system", "user"):
-        prompt = spec.prompts.render(
-            name, variables={**config.prompt_vars, "output_dir": str(tmp_path)}
-        )
+    from rpent.prompt.assembly import build_robot_prompt, run_axes
+
+    assembled = build_robot_prompt(
+        spec.prompts,
+        robot_name="libero",
+        variables={**config.prompt_vars, "output_dir": str(tmp_path)},
+        axes=run_axes(
+            explore=bool(getattr(args, "explore", False)),
+            dashboard=False,
+            real_robot=False,
+        ),
+    )
+    for prompt in (assembled.system, assembled.user):
         assert "wam_act" in prompt and "pi0_pick" not in prompt
     monkeypatch.setattr(
         toolkit, "LiberoToolkit", lambda **kwargs: SimpleNamespace(**kwargs)
@@ -216,13 +228,22 @@ def test_toolkit_modes_construct_with_fake_primitives(
 
     assert _tool_names(evaluation) == EVALUATION_TOOLS
     assert _tool_names(exploration) == EVALUATION_TOOLS | {"reset"}
-    assert _readonly_names(evaluation) == COMMON_TOOLS | {
+    assert _readonly_names(evaluation) == READONLY_COMMON_TOOLS | {
         "view_env_state",
         "view_camera_meta",
         "back_project",
         "segment",
     }
     assert _readonly_names(exploration) == _readonly_names(evaluation)
+    write_text_file = next(
+        item for item in evaluation.list_tools() if item.name == "write_text_file"
+    )
+    assert write_text_file.readonly is False
+    assert write_text_file.captures_state is False
+    finish = next(item for item in evaluation.list_tools() if item.name == "finish")
+    assert finish.readonly is False
+    assert finish.concurrent is True
+    assert finish.captures_state is False
     assert len(dumped) == 2
     assert all(
         instance.reset_calls == 1 for instance in fake_single_arm_primitives.instances

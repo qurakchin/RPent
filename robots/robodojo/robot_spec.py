@@ -26,12 +26,16 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from robots.robodojo.prompt_bundle import system_prompt, user_prompt
+from robots.robodojo.prompt_bundle import (
+    system_prompt,
+    tool_sections,
+    user_prompt,
+)
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
 from rpent.evaluation import RunFinalizationContext, write_json_atomic
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
+from rpent.models.backends import (
     add_am_args,
     select_am,
 )
@@ -191,7 +195,12 @@ def get_robot_spec() -> RobotSpec:
     """Return the RoboDojo robot identity, prompt bundle, and runner hooks."""
     return RobotSpec(
         name="robodojo",
-        prompts=PromptBundle(system=system_prompt, user=user_prompt),
+        prompts=PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            tool_sections=tool_sections,
+            source="robots/robodojo/prompts",
+        ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,
         init_runtime=_init_runtime,
@@ -513,7 +522,14 @@ def _spawn_sam3_server(
         name="sam3_server",
         cmd=[
             sys.executable,
-            str(get_repo_root() / "rpent" / "robots" / "components" / "sam3_server.py"),
+            str(
+                get_repo_root()
+                / "rpent"
+                / "robots"
+                / "components"
+                / "sam3"
+                / "server.py"
+            ),
             "--transport",
             "http",
             "--host",
@@ -572,8 +588,8 @@ def _init_runtime(
 ) -> tuple[list[ProcessDaemon], dict[str, Any]]:
     """Start default backend services or an explicitly requested component set."""
     _validate_args(args)
+    from components.models.sam3.client import Sam3Client
     from robots.robodojo.env_client import RoboDojoEnvClient
-    from rpent.robots.components.sam3_client import Sam3Client
 
     am = select_am(args, "robodojo")
     device = resolve_cuda_device(args, "env")

@@ -25,51 +25,55 @@ Use Linux and Python 3.11. This guide uses two machines:
   runs ENV and RPent.
 * **Inference machine**: runs the Pi0.5 VLA service on an NVIDIA GPU.
 
-Use the same RPent code and RLinf commit on both machines. Install uv following
-:doc:`../get_started/quickstart`, then prepare the environment on each machine:
+Use the same RPent code and RLinf commit on both machines. Prepare both checkouts
+first, then install the ``robot-yam`` target on each machine as described below:
 
 .. code-block:: bash
 
    git clone https://github.com/RLinf/RPent.git /path/to/RPent
-   cd /path/to/RPent
-   uv venv --python 3.11
-   source .venv/bin/activate
-
    git clone --branch main https://github.com/RLinf/RLinf.git /path/to/RLinf
    git -C /path/to/RLinf checkout --detach 196d40b6dec6f7a4063edee31cfeaa6ca0ee435a
 
+On a fresh checkout where ``rpent-install`` is not installed yet, bootstrap it as
+described in :doc:`../get_started/installation`.
+
 **Control machine installation**
 
-From the RPent repository root on the control machine, install RPent, RLinf, the i2rt
-SDK and the required build dependencies together:
+Install the ``robot-yam`` target from :doc:`../get_started/installation` into
+``.venvs/robot-yam``, then add RLinf, the i2rt SDK and the required build
+dependencies:
 
 .. code-block:: bash
 
    cd /path/to/RPent
+   source .venvs/robot-yam/bin/activate
    uv pip install --torch-backend cpu \
-     --build-constraints /path/to/RLinf/requirements/embodied/envs/yam-build-constraints.txt \
-     -e '.[yam]' -e /path/to/RLinf \
-     -r /path/to/RLinf/requirements/embodied/envs/yam.txt
+     --build-constraints /path/to/RLinf/requirements/embodied/installs/profiles/yam-build-constraints.txt \
+     -e /path/to/RLinf \
+     -r /path/to/RLinf/requirements/embodied/installs/profiles/yam.txt
    uv pip check
 
 **Inference machine installation**
 
-On the inference machine, use RLinf's installer to install YAM and OpenPI dependencies,
-then install RPent:
+On the inference machine, use RLinf's installer to install YAM and OpenPI
+dependencies into ``.venvs/robot-yam``, then install the ``robot-yam`` target
+from :doc:`../get_started/installation` into the same environment. RLinf's
+installer creates the environment first, so pass ``--force``:
 
 .. code-block:: bash
 
    cd /path/to/RLinf
    bash requirements/install.sh embodied --model openpi --env yam \
-     --venv /path/to/RPent/.venv --install-rlinf
+     --venv /path/to/RPent/.venvs/robot-yam --install-rlinf
    cd /path/to/RPent
-   uv pip install -e '.[yam]'
+   rpent-install install robot-yam --force
+   source .venvs/robot-yam/bin/activate
    uv pip check
 
 If system dependencies are already installed, append ``--no-root`` to the installer
 command.
 
-In each new terminal, enter the RPent repository on that machine and activate ``.venv``.
+In each new terminal, enter the RPent repository on that machine and activate ``.venvs/robot-yam``.
 
 .. _yam-calibration:
 
@@ -200,7 +204,7 @@ Before using Codex, configure separate runtime directories and log in by followi
 Start the Two-Machine Services
 ------------------------------
 
-Activate the installed ``.venv`` on each machine and start the services as follows:
+Activate the installed ``.venvs/robot-yam`` on each machine and start the services as follows:
 
 * **Control machine**: runs RPent, ENV and operator commands, with both arm CAN
   interfaces and all three cameras connected.
@@ -216,7 +220,7 @@ consistent:
 .. code-block:: bash
 
    cd /path/to/RPent
-   source .venv/bin/activate
+   source .venvs/robot-yam/bin/activate
    export TASK_ID=1
 
 **1. Control machine: start ENV**
@@ -236,7 +240,7 @@ then run:
 
 .. code-block:: bash
 
-   python -m rpent.robots.components.pi05_vla_server \
+   python -m components.models.openpi.server \
      --embodiment yam --model-path "$YAM_MODEL_PATH" \
      --norm-stats-path "$YAM_MODEL_PATH/norm_stats.json" \
      --transport socket --host 127.0.0.1 --port 8220

@@ -53,8 +53,15 @@ def _resolve_robot(name: str) -> Any:
 
 
 def enumerate_robots() -> tuple[str, ...]:
-    """Return the names of importable robot packages under ``robots``."""
-    import robots
+    """Return the names of importable robot packages under ``robots``.
+
+    The core wheel ships without ``robots/``, so a bare ``rpent --help`` in that
+    environment reports no robots instead of failing to import the package.
+    """
+    try:
+        import robots
+    except ModuleNotFoundError:
+        return ()
 
     return tuple(
         sorted(

@@ -30,7 +30,7 @@ import numpy as np
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from rpent.robots.components.env_facade_base import BaseEnvFacade
+from rpent.env.facade import BaseEnvFacade
 from rpent.utils.logging import get_logger
 from rpent.utils.serialization import to_numpy_tree
 

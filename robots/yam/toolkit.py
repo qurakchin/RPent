@@ -24,7 +24,8 @@ from robots.yam.projection import world_from_depth as _world_from_depth_cv
 from robots.yam.tasks import classify_episode
 from rpent.dashboard.events import DashboardEventSink
 from rpent.session import EnvState
-from rpent.tools import Toolkit, ToolResult, tool
+from rpent.tools import Toolkit, ToolResult, tool, unexecuted
+from rpent.tools.motion_tools import motion_result
 from rpent.utils.logging import get_output_dir
 
 if TYPE_CHECKING:
@@ -38,6 +39,12 @@ _RECIPE_ACTIONS = {
     "set_gripper",
     "release",
 }
+
+# These payloads carry requested/executed counters and a stop_reason, so a
+# refused plan or a stopped servo must not fall back to ``completed``.
+_LAYERED_ACTIONS = frozenset(
+    {"pi05_act", "move_to", "rotate_wrist", "set_gripper", "release"}
+)
 
 
 def tracking_hold_operator_supervised(
@@ -259,7 +266,7 @@ class YamToolkit(Toolkit):
                     "status": "retry",
                     "notice": "Record the lesson, then reset after the scene is ready.",
                 }
-                return ToolResult(data=payload)
+                return unexecuted(payload, status="rejected")
             payload = {"_finish": True, "status": "failure", "summary": summary}
             return ToolResult(data=payload)
         if status != "success":
@@ -280,7 +287,7 @@ class YamToolkit(Toolkit):
             "operator_question": "Is the current task complete? Confirm success or explain what remains.",
             "notice": "Ask the operator and wait. Do not poll finish; a current-episode verdict is required.",
         }
-        return ToolResult(data=payload)
+        return unexecuted(payload, status="rejected")
 
     @tool(name="reset")
     def _reset_episode(self) -> ToolResult:
@@ -291,14 +298,14 @@ class YamToolkit(Toolkit):
                 "error": "reset refused",
                 "reason": f"This session's attempt budget is spent ({budget} attempts).",
             }
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
         ready = self.status().data
         if ready.get("terminal_event") == "abort":
             payload = {
                 "error": "Operator aborted; call finish(status='failure') now.",
                 "status": "failure",
             }
-            return ToolResult(data=payload)
+            return unexecuted(payload, status="rejected")
         if not ready.get("ready_to_reset"):
             payload = {
                 "status": "pending",
@@ -339,7 +346,7 @@ class YamToolkit(Toolkit):
             projection_error = None
             try:
                 world = _world_from_depth_cv(depth, camera_meta)
-            except (ValueError, RuntimeError) as error:
+            except (ImportError, ValueError, RuntimeError) as error:
                 world = np.full((*np.asarray(depth).shape, 3), np.nan, dtype=np.float32)
                 projection_error = str(error)
             views[camera_name] = {
@@ -511,6 +518,8 @@ class YamToolkit(Toolkit):
             payload = {"success": True}
             return ToolResult(data=payload)
         payload = getattr(self._primitives, name)(**kwargs)
+        if name in _LAYERED_ACTIONS:
+            return motion_result(payload)
         return ToolResult(data=payload)
 
     def close(self) -> None:

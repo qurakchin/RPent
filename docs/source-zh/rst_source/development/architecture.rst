@@ -16,7 +16,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 
 1. CLI 读取共享参数，按 ``--robot`` 加载环境，再注册该环境的参数并完成校验。
 2. ``parse_config`` 生成 ``RunConfig``，确定任务、输出目录和提示词变量。
-3. 运行器按记忆配置同步或使用本地数据，构造规划器并渲染提示词。
+3. 运行器按记忆配置同步或使用本地数据，按共享片段、运行轴、工具说明、机器人领域和记忆的顺序拼装提示词，再构造规划器。它把 ``effective_prompt.md`` 与 ``prompt_sources.json`` 写入该会话的 state 目录，并在对话中记录 ``prompt_sha256``，在 ``prompt_sources.json`` 中记录规划器的拼接方式、拼装后的机器人 user 层摘要和开场用户消息摘要。这两个文件都在规划器启动前写出，因此一次运行能说明模型收到了什么。``--dump-prompt`` 在提示词拼装之后结束，跳过记忆准备、规划器构造和运行产物写入；记忆段只反映本地语料，而不是运行时将要同步的内容，因此以运行自身写出的提示词文件为准。
 4. ``init_runtime`` 启动或连接服务，返回运行参数和本次运行拥有的进程；``get_toolkit`` 创建工具集与记忆管理器。
 5. 规划器通过 ``list_tools`` 获取工具定义，通过 ``execute_tool`` 执行调用，再读取工具返回的文本和图像，继续规划。
 6. 动作工具调用 VLA 或程序化动作，环境执行后记录状态和观测，供下一轮规划使用。
@@ -37,8 +37,10 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      - 职责
    * - Planner
      - 选择工具、维护模型交互并返回 ``PlannerResult``。``api`` 使用 Pydantic AI 原生循环，并通过 Harness 的滑动窗口裁剪历史；``claude_code`` 和 ``codex`` 使用各自的 SDK，``gemini_cli`` 使用 ACP。LIBERO Flash 执行保存的计划。
+   * - Prompt 拼装
+     - 按共享片段、运行轴契约、工具说明、机器人领域和记忆的顺序拼装，渲染两种角色，并记录每段来源与 prompt 哈希。
    * - Toolkit
-     - 定义工具参数、分发调用、保存状态，并将工具返回值转换为供规划器读取的 ``ToolResult``。
+     - 定义工具参数、分发调用、保存状态，并将领域数据以及调用和执行状态转换为供规划器读取的 ``ToolResult``。
    * - Environment service
      - 拥有仿真器或真机连接，执行动作并提供原生状态与成功判定。
    * - VLA / perception services
@@ -51,26 +53,41 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 代码目录
 ------------
 
-共享执行逻辑和接口位于 ``rpent/`` 中，各环境的具体实现位于 ``robots/`` 下的独立包中。
+共享执行逻辑、接口和模型基类位于 ``rpent/`` 中，各环境的具体实现位于 ``robots/`` 下的独立包中。不属于机器人的可安装组件放在 ``components/``，安装目标与依赖锁放在 ``installs/``。
+
+依赖方向固定为 ``robots/`` → ``components/`` → ``rpent/``：核心按名字发现组件，从不静态 import 它们；工具包与模型服务之间也不互相 import。
 
 .. code-block:: text
 
-   rpent/
-     cli/          # CLI, Dashboard launcher, memory commands
-     planner/      # Model backends and Planner protocol
-     prompt/       # Shared prompt construction
-     session/      # Session and task lifecycle
-     dashboard/    # Web UI and event delivery
-     robots/       # Discovery, descriptors, runtime components
-     tools/        # Toolkit and shared tool behavior
-     memory/       # Memory permissions, merge, and indexing
-     evaluation/   # Evaluation result support
-   robots/
+   rpent/            # 核心：契约、调度、模型基类
+     env/            # 环境契约、client、facade、回执账本
+     models/         # 模型契约、client、facade、后端注册
+     cli/            # CLI、Dashboard 启动器、记忆与安装命令
+     planner/        # 模型后端与 Planner 基类
+     prompt/         # 共享片段、固定层序拼装与运行产物
+     session/        # Session 与任务生命周期
+     dashboard/      # Web UI 与事件投递
+     robots/         # 发现、描述符、运行时组件
+     tools/          # Toolkit 与共享工具行为
+     memory/         # 记忆权限、合并与索引
+     evaluation/     # 评测结果支持
+     install/        # 清单、解析、锁、指纹与检查
+   robots/<name>/    # 切片：原生翻译与差异化功能
      libero/
      robocasa/
      robotwin/
      franka/
      dual_franka/
+     robodojo/
+     yam/
+   components/
+     models/         # 模型服务，每个子目录一个可安装组件
+     toolkits/       # 带独立评估语料的工具包
+   installs/
+     targets/        # 受支持的安装目标
+     deps/           # 纯依赖组件清单
+   tests/
+     locks/          # 可选的复现锁，每个目标一份
 
 环境发现与接入
 ---------------------

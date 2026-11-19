@@ -16,25 +16,20 @@ Requirements
 1. Install RPent
 ----------------
 
-Create and activate an isolated Python environment:
+Create the LIBERO-PRO environment and activate it:
 
 .. code-block:: bash
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   uv venv --python 3.11
-   source .venv/bin/activate
+   ./rpent-install.sh install robot-libero_pro
+   source .venvs/robot-libero_pro/bin/activate
 
-Install ``torch==2.7.1`` and ``torchvision==0.22.1`` as required by OpenPI.
-Choose a build compatible with your GPU and NVIDIA driver from the
-`PyTorch installation instructions <https://pytorch.org/get-started/previous-versions/>`_,
-replacing ``pip install`` with ``uv pip install``. Then install LIBERO-PRO:
+The target pins Python, the RLinf revision, Pi0.5, SAM 3.0, and the LIBERO
+packages together. See :doc:`installation` for every target, its install
+command, separate model environments, and diagnostics.
 
-.. code-block:: bash
-
-   uv pip install -e ".[libero-pro]"
-
-Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv`` and set the checkpoint paths and API key again.
+Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venvs/robot-libero_pro`` and set the checkpoint paths and API key again.
 
 2. Download Assets and Models
 -----------------------------

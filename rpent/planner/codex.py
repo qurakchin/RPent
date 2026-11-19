@@ -54,6 +54,7 @@ from rpent.planner.utils.agent_runtime import (
 )
 from rpent.planner.utils.agent_session import run_agent
 from rpent.planner.utils.sdk import get_field, int_field, json_object, jsonable, unwrap
+from rpent.prompt.assembly import prefix_system_prompt
 from rpent.session.codex_capture import finalize_codex_capture
 from rpent.tools.toolkit import Toolkit
 from rpent.utils.config import get_repo_root
@@ -99,7 +100,11 @@ class CodexPlanner(Planner):
             "approval_mode": openai_codex.ApprovalMode.deny_all,
             "cwd": self._repo_root,
             "model": self._model,
-            "sandbox": openai_codex.Sandbox.full_access,
+            # RPent tools own every file write: CommonTools confines them to the
+            # run output directory and MemoryManager confines memory edits to
+            # the inbox. The built-in shell and patch tools get no write access,
+            # so they cannot bypass either boundary.
+            "sandbox": openai_codex.Sandbox.read_only,
         }
         if self._service_tier:
             self._thread_options["service_tier"] = self._service_tier
@@ -132,8 +137,8 @@ class CodexPlanner(Planner):
             if capture_state is not None and capture_state.get_task() is not None
             else None
         )
-        prompt = f"{system_prompt}\n\n{user_message}" if system_prompt else user_message
-        result = None
+        prompt = prefix_system_prompt(system_prompt, user_message)
+        result: PlannerResult | None = None
         try:
             result = asyncio.run(
                 self._solve(

@@ -23,7 +23,7 @@ import pytest
 
 from rpent.cli.main import _build_argparser
 from rpent.dashboard.events import NullDashboardEventSink
-from rpent.robots.components.action_spec import box_action_spec
+from rpent.env.action_spec import box_action_spec
 from rpent.tools import ToolResult
 from rpent.tools.direct_action import direct_action_tool
 from rpent.utils import templates
@@ -70,9 +70,16 @@ def make_primitive(robot, action_size=None):
         }
 
     def call(method, **kwargs):
+        if robot == "robotwin":
+            if method == "env.get_env_meta":
+                return {"seed": 0}
+            if method == "env.reset":
+                return obs, {**info, "instruction": "test task"}
         return specs if method == "env.get_action_spec" else step_result
 
     env._client = SimpleNamespace(call=Mock(side_effect=call))
+    if robot == "robotwin":
+        env = client_cls(env._client, expected_meta={"seed": 0})
     env.last_obs = obs
     env.last_reset_info = {}
     if robot != "robocasa":
@@ -91,7 +98,25 @@ def make_primitive(robot, action_size=None):
         env.render_camera = lambda **kwargs: obs["main_images"]
     else:
         from robots.robotwin.primitives import RoboTwinPrimitives
+        from robots.robotwin.robot_spec import ROBOTWIN_CAMERA_NAMES
 
+        # The real client copies these from the server handshake in ``__init__``;
+        # this fake is built with ``__new__``, so declare the same contract here.
+        env.server_meta = {
+            "task_name": "test_task",
+            "extensions": {
+                "render_camera": {
+                    "camera_names": list(ROBOTWIN_CAMERA_NAMES),
+                    "metric_depth": True,
+                },
+                "get_camera_meta": True,
+            },
+        }
+        env.execution_capabilities = {
+            "reset": True,
+            "step": True,
+            "chunk_step": True,
+        }
         primitive = RoboTwinPrimitives(
             env=env, model=None, seed=0, check_cancelled=lambda: None
         )
@@ -361,15 +386,20 @@ def test_libero_prompt_matches_direct_action_enablement(
     args.enable_direct_action = enabled
     args.explore = explore
     config = robot_spec._parse_config(args)
-    from robots.libero.prompt_bundle import system_prompt
-    from rpent.prompt.utils import format_prompt
+    from rpent.prompt.assembly import build_robot_prompt, run_axes
 
     variables = {**config.prompt_vars, "output_dir": tmp_path}
-    prompt = format_prompt(system_prompt(variables), variables=variables)
+    assembled = build_robot_prompt(
+        robot_spec.get_robot_spec().prompts,
+        robot_name="libero",
+        variables=variables,
+        axes=run_axes(explore=explore, dashboard=False, real_robot=False),
+    )
+    prompt = assembled.system
     allowed = prompt.split("ALLOWED PRIMITIVES", 1)[1].split(".", 1)[0]
     assert ("`execute_action`" in allowed) is enabled
     assert ("`execute_action`" in prompt) is enabled
-    assert ("SINGLE-ATTEMPT MODE" in prompt) is not explore
+    assert ("This is a single-attempt evaluation" in prompt) is not explore
     assert ("Also allowed: `reset`" in prompt) is explore
 
 

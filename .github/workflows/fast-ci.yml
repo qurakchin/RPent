@@ -1,0 +1,184 @@
+name: Fast CI
+
+# Every pull request and every push to main. The environment is prebuilt and
+# cached from the target's installation inputs, so this level proves the change
+# matches the manifests and breaks no affected contract — not that a clean
+# machine can install RPent. `full ci` proves that, and is called here only for
+# the targets a pull request affects.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    name: Change scope
+    # No `if:` and no `paths:` filter: the aggregate job below is the only
+    # required check, and a skipped workflow leaves that check pending.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tests: ${{ steps.scope.outputs.tests }}
+      target: ${{ steps.scope.outputs.target }}
+      hosted: ${{ steps.scope.outputs.hosted }}
+      gpu: ${{ steps.scope.outputs.gpu }}
+      e2e: ${{ steps.scope.outputs.e2e }}
+      toolkit: ${{ steps.scope.outputs.toolkit }}
+      docs: ${{ steps.scope.outputs.docs }}
+      package: ${{ steps.scope.outputs.package }}
+      needs_full: ${{ steps.scope.outputs.needs_full }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Map changed paths to a scope
+        id: scope
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BASE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT" == "pull_request" ]]; then
+            base=$PR_BASE
+          elif [[ -n "$PUSH_BASE" && "$PUSH_BASE" != "0000000000000000000000000000000000000000" ]]; then
+            base=$PUSH_BASE
+          else
+            base=$(git rev-parse HEAD~1)
+          fi
+          scope_json=$(uv run --no-project --python 3.11 --with packaging -- \
+            python -m tests.tooling.affected --base "$base" --head HEAD)
+          printf '%s' "$scope_json" > "$RUNNER_TEMP/scope.json"
+          git diff --name-only --diff-filter=ACMRT "$base" HEAD > "$RUNNER_TEMP/changed.txt"
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m tests.tooling.matrix --runner hosted > "$RUNNER_TEMP/hosted.json"
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m tests.tooling.matrix --runner gpu > "$RUNNER_TEMP/gpu.json"
+          SCOPE="$RUNNER_TEMP/scope.json" \
+            CHANGED="$RUNNER_TEMP/changed.txt" \
+            HOSTED="$RUNNER_TEMP/hosted.json" \
+            GPU="$RUNNER_TEMP/gpu.json" \
+            python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+
+          def load(name):
+              with open(os.environ[name], encoding="utf-8") as handle:
+                  return json.load(handle)
+
+          scope = load("SCOPE")
+          changed = [
+              line.strip()
+              for line in open(os.environ["CHANGED"], encoding="utf-8")
+              if line.strip()
+          ]
+          hosted = set(load("HOSTED"))
+          gpu = set(load("GPU"))
+          suites = {"libero", "robocasa", "robotwin"}
+          # A core change keeps `full` for nightly and release runs, but a PR
+          # installs only the pilot targets. The install-instance paths keep
+          # the full set, so an installer or target change still proves every
+          # environment.
+          selected = scope.get("pr_targets", scope["targets"])
+          if scope["full"]:
+              e2e = sorted(suites) if set(selected) == set(scope["targets"]) else []
+          else:
+              e2e = sorted(suites & set(scope["components"]))
+          # The installer, tooling, and repository contract groups need only
+          # the core and `dev` dependencies. Every other test path may import a
+          # model server, so it keeps the CPU Torch target; an empty selection
+          # runs the whole suite and needs that target too.
+          dev_tests = {
+              "tests/unit_tests/rpent/install",
+              "tests/unit_tests/tooling",
+              "tests/unit_tests/installs",
+              "tests/unit_tests/contracts",
+          }
+          tests = set(scope["tests"])
+          target = "dev" if tests and tests <= dev_tests else "unit-cpu"
+          values = {
+              "tests": scope["tests"],
+              "target": target,
+              "hosted": [p for p in selected if p in hosted],
+              "gpu": [p for p in selected if p in gpu],
+              "e2e": e2e,
+              "toolkit": scope["full"] or "geometry" in scope["components"],
+              "docs": scope["docs"],
+              # A component change can only be proven by installing its
+              # closure, which `full ci` does. Install data narrows the target
+              # set rather than emptying it.
+              "needs_full": bool(scope["components"] or scope["targets"]),
+              "package": any(
+                  path in {"pyproject.toml", "setup.py", "MANIFEST.in"}
+                  for path in changed
+              ),
+          }
+          for key, value in values.items():
+              print(f"{key}={json.dumps(value)}")
+          PY
+
+  unit:
+    name: Unit checks
+    needs: changes
+    if: needs.changes.outputs.docs != 'true'
+    uses: ./.github/workflows/unit.yml
+    with:
+      tests: ${{ needs.changes.outputs.tests }}
+      target: ${{ needs.changes.outputs.target }}
+
+  package:
+    name: Package
+    needs: changes
+    if: needs.changes.outputs.package == 'true'
+    uses: ./.github/workflows/package.yml
+
+  full:
+    name: Full CI
+    needs: changes
+    # Fork pull requests cannot reach the self-hosted GPU runner; a maintainer
+    # dispatches `full ci` manually before merging one.
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      needs.changes.outputs.needs_full == 'true'
+    uses: ./.github/workflows/full-ci.yml
+    with:
+      unit: false
+      hosted: ${{ needs.changes.outputs.hosted }}
+      gpu: ${{ needs.changes.outputs.gpu }}
+      e2e: ${{ needs.changes.outputs.e2e }}
+      toolkit: ${{ needs.changes.outputs.toolkit == 'true' }}
+
+  # Single stable status check for rulesets. It runs even when every leg was
+  # skipped (a docs-only change), so the required check is never left pending.
+  unittest:
+    name: unittest
+    if: always()
+    needs: [changes, unit, package, full]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every leg to pass
+        run: |
+          failed=0
+          for result in 'changes:${{ needs.changes.result }}' \
+                        'unit:${{ needs.unit.result }}' \
+                        'package:${{ needs.package.result }}' \
+                        'full:${{ needs.full.result }}'; do
+            echo "leg result: $result"
+            case "${result#*:}" in
+              success|skipped) ;;
+              *) echo "::error::$result did not succeed"; failed=1 ;;
+            esac
+          done
+          exit "$failed"

@@ -2,15 +2,18 @@
 
 RPent keeps fast, offline unit tests under `unit_tests`. Real-simulator smoke
 tests, model component and policy-chain tests, and explicit real-robot
-diagnostics belong under `e2e_tests`. Unit tests mirror the production module
-they exercise; GPU tests are grouped by robot stack. Environment smoke tests
-can run without model checkpoints.
+diagnostics belong under `e2e_tests`. Unit tests mirror the production module or
+repository data they exercise; GPU tests are grouped by robot stack.
+Environment smoke tests can run without model checkpoints.
 
 ## Directory layout
 
 ```text
 tests/
 ├── README.md
+├── targets/             # test and development install targets
+├── locks/               # optional reproduction locks, one per target
+├── tooling/             # maintainer checks and lock generation
 ├── e2e_tests/
 │   ├── common.py         # shared assertions and runtime lifecycle helpers
 │   ├── run_gpu_suite.sh  # clean-environment entry point for one robot stack
@@ -19,19 +22,26 @@ tests/
 │   ├── robocasa/
 │   └── robotwin/
 └── unit_tests/
-    ├── rpent/             # tests for the core rpent package
+    ├── rpent/             # tests for the core package
     │   ├── cli/
     │   ├── dashboard/
+    │   ├── install/       # installer units; synthetic manifests and temp repos
     │   ├── memory/
     │   ├── planner/
     │   ├── robots/
     │   ├── session/
     │   ├── tools/
     │   └── utils/
-    └── robots/           # tests for the top-level robot extensions
-        ├── libero/
-        ├── robocasa/
-        └── robotwin/
+    ├── contracts/         # cross-component contracts that need only core and dev
+    ├── installs/          # contracts over the real checked-in install data
+    ├── tooling/           # tests for tests/tooling/
+    ├── robots/<name>/     # tests for one robot slice
+    │   ├── libero/
+    │   ├── robocasa/
+    │   └── robotwin/
+    └── components/
+        ├── models/        # model services
+        └── toolkits/      # toolkits and their contracts
 ```
 
 Directories that do not yet have tests do not need empty placeholders. Add
@@ -41,11 +51,33 @@ them when the first test for that module lands.
 
 - Mirror core modules under `tests/unit_tests/rpent/`. For example, tests for
   `rpent.utils.rpc` belong in `tests/unit_tests/rpent/utils/rpc/`.
-- Mirror top-level robot extensions under `tests/unit_tests/robots/`. Put
-  robot-specific coverage in that directory's `<robot>/` child.
+- Mirror robot slices under `tests/unit_tests/robots/<name>/`, model services
+  under `tests/unit_tests/components/models/`, and toolkits under
+  `tests/unit_tests/components/toolkits/`.
 - Place cross-layer tests with the primary contract owner. Registry and config
-  contracts belong to `rpent/robots/`; extension toolkit and schema contracts
-  belong to `robots/`.
+  contracts belong to `rpent/robots/`; slice toolkit and schema contracts
+  belong to `robots/`; installer units belong to `rpent/install/`.
+- Put cross-component contracts that import only core and `dev` dependencies in
+  `tests/unit_tests/contracts/`, so they run in `dev`; a test that needs a
+  component's own runtime stays under `tests/unit_tests/components/<kind>/<name>/`.
+  The model platform-copy drift test is the current example; a change to either
+  side of a covered contract reruns that group.
+- Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
+  exercises `rpent/install/` with temporary fixtures and synthetic manifests;
+  `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
+  `installs/{targets,deps}/`, `tests/targets`, `tests/locks`, the
+  authored runner partition, the compatibility extras and conflicts in the
+  root `pyproject.toml`, and the workflows that consume them. Do not read the
+  real install data from `tests/unit_tests/rpent/install/`; the test path would
+  otherwise hide which layer owns the failure. `installs/` is not a Python
+  package, so the test directory mirrors the repository-level data rather than
+  a `rpent/` module. Both groups use only the core and `dev` dependencies, and
+  `fast ci` runs them in the `dev` target.
+- `tests/tooling/` holds the maintainer entry points that read the real
+  repository data: `python -m tests.tooling.check`, `lock`, `layout`, `extras`,
+  `matrix`, and `affected`. Their tests live in `tests/unit_tests/tooling/`.
+  The dependency direction is `tests/tooling/` → `rpent/install/`; the tools
+  are not part of the wheel.
 - Keep one-off fakes in the test module that uses them. Put shared fixtures in
   the nearest `conftest.py`: use `tests/conftest.py` only for suite-wide
   fixtures and a module directory's `conftest.py` for local fixtures.
@@ -67,18 +99,27 @@ Run the complete suite with:
 pytest tests/unit_tests -v
 ```
 
+The tests that import model servers need Torch, which the `dev` target
+deliberately omits. CI runs this suite in the `unit-cpu` target, which installs
+CPU Torch from the PyTorch CPU index:
+
+```bash
+./rpent-install.sh install unit-cpu
+.venvs/unit-cpu/bin/python -m pytest tests/unit_tests -v
+```
+
 ## RoboCasa environment smoke tests
 
 RoboCasa separates simulator checks, model component checks and the full call chain:
 
 | Tests | Coverage | Requirements |
 | --- | --- | --- |
-| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | RoboCasa extra, assets and GPU/EGL; no model weights or planner credentials |
+| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | `robocasa` target, assets and GPU/EGL; no model weights or planner credentials |
 | `test_components.py` | Environment observations over RPC and RLDX inference | Model checkpoint, assets and GPU/EGL |
 | `test_policy_chain.py` | CLI → tools → RLDX → simulator action → `finish` | Model checkpoint, assets and GPU/EGL; local scripted planner |
 
 To check simulator installation and interfaces independently, install the
-RoboCasa extra and assets, then run:
+`robocasa` target and assets, then run:
 
 ```bash
 RPENT_RUN_ROBOCASA_INTEGRATION=1 \
@@ -167,7 +208,7 @@ export MUJOCO_GL=egl
 export PYOPENGL_PLATFORM=egl
 
 bash tests/e2e_tests/run_gpu_suite.sh \
-  <libero-pro|robocasa|robotwin> \
+  <robot-libero_pro|robot-robocasa|robot-robotwin> \
   /path/to/new-output-dir \
   /path/to/new-venv-root
 ```

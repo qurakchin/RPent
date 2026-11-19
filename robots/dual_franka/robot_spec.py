@@ -25,7 +25,11 @@ from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from robots.dual_franka.prompt_bundle import system_prompt, user_prompt
+from robots.dual_franka.prompt_bundle import (
+    system_prompt,
+    tool_sections,
+    user_prompt,
+)
 from robots.dual_franka.runtime_config import DEFAULT_CONFIG
 from robots.dual_franka.tasks import DUAL_FRANKA_TASKS, get_dual_franka_task
 from robots.franka.runtime_config import (
@@ -35,7 +39,7 @@ from robots.franka.runtime_config import (
 from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
+from rpent.models.backends import (
     AMConfig,
     add_am_args,
     select_am,
@@ -95,7 +99,12 @@ def get_robot_spec() -> RobotSpec:
     return RobotSpec(
         name="dual_franka",
         run_flash=_run_flash,
-        prompts=PromptBundle(system=system_prompt, user=user_prompt),
+        prompts=PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            tool_sections=tool_sections,
+            source="robots/dual_franka/prompts",
+        ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,
         init_runtime=_init_runtime,
@@ -214,7 +223,9 @@ def _add_cli_args(parser: argparse.ArgumentParser, use_dashboard: bool) -> None:
 def _parse_config(args: argparse.Namespace) -> RunConfig:
     select_am(args, "dual_franka")
     set_robot_config_path(args.robot_config or DEFAULT_CONFIG)
-    validate_calibration_sources()
+    # A prompt dump does not touch perception, so it needs no calibration.
+    if not getattr(args, "dump_prompt", False):
+        validate_calibration_sources()
     if args.task_id is None:
         raise ValueError("--task-id is required")
     from robots.franka.flash.replay import prepare
@@ -302,7 +313,7 @@ def _vla_server_command(
 ) -> list[str]:
     command = [
         "-m",
-        "rpent.robots.components.pi05_vla_server",
+        "components.models.openpi.server",
         "--embodiment",
         "dual_franka",
         "--transport",
@@ -388,7 +399,14 @@ def _spawn_sam3_server(
         name="sam3_server",
         cmd=[
             sys.executable,
-            str(get_repo_root() / "rpent" / "robots" / "components" / "sam3_server.py"),
+            str(
+                get_repo_root()
+                / "rpent"
+                / "robots"
+                / "components"
+                / "sam3"
+                / "server.py"
+            ),
             "--transport",
             "http",
             "--host",
@@ -420,9 +438,9 @@ def _init_runtime(
     supply descriptions directly instead of selecting a registered task.
     """
     select_am(args, "dual_franka")
+    from components.models.openpi.client import Pi05VLAClient
+    from components.models.sam3.client import Sam3Client
     from robots.dual_franka.env_client import DualFrankaEnvClient
-    from rpent.robots.components.pi05_vla_client import Pi05VLAClient
-    from rpent.robots.components.sam3_client import Sam3Client
 
     available = {"env", "vla", "sam3"}
     selected = available if components is None else components

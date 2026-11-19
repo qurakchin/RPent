@@ -18,7 +18,7 @@ the next decision. The sequence below follows one run from CLI setup to cleanup.
 
 1. The CLI reads shared arguments, loads the environment selected by ``--robot``, and registers and validates its arguments.
 2. ``parse_config`` creates a ``RunConfig`` with the task, output directory, and prompt variables.
-3. The runner synchronizes or uses local memory according to the profile, constructs the planner, and renders prompts.
+3. The runner synchronizes or uses local memory according to the profile, assembles the prompt from shared fragments, the run axes, tool guidance, the robot domain, and memory, then constructs the planner. It writes ``effective_prompt.md`` and ``prompt_sources.json`` to the session's state directory and records ``prompt_sha256`` in the transcript plus the planner layout, the assembled robot user layer digest, and the opening user message digest in ``prompt_sources.json``. Because both files are written before the planner starts, a run states what the model receives. ``--dump-prompt`` stops after prompt assembly without preparing memory, constructing a planner, or writing run artifacts; its memory sections describe the local corpus rather than what a run would synchronize, so a run's own prompt files are authoritative.
 4. ``init_runtime`` starts or connects to services and returns runtime inputs and owned processes; ``get_toolkit`` creates tools and their memory manager.
 5. The planner obtains schemas through ``list_tools``, dispatches calls through ``execute_tool``, and consumes text and image results.
 6. Action tools call a VLA or scripted motion. The environment records updated state and observations for the next planning turn.
@@ -42,8 +42,10 @@ different robots.
      - Responsibility
    * - Planner
      - Select tools, manage model interaction, and return ``PlannerResult``. The ``api`` backend uses the native Pydantic AI loop and Harness sliding-window history trimming; ``claude_code`` and ``codex`` use their respective SDKs, and ``gemini_cli`` uses ACP. LIBERO Flash executes stored plans.
+   * - Prompt assembly
+     - Order shared fragments, run-axis contracts, tool guidance, the robot domain, and memory; render both roles and record each section's source and the prompt hash.
    * - Toolkit
-     - Define schemas, dispatch calls, record state, and expose results as ``ToolResult`` for the planner.
+     - Define schemas, dispatch calls, record state, and expose domain data plus call and execution status as ``ToolResult`` for the planner.
    * - Environment service
      - Own the simulator or robot connection, execute actions, and expose native state and success information.
    * - VLA / perception services
@@ -56,27 +58,46 @@ In LIBERO, the environment, Pi0.5, and SAM3 run in separate service processes. A
 Repository Layout
 -----------------
 
-Shared execution and interfaces live under ``rpent/``. Each package under
-``robots/`` supplies the environment-specific implementation described above.
+Shared execution, contracts, and model bases live under ``rpent/``. Each
+package under ``robots/`` supplies the environment-specific implementation
+described above. Installable components that are not robots live under
+``components/``, and the install recipes and locks live under ``installs/``.
+
+The dependency direction is fixed: ``robots/`` → ``components/`` → ``rpent/``.
+The core discovers components by name and never imports them statically, and
+toolkits and model services do not import each other.
 
 .. code-block:: text
 
-   rpent/
-     cli/          # CLI, Dashboard launcher, memory commands
-     planner/      # Model backends and Planner base class
-     prompt/       # Shared prompt construction
-     session/      # Session and task lifecycle
-     dashboard/    # Web UI and event delivery
-     robots/       # Discovery, descriptors, runtime components
-     tools/        # Toolkit and shared tool behavior
-     memory/       # Memory permissions, merge, and indexing
-     evaluation/   # Evaluation result support
-   robots/
+   rpent/            # Core: contracts, scheduling, model bases
+     env/            # Environment contracts, client, facade, receipt ledger
+     models/         # Model contracts, client, facade, backends
+     cli/            # CLI, Dashboard launcher, memory and install commands
+     planner/        # Model backends and Planner base class
+     prompt/         # Shared fragments, fixed-order assembly, run artifacts
+     session/        # Session and task lifecycle
+     dashboard/      # Web UI and event delivery
+     robots/         # Discovery, descriptors, runtime components
+     tools/          # Toolkit and shared tool behavior
+     memory/         # Memory permissions, merge, and indexing
+     evaluation/     # Evaluation result support
+     install/        # Manifests, resolution, locks, fingerprints, checks
+   robots/<name>/    # Slice: native translation and differentiated features
      libero/
      robocasa/
      robotwin/
      franka/
      dual_franka/
+     robodojo/
+     yam/
+   components/
+     models/         # Model services, one installable component each
+     toolkits/       # Toolkits with their own evaluation corpus
+   installs/
+     targets/        # Supported install targets
+     deps/           # Dependency-only component manifests
+   tests/
+     locks/          # Optional reproduction locks, one per target
 
 Environment Discovery
 ---------------------

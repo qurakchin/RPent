@@ -35,12 +35,13 @@ from robots.robocasa.memory import (
 )
 from robots.robocasa.prompt_bundle import (
     system_prompt,
+    tool_sections,
     user_prompt,
 )
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
+from rpent.models.backends import (
     add_am_args,
     select_am,
 )
@@ -213,6 +214,8 @@ def get_robot_spec() -> RobotSpec:
         prompts=PromptBundle(
             system=system_prompt,
             user=user_prompt,
+            tool_sections=tool_sections,
+            source="robots/robocasa/prompts",
         ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,

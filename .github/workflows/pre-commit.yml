@@ -25,6 +25,8 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
+      # The layout hook runs `uv run --no-project`; install uv before pre-commit.
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Install pre-commit
         run: python -m pip install pre-commit==4.6.2
       - name: Run pre-commit

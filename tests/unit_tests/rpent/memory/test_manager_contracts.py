@@ -236,6 +236,98 @@ def test_memory_manager_publishes_draft_and_solved_task_pair(tmp_path: Path) -> 
     assert "task-family_libero10_task_t2.md" in (memory_dir / "MEMORY.md").read_text()
 
 
+def test_merge_normalizes_global_draft_ids_to_the_bare_slug(tmp_path: Path) -> None:
+    memory_dir = tmp_path / "memory"
+    output_dir = tmp_path / "run"
+    output_dir.mkdir()
+    cell = "10_task_t2_s0"
+    _write_memory_leaf(
+        memory_dir / "_internal" / "inbox" / cell / "proposal.md",
+        memory_id="global_primitive_align_before_grasp",
+        scope="global",
+        cells=[cell],
+    )
+
+    result = MemoryManager(memory_dir).merge_memory(
+        cell_tag=cell,
+        run_state_dir=output_dir,
+        solved=False,
+    )
+
+    assert result["global"] == 1
+    published = memory_dir / "global" / "align_before_grasp.md"
+    assert published.is_file()
+    assert "align_before_grasp" in (memory_dir / "MEMORY.md").read_text()
+
+
+@pytest.mark.parametrize(
+    ("filename", "memory_id"),
+    [
+        ("proposal.md", "global_"),
+        ("proposal.md", "_draft"),
+        ("global_.md", ""),
+    ],
+)
+def test_merge_skips_proposals_whose_id_normalizes_to_nothing(
+    tmp_path: Path,
+    filename: str,
+    memory_id: str,
+) -> None:
+    """A scope-only id must not publish a hidden ``.md`` leaf.
+
+    ``_bare_id`` strips the scope, kind, and draft prefixes. An id made of
+    nothing but those prefixes would otherwise resolve to an empty name and
+    land in ``global/.md``, so the merge rejects it the same way it rejects
+    other invalid drafts and leaves the inbox for inspection.
+    """
+    memory_dir = tmp_path / "memory"
+    output_dir = tmp_path / "run"
+    output_dir.mkdir()
+    cell = "10_task_t2_s0"
+    inbox = memory_dir / "_internal" / "inbox" / cell
+    _write_memory_leaf(
+        inbox / filename,
+        memory_id=memory_id,
+        scope="global",
+        cells=[cell],
+    )
+
+    result = MemoryManager(memory_dir).merge_memory(
+        cell_tag=cell,
+        run_state_dir=output_dir,
+        solved=False,
+    )
+
+    assert result["global"] == 0
+    assert len(result["skipped"]) == 1
+    assert "id is empty" in result["skipped"][0]
+    assert not (memory_dir / "global" / ".md").exists()
+    assert inbox.is_dir()
+    assert not (memory_dir / "_internal" / "merged" / cell).exists()
+
+
+def test_merge_strips_repeated_id_prefixes_to_one_slug(tmp_path: Path) -> None:
+    memory_dir = tmp_path / "memory"
+    output_dir = tmp_path / "run"
+    output_dir.mkdir()
+    cell = "10_task_t2_s0"
+    _write_memory_leaf(
+        memory_dir / "_internal" / "inbox" / cell / "proposal.md",
+        memory_id="global_global_strategy_align",
+        scope="global",
+        cells=[cell],
+    )
+
+    result = MemoryManager(memory_dir).merge_memory(
+        cell_tag=cell,
+        run_state_dir=output_dir,
+        solved=False,
+    )
+
+    assert result["global"] == 1
+    assert (memory_dir / "global" / "align.md").is_file()
+
+
 def test_memory_manager_does_not_publish_unsolved_task_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -440,3 +532,36 @@ def test_memory_manager_refuses_to_complete_an_existing_partial_task_pair(
     assert result["task"] == 0
     assert result["skipped"] == ["incomplete existing task audit/recipe pair"]
     assert not (task_dir / f"{cell}_recipe.jsonl").exists()
+
+
+def test_conflict_drafts_from_the_prompt_are_archived_not_published(
+    tmp_path: Path,
+) -> None:
+    memory_dir = tmp_path / "memory"
+    output_dir = tmp_path / "run"
+    output_dir.mkdir()
+    cell = "10_task_t2_s0"
+    _write_memory_leaf(
+        memory_dir / "global" / "hammer_grasp.md",
+        memory_id="hammer_grasp",
+        scope="global",
+        cells=[cell],
+    )
+    inbox = memory_dir / "_internal" / "inbox" / cell
+    inbox.mkdir(parents=True)
+    (inbox / "conflict_hammer_grasp.md").write_text(
+        "The hammer must be grasped by the handle, not the head.\n"
+    )
+
+    result = MemoryManager(memory_dir).merge_memory(
+        cell_tag=cell,
+        run_state_dir=output_dir,
+        solved=False,
+    )
+
+    assert result["conflicts"] == 1
+    assert result["global"] == 0
+    assert result["skipped"] == []
+    archived = memory_dir / "_internal" / "conflicts" / f"hammer_grasp__from_{cell}.md"
+    assert "grasped by the handle" in archived.read_text()
+    assert not (memory_dir / "global" / "conflict_hammer_grasp.md").exists()

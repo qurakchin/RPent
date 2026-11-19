@@ -1,0 +1,15 @@
+schema = 2
+name = "dual_franka"
+kind = "robot"
+probe = "robots.dual_franka"
+python = ">=3.10,<3.13"
+extra = false
+description = "Dual-arm Franka hardware without policy or segmentation models."
+# Dual Franka extends the single-arm integration instead of duplicating its
+# camera, gripper, and teleoperation stack.
+requires = ["franka"]
+# Imports robots.franka directly; check_layout allows exactly these imports.
+imports = ["franka"]
+env_conflicts = ["libero", "robocasa", "robotwin", "robodojo"]
+
+dependencies = []

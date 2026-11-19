@@ -1,0 +1,117 @@
+name: Full CI
+
+# Proves a clean machine can install and run: every selected target gets a
+# fresh venv installed from its manifests, doctored, and — where a simulator
+# exists — exercised by the GPU suite. `fast ci` calls this workflow with the
+# targets a pull request affects; nightly and manual runs select every target.
+# The publish workflow calls it with `full: true`, which makes this the release
+# gate too: the same run installs and doctors every target.
+on:
+  schedule:
+    # Offset from other nightly jobs to spread runner load.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      full:
+        description: Install and doctor every target (release gate)
+        required: false
+        type: boolean
+        default: false
+      unit:
+        description: Run the whole unit suite (nightly, release and manual runs)
+        required: false
+        type: boolean
+        default: true
+      hosted:
+        description: JSON array of targets installed on a hosted runner
+        required: false
+        type: string
+        default: ""
+      gpu:
+        description: JSON array of targets installed on the embodied runner
+        required: false
+        type: string
+        default: ""
+      e2e:
+        description: JSON array of simulator suites (libero, robocasa, robotwin)
+        required: false
+        type: string
+        default: ""
+      toolkit:
+        description: Replay the geometry toolkit's frozen corpus
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  scope:
+    name: Select targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      hosted: ${{ steps.select.outputs.hosted }}
+      gpu: ${{ steps.select.outputs.gpu }}
+      e2e: ${{ steps.select.outputs.e2e }}
+      toolkit: ${{ steps.select.outputs.toolkit }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Select the targets and suites
+        id: select
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          CALLED_FULL: ${{ inputs.full }}
+          CALLED_HOSTED: ${{ inputs.hosted }}
+          CALLED_GPU: ${{ inputs.gpu }}
+          CALLED_E2E: ${{ inputs.e2e }}
+          CALLED_TOOLKIT: ${{ inputs.toolkit }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT" == "workflow_call" && "$CALLED_FULL" != "true" ]]; then
+            hosted=$CALLED_HOSTED
+            gpu=$CALLED_GPU
+            e2e=$CALLED_E2E
+            toolkit=$CALLED_TOOLKIT
+          else
+            # Nightly and manual runs, and a release call with `full: true`,
+            # cover every supported target on the runner its authored
+            # partition assigns it to.
+            hosted=$(uv run --no-project --python 3.11 --with packaging -- \
+              python -m tests.tooling.matrix --runner hosted)
+            gpu=$(uv run --no-project --python 3.11 --with packaging -- \
+              python -m tests.tooling.matrix --runner gpu)
+            e2e='["libero","robocasa","robotwin"]'
+            toolkit=true
+          fi
+          {
+            echo "hosted=$hosted"
+            echo "gpu=$gpu"
+            echo "e2e=$e2e"
+            echo "toolkit=$toolkit"
+          } >> "$GITHUB_OUTPUT"
+
+  unit:
+    name: Unit checks
+    # A pull request already ran the affected unit tests in `fast ci`. Nightly,
+    # release and manual runs still cover the whole suite.
+    if: github.event_name != 'workflow_call' || inputs.unit
+    uses: ./.github/workflows/unit.yml
+    with:
+      tests: "[]"
+      target: unit-cpu
+
+  env:
+    name: Environments
+    needs: scope
+    uses: ./.github/workflows/env.yml
+    with:
+      hosted: ${{ needs.scope.outputs.hosted }}
+      gpu: ${{ needs.scope.outputs.gpu }}
+      e2e: ${{ needs.scope.outputs.e2e }}
+      toolkit: ${{ needs.scope.outputs.toolkit == 'true' }}
+

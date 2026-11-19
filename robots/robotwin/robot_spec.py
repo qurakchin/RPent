@@ -28,11 +28,15 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from robots.robotwin.memory import prepare_memory, validate_options
 from robots.robotwin.observation import ROBOTWIN_CAMERAS
-from robots.robotwin.prompt_bundle import system_prompt, user_prompt
+from robots.robotwin.prompt_bundle import (
+    system_prompt,
+    tool_sections,
+    user_prompt,
+)
 from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
+from rpent.models.backends import (
     WAM_BACKENDS,
     add_am_args,
     select_am,
@@ -249,7 +253,12 @@ def _resolve_dashboard(args: argparse.Namespace) -> DashboardSpec:
 def get_robot_spec() -> RobotSpec:
     return RobotSpec(
         name="robotwin",
-        prompts=PromptBundle(system=system_prompt, user=user_prompt),
+        prompts=PromptBundle(
+            system=system_prompt,
+            user=user_prompt,
+            tool_sections=tool_sections,
+            source="robots/robotwin/prompts",
+        ),
         add_cli_args=_add_cli_args,
         parse_config=_parse_config,
         init_runtime=_init_runtime,
@@ -367,7 +376,7 @@ def _parse_config(args: argparse.Namespace) -> RunConfig:
         raise ValueError("--task-name is required")
     am = select_am(args, "robotwin")
     wam = am if am.is_wam else None
-    if wam is not None:
+    if wam is not None and am.backend != "uniwam":
         if getattr(args, "explore", False) or getattr(args, "planner", None) == "flash":
             raise ValueError("WAM supports evaluation without Flash Mode only")
         if getattr(args, "memory_profile", None) == "hf":
@@ -385,7 +394,7 @@ def _parse_config(args: argparse.Namespace) -> RunConfig:
     output_dir = Path(output_dir)
     initial_seed = int(args.seed)
     default_memory_dir = get_memory_dir("robotwin")
-    if wam is not None:
+    if wam is not None and am.backend != "uniwam":
         default_memory_dir /= wam.backend
     memory_dir = (
         Path(args.memory_dir).expanduser().resolve()
@@ -649,7 +658,7 @@ def _init_runtime(
             except Exception:
                 rpc.close()
                 raise
-            return {"model": client, "policy_kind": "wam"}
+            return {"model": client, "policy_kind": "wam", "policy_backend": am.backend}
 
         runtime_kwargs.update(
             try_wait_server(

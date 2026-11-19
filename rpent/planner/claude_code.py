@@ -28,6 +28,8 @@ import contextlib
 import dataclasses
 import json
 import queue
+import re
+import shlex
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -119,10 +121,10 @@ class ClaudeCodePlanner(Planner):
             raise ValueError(
                 "input_queue and dashboard_interaction cannot be used together"
             )
-        prompt = f"{system_prompt}\n\n{user_message}" if system_prompt else user_message
         return asyncio.run(
             self._solve_async(
-                prompt,
+                user_message,
+                system_prompt=system_prompt,
                 toolkit=toolkit,
                 max_turns=max_turns,
                 input_queue=input_queue,
@@ -136,6 +138,7 @@ class ClaudeCodePlanner(Planner):
         self,
         prompt: str,
         *,
+        system_prompt: str,
         toolkit: Toolkit,
         max_turns: int,
         input_queue: queue.Queue[str | None] | None = None,
@@ -203,6 +206,7 @@ class ClaudeCodePlanner(Planner):
                     max_turns=max_turns,
                     on_tool_result=recorder.observe_tool_result,
                     run_id=run_id,
+                    system_prompt=system_prompt,
                 )
                 if run_id is not None:
                     capture = ClaudeTraceCapture(toolkit.state, run_id, prompt, options)
@@ -261,6 +265,7 @@ class ClaudeCodePlanner(Planner):
         max_turns: int,
         on_tool_result: Callable[[str, ToolResult], None] | None = None,
         run_id: str | None = None,
+        system_prompt: str = "",
     ) -> Any:
         allowed = [
             part for part in self._allowed_tools.replace(",", " ").split() if part
@@ -273,11 +278,19 @@ class ClaudeCodePlanner(Planner):
         thinking = {"type": "disabled"} if self._reasoning_effort == "none" else None
         effort = None if self._reasoning_effort == "none" else self._reasoning_effort
         return sdk.ClaudeAgentOptions(
+            hooks=_memory_write_hooks(sdk, toolkit),
             cwd=self._repo_root,
             model=self._model,
             max_turns=max_turns,
             max_budget_usd=self._max_budget_usd,
             max_buffer_size=_MAX_STREAM_BUFFER_BYTES,
+            # Keep the SDK's Claude Code preset and append RPent's rules, so the
+            # system prompt stays a system message the SDK can cache.
+            system_prompt=(
+                {"type": "preset", "preset": "claude_code", "append": system_prompt}
+                if system_prompt
+                else None
+            ),
             tools=builtins or None,
             allowed_tools=list(dict.fromkeys(allowed)),
             mcp_servers={
@@ -772,6 +785,181 @@ def _tool_result_to_mcp(result: ToolResult) -> dict[str, Any]:
     if result.is_error:
         response["is_error"] = True
     return response
+
+
+# ---------------------------------------------------------------------------
+# Built-in tool guard
+# ---------------------------------------------------------------------------
+
+#: Built-in tools that write the file they name.
+_PATCH_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
+
+#: Shell commands that can create or modify files. Reading commands (``cat``,
+#: ``grep``, ``ls``) stay allowed so the agent can inspect published memory.
+_SHELL_WRITE_COMMANDS = frozenset(
+    {
+        "chmod",
+        "chown",
+        "cp",
+        "dd",
+        "git",
+        "install",
+        "ln",
+        "mkdir",
+        "mv",
+        "patch",
+        "perl",
+        "python",
+        "python3",
+        "rm",
+        "rmdir",
+        "rsync",
+        "ruby",
+        "sed",
+        "tar",
+        "tee",
+        "touch",
+        "truncate",
+        "unzip",
+    }
+)
+
+_SHELL_REDIRECT = re.compile(r"(?<![<&])>(?![&>])")
+_SHELL_CD = re.compile(r"(?:^|[;&|]\s*)cd\s+([^\s;&|]+)")
+
+
+def _resolve_path(raw: str, cwd: Path) -> Path:
+    path = Path(raw).expanduser()
+    return (path if path.is_absolute() else cwd / path).resolve()
+
+
+def _shell_tokens(command: str) -> list[str]:
+    try:
+        return shlex.split(command, comments=False, posix=True)
+    except ValueError:
+        return command.split()
+
+
+def _shell_path_tokens(command: str) -> list[str]:
+    """Return the tokens of a shell command that could name a path."""
+    tokens = []
+    for token in _shell_tokens(command):
+        token = token.lstrip("<>0123456789&").strip("\"'")
+        if "/" in token or token.startswith("~"):
+            tokens.append(token)
+    return tokens
+
+
+def _shell_may_write(command: str) -> bool:
+    """Whether a shell command can write, before resolving any target."""
+    if _SHELL_REDIRECT.search(command):
+        return True
+    return any(
+        Path(token).name in _SHELL_WRITE_COMMANDS for token in _shell_tokens(command)
+    )
+
+
+def _memory_write_target(
+    tool_name: str,
+    tool_input: dict[str, Any],
+    *,
+    cwd: Path,
+    memory_root: Path,
+) -> Path | None:
+    """Return the memory path a built-in call would modify, if any."""
+    if tool_name in _PATCH_TOOLS:
+        raw = (
+            tool_input.get("file_path")
+            or tool_input.get("notebook_path")
+            or tool_input.get("path")
+        )
+        if not isinstance(raw, str):
+            return None
+        target = _resolve_path(raw, cwd)
+    elif tool_name == "Bash":
+        command = tool_input.get("command")
+        if not isinstance(command, str) or not _shell_may_write(command):
+            return None
+        for raw in _shell_path_tokens(command):
+            target = _resolve_path(raw, cwd)
+            if target.is_relative_to(memory_root):
+                return target
+        # A directory can be named without a slash (``cd memory && rm x``),
+        # and an inline program can embed the path inside a larger token.
+        for match in _SHELL_CD.finditer(command):
+            target = _resolve_path(match.group(1).strip("\"'"), cwd)
+            if target.is_relative_to(memory_root):
+                return target
+        if str(memory_root) in command or re.search(
+            rf"(?:^|[\s'\"=(,:]){re.escape(memory_root.name)}/", command
+        ):
+            return memory_root
+        return None
+    else:
+        return None
+    return target if target.is_relative_to(memory_root) else None
+
+
+def _memory_write_hooks(sdk: Any, toolkit: Toolkit) -> dict[str, list[Any]] | None:
+    """Build a PreToolUse hook that denies built-in writes into memory.
+
+    The memory corpus is written through ``remember`` and ``corroborate``,
+    which run the inbox and confidence rules. Letting Bash or Write edit the
+    files directly would skip those rules, so the planner denies such calls
+    before the tool runs.
+
+    The shell check is a best-effort path heuristic, not a sandbox: it reads
+    the command text and resolves the paths it can recognize. It is defense in
+    depth alongside the file tools' own boundary and Codex's read-only sandbox,
+    not a claim that every obfuscated command is detected.
+    """
+    root = getattr(getattr(toolkit, "memory", None), "root", None)
+    if root is None:
+        return None
+    memory_root = Path(root).resolve()
+
+    async def guard(
+        input_data: dict[str, Any],
+        tool_use_id: str | None = None,
+        context: Any = None,
+    ) -> dict[str, Any]:
+        try:
+            tool_input = input_data.get("tool_input")
+            raw_cwd = input_data.get("cwd")
+            cwd = (
+                Path(str(raw_cwd)).resolve()
+                if isinstance(raw_cwd, str) and raw_cwd
+                else Path.cwd().resolve()
+            )
+            target = _memory_write_target(
+                str(input_data.get("tool_name", "")),
+                tool_input if isinstance(tool_input, dict) else {},
+                cwd=cwd,
+                memory_root=memory_root,
+            )
+            reason = (
+                None
+                if target is None
+                else (
+                    f"{target} is inside the RPent memory corpus, which built-in "
+                    "tools cannot modify. Use the remember or corroborate tool."
+                )
+            )
+        except Exception:
+            logger.exception("memory write guard failed; denying the call")
+            reason = "The RPent memory write guard could not check this call."
+        if reason is None:
+            return {}
+        logger.warning("denied built-in tool call: %s", reason)
+        return {
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": reason,
+            }
+        }
+
+    return {"PreToolUse": [sdk.HookMatcher(matcher=None, hooks=[guard])]}
 
 
 # ---------------------------------------------------------------------------

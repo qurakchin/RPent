@@ -20,37 +20,63 @@ from collections.abc import Mapping
 
 from robots.dual_franka.prompts import explore as explore_parts
 from robots.dual_franka.prompts import system as system_parts
+from robots.dual_franka.prompts import tools as tool_parts
 from robots.dual_franka.prompts import user as user_parts
-from rpent.prompt.utils import Numbered, PromptNode
+from rpent.prompt.assembly import PromptSection, section_source, sections
+from rpent.prompt.utils import Numbered
 
 
-def system_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
+def system_prompt(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
     """Assemble the dual-Franka system prompt."""
     if (variables or {}).get("mode") == "explore":
         return explore_parts.system_prompt()
-    node: dict[str, object] = {
-        "ROLE": system_parts.ROLE,
-        "RUNTIME": system_parts.RUNTIME,
-        "SAFETY RULES": Numbered(system_parts.RULES),
-        "CAMERA AND PROJECTION RULES": Numbered(system_parts.CAMERA_AND_PROJECTION),
-        "VLA SEGMENT GATES": Numbered(system_parts.VLA_GATES),
-        "WORKFLOW": Numbered(system_parts.WORKFLOW),
-    }
-    return node
+    return sections(
+        system_parts.__file__,
+        {
+            "ROLE": system_parts.ROLE,
+            "SAFETY RULES": Numbered(system_parts.RULES),
+            "WORKFLOW": Numbered(system_parts.WORKFLOW),
+        },
+    )
 
 
-def user_prompt(variables: Mapping[str, object] | None = None) -> PromptNode:
+def tool_sections(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
+    """Return the dual-Franka tool guidance for the tools layer."""
+    return tool_parts.tool_sections(variables)
+
+
+def user_prompt(
+    variables: Mapping[str, object] | None = None,
+) -> tuple[PromptSection, ...]:
     """Assemble the task-specific initial user prompt."""
-    node: dict[str, object] = {
-        "TASK": user_parts.TASK,
-        "TASK CONSTRAINTS": user_parts.CONSTRAINTS,
-        "BEGIN": explore_parts.BEGIN
-        if (variables or {}).get("mode") == "explore"
-        else user_parts.BEGIN,
-    }
-    if (variables or {}).get("mode") == "explore":
-        node["EXPLORATION OUTPUT"] = (
-            "Use {{memory_inbox}} for reviewable exploration notes and "
-            "{{output_dir}}/attempts/ for failed-attempt archives."
+    explore = (variables or {}).get("mode") == "explore"
+    begin = explore_parts.BEGIN if explore else user_parts.BEGIN
+    begin_source = explore_parts.__file__ if explore else user_parts.__file__
+    prompt = (
+        *sections(
+            user_parts.__file__,
+            {"TASK": user_parts.TASK, "TASK CONSTRAINTS": user_parts.CONSTRAINTS},
+            role="user",
+        ),
+        PromptSection("BEGIN", {"BEGIN": begin}, section_source(begin_source), "user"),
+    )
+    if explore:
+        prompt = (
+            *prompt,
+            PromptSection(
+                "EXPLORATION OUTPUT",
+                {
+                    "EXPLORATION OUTPUT": (
+                        "Use {{memory_inbox}} for reviewable exploration notes and "
+                        "{{output_dir}}/attempts/ for failed-attempt archives."
+                    )
+                },
+                section_source(__file__),
+                "user",
+            ),
         )
-    return node
+    return prompt

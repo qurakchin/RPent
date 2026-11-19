@@ -1,0 +1,10 @@
+schema = 2
+name = "xpolicylab"
+kind = "model"
+probe = "components.models.xpolicylab.server"
+python = ">=3.10,<3.13"
+placement = ["in-env", "remote"]
+
+# The XPolicyLab policy environment and its model dependencies follow the
+# upstream Awomo05 instructions and are installed separately from this adapter.
+dependencies = []

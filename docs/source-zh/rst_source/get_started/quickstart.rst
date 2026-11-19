@@ -16,22 +16,18 @@
 1. 安装 RPent
 ---------------
 
-创建并激活独立的 Python 环境：
+创建并激活 LIBERO-PRO 环境：
 
 .. code-block:: bash
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   uv venv --python 3.11
-   source .venv/bin/activate
+   ./rpent-install.sh install robot-libero_pro
+   source .venvs/robot-libero_pro/bin/activate
 
-先安装 OpenPI 要求的 ``torch==2.7.1`` 和 ``torchvision==0.22.1``。按 `PyTorch 安装说明 <https://pytorch.org/get-started/previous-versions/>`_ 选择兼容 GPU 和 NVIDIA 驱动的构建，将命令中的 ``pip install`` 换为 ``uv pip install``。安装完成后，再安装 LIBERO-PRO：
+目标会一起锁定 Python、RLinf 版本、Pi0.5、SAM 3.0 和 LIBERO 相关依赖。全部目标、各自的安装命令、独立的模型环境和诊断方法见 :doc:`installation`。
 
-.. code-block:: bash
-
-   uv pip install -e ".[libero-pro]"
-
-后续命令都在这个终端和 RPent 仓库目录中执行。重新打开终端时，先激活 ``.venv``，再设置下文的模型路径与 API Key。
+后续命令都在这个终端和 RPent 仓库目录中执行。重新打开终端时，先激活 ``.venvs/robot-libero_pro``，再设置下文的模型路径与 API Key。
 
 2. 下载仿真资源和模型
 ------------------------------

@@ -40,27 +40,31 @@ Use a branch name that reflects the change, such as
 ### Step 2. Set up the development environment
 
 ```bash
-# Create and activate an isolated environment.
-uv venv --python 3.11
-source .venv/bin/activate
+# Create and activate the development environment. The launcher runs the
+# installer in a throwaway uv environment until `.venvs/dev` exists.
+./rpent-install.sh install dev
+source .venvs/dev/bin/activate
 
-# Install the source checkout and the lightweight test dependencies.
-uv pip install -e ".[test]"
+# For robot work, install that target into its own environment. Targets
+# cannot share a virtualenv because their pins differ, and every target
+# resolves its dependencies from the manifests.
+rpent-install install robot-libero_pro  # LIBERO
+rpent-install install robot-robocasa    # RoboCasa
+rpent-install install robot-robotwin    # RoboTwin
 
-# For robot work, choose the matching test environment instead.
-uv pip install -e ".[test,libero-pro]"  # LIBERO
-uv pip install -e ".[test,robocasa]"    # RoboCasa
-uv pip install -e ".[test,robotwin]"    # RoboTwin
+# The target's dependencies omit the test runner; add it to that environment.
+uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout
 
 # Install and enable the repository hooks.
 uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-The commands above are alternatives: install only the robot extra relevant to
-the change. See the
-[installation guide](docs/source-en/rst_source/get_started/quickstart.rst) for
-environment-specific setup.
+The robot commands are alternatives: install only the target relevant to the
+change. See the [installation guide](docs/source-en/rst_source/get_started/installation.rst)
+for environment-specific setup and the
+[test guide](tests/README.md#test-suite-structure) for how each suite selects
+its target.
 
 ### Step 3. Develop
 
@@ -70,8 +74,11 @@ Follow these conventions while developing:
   repository-wide cleanup should normally be separate pull requests.
 - **Keep code in the appropriate module.** Reuse existing implementations
   where possible. Put integration code for a specific robot or simulation
-  environment in its `robots/<name>/` directory. Place shared functionality
-  in common modules with matching responsibilities.
+  environment in its `robots/<name>/` directory, model services in
+  `components/models/<name>/`, and toolkits in `components/toolkits/<name>/`.
+  Place shared functionality in common modules with matching responsibilities.
+  Install recipes and dependency-only components live under `installs/`;
+  optional reproduction locks live under `tests/locks/`.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and
@@ -94,7 +101,10 @@ Follow these conventions while developing:
 - **Write tests with the change.** New behavior and bug fixes should include
   tests. Refactors should keep existing tests passing; if behavior changes,
   update the tests and explain why. Unit tests must run offline on an ordinary
-  CPU machine; use fakes when model or service output is needed.
+  CPU machine; use fakes when model or service output is needed. Installer
+  units use synthetic manifests under `tests/unit_tests/rpent/install/`;
+  contracts over the checked-in components, targets, locks, and packaging
+  extras belong in `tests/unit_tests/installs/`.
 - **Follow the project style.** Pre-commit handles Ruff formatting and linting.
   Public Python APIs should have type hints and Google-style docstrings, and
   runtime messages should use the project logger rather than `print`.

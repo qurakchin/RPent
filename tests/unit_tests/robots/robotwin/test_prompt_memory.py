@@ -16,8 +16,8 @@
 
 from __future__ import annotations
 
-from robots.robotwin.prompt_bundle import system_prompt, user_prompt
-from rpent.prompt.utils import format_prompt
+from rpent.prompt.assembly import build_robot_prompt, run_axes
+from rpent.robots import get_robot_spec
 
 
 def test_prompts_render_with_memory_relative_paths():
@@ -27,10 +27,17 @@ def test_prompts_render_with_memory_relative_paths():
         "seed": 100000,
         "memory_dir": "memory/robotwin",
         "reference_tag": "robotwin_beat_block_hammer_demo_randomized_s0",
+        "mode": "eval",
+        "planner": "api",
     }
 
-    system = format_prompt(system_prompt(), variables=variables)
-    user = format_prompt(user_prompt(), variables=variables)
+    assembled = build_robot_prompt(
+        get_robot_spec("robotwin").prompts,
+        robot_name="robotwin",
+        variables=variables,
+        axes=run_axes(explore=False, dashboard=False, real_robot=False),
+    )
+    system, user = assembled.system, assembled.user
 
     assert "robots/robotwin/guides/GUIDE_RPENT.md" in system
     assert (
@@ -41,7 +48,7 @@ def test_prompts_render_with_memory_relative_paths():
         "memory/robotwin/task-specific/robotwin_beat_block_hammer_demo_randomized_s0_recipe.jsonl"
         in system
     )
-    assert "memory/robotwin/MEMORY.md" in system
+    assert "Call recall with the task name" in system
     assert "task: beat_block_hammer" in user
     assert "seed: 100000" in user
     assert "task_config: demo_randomized" in user
