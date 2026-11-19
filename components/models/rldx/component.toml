@@ -1,6 +1,5 @@
 schema = 2
-name = "rldx"
-kind = "model"
+name = "model-rldx"
 probe = "components.models.rldx.server"
 python = ">=3.10,<3.11"
 description = "RLDX policy runtime for RoboCasa."

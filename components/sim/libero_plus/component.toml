@@ -1,0 +1,21 @@
+schema = 2
+
+name = "sim-libero_plus"
+probe = "liberoplus"
+python = ">=3.10,<3.13"
+description = "LIBERO-plus simulation tasks for the LIBERO adapter."
+# LIBERO-plus cannot inherit the standard package: it requires robosuite<1.5
+# while sim-libero pins a newer one, so it installs its own task suite.
+requires = ["infra-rlinf"]
+env_conflicts = [
+  "sim-libero",
+  "sim-robotwin",
+  "robot-franka",
+  "robot-dual_franka",
+]
+
+dependencies = [
+  "rlinf-liberoplus",
+  "mujoco==3.3.0",
+  "h5py",
+]

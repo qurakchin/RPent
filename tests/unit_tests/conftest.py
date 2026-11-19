@@ -21,7 +21,13 @@ from pathlib import Path
 import pytest
 
 from rpent.install.discovery import Catalog
-from rpent.install.manifest import Component, Target
+from rpent.install.manifest import (
+    COMPONENT_DIRECTORIES,
+    DEFAULT_MANYLINUX,
+    DEFAULT_PLATFORMS,
+    Component,
+    Target,
+)
 from rpent.utils import logging as run_logging
 from rpent.utils.rpc.http_rpc import HttpRpcClient, HttpRpcServer
 from rpent.utils.rpc.socket_rpc import SocketRpcClient, SocketRpcServer
@@ -99,29 +105,35 @@ def write_toml(tmp_path):
 
 @pytest.fixture
 def make_component(tmp_path):
-    """Build a component without touching the filesystem."""
+    """Build a component without touching the filesystem.
+
+    ``name`` is the full component name, ``<kind>-<directory>``; the component
+    lives in the directory its kind owns, like a discovered one.
+    """
 
     def _make(name, **values):
-        kind = values.pop("kind", "robot")
-        directory = {
-            "model": Path("components") / "models",
-        }.get(kind, Path("robots"))
+        kind, _, directory = name.partition("-")
+        path = tmp_path / COMPONENT_DIRECTORIES[kind] / directory
         return Component(
             name=name,
             kind=kind,
-            path=tmp_path / directory / name,
-            manifest=tmp_path / directory / name / "component.toml",
-            probe=values.pop("probe", f"robots.{name}"),
+            path=path,
+            manifest=path / "component.toml",
+            probe=values.pop("probe", name.replace("-", ".")),
             python=values.pop("python", None),
             requires=tuple(values.pop("requires", ())),
             imports=tuple(values.pop("imports", ())),
             env_conflicts=tuple(values.pop("env_conflicts", ())),
-            default_variant=values.pop("default_variant", None),
-            variant_required=values.pop("variant_required", False),
             dependencies=tuple(values.pop("dependencies", ())),
-            optional=values.pop("optional", {}),
             overrides=tuple(values.pop("overrides", ())),
             manifest_sha256=values.pop("manifest_sha256", name),
+            platforms=tuple(values.pop("platforms", DEFAULT_PLATFORMS)),
+            manylinux=values.pop("manylinux", DEFAULT_MANYLINUX),
+            core=values.pop("core", True),
+            description=values.pop("description", None),
+            index_url=values.pop("index_url", None),
+            extra_index_urls=tuple(values.pop("extra_index_urls", ())),
+            index_strategy=values.pop("index_strategy", None),
         )
 
     return _make
@@ -135,15 +147,13 @@ def make_target(tmp_path):
         return Target(
             name=name,
             path=tmp_path / "installs" / "targets" / f"{name}.toml",
-            python=values.pop("python", "3.11"),
-            components=components or {},
+            components=tuple(components or ()),
             dependencies=tuple(values.pop("dependencies", ())),
             index_url=values.pop("index_url", None),
             extra_index_urls=tuple(values.pop("extra_index_urls", ())),
             index_strategy=values.pop("index_strategy", None),
             core=values.pop("core", True),
-            description=None,
-            manylinux=values.pop("manylinux", "2_31"),
+            description=values.pop("description", None),
         )
 
     return _make

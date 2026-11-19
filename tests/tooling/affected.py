@@ -57,6 +57,9 @@ from tests.tooling.matrix import MATRICES
 #: Component owner directories, longest prefix first.
 COMPONENT_ROOTS = (
     ("components/models", "model"),
+    ("components/sim", "sim"),
+    ("components/tools", "tool"),
+    ("components/infra", "infra"),
     ("robots", "robot"),
 )
 #: Tests every component group contributes to, relative to the repository root.
@@ -66,6 +69,12 @@ ROBOT_SHARED_TESTS = (
     "tests/unit_tests/robots/test_tool_schema_contracts.py",
     "tests/unit_tests/robots/test_toolkit_contracts.py",
 )
+#: Simulator components are exercised through the robot slice that wires them.
+#: LIBERO-plus adds task definitions on top of the LIBERO simulator, so the
+#: LIBERO slice covers it.
+SIM_ROBOT_SLICES = {"libero_plus": "libero"}
+#: Test directories for component kinds whose directory name is not the kind.
+COMPONENT_TEST_DIRS = {"tool": "tools"}
 #: Targets a pull request installs when a change affects the core. They cover
 #: the core-only environment and the CPU test environment without pulling the
 #: full GPU matrix into every core edit; nightly and release runs still install
@@ -125,13 +134,17 @@ def _is_docs(path: str) -> bool:
     return path.startswith("docs/") or path.endswith((".md", ".rst"))
 
 
-def _component_for(path: str) -> tuple[str, str] | None:
-    """Return ``(kind, name)`` when ``path`` belongs to one component."""
+def _component_for(path: str) -> str | None:
+    """Return the component name when ``path`` belongs to one component.
+
+    A component is named ``<kind>-<directory>``, so the owning directory and
+    the kind together name it without reading the manifest.
+    """
     parts = path.split("/")
     for root, kind in COMPONENT_ROOTS:
         root_parts = root.split("/")
         if parts[: len(root_parts)] == root_parts and len(parts) > len(root_parts):
-            return kind, parts[len(root_parts)]
+            return f"{kind}-{parts[len(root_parts)]}"
     return None
 
 
@@ -144,34 +157,14 @@ def _is_install_data(path: str) -> bool:
     return path == INSTALL_DATA_TESTS or path.startswith(f"{INSTALL_DATA_TESTS}/")
 
 
-def _targets_requiring(name: str, catalog: Catalog) -> list[str] | None:
-    """Return the targets that install deps component ``name``.
-
-    ``None`` widens the answer when a target cannot be resolved: ``check``
-    reports that target separately, and CI must install it rather than skip it.
-    """
-    if name not in catalog.components:
-        return None
-    found: list[str] = []
-    for target_name, target in sorted(catalog.targets.items()):
-        try:
-            resolution = resolve(target, catalog)
-        except InstallConfigError:
-            return None
-        if name in resolution.components:
-            found.append(target_name)
-    return found
-
-
 def _targets_for_install_data(
     paths: list[str], catalog: Catalog, root: Path
 ) -> tuple[str, ...]:
     """Return the targets whose installation reads ``paths``, or all of them.
 
-    A target file names itself, a lock names the target that declares it, and a
-    deps manifest names the targets whose closure installs it. Packaging
-    settings feed every target, and an unrecognised file widens the answer
-    rather than guessing which environments it reaches.
+    A target file names itself and a lock names the target that declares it.
+    Packaging settings feed every target, and an unrecognised file widens the
+    answer rather than guessing which environments it reaches.
     """
     every = tuple(sorted(catalog.targets))
     selected: set[str] = set()
@@ -200,11 +193,6 @@ def _targets_for_install_data(
             if not declared:
                 return every
             selected.update(declared)
-        elif area == "deps" and suffix == ".toml" and len(parts) == 3:
-            required = _targets_requiring(stem[: -len(suffix)], catalog)
-            if required is None:
-                return every
-            selected.update(required)
         else:
             return every
     return tuple(sorted(selected))
@@ -239,11 +227,8 @@ def affected_components(paths: list[str], catalog: Catalog) -> set[str] | None:
     """
     names: set[str] = set()
     for path in paths:
-        owner = _component_for(path)
-        if owner is None:
-            return None
-        _, name = owner
-        if name not in catalog.components:
+        name = _component_for(path)
+        if name is None or name not in catalog.components:
             return None
         names.add(name)
     return names
@@ -251,15 +236,33 @@ def affected_components(paths: list[str], catalog: Catalog) -> set[str] | None:
 
 def _tests_for(kind: str, name: str, root: Path) -> list[str]:
     """Return the existing test paths that mirror one component."""
+    # A component is named ``<kind>-<directory>``; the tests mirror the
+    # directory under the kind's test root. Simulator code is also exercised by
+    # the robot slice that wires it.
+    directory = name.partition("-")[2]
     if kind == "robot":
         candidates = [
-            f"tests/unit_tests/robots/{name}",
+            f"tests/unit_tests/robots/{directory}",
+            *ROBOT_SHARED_TESTS,
+            CROSS_COMPONENT_TESTS,
+        ]
+    elif kind == "model":
+        candidates = [
+            "tests/unit_tests/components/models",
+            CROSS_COMPONENT_TESTS,
+        ]
+    elif kind == "sim":
+        robot = SIM_ROBOT_SLICES.get(directory, directory)
+        candidates = [
+            f"tests/unit_tests/components/sim/{directory}",
+            f"tests/unit_tests/robots/{robot}",
             *ROBOT_SHARED_TESTS,
             CROSS_COMPONENT_TESTS,
         ]
     else:
+        test_dir = COMPONENT_TEST_DIRS.get(kind, kind)
         candidates = [
-            "tests/unit_tests/components/models",
+            f"tests/unit_tests/components/{test_dir}/{directory}",
             CROSS_COMPONENT_TESTS,
         ]
     return [path for path in candidates if (root / path).exists()]

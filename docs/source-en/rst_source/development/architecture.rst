@@ -61,10 +61,12 @@ package under ``robots/`` supplies the environment-specific implementation
 described above. Installable components that are not robots live under
 ``components/``, and the install recipes and locks live under ``installs/``.
 
-The dependency direction is fixed: ``robots/`` → ``components/`` → ``rpent/``.
-The core discovers components by name and never imports them statically, and
-model services do not import robots or each other; they expose contracts
-instead.
+Imports point downward: a robot slice may import simulators, model services,
+tools, and infra; a model service may import tools and infra but not robots,
+simulators, or sibling models; a simulator may import tools and infra but not
+robots or model services. The core discovers components by name and never
+imports them statically, and components that need each other's behavior share a
+contract instead of importing it.
 
 .. code-block:: text
 
@@ -89,11 +91,13 @@ instead.
      dual_franka/
      robodojo/
      yam/
-   components/
-     models/         # Model services, one installable component each
+   components/       # Installable non-robot components, named <kind>-<directory>
+     sim/            # Simulator servers, observations, controls, and suites
+     models/         # Model services
+     tools/          # Out-of-tree tools such as flywheel
+     infra/          # Shared runtimes such as RLinf
    installs/
      targets/        # Supported install targets
-     deps/           # Dependency-only component manifests
    tests/
      locks/          # Optional reproduction locks, one per target
 

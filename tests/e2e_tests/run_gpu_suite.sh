@@ -20,8 +20,8 @@ set -euo pipefail
 unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX
 
 if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <robot-libero_pro|robot-robocasa|robot-robotwin> <output-dir> <venv-root>"
-  echo "Targets are the robot-libero_pro, robot-robocasa, and robot-robotwin targets."
+  echo "Usage: $0 <robot-libero|robot-robocasa|robot-robotwin> <output-dir> <venv-root>"
+  echo "Targets are the robot-libero, robot-robocasa, and robot-robotwin targets."
   exit 2
 fi
 
@@ -270,15 +270,15 @@ run_in_clean_env() {
 }
 
 case "$target" in
-  robot-libero_pro)
+  robot-libero)
     require_dir PI05_CHECKPOINT_PATH
     require_file SAM3_CHECKPOINT_PATH
     require_dir LIBERO_PRO_ASSET_PATH
     # Keep package imports and child daemons off the runner's shared config.
     export LIBERO_CONFIG_PATH="$(cd "$output_dir" && pwd)/libero-config"
     mkdir -p "$LIBERO_CONFIG_PATH"
-    venv_dir="$venv_root/robot-libero_pro"
-    run_rpent_install 3.11 install robot-libero_pro --venv "$venv_dir"
+    venv_dir="$venv_root/robot-libero"
+    run_rpent_install 3.11 install robot-libero --venv "$venv_dir"
     install_test_runner "$venv_dir/bin/python"
     # Keep realpath(__file__) beside this venv's assets, preserving the Git revision.
     liberopro_requirement=$(uv pip freeze --python "$venv_dir/bin/python" \
@@ -295,11 +295,11 @@ case "$target" in
       cd "$repo_root"
       export RPENT_LIBERO_VARIANT=pro
       run_gpu_pytest \
-        robot-libero_pro \
+        robot-libero \
         "$venv_dir/bin/python" \
         tests/e2e_tests/libero \
         "$output_dir/pro" \
-        "$output_dir/robot-libero_pro-junit.xml"
+        "$output_dir/robot-libero-junit.xml"
     )
     find "$venv_dir" -depth -delete
     ;;

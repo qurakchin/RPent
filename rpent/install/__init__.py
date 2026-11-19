@@ -37,7 +37,7 @@ from rpent.install.fingerprint import (
     read_fingerprint,
     write_fingerprint,
 )
-from rpent.install.manifest import Component, Selection, Target
+from rpent.install.manifest import Component, Target
 from rpent.install.require import MissingComponentError, require
 from rpent.install.resolve import Resolution, resolve
 
@@ -50,7 +50,6 @@ __all__ = [
     "MissingComponentError",
     "Target",
     "Resolution",
-    "Selection",
     "discover",
     "discover_components",
     "discover_targets",

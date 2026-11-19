@@ -28,11 +28,9 @@ from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     FINGERPRINT_NAME,
-    SUPPORTED_PLATFORM,
     fingerprint_sha256,
     freeze_sha256,
     read_fingerprint,
-    runtime_platform,
 )
 from rpent.install.installer import (
     find_uv,
@@ -180,24 +178,20 @@ def check_installation(
     checks.append(Check(OK, f"python: {fingerprint.get('python', '?')}"))
     installed_python = str(fingerprint.get("python", ""))
     if not installed_python or not python_accepted(resolution, installed_python):
+        ranges = "; ".join(
+            f"{name}: {component.python}"
+            for name, component in sorted(resolution.components.items())
+            if component.python is not None
+        )
         checks.append(
             Check(
                 FAIL,
-                f"target {target.name!r} requires Python {target.python}, "
-                f"found {fingerprint.get('python', '?')}",
+                f"the components of target {target.name!r} do not accept the "
+                f"installed Python {fingerprint.get('python', '?')}"
+                + (f" ({ranges})" if ranges else ""),
             )
         )
-    current_platform = runtime_platform()
-    if current_platform != SUPPORTED_PLATFORM:
-        checks.append(
-            Check(
-                FAIL,
-                f"this host is {current_platform}, but RPent installs only "
-                f"{SUPPORTED_PLATFORM}",
-            )
-        )
-    else:
-        checks.append(Check(OK, f"platform: {current_platform}"))
+    checks.append(Check(OK, f"platform: {resolution.platform}"))
 
     try:
         uv = find_uv()
@@ -225,22 +219,23 @@ def check_installation(
             checks.append(Check(OK, "uv pip check"))
 
     environment = {**os.environ, "PYTHONPATH": str(repo_root)}
-    for component in resolution.main_installed().values():
-        probe = component.component.probe
+    for name, component in sorted(resolution.components.items()):
+        probe = component.probe
         result = _run(
             [str(python), "-c", probe_source(probe)],
             env=environment,
         )
         if result.returncode != 0:
+            detail = (
+                result.stderr.strip().splitlines()[-1]
+                if result.stderr.strip()
+                else probe
+            )
             checks.append(
-                Check(
-                    FAIL,
-                    f"component {component.name!r} is not importable: "
-                    f"{result.stderr.strip().splitlines()[-1] if result.stderr.strip() else probe}",
-                )
+                Check(FAIL, f"component {name!r} is not importable: {detail}")
             )
         else:
-            checks.append(Check(OK, f"probe {component.name}: import {probe}"))
+            checks.append(Check(OK, f"probe {name}: import {probe}"))
 
     # Services deployed as their own target are reached by endpoint. The
     # installation no longer records which components run elsewhere, so probe

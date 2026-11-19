@@ -1,6 +1,5 @@
 schema = 2
-name = "fast_wam"
-kind = "model"
+name = "model-fast_wam"
 probe = "components.models.fast_wam.server"
 python = ">=3.10,<3.13"
 

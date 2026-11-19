@@ -121,8 +121,8 @@ RPent 面向以下四类用户：
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # 默认推荐（LIBERO-PRO）：
-./rpent-install.sh install robot-libero_pro
-source .venvs/robot-libero_pro/bin/activate
+./rpent-install.sh install robot-libero
+source .venvs/robot-libero/bin/activate
 
 # 其他目标同样安装到 .venvs/<目标>：
 rpent-install install robot-robocasa    # RoboCasa
@@ -131,7 +131,7 @@ rpent-install install robot-franka      # Franka
 rpent-install install robot-dual_franka # 双臂 Franka
 ```
 
-`robot-libero_pro` 是默认推荐目标。全部目标、兼容 extra 和诊断方法见
+`robot-libero` 是默认推荐目标。全部目标和诊断方法见
 [安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/installation.html)。
 
 RoboCasa 安装、任务 memory 与 Target50 协议参见

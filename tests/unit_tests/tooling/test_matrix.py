@@ -24,7 +24,7 @@ def _write_target(root, name):
     path = root / "installs" / "targets" / f"{name}.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        f'schema = 2\nkind = "target"\nname = "{name}"\npython = "3.11"\n',
+        f'schema = 2\nname = "{name}"\n',
         encoding="utf-8",
     )
     return path

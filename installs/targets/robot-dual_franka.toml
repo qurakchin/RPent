@@ -1,12 +1,9 @@
 schema = 2
-kind = "target"
 name = "robot-dual_franka"
-python = "3.11"
-
 description = "Dual-arm Franka with Pi0.5 and SAM 3.0."
 
-[components.dual_franka]
+[components.robot-dual_franka]
 
-[components.openpi]
+[components.model-openpi]
 
-[components.sam3]
+[components.model-sam3]

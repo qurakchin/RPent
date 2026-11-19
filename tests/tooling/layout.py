@@ -19,17 +19,21 @@ Rules:
 - K1: top-level directories and root files match the repository layout
   whitelist.
 - K2: every component directory declares a ``component.toml`` with the
-  matching kind (manifest validity is left to ``tests.tooling.check``) and has
+  matching kind (manifest validity is left to ``rpent-install check``) and has
   the role files its kind requires.
 - K3: a slice root must not add a retired name, and a migrated slice must not
   keep one. Components that predate the skeleton only warn until their
   migration lands.
-- K4: ``components/models/`` must not import ``robots`` or a sibling model
-  service. A robot slice may import another slice only when its manifest
-  declares it in ``imports`` and one of the two ``requires`` the other. Core
-  ``rpent/**`` must not import ``components.models`` or a concrete
-  ``robots.<name>``; importing the ``robots`` package itself for discovery is
-  allowed.
+- K4: component imports point downward. A model service must not import
+  ``robots``, a simulator, or a sibling model; a simulator must not import
+  ``robots`` or a model service; a tool or infra component must not import
+  ``robots``, a simulator, or a model service; and a robot slice may import
+  another slice only when its manifest declares it in ``imports`` and one of
+  the two ``requires`` the other. Core ``rpent/**`` must not import
+  ``components.models``, ``components.sim``, ``components.tools``,
+  ``components.infra``, or a concrete ``robots.<name>``; importing the
+  ``robots`` package itself for discovery is allowed. A thin CLI shim to an
+  out-of-tree component tool is exempt while it keeps the import lazy.
 - K5: core ``rpent/**`` must not name a robot or benchmark (R8).
   ``rpent/models/backends.py`` is exempt while the backend table still names
   the robots it routes to; the wire-contract copies live with the model
@@ -99,14 +103,35 @@ CORE_NAME_EXEMPTIONS = {
         date(2027, 6, 30),
     ),
 }
+#: Core modules allowed to import a component package, with the reason and the
+#: expiry date. A console script must resolve to an importable module even when
+#: the component is not installed, so the shim imports it at call time.
+CORE_IMPORT_EXEMPTIONS = {
+    "rpent/cli/flywheel.py": (
+        "the flywheel console script launches the component CLI, which is only "
+        "importable when tool-flywheel is installed",
+        date(2027, 6, 30),
+    ),
+}
 #: Migration exceptions (legacy role files and retired slice names) warn until
 #: this date and fail afterwards.
 MIGRATION_DEADLINE = date(2027, 6, 30)
+#: Directory under the repository root that owns each component kind.
+COMPONENT_DIRECTORIES = {
+    "robot": "robots",
+    "sim": "components/sim",
+    "model": "components/models",
+    "tool": "components/tools",
+    "infra": "components/infra",
+}
 #: Package groups that must be importable packages even when empty.
 GROUP_PACKAGES = (
     "robots",
     "components",
     "components/models",
+    "components/sim",
+    "components/tools",
+    "components/infra",
 )
 #: Files that carry wire data rather than behavior. They may use the standard
 #: library, NumPy, core contracts, and their own group's modules; anything else
@@ -245,6 +270,11 @@ REQUIRED_ROLE_FILES = {
     # A model service only needs an importable package and its server; config
     # and README are useful conventions, not skeleton requirements.
     "model": ("__init__.py", "server.py"),
+    # A simulator, tool, or infra component is a package that ships its
+    # manifest; its role files follow the runtime it adapts.
+    "sim": ("__init__.py",),
+    "tool": ("__init__.py",),
+    "infra": ("__init__.py",),
 }
 #: Components that predate the target skeleton; missing role files warn until
 #: their migration lands.
@@ -407,22 +437,34 @@ def _owner(path: Path, root: Path) -> tuple[str, str] | None:
     relative = path.relative_to(root).parts
     if not relative:
         return None
-    if relative[0] == "robots" and len(relative) > 1:
-        return "robot", relative[1]
-    if relative[:2] == ("components", "models") and len(relative) > 2:
-        return "model", relative[2]
     if relative[0] == "rpent":
         return "core", ""
+    for kind, directory in COMPONENT_DIRECTORIES.items():
+        parts = tuple(directory.split("/"))
+        if relative[: len(parts)] == parts and len(relative) > len(parts):
+            return kind, relative[len(parts)]
     return None
 
 
 def _declared_imports(root: Path) -> dict[str, set[str]]:
-    """Return component -> siblings it may import because it declares them."""
+    """Return slice directory -> robot slices it may import.
+
+    Component names carry their kind prefix while a slice is owned by its
+    directory name, so the declared ``robot-<name>`` entries are reduced to
+    the directory names this check reports.
+    """
     try:
         components = discover_components(root)
     except InstallConfigError:
         return {}
-    return {name: set(component.imports) for name, component in components.items()}
+    return {
+        component.path.name: {
+            imported.removeprefix("robot-")
+            for imported in component.imports
+            if imported.startswith("robot-")
+        }
+        for component in components.values()
+    }
 
 
 def check_top_level(root: Path) -> list[Finding]:
@@ -456,10 +498,26 @@ def check_top_level(root: Path) -> list[Finding]:
     return findings
 
 
-def check_imports(root: Path) -> list[Finding]:
+def check_imports(root: Path, *, today: date | None = None) -> list[Finding]:
     """Return K4 import boundary violations under ``root``."""
     findings: list[Finding] = []
     declared_imports = _declared_imports(root)
+    today = today or date.today()
+    for relative, (reason, deadline) in CORE_IMPORT_EXEMPTIONS.items():
+        if today > deadline:
+            findings.append(
+                Finding(
+                    root / relative,
+                    0,
+                    f"K4 import exemption for {relative!r} expired on "
+                    f"{deadline.isoformat()}; remove it or renew it with a new "
+                    "reason and date",
+                )
+            )
+    exemptions = {
+        (root / relative).resolve(): (reason, deadline, today > deadline)
+        for relative, (reason, deadline) in CORE_IMPORT_EXEMPTIONS.items()
+    }
     for path in sorted(root.rglob("*.py")):
         if path.name.startswith("."):
             # AppleDouble metadata for a synced checkout, not source.
@@ -481,6 +539,15 @@ def check_imports(root: Path) -> list[Finding]:
                             f"model {name!r} must not import robots",
                         )
                     )
+                if _under(module, "components.sim"):
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"model {name!r} must not import a simulator; "
+                            "keep the shared values in the model package",
+                        )
+                    )
                 sibling = _sibling_package(module, "components.models")
                 if sibling is not None and sibling != name:
                     findings.append(
@@ -489,6 +556,44 @@ def check_imports(root: Path) -> list[Finding]:
                             line,
                             f"model {name!r} must not import sibling "
                             f"{sibling!r}; declare a shared contract instead",
+                        )
+                    )
+            elif kind == "sim":
+                if module == "robots" or robot is not None:
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"sim {name!r} must not import robots; the robot "
+                            "adapter layers on top of the simulator",
+                        )
+                    )
+                if _under(module, "components.models"):
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"sim {name!r} must not import a model service",
+                        )
+                    )
+            elif kind in {"tool", "infra"}:
+                if module == "robots" or robot is not None:
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"{kind} {name!r} must not import robots",
+                        )
+                    )
+                if _under(module, "components.sim") or _under(
+                    module, "components.models"
+                ):
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"{kind} {name!r} must not import a simulator or "
+                            "model service",
                         )
                     )
             elif kind == "robot":
@@ -507,15 +612,30 @@ def check_imports(root: Path) -> list[Finding]:
                         )
                     )
             elif kind == "core":
-                if _under(module, "components.models"):
-                    findings.append(
-                        Finding(
-                            path,
-                            line,
-                            "core must not import model services; keep them "
-                            "behind the rpent.models client contract",
-                        )
-                    )
+                exemption = exemptions.get(path.resolve())
+                exempt = exemption is not None and not exemption[2]
+                for package, message in (
+                    (
+                        "components.models",
+                        "core must not import model services; keep them "
+                        "behind the rpent.models client contract",
+                    ),
+                    (
+                        "components.sim",
+                        "core must not import simulators; keep them behind "
+                        "the robot adapters that own them",
+                    ),
+                    (
+                        "components.tools",
+                        "core must not import component tools",
+                    ),
+                    (
+                        "components.infra",
+                        "core must not import infra components",
+                    ),
+                ):
+                    if _under(module, package) and not exempt:
+                        findings.append(Finding(path, line, message))
                 if robot is not None:
                     findings.append(
                         Finding(
@@ -524,6 +644,17 @@ def check_imports(root: Path) -> list[Finding]:
                             f"core must not import concrete robot {robot!r}",
                         )
                     )
+    for path, (reason, deadline, expired) in exemptions.items():
+        if not expired and path.is_file():
+            findings.append(
+                Finding(
+                    path,
+                    0,
+                    f"K4 import exemption applies until {deadline.isoformat()}: "
+                    f"{reason}",
+                    WARNING,
+                )
+            )
     return findings
 
 
@@ -745,17 +876,12 @@ def check_coverage(root: Path) -> list[Finding]:
     except InstallConfigError as exc:
         return [Finding(root / "component.toml", 0, str(exc))]
     declared = {component.path.resolve() for component in components.values()}
-    roots = [
-        (root / "robots", "robot"),
-        (root / "components" / "models", "model"),
-    ]
-    for directory, kind in roots:
+    for kind, relative in COMPONENT_DIRECTORIES.items():
+        directory = root / relative
         if not directory.is_dir():
             continue
         for child in sorted(directory.iterdir()):
             if not child.is_dir() or child.name.startswith((".", "_")):
-                continue
-            if kind == "model" and not any(child.glob("*.py")):
                 continue
             if child.resolve() not in declared:
                 findings.append(
@@ -776,17 +902,12 @@ def check_role_files(root: Path, *, today: date | None = None) -> list[Finding]:
     """
     findings: list[Finding] = []
     expired = (today or date.today()) > MIGRATION_DEADLINE
-    roots = [
-        (root / "robots", "robot"),
-        (root / "components" / "models", "model"),
-    ]
-    for directory, kind in roots:
+    for kind, relative in COMPONENT_DIRECTORIES.items():
+        directory = root / relative
         if not directory.is_dir():
             continue
         for child in sorted(directory.iterdir()):
             if not child.is_dir() or child.name.startswith((".", "_")):
-                continue
-            if kind == "model" and not any(child.glob("*.py")):
                 continue
             required = REQUIRED_ROLE_FILES[kind]
             missing = [name for name in required if not (child / name).exists()]
@@ -875,7 +996,7 @@ def check_legacy_names(root: Path, *, today: date | None = None) -> list[Finding
 def check_file_sizes(root: Path) -> list[Finding]:
     """Return K7 warnings for role files over their line-count limit."""
     findings: list[Finding] = []
-    for directory in ("robots", "components/models"):
+    for directory in ("robots", "components"):
         for path in sorted((root / directory).rglob("*.py")):
             limit = LINE_LIMITS.get(path.name)
             if limit is None:

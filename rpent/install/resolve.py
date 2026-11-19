@@ -23,7 +23,6 @@ from rpent.install.discovery import Catalog
 from rpent.install.manifest import (
     PYTHON_MINORS,
     Component,
-    Selection,
     Target,
     python_specifier,
 )
@@ -37,59 +36,29 @@ if TYPE_CHECKING:
 # installed; every install path still needs packaging.
 
 
-@dataclass(frozen=True)
-class ResolvedComponent:
-    """One component installed by a target."""
-
-    component: Component
-    variant: str | None
-
-    @property
-    def name(self) -> str:
-        """Return the component name."""
-        return self.component.name
-
-    def dependencies(self) -> tuple[str, ...]:
-        """Return direct dependencies including the selected variant."""
-        return self.component.dependencies_for(self.variant)
-
-
 @dataclass
 class Resolution:
-    """The components and diagnostics produced by one target."""
+    """The components, environment settings, and diagnostics of one target."""
 
     target: Target
-    components: dict[str, ResolvedComponent] = field(default_factory=dict)
-    #: Deps components pulled in by a consumer installed in this environment.
-    deps: list[str] = field(default_factory=list)
-    #: Concrete Python minor the target resolves to, newest supported first.
+    #: Every component the target installs, keyed by name: the selections plus
+    #: their ``requires`` closure.
+    components: dict[str, Component] = field(default_factory=dict)
+    #: Concrete Python minor every component accepts, newest supported first.
     python: str | None = None
+    #: Host the environment is resolved for.
+    platform: str = "linux-x86_64"
+    #: Newest glibc baseline any component needs.
+    manylinux: str = "2_31"
+    index_url: str | None = None
+    extra_index_urls: tuple[str, ...] = ()
+    index_strategy: str | None = None
     errors: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
         """Return whether static checks passed."""
         return not self.errors
-
-    def main_components(self) -> dict[str, ResolvedComponent]:
-        """Return components installed into the target's environment."""
-        return {
-            name: resolved
-            for name, resolved in self.components.items()
-            if not resolved.component.is_deps
-        }
-
-    def main_deps(self) -> dict[str, ResolvedComponent]:
-        """Return the deps components installed with this environment."""
-        return {name: self.components[name] for name in self.deps}
-
-    def main_installed(self) -> dict[str, ResolvedComponent]:
-        """Return every component installed into the target's environment.
-
-        This is what the environment must be able to import: components with
-        code and the deps groups their consumers require.
-        """
-        return {**self.main_components(), **self.main_deps()}
 
 
 def _canonical(value: str) -> tuple[str, SpecifierSet, str] | None:
@@ -117,7 +86,7 @@ def _owner_pin(value: str) -> tuple[str, str] | None:
     """Return ``(package, pin)`` for an exact pin or a URL requirement.
 
     Ranges and unpinned requirements compose, so they are not owners: whether
-    they resolve together is uv's decision (``python -m tests.tooling.check --resolve``).
+    they resolve together is uv's decision (``rpent-install check --resolve``).
     """
     identity = _canonical(value)
     if identity is None:
@@ -196,8 +165,8 @@ def _override_conflicts(resolution: Resolution) -> list[str]:
     pair and let the components own their constraints or share one file.
     """
     owners: dict[str, list[str]] = {}
-    for name, resolved in sorted(resolution.main_installed().items()):
-        for package in _override_packages(resolved.component):
+    for name, component in sorted(resolution.components.items()):
+        for package in _override_packages(component):
             owners.setdefault(package, []).append(name)
     errors: list[str] = []
     for package, names in sorted(owners.items()):
@@ -228,10 +197,10 @@ def _target_duplicate_dependencies(resolution: Resolution) -> list[str]:
         if identity is not None
     }
     errors: list[str] = []
-    for name, resolved in sorted(resolution.main_installed().items()):
+    for name, component in sorted(resolution.components.items()):
         owned = {
             identity[0]
-            for identity in map(_canonical, resolved.dependencies())
+            for identity in map(_canonical, component.dependencies)
             if identity is not None
         }
         for package in sorted(declared & owned):
@@ -243,9 +212,9 @@ def _target_duplicate_dependencies(resolution: Resolution) -> list[str]:
     return errors
 
 
-def _dependency_pins(component: ResolvedComponent) -> dict[str, str]:
+def _dependency_pins(component: Component) -> dict[str, str]:
     """Return package -> pin for one component's direct requirements."""
-    identities = (_canonical(value) for value in component.dependencies())
+    identities = (_canonical(value) for value in component.dependencies)
     return {
         identity[0]: str(identity[1]) or identity[2]
         for identity in identities
@@ -254,8 +223,8 @@ def _dependency_pins(component: ResolvedComponent) -> dict[str, str]:
 
 
 def _format_conflict(
-    left: ResolvedComponent,
-    right: ResolvedComponent,
+    left: Component,
+    right: Component,
     *,
     target: str,
 ) -> str:
@@ -281,29 +250,16 @@ def _format_conflict(
     )
 
 
-def _choose_python(
-    target: Target,
-    components: list[ResolvedComponent],
-    errors: list[str],
-    display: str,
-) -> str | None:
-    """Return the newest supported Python minor every constraint accepts.
+def choose_python(components: list[Component], errors: list[str]) -> str | None:
+    """Return the newest supported Python minor every component accepts.
 
-    The target's request and each component's range are both constraints. A
-    target that writes ``3.11`` pins the minor; a target that writes
-    ``>=3.10,<3.13`` lets the resolver pick the newest of :data:`PYTHON_MINORS`
-    that all components accept.
+    A component that declares no ``python`` accepts every supported minor, so a
+    target whose components are all unconstrained resolves to the newest one.
     """
     from packaging.specifiers import InvalidSpecifier
 
-    try:
-        requested = python_specifier(target.python)
-    except InvalidSpecifier as exc:
-        errors.append(f"{display}: invalid python request {target.python!r}: {exc}")
-        return None
     ranges: list[tuple[str, SpecifierSet]] = []
-    for resolved in components:
-        component = resolved.component
+    for component in components:
         if component.python is None:
             continue
         try:
@@ -314,38 +270,28 @@ def _choose_python(
                 f"{component.python!r}: {exc}"
             )
     for minor in PYTHON_MINORS:
-        if not requested.contains(minor, prereleases=True):
-            continue
-        rejected = [
-            name
-            for name, supported in ranges
-            if not supported.contains(minor, prereleases=True)
-        ]
-        if not rejected:
+        if all(
+            supported.contains(minor, prereleases=True) for _, supported in ranges
+        ):
             return minor
     details = "\n".join(
         f"  {name}: Python {supported}"
         for name, supported in sorted(ranges, key=lambda item: item[0])
     )
     errors.append(
-        f"target {target.name!r} requests Python {target.python}, but no "
-        f"supported version ({', '.join(PYTHON_MINORS)}) satisfies every "
-        f"component" + (f"\n{details}" if details else "")
+        f"no supported Python version ({', '.join(PYTHON_MINORS)}) satisfies "
+        "every component" + (f"\n{details}" if details else "")
     )
     return None
 
 
 def python_accepted(resolution: Resolution, version: str) -> bool:
-    """Return whether every constraint in ``resolution`` accepts ``version``."""
+    """Return whether every component in ``resolution`` accepts ``version``."""
     from packaging.specifiers import InvalidSpecifier
 
     try:
-        if not python_specifier(resolution.target.python).contains(
-            version, prereleases=True
-        ):
-            return False
-        for resolved in resolution.components.values():
-            declared = resolved.component.python
+        for component in resolution.components.values():
+            declared = component.python
             if declared is not None and not python_specifier(declared).contains(
                 version, prereleases=True
             ):
@@ -355,107 +301,140 @@ def python_accepted(resolution: Resolution, version: str) -> bool:
     return True
 
 
+def _baseline(value: str) -> tuple[int, int]:
+    """Return a ``manylinux`` value as comparable numbers."""
+    major, minor = value.split("_")
+    return int(major), int(minor)
+
+
+def _describe_settings(values: dict[str, list[str]]) -> str:
+    """Return ``value (owners)`` pairs for an error message."""
+    return "; ".join(
+        f"{value!r} from {', '.join(owners)}"
+        for value, owners in sorted(values.items())
+    )
+
+
+def _inherited(
+    values: dict[str, list[str]],
+    *,
+    why: str,
+    display: str,
+    errors: list[str],
+) -> str | None:
+    """Return the value a component group declares when the target leaves it out.
+
+    A component owns the index its packages come from, so a composition target
+    that leaves ``index-url`` or ``index-strategy`` unset inherits it. A
+    disagreement is an error: one environment cannot resolve against two
+    indexes, and picking one side would silently break the other component.
+    """
+    if not values:
+        return None
+    if len(values) > 1:
+        errors.append(
+            f"{display}: components declare different {why}: "
+            f"{_describe_settings(values)}; one environment resolves against "
+            "one setting, so declare it on the target"
+        )
+        return None
+    return next(iter(values))
+
+
+def _apply_settings(
+    resolution: Resolution, *, display: str
+) -> None:
+    """Fill the resolved index settings and glibc baseline."""
+    target = resolution.target
+    components = list(resolution.components.values())
+    index_urls: dict[str, list[str]] = {}
+    strategies: dict[str, list[str]] = {}
+    extra_urls: dict[str, list[str]] = {}
+    for component in components:
+        if component.index_url:
+            index_urls.setdefault(component.index_url, []).append(component.name)
+        if component.index_strategy:
+            strategies.setdefault(component.index_strategy, []).append(component.name)
+        for url in component.extra_index_urls:
+            extra_urls.setdefault(url, []).append(component.name)
+
+    resolution.index_url = target.index_url or _inherited(
+        index_urls,
+        why="index URLs",
+        display=display,
+        errors=resolution.errors,
+    )
+    resolution.index_strategy = target.index_strategy or _inherited(
+        strategies,
+        why="index strategies",
+        display=display,
+        errors=resolution.errors,
+    )
+    resolution.extra_index_urls = tuple(
+        sorted({*target.extra_index_urls, *extra_urls})
+    )
+    if components:
+        resolution.manylinux = max(
+            (component.manylinux for component in components), key=_baseline
+        )
+
+
+def _check_platform(
+    resolution: Resolution, *, display: str
+) -> None:
+    """Report components that do not install on the resolved host."""
+    for name, component in sorted(resolution.components.items()):
+        if resolution.platform in component.platforms:
+            continue
+        resolution.errors.append(
+            f"{display}: component {name!r} installs only on "
+            f"{', '.join(component.platforms)}, not {resolution.platform}"
+        )
+
+
 def resolve(
     target: Target,
     catalog: Catalog,
     *,
     core_dependencies: tuple[str, ...] = (),
+    platform: str = "linux-x86_64",
 ) -> Resolution:
     """Place the target's components, compute closure, and report conflicts."""
-    resolution = Resolution(target=target)
+    resolution = Resolution(target=target, platform=platform)
     display = target.relative_path(catalog.root)
-    selections = dict(target.components)
-    pending: list[str] = []
-    for name in sorted(selections):
+    pending = list(target.components)
+    for name in target.components:
         if name not in catalog.components:
             resolution.errors.append(
                 f"target {target.name!r} references unknown component {name!r}; "
                 f"known components: {', '.join(sorted(catalog.components))}"
             )
-            continue
-        component = catalog.components[name]
-        if not component.is_deps:
-            pending.append(name)
-            continue
-        # A target selects a deps component to install its packages without
-        # requiring a component: the flywheel runtime is core code, so the
-        # environment that enables it opts in here.
-        selection = selections[name]
-        if selection.variant is not None:
-            resolution.errors.append(
-                f"target {target.name!r} selects deps component {name!r} with "
-                "'variant'; deps components have no code and no optional groups"
-            )
-        if name not in resolution.deps:
-            resolution.deps.append(name)
-        resolution.components.setdefault(
-            name,
-            ResolvedComponent(component=component, variant=None),
-        )
-    placed: set[str] = set()
     while pending:
         name = pending.pop(0)
-        if name in placed:
+        if name in resolution.components or name not in catalog.components:
             continue
-        placed.add(name)
         component = catalog.components[name]
-        selection = selections.get(name)
-        variant = selection.variant if selection is not None else None
-        if variant is None:
-            variant = component.default_variant
-        if variant is None and component.variant_required:
-            resolution.errors.append(
-                f"component {name!r} requires a variant; add "
-                f"'variant = \"...\"' under [components.{name}] in "
-                f"{display}; expected one of "
-                f"{', '.join(sorted(component.optional))}"
-            )
-        elif variant is not None and variant not in component.optional:
-            resolution.errors.append(
-                f"component {name!r} has no optional group {variant!r}; "
-                f"expected one of {', '.join(sorted(component.optional)) or '<none>'}"
-            )
-            variant = None
-        resolution.components[name] = ResolvedComponent(
-            component=component,
-            variant=variant,
-        )
+        resolution.components[name] = component
         for required in component.requires:
             if required not in catalog.components:
                 resolution.errors.append(
                     f"component {name!r} requires unknown component {required!r}"
                 )
                 continue
-            if catalog.components[required].is_deps:
-                if required not in resolution.deps:
-                    resolution.deps.append(required)
-                # One deps component installs once, no matter how many
-                # consumers require it. Keep the first resolved record so the
-                # result does not depend on consumer order.
-                resolution.components.setdefault(
-                    required,
-                    ResolvedComponent(
-                        component=catalog.components[required],
-                        variant=None,
-                    ),
-                )
-                continue
-            if required not in selections:
-                selections[required] = Selection()
             pending.append(required)
 
-    resolution.python = _choose_python(
-        target, list(resolution.components.values()), resolution.errors, display
-    )
+    _apply_settings(resolution, display=display)
+    _check_platform(resolution, display=display)
+    resolution.python = choose_python(list(resolution.components.values()), resolution.errors)
 
-    installed = sorted(resolution.main_installed())
+    installed = sorted(resolution.components)
     for index, left_name in enumerate(installed):
         for right_name in installed[index + 1 :]:
             left = resolution.components[left_name]
             right = resolution.components[right_name]
             if (
-                right_name in left.component.env_conflicts
-                or left_name in right.component.env_conflicts
+                right_name in left.env_conflicts
+                or left_name in right.env_conflicts
             ):
                 resolution.errors.append(
                     _format_conflict(left, right, target=target.name)
@@ -463,7 +442,7 @@ def resolve(
     requirements = [
         (name, requirement)
         for name in installed
-        for requirement in resolution.components[name].dependencies()
+        for requirement in resolution.components[name].dependencies
     ]
     requirements.extend((target.name, requirement) for requirement in core_dependencies)
     requirements.extend(

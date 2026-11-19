@@ -28,6 +28,7 @@ from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     freeze_sha256,
     read_fingerprint,
+    runtime_platform,
     source_state,
     write_fingerprint,
 )
@@ -116,14 +117,25 @@ def run_command(
     return result.stdout if capture else ""
 
 
-def target_resolution(target: str, catalog: Catalog, *, root: Path) -> Resolution:
-    """Resolve one named target."""
-    target = catalog.targets.get(target)
-    if target is None:
+def target_resolution(
+    target: str,
+    catalog: Catalog,
+    *,
+    root: Path,
+    platform: str | None = None,
+) -> Resolution:
+    """Resolve one named target for ``platform``, defaulting to this host."""
+    found = catalog.targets.get(target)
+    if found is None:
         known = ", ".join(sorted(catalog.targets))
         raise InstallError(f"unknown target {target!r}; known targets: {known}")
-    core = read_core_dependencies(root) if target.core else ()
-    return resolve(target, catalog, core_dependencies=core)
+    core = read_core_dependencies(root) if found.core else ()
+    return resolve(
+        found,
+        catalog,
+        core_dependencies=core,
+        platform=platform or runtime_platform(),
+    )
 
 
 def install(
@@ -134,6 +146,7 @@ def install(
     force: bool = False,
     verbose: bool = True,
     dry_run: bool = False,
+    platform: str | None = None,
 ) -> dict[str, Any]:
     """Install one named target and return the written fingerprint.
 
@@ -143,7 +156,9 @@ def install(
     """
     repo_root = (root or get_repo_root()).resolve()
     catalog = discover(repo_root)
-    resolution = target_resolution(target_name, catalog, root=repo_root)
+    resolution = target_resolution(
+        target_name, catalog, root=repo_root, platform=platform
+    )
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
     target = resolution.target
@@ -156,7 +171,10 @@ def install(
     python_version = resolution.python
 
     if dry_run:
-        print(f"# target {target.name}: python {python_version}")
+        print(
+            f"# target {target.name}: python {python_version} "
+            f"on {resolution.platform}"
+        )
         print(main_requirements, end="")
         return {}
 
@@ -200,9 +218,9 @@ def install(
     # is a reproduction artifact, not an installation input, so a stale or
     # missing lock never blocks installing or diagnosing an environment.
     install_command = [uv, "pip", "install", "--python", str(python)]
-    install_command.extend(index_options(target))
-    for resolved in resolution.main_installed().values():
-        for override in resolved.component.overrides:
+    install_command.extend(index_options(resolution))
+    for component in resolution.components.values():
+        for override in component.overrides:
             install_command.extend(["--override", str(override)])
     install_command.extend(["-r", str(requirements_path)])
     if verbose:
@@ -240,12 +258,10 @@ def install(
         "python": _python_version(python),
         "source_commit": commit,
         "source_dirty": dirty,
+        "platform": resolution.platform,
         "components": {
-            name: {
-                "manifest_sha256": resolved.component.manifest_sha256,
-                "variant": resolved.variant,
-            }
-            for name, resolved in sorted(resolution.components.items())
+            name: {"manifest_sha256": component.manifest_sha256}
+            for name, component in sorted(resolution.components.items())
         },
         "requirements_sha256": requirements_sha256(
             resolution,
@@ -265,14 +281,15 @@ def install(
     return fingerprint
 
 
-def index_options(target: Target) -> list[str]:
+def index_options(resolution: Resolution) -> list[str]:
+    """Return uv's index flags for a resolved environment."""
     options: list[str] = []
-    if target.index_url:
-        options.extend(["--index-url", target.index_url])
-    for url in target.extra_index_urls:
+    if resolution.index_url:
+        options.extend(["--index-url", resolution.index_url])
+    for url in resolution.extra_index_urls:
         options.extend(["--extra-index-url", url])
-    if target.index_strategy:
-        options.extend(["--index-strategy", target.index_strategy])
+    if resolution.index_strategy:
+        options.extend(["--index-strategy", resolution.index_strategy])
     return options
 
 
@@ -327,11 +344,9 @@ def _probe_components(
     *,
     verbose: bool,
 ) -> None:
-    # This includes deps components: they have no code of their own, but their
-    # probe proves the package group a consumer relies on really imported.
     environment = {**os.environ, "PYTHONPATH": str(root)}
-    for name, resolved in sorted(resolution.main_installed().items()):
-        probe = resolved.component.probe
+    for name, component in sorted(resolution.components.items()):
+        probe = component.probe
         if verbose:
             print(f"probe {name}: import {probe}")
         try:

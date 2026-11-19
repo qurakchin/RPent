@@ -37,6 +37,7 @@ from rpent.install.requirements import (
     read_core_dependencies,
     requirements_sha256,
 )
+from rpent.install.resolve import resolve
 
 
 @pytest.fixture
@@ -54,20 +55,18 @@ def repo(tmp_path, write_toml):
         "components/models/alpha/component.toml",
         f"""
         schema = 2
-        name = "alpha"
-        kind = "model"
+        name = "model-alpha"
         probe = "json"
         python = "{major}.{minor}"
+        platforms = ["linux-x86_64", "darwin-arm64"]
         dependencies = ["numpy>=2"]
         """,
     )
     write_toml(
         "installs/targets/beta.toml",
-        f"""
+        """
         schema = 2
-        kind = "target"
         name = "beta"
-        python = "{major}.{minor}"
         core = false
 
         [components]
@@ -77,23 +76,23 @@ def repo(tmp_path, write_toml):
 
 
 def test_default_venv_is_per_target(repo):
-    target = discover(repo).targets["alpha"]
+    target = discover(repo).targets["model-alpha"]
 
     assert VENV_DIR == ".venvs"
-    assert default_venv(repo, target) == repo / ".venvs" / "alpha"
+    assert default_venv(repo, target) == repo / ".venvs" / "model-alpha"
 
 
 def test_target_resolution_selects_the_named_target(repo):
     catalog = discover(repo)
 
-    resolution = target_resolution("alpha", catalog, root=repo)
+    resolution = target_resolution("model-alpha", catalog, root=repo)
 
     assert resolution.ok
-    assert resolution.target.name == "alpha"
+    assert resolution.target.name == "model-alpha"
 
 
 def test_unknown_target_lists_known_targets(repo):
-    with pytest.raises(InstallError, match="known targets: alpha, beta"):
+    with pytest.raises(InstallError, match="known targets: beta, model-alpha"):
         target_resolution("missing", discover(repo), root=repo)
 
 
@@ -103,15 +102,16 @@ def test_find_uv_prefers_override(monkeypatch):
     assert find_uv() == "/custom/uv"
 
 
-def test_index_options_preserve_order(make_target):
+def test_index_options_preserve_order(make_target, make_catalog):
     target = make_target(
         "alpha",
         index_url="https://index.test/simple",
         extra_index_urls=("https://extra.test/simple",),
         index_strategy="unsafe-first-match",
     )
+    resolution = resolve(target, make_catalog(components=[]))
 
-    assert index_options(target) == [
+    assert index_options(resolution) == [
         "--index-url",
         "https://index.test/simple",
         "--extra-index-url",
@@ -162,12 +162,12 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
 
-    fingerprint = install("alpha", root=repo, venv=venv, verbose=False)
+    fingerprint = install("model-alpha", root=repo, venv=venv, verbose=False)
 
     assert read_fingerprint(venv) == fingerprint
     assert fingerprint["schema"] == INPUT_SCHEMA
-    assert fingerprint["target"] == "alpha"
-    assert fingerprint["components"]["alpha"]["variant"] is None
+    assert fingerprint["target"] == "model-alpha"
+    assert "model-alpha" in fingerprint["components"]
     assert fingerprint["requirements_file"] == "rpent-requirements.txt"
     assert "component_targets" not in fingerprint
     assert "lock" not in fingerprint
@@ -178,7 +178,7 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
 def test_install_installs_from_the_rendered_requirements(repo, tmp_path, monkeypatch):
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
-    fingerprint = install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    fingerprint = install("model-alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
     requirements = tmp_path / "venv" / "rpent-requirements.txt"
     requirements_arguments = install_arguments()[0]
@@ -187,7 +187,7 @@ def test_install_installs_from_the_rendered_requirements(repo, tmp_path, monkeyp
     )
     text = requirements.read_text(encoding="utf-8")
     assert "numpy>=2" in text
-    resolution = target_resolution("alpha", discover(repo), root=repo)
+    resolution = target_resolution("model-alpha", discover(repo), root=repo)
     assert fingerprint["requirements_sha256"] == requirements_sha256(
         resolution,
         root=repo,
@@ -198,12 +198,12 @@ def test_install_installs_from_the_rendered_requirements(repo, tmp_path, monkeyp
 def test_install_does_not_read_a_checked_in_lock(repo, tmp_path, monkeypatch):
     # A lock is a reproduction artifact. A stale or missing one must neither
     # change the installed requirements nor fail the install.
-    stale = repo / "tests" / "locks" / "alpha.lock"
+    stale = repo / "tests" / "locks" / "model-alpha.lock"
     stale.parent.mkdir(parents=True, exist_ok=True)
     stale.write_text("numpy==0.1\n", encoding="utf-8")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
-    install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    install("model-alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
     arguments = install_arguments()[0]
     assert arguments[arguments.index("-r") + 1] == str(
@@ -222,10 +222,10 @@ def test_install_passes_override_files_by_absolute_path(
         "components/models/alpha/component.toml",
         """
         schema = 2
-        name = "alpha"
-        kind = "model"
+        name = "model-alpha"
         probe = "json"
         python = "3.11"
+        platforms = ["linux-x86_64", "darwin-arm64"]
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
@@ -233,7 +233,7 @@ def test_install_passes_override_files_by_absolute_path(
     write_toml("components/models/alpha/requirements/override.txt", "numpy<3\n")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
-    install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    install("model-alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
     arguments = install_arguments()[0]
     value = arguments[arguments.index("--override") + 1]
@@ -247,7 +247,7 @@ def test_install_runs_uv_inside_the_checkout(repo, tmp_path, monkeypatch):
     _fake_uv(tmp_path, monkeypatch)
     monkeypatch.chdir(repo / "components")
 
-    install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    install("model-alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
     assert set(_uv_working_directories(tmp_path)) == {str(repo.resolve())}
 
@@ -269,29 +269,29 @@ def test_install_probes_the_deps_components_of_the_environment(
             f"components/models/{name}/component.toml",
             f"""
             schema = 2
-            name = "{name}"
-            kind = "model"
+            name = "model-{name}"
             probe = "json"
             python = "{major}.{minor}"
-            requires = ["shared"]
+            platforms = ["linux-x86_64", "darwin-arm64"]
+            requires = ["infra-shared"]
             """,
         )
     write_toml(
-        "installs/deps/shared.toml",
+        "components/infra/shared/component.toml",
         """
         schema = 2
-        name = "shared"
-        kind = "deps"
+        name = "infra-shared"
         probe = "json"
+        platforms = ["linux-x86_64", "darwin-arm64"]
         dependencies = ["packaging"]
         """,
     )
     _fake_uv(tmp_path, monkeypatch)
 
-    fingerprint = install("alpha", root=tmp_path, venv=tmp_path / "venv", verbose=True)
+    fingerprint = install("model-alpha", root=tmp_path, venv=tmp_path / "venv", verbose=True)
 
-    assert "probe shared: import json" in capsys.readouterr().out
-    assert fingerprint["components"]["shared"]["variant"] is None
+    assert "probe infra-shared: import json" in capsys.readouterr().out
+    assert "infra-shared" in fingerprint["components"]
 
 
 def test_install_refuses_a_venv_belonging_to_another_target(
@@ -303,7 +303,7 @@ def test_install_refuses_a_venv_belonging_to_another_target(
     (venv / "rpent-install.json").write_text('{"target": "beta"}\n', encoding="utf-8")
 
     with pytest.raises(InstallError, match="already installed for target 'beta'"):
-        install("alpha", root=repo, venv=venv, verbose=False)
+        install("model-alpha", root=repo, venv=venv, verbose=False)
 
 
 def test_install_refuses_a_non_empty_venv_without_a_fingerprint(
@@ -315,7 +315,7 @@ def test_install_refuses_a_non_empty_venv_without_a_fingerprint(
     (venv / "unrelated.txt").write_text("", encoding="utf-8")
 
     with pytest.raises(InstallError, match="records no installation fingerprint"):
-        install("alpha", root=repo, venv=venv, verbose=False)
+        install("model-alpha", root=repo, venv=venv, verbose=False)
 
 
 def test_force_installs_into_a_non_empty_venv(repo, tmp_path, monkeypatch):
@@ -324,15 +324,15 @@ def test_force_installs_into_a_non_empty_venv(repo, tmp_path, monkeypatch):
     venv.mkdir()
     (venv / "unrelated.txt").write_text("", encoding="utf-8")
 
-    fingerprint = install("alpha", root=repo, venv=venv, force=True, verbose=False)
+    fingerprint = install("model-alpha", root=repo, venv=venv, force=True, verbose=False)
 
-    assert fingerprint["target"] == "alpha"
+    assert fingerprint["target"] == "model-alpha"
 
 
 def test_core_target_installs_the_editable_checkout(repo, tmp_path, monkeypatch):
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
-    install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    install("model-alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
     editable = install_arguments()[1]
     assert "-e" in editable
@@ -348,11 +348,9 @@ def test_core_false_target_skips_the_editable_checkout(
     )
     write_toml(
         "installs/targets/beta.toml",
-        f"""
+        """
         schema = 2
-        kind = "target"
         name = "beta"
-        python = "{sys.version_info.major}.{sys.version_info.minor}"
         core = false
         dependencies = ["packaging"]
         """,
@@ -370,11 +368,11 @@ def test_dry_run_prints_the_requirements_and_creates_nothing(
     uv, _ = _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
 
-    fingerprint = install("alpha", root=repo, venv=venv, verbose=False, dry_run=True)
+    fingerprint = install("model-alpha", root=repo, venv=venv, verbose=False, dry_run=True)
 
     printed = capsys.readouterr().out
     assert fingerprint == {}
-    assert "# target alpha:" in printed
+    assert "# target model-alpha:" in printed
     assert "numpy>=2" in printed
     assert not venv.exists()
     assert not (venv / "rpent-requirements.txt").exists()

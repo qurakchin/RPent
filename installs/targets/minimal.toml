@@ -1,7 +1,5 @@
 schema = 2
-kind = "target"
 name = "minimal"
-python = "3.11"
 description = "Core RPent only: CLI, discovery, and planner imports without robot components."
 
 [components]

@@ -33,23 +33,23 @@ def test_missing_module_names_component_and_install(monkeypatch):
     monkeypatch.setattr(components, "current_venv", lambda: None)
 
     with pytest.raises(components.MissingComponentError) as error:
-        components.require("sam3", "definitely_missing_rpent_module")
+        components.require("model-sam3", "definitely_missing_rpent_module")
 
     message = str(error.value)
-    assert "component 'sam3' requires 'definitely_missing_rpent_module'" in message
+    assert "component 'model-sam3' requires 'definitely_missing_rpent_module'" in message
     assert "rpent-install list" in message
 
 
 def test_installed_component_repairs_its_target(monkeypatch):
     fingerprint = {
         "target": "alpha",
-        "components": {"sam3": {"variant": None}},
+        "components": {"model-sam3": {"manifest_sha256": "sha"}},
     }
     monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
     monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
 
     with pytest.raises(components.MissingComponentError) as error:
-        components.require("sam3", "definitely_missing_rpent_module")
+        components.require("model-sam3", "definitely_missing_rpent_module")
 
     assert "rerun `rpent-install install alpha`" in str(error.value)
 
@@ -60,7 +60,7 @@ def test_component_outside_target_points_to_a_development_install(monkeypatch):
     monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
 
     with pytest.raises(components.MissingComponentError) as error:
-        components.require("sam3", "definitely_missing_rpent_module")
+        components.require("model-sam3", "definitely_missing_rpent_module")
 
     assert "is not part of target 'alpha'" in str(error.value)
 
@@ -72,15 +72,15 @@ def test_missing_component_names_the_targets_that_include_it(monkeypatch):
     monkeypatch.setattr(
         components,
         "_targets_by_component",
-        lambda: {"sam3": ["dev", "libero-pro", "sam3-server"]},
+        lambda: {"model-sam3": ["dev", "model-sam3", "robot-libero"]},
     )
 
     with pytest.raises(components.MissingComponentError) as error:
-        components.require("sam3", "definitely_missing_rpent_module")
+        components.require("model-sam3", "definitely_missing_rpent_module")
 
     message = str(error.value)
     assert "is not part of target 'minimal'" in message
-    assert "dev, libero-pro, sam3-server" in message
+    assert "dev, model-sam3, robot-libero" in message
 
 
 def test_target_index_comes_from_the_checkout(monkeypatch):
@@ -91,7 +91,7 @@ def test_target_index_comes_from_the_checkout(monkeypatch):
 
     index = components._targets_by_component()
 
-    assert "robot-libero_pro" in index["sam3"]
+    assert "model-sam3" in index["model-sam3"] and "robot-libero" in index["model-sam3"]
 
 
 def test_fingerprint_without_a_target_falls_back_to_the_general_hint(monkeypatch):
@@ -100,14 +100,14 @@ def test_fingerprint_without_a_target_falls_back_to_the_general_hint(monkeypatch
     fingerprint = {
         "install_kind": "component",
         "target": None,
-        "component": "sam3",
-        "components": {"sam3": {"variant": None}},
+        "component": "model-sam3",
+        "components": {"model-sam3": {"manifest_sha256": "sha"}},
     }
     monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
     monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
 
     with pytest.raises(components.MissingComponentError) as error:
-        components.require("sam3", "definitely_missing_rpent_module")
+        components.require("model-sam3", "definitely_missing_rpent_module")
 
     message = str(error.value)
     assert "rpent-install list" in message

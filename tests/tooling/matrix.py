@@ -40,36 +40,40 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 #: CPU-only targets: installable on a hosted runner within its disk and time
 #: limits.
 HOSTED = (
-    "apxinf",
-    "cosmos3",
-    "cosmos_policy",
     "dev",
-    "fast_wam",
     "minimal",
+    "model-apxinf",
+    "model-cosmos3",
+    "model-cosmos_policy",
+    "model-fast_wam",
+    "model-uniwam",
+    "model-xpolicylab",
+    "tool-flywheel",
     "unit-cpu",
-    "uniwam",
-    "xpolicylab",
 )
 
 #: Targets that resolve CUDA packages; they need the embodied GPU runner.
 GPU = (
-    "awomo05",
-    "lingbot",
-    "molmo",
-    "openpi",
-    "rldx",
+    "infra-rlinf",
+    "model-awomo05",
+    "model-lingbot",
+    "model-molmo",
+    "model-openpi",
+    "model-rldx",
+    "model-sam3",
+    "model-vpp2",
     "robot-dual_franka",
     "robot-franka",
-    "robot-libero_pro",
+    "robot-libero",
     "robot-robocasa",
     "robot-robodojo",
     "robot-robotwin",
     "robot-yam",
-    "sam3",
+    "sim-libero",
     "sim-libero_plus",
-    "sim-libero_pro",
-    "sim-libero_standard",
-    "vpp2",
+    "sim-robocasa",
+    "sim-robodojo",
+    "sim-robotwin",
 )
 
 MATRICES = {"hosted": HOSTED, "gpu": GPU}

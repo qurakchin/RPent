@@ -1,17 +1,10 @@
 schema = 2
-kind = "target"
 name = "unit-cpu"
-python = "3.10"
 description = "CPU-only unit tests: core, test tools, and the CPU flywheel stack."
 
 dependencies = [
-  # The flywheel packages are repeated here instead of selecting the `flywheel`
-  # deps component: this target runs on Python 3.10 for the hosted runner, and
-  # that component pins the interpreter lerobot supports.
-  "av",
   "coverage",
   "gymnasium",
-  "lerobot",
   "omegaconf",
   "opencv-python-headless",
   "pytest",
@@ -21,9 +14,6 @@ dependencies = [
   # index, which keeps the hosted runner small and avoids a CUDA dependency
   # the tests never exercise.
   "torch==2.6.0+cpu",
-  # `flywheel` reads and writes Parquet; the CPU build never sees a newer
-  # Arrow than the flywheel tests were validated against.
-  "pyarrow<26",
 ]
 
 extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
@@ -33,3 +23,7 @@ extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
 # fall-through strategy keeps the first index authoritative and only uses the
 # extra index for versions PyPI does not have, like `torch==2.6.0+cpu`.
 index-strategy = "unsafe-first-match"
+
+# The flywheel runtime owns its LeRobot, av, and pyarrow constraints, so the
+# target selects the component instead of repeating them.
+[components.tool-flywheel]

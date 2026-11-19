@@ -176,7 +176,7 @@ def test_cuda_selection_is_only_overridden_explicitly(
 
 
 def test_task_inventory_uses_explicit_checkout(tmp_path, monkeypatch):
-    from robots.robodojo import tasks
+    from components.sim.robodojo import tasks
 
     configs = tmp_path / "task/RoboDojo/config"
     configs.mkdir(parents=True)
@@ -232,7 +232,7 @@ def test_env_spawn_uses_explicit_interpreter_and_child_paths(monkeypatch, tmp_pa
 def test_env_connection_checks_action_protocol_before_reset(
     monkeypatch, tmp_path, agent_module, fake_env, version
 ):
-    from robots.robodojo import env_server
+    from components.sim.robodojo import env_server
     from rpent.dashboard.events import NullDashboardEventSink
     from rpent.robots import runtime
 

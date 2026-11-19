@@ -22,12 +22,12 @@
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   ./rpent-install.sh install robot-libero_pro
-   source .venvs/robot-libero_pro/bin/activate
+   ./rpent-install.sh install robot-libero
+   source .venvs/robot-libero/bin/activate
 
 目标会一起锁定 Python、RLinf 版本、Pi0.5、SAM 3.0 和 LIBERO 相关依赖。全部目标、各自的安装命令、独立的模型环境和诊断方法见 :doc:`installation`。
 
-后续命令都在这个终端和 RPent 仓库目录中执行。重新打开终端时，先激活 ``.venvs/robot-libero_pro``，再设置下文的模型路径与 API Key。
+后续命令都在这个终端和 RPent 仓库目录中执行。重新打开终端时，先激活 ``.venvs/robot-libero``，再设置下文的模型路径与 API Key。
 
 2. 下载仿真资源和模型
 ------------------------------

@@ -20,10 +20,7 @@ from rpent.install.resolve import resolve
 def test_every_component_manifest_lives_where_its_kind_declares_it(catalog):
     for name, component in sorted(catalog.components.items()):
         assert component.name == name
-        if component.kind == "deps":
-            expected = catalog.root / "installs" / "deps" / f"{name}.toml"
-        else:
-            expected = component.path / "component.toml"
+        expected = component.path / "component.toml"
         assert component.manifest == expected
 
 
@@ -83,7 +80,7 @@ def test_locks_live_under_tests_and_follow_the_target_name(catalog):
 def test_repository_manifests_declare_the_robotwin_molmo_conflict(catalog):
     components = catalog.components
 
-    assert "robotwin" in components["molmo"].env_conflicts
-    assert "molmo" in components["robotwin"].env_conflicts
+    assert "sim-robotwin" in components["model-molmo"].env_conflicts
+    assert "model-molmo" in components["sim-robotwin"].env_conflicts
     # OpenPI follows Molmo's Transformers range, so they are compatible.
-    assert "molmo" not in components["openpi"].env_conflicts
+    assert "model-molmo" not in components["model-openpi"].env_conflicts

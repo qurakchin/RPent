@@ -24,9 +24,9 @@ from typing import Annotated, Literal
 import numpy as np
 from pydantic import Field
 
-from robots.robodojo.access import public_episode_budget
+from components.sim.robodojo.access import public_episode_budget
 from robots.robodojo.env_client import ActionRejected, ExecutionSyncError
-from robots.robodojo.tasks import validate_instruction
+from components.sim.robodojo.tasks import validate_instruction
 from rpent.session.env_capture import CapturingEnvClient
 from rpent.tools import ToolResult, tool
 from rpent.tools.toolkit import ToolCancelled

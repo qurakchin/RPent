@@ -1,7 +1,5 @@
 schema = 2
-kind = "target"
 name = "dev"
-python = "3.10"
 description = "Test dependencies for local development and CI."
 
 dependencies = [

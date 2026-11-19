@@ -1,6 +1,5 @@
 schema = 2
-name = "uniwam"
-kind = "model"
+name = "model-uniwam"
 probe = "components.models.uniwam.server"
 python = ">=3.10,<3.13"
 

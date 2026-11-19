@@ -29,19 +29,12 @@ from pathlib import Path
 from rpent.install.discovery import Catalog
 from rpent.install.errors import InstallError
 from rpent.install.installer import index_options, run_command
-from rpent.install.manifest import Target
+from rpent.install.manifest import DEFAULT_PLATFORMS, PLATFORM_TAGS, Target
 from rpent.install.requirements import (
     read_core_dependencies,
     render_requirements,
 )
 from rpent.install.resolve import python_accepted, resolve
-
-# Pin the manylinux baseline instead of uv's default glibc 2.17 target: current
-# GPU wheels are published for newer baselines (rerun-sdk for manylinux_2_31,
-# Isaac Sim for manylinux_2_35), so a 2.17 baseline cannot resolve them. A
-# target raises its baseline with `manylinux` when its components need it.
-# RPent installs only on linux-x86_64, so the tag has no per-target variant.
-PLATFORM_TAG = "x86_64-manylinux_{baseline}"
 
 #: Every lock records the upstream cutoff it was compiled with. ``--check``
 #: recompiles at the same instant, so a lock only drifts when its declared
@@ -104,6 +97,7 @@ def compile_target(
     output: Path,
     exclude_newer: str | None = None,
     python: str | None = None,
+    platform: str = DEFAULT_PLATFORMS[0],
 ) -> str:
     """Compile one target's lock into ``output`` and return the lock text.
 
@@ -120,6 +114,7 @@ def compile_target(
         target,
         catalog,
         core_dependencies=read_core_dependencies(root) if target.core else (),
+        platform=platform,
     )
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
@@ -128,7 +123,13 @@ def compile_target(
     chosen_python = resolution.python
     if python is not None and python_accepted(resolution, python):
         chosen_python = python
-    platform_tag = PLATFORM_TAG.format(baseline=target.manylinux)
+    # Pin the manylinux baseline instead of uv's default glibc 2.17 target:
+    # current GPU wheels are published for newer baselines (rerun-sdk for
+    # manylinux_2_31, Isaac Sim for manylinux_2_35). The closure's newest
+    # baseline admits every wheel an older one does.
+    platform_tag = PLATFORM_TAGS[resolution.platform].format(
+        baseline=resolution.manylinux
+    )
     requirements = render_requirements(
         resolution,
         root=root,
@@ -150,12 +151,12 @@ def compile_target(
             "--no-annotate",
             "--output-file",
             str(output),
-            *index_options(target),
+            *index_options(resolution),
         ]
         if exclude_newer is not None:
             command.extend(["--exclude-newer", exclude_newer])
-        for resolved in resolution.main_installed().values():
-            for override in resolved.component.overrides:
+        for component in resolution.components.values():
+            for override in component.overrides:
                 # Manifests resolve overrides to absolute paths when they are
                 # loaded, so uv's working directory does not matter here.
                 command.extend(["--overrides", str(override)])
@@ -179,13 +180,16 @@ def resolve_target(
     *,
     root: Path,
     uv: str,
+    platform: str = DEFAULT_PLATFORMS[0],
 ) -> str:
     """Compile ``target`` into a temporary file and return the uv output.
 
-    ``tests.tooling.check --resolve`` uses this to prove that the declared
+    ``rpent-install check --resolve`` uses this to prove that the declared
     dependencies have a solution; it delegates to :func:`compile_target` so
     there is only one resolver.
     """
     with tempfile.TemporaryDirectory(prefix="rpent-resolve-") as directory:
         output = Path(directory) / f"{target.name}.txt"
-        return compile_target(target, catalog, root=root, uv=uv, output=output)
+        return compile_target(
+            target, catalog, root=root, uv=uv, output=output, platform=platform
+        )

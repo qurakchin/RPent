@@ -60,7 +60,7 @@ rpent = "rpent.cli.main:main"
 rpent-install = "rpent.cli.install:main"
 rpent-memory = "rpent.cli.memory:main"
 rpent-check-llm = "rpent.cli.check_llm:main"
-rpent-flywheel = "rpent.flywheel.cli:main"
+rpent-flywheel = "rpent.cli.flywheel:main"
 
 [project.urls]
 Homepage = "https://github.com/RLinf/RPent"
@@ -95,7 +95,9 @@ include-package-data = true
 "robots.libero" = ["guides/*.md"]
 "robots.robocasa" = ["eval/*.json"]
 "robots.robodojo" = ["guides/*.md"]
-"robots.robotwin" = ["eval/*.json", "guides/*.md"]
+"robots.robotwin" = ["guides/*.md"]
+"components.sim.robotwin" = ["eval/*.json"]
+"components.sim.robodojo" = ["requirements/*.txt"]
 "rpent.dashboard" = ["*.html", "static/*.css", "static/*.js"]
 "robots.yam" = ["config/*.yaml", "config/*.json", "guides/*.md"]
 

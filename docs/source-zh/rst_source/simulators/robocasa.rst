@@ -437,7 +437,7 @@ Target50 包含 50 个厨房任务，共运行 340 次。以下使用 Codex、GP
 VLA 推理检查
 ~~~~~~~~~~~~
 
-完成 :ref:`VLA 配置 <robocasa-vla-configuration>` 后，选择空闲 GPU 和新的输出目录运行。目标的依赖不包含测试运行器，需要测试依赖时用 ``uv pip install --python .venvs/robocasa/bin/python pytest pytest-timeout`` 装进该环境。
+完成 :ref:`VLA 配置 <robocasa-vla-configuration>` 后，选择空闲 GPU 和新的输出目录运行。目标的依赖不包含测试运行器，需要测试依赖时用 ``uv pip install --python .venvs/robot-robocasa/bin/python pytest pytest-timeout`` 装进该环境。
 
 .. code-block:: bash
 

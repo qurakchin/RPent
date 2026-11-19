@@ -21,7 +21,7 @@ from typing import Any
 
 import numpy as np
 
-from robots.robotwin.control import QPOS_HISTORY_CAPACITY
+from components.sim.robotwin.control import QPOS_HISTORY_CAPACITY
 from robots.robotwin.robot_spec import (
     ROBOTWIN_CAMERA_NAMES,
     ROBOTWIN_READ_TIMEOUT_S,

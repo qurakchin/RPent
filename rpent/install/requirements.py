@@ -42,7 +42,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 #: changes meaning or the repository layout moves the files the inputs name, not
 #: merely when one is added: ``doctor`` uses it to tell an installation recorded
 #: by an older input mode from one whose inputs drifted.
-INPUT_SCHEMA = 10
+INPUT_SCHEMA = 11
 
 #: ``[tool.uv]`` entries that do not change an installation's contents.
 #: ``conflicts`` only constrains extra groups, and ``rpent-install`` installs
@@ -103,8 +103,8 @@ def override_files(resolution: Resolution, root: Path) -> list[tuple[str, Path]]
     """
     files: list[tuple[str, Path]] = []
     seen: set[Path] = set()
-    for resolved in resolution.main_installed().values():
-        for override in resolved.component.overrides:
+    for component in resolution.components.values():
+        for override in component.overrides:
             path = override if override.is_absolute() else root / override
             if path in seen:
                 continue
@@ -176,8 +176,8 @@ def installed_dependencies(
     if target.core:
         requirements.extend(core_dependencies)
     requirements.extend(target.dependencies)
-    for name in sorted(resolution.main_installed()):
-        requirements.extend(resolution.components[name].dependencies())
+    for component in resolution.components.values():
+        requirements.extend(component.dependencies)
     return tuple(dict.fromkeys(requirements))
 
 
@@ -205,13 +205,12 @@ def render_requirements(
         lines.append("")
         lines.append(f"# target {target.name}")
         lines.extend(target_deps)
-    for name, resolved in sorted(resolution.main_installed().items()):
-        dependencies = sorted(dict.fromkeys(resolved.dependencies()))
+    for name, component in sorted(resolution.components.items()):
+        dependencies = sorted(dict.fromkeys(component.dependencies))
         if not dependencies:
             continue
         lines.append("")
-        label = name if resolved.variant is None else f"{name} ({resolved.variant})"
-        lines.append(f"# component {label}")
+        lines.append(f"# component {name}")
         lines.extend(dependencies)
     return "\n".join(lines) + "\n"
 
@@ -234,24 +233,25 @@ def requirements_inputs(
     # that relative form independent of how the caller spelled the checkout.
     root = root.resolve()
     target = resolution.target
-    components = {}
-    for name, resolved in sorted(resolution.components.items()):
-        components[name] = {
-            "manifest_sha256": resolved.component.manifest_sha256,
-            "variant": resolved.variant,
-        }
+    components = {
+        name: {"manifest_sha256": component.manifest_sha256}
+        for name, component in sorted(resolution.components.items())
+    }
     return {
         "schema": INPUT_SCHEMA,
         "target": {
             "name": target.name,
-            "python": target.python,
-            # The glibc baseline decides which wheel tags uv may select, so two
-            # installations that differ only here are different environments.
-            "manylinux": target.manylinux,
             "components": components,
+            # The resolved minor, glibc baseline, and host decide which wheels
+            # uv may select, so two installations that differ only here are
+            # different environments.
+            "python": resolution.python,
+            "platform": resolution.platform,
+            "manylinux": resolution.manylinux,
             "dependencies": sorted(target.dependencies),
-            "index_url": target.index_url,
-            "extra_index_urls": sorted(target.extra_index_urls),
+            "index_url": resolution.index_url,
+            "extra_index_urls": sorted(resolution.extra_index_urls),
+            "index_strategy": resolution.index_strategy,
             "core": target.core,
         },
         "core_dependencies": sorted(core_dependencies),

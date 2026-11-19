@@ -27,7 +27,7 @@ import numpy as np
 import pytest
 
 from robots.robocasa.env_client import RoboCasaEnvClient
-from robots.robocasa.env_server import DEFAULT_CAMS, RoboCasaEnvFacade
+from components.sim.robocasa.env_server import DEFAULT_CAMS, RoboCasaEnvFacade
 from robots.robocasa.primitives import RoboCasaPrimitives
 from robots.robocasa.prompt_bundle import system_prompt
 from robots.robocasa.toolkit import _capture_robocasa_call
@@ -35,8 +35,8 @@ from components.models.rldx.server import _normalize_legacy_processor_geometry
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.env.action_spec import box_action_spec
 from rpent.env.facade import BaseEnvFacade
-from rpent.flywheel.flywheel import select_vla_segments
-from rpent.flywheel.reader import iter_trajectories, read_array
+from components.tools.flywheel.flywheel import select_vla_segments
+from components.tools.flywheel.reader import iter_trajectories, read_array
 from rpent.memory import MemoryManager
 from rpent.prompt.utils import format_prompt
 from rpent.session import EnvState, Payload

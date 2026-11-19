@@ -1,10 +1,7 @@
 schema = 2
-kind = "target"
 name = "robot-robocasa"
-python = "3.10"
-
 description = "RoboCasa simulation with RLinf's RoboCasa365 and RLDX stack."
 
-[components.robocasa]
+[components.robot-robocasa]
 
-[components.rldx]
+[components.model-rldx]

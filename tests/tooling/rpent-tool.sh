@@ -20,7 +20,7 @@ set -euo pipefail
 # The tools read manifests and reproduction locks and add nothing but
 # ``packaging``, so they do not need an installed target. Pass the module and
 # its arguments;
-# ``tests/tooling/rpent-tool.sh tests.tooling.check --all`` is the form the
+# ``tests/tooling/rpent-tool.sh rpent.cli.install check --all`` is the form the
 # installation guide uses in place of the explicit ``uv run`` prefix.
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)

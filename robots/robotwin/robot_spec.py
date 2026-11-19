@@ -23,11 +23,17 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
-from robots.robotwin.contracts import MODEL_SPEC, vla_runtime_contract
+from components.sim.robotwin.contracts import (
+    MODEL_SPEC,
+    ROBOTWIN_CAMERA_NAMES,
+    ROBOTWIN_TASK_CONFIGS,
+    RoboTwinActionType,
+    env_runtime_contract,
+    vla_runtime_contract,
+)
 from robots.robotwin.memory import prepare_memory, validate_options
-from robots.robotwin.observation import ROBOTWIN_CAMERAS
 from robots.robotwin.prompt_bundle import system_prompt, user_prompt
 from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
 from rpent.dashboard.spec import DashboardSpec
@@ -54,20 +60,6 @@ from rpent.utils.config import (
 
 if TYPE_CHECKING:
     from rpent.utils.daemon import ProcessDaemon
-
-# Native RoboTwin task YAMLs exposed to the dashboard, the CLI, and the env
-# server -- defined once so every consumer shows the same choices.
-ROBOTWIN_TASK_CONFIGS = (
-    "demo_clean",
-    "demo_randomized",
-)
-
-#: Env-side camera names exposed by the RoboTwin EnvServer, in fixed order.
-#: Shared across the env client, primitives, and toolkit.
-ROBOTWIN_CAMERA_NAMES = ROBOTWIN_CAMERAS
-
-#: Supported native action representations for the RoboTwin agent runtime.
-RoboTwinActionType = Literal["qpos", "ee"]
 
 #: Episode-status keys the RoboTwin env client requires in every status mapping.
 ROBOTWIN_STATUS_KEYS = (
@@ -598,7 +590,7 @@ def _init_runtime(
         daemon, rpc = wam_pending
 
         def connect_wam():
-            from robots.robotwin.wam_client import RoboTwinWAMClient
+            from components.sim.robotwin.wam_client import RoboTwinWAMClient
 
             try:
                 client = RoboTwinWAMClient(rpc)

@@ -44,12 +44,12 @@ source .venvs/dev/bin/activate
 
 # 开发 robot 时，在该目标自己的环境中安装。不同目标的依赖锁定不同，
 # 不能共用同一个虚拟环境；每个目标都从清单解析自己的依赖。
-rpent-install install robot-libero_pro  # LIBERO
+rpent-install install robot-libero  # LIBERO
 rpent-install install robot-robocasa    # RoboCasa
 rpent-install install robot-robotwin    # RoboTwin
 
 # 目标的依赖不包含测试运行器，需要另外装进该 robot 环境。
-uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout
+uv pip install --python .venvs/robot-libero/bin/python pytest pytest-timeout
 
 # 安装并启用仓库 hooks。
 uv pip install pre-commit==4.6.2
@@ -66,7 +66,7 @@ pre-commit install
 
 - **保持改动聚焦。** 新功能、无关重构和全仓库清理通常应该拆成不同的 Pull
   Request。
-- **按模块职责放置代码。** 优先复用现有实现。具体机器人或仿真环境的接入代码放在对应的 `robots/<name>/` 目录中，模型服务放在 `components/models/<name>/`；通用能力放在职责相符的公共模块中。安装目标和纯依赖组件放在 `installs/`，可选的复现锁放在 `tests/locks/`。
+- **按模块职责放置代码。** 优先复用现有实现。具体机器人的接入代码放在 `robots/<name>/` 目录中，仿真器服务与观测放在 `components/sim/<name>/`，模型服务放在 `components/models/<name>/`，共享工具和运行时放在 `components/tools/` 与 `components/infra/`；通用能力放在职责相符的公共模块中。安装目标放在 `installs/targets/` 与 `tests/targets/`，可选的复现锁放在 `tests/locks/`。
 - **修改共享模块、类和方法时检查职责与影响。** 确认改动符合原有职责，优先使用合适的现有扩展点，避免将环境专用逻辑或上层依赖放入底层公共组件。检查受影响的调用方、子类和后端，包括不使用新功能的实现；即使接口签名不变，也要核对行为、状态和生命周期是否改变。是否修改公共层应根据共享需求判断，不能只看功能大小。
 - **可选依赖只在使用处导入。** 例如，只在实际使用 RoboCasa 的代码中导入
   `robosuite`，不要在模块加载时导入。这样即使没有安装所有模拟器，

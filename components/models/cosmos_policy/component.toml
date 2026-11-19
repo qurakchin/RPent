@@ -1,6 +1,5 @@
 schema = 2
-name = "cosmos_policy"
-kind = "model"
+name = "model-cosmos_policy"
 probe = "components.models.cosmos_policy.server"
 python = ">=3.10,<3.13"
 

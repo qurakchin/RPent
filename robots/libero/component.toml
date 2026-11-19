@@ -1,34 +1,13 @@
 schema = 2
-name = "libero"
-kind = "robot"
+name = "robot-libero"
 probe = "robots.libero"
 python = ">=3.10,<3.13"
 # Runtime only: which policy and segmentation model runs with LIBERO is the
-# target's choice, so they are not in `requires`.
-requires = ["rlinf"]
+# target's choice, so they are not in `requires`. The simulation packages live
+# in `sim-libero`.
+requires = ["sim-libero"]
 # LIBERO measures task success inside robosuite; the Franka stack pins
 # numpy<2, and RoboTwin's runtime ships incompatible MuJoCo/Torch builds.
-env_conflicts = ["franka", "dual_franka", "robotwin"]
-variant_required = true
+env_conflicts = ["robot-franka", "robot-dual_franka", "sim-robotwin"]
 
-[optional]
-# The variants differ in the simulator package they install, so every target
-# that includes LIBERO must pick one. `plus` cannot inherit `standard` because
-# LIBERO-plus requires robosuite<1.5, while the standard package pins a newer
-# robosuite.
-standard = [
-  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77",
-  # MuJoCo 3.4+ changes LIBERO settling, misplacing objects and reducing task
-  # success; see https://github.com/RLinf/RLinf/issues/1460.
-  "mujoco==3.3.0",
-]
-pro = [
-  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77",
-  "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@d1e11fb181b8544487d27742c0caa3a4d46452ad",
-  "mujoco==3.3.0",
-]
-plus = [
-  "rlinf-liberoplus",
-  "mujoco==3.3.0",
-  "h5py",
-]
+dependencies = []

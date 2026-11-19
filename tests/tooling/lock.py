@@ -22,7 +22,7 @@ with the current cutoff. Installation never reads these locks.
 Usage::
 
     python -m tests.tooling.lock --all
-    python -m tests.tooling.lock robotwin --check
+    python -m tests.tooling.lock sim-robotwin --check
 """
 
 from __future__ import annotations

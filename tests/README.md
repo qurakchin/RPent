@@ -63,7 +63,7 @@ them when the first test for that module lands.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
   `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
-  `installs/{targets,deps}/`, `tests/targets`, `tests/locks`, the authored
+  `installs/targets/`, `tests/targets`, `tests/locks`, the authored
   runner partition, and the workflows that consume them. Do not read the
   real install data from `tests/unit_tests/rpent/install/`; the test path would
   otherwise hide which layer owns the failure. `installs/` is not a Python
@@ -71,8 +71,9 @@ them when the first test for that module lands.
   a `rpent/` module. Both groups use only the core and `dev` dependencies, and
   `fast ci` runs them in the `dev` target.
 - `tests/tooling/` holds the maintainer entry points that read the real
-  repository data: `python -m tests.tooling.check`, `lock`, `layout`,
-  `matrix`, and `affected`. Their tests live in `tests/unit_tests/tooling/`.
+  repository data: `lock`, `layout`, `matrix`, and `affected`. Their tests live
+  in `tests/unit_tests/tooling/`; manifest and closure checks run through
+  `rpent-install check`.
   The dependency direction is `tests/tooling/` → `rpent/install/`; the tools
   are not part of the wheel.
 - Keep one-off fakes in the test module that uses them. Put shared fixtures in
@@ -205,7 +206,7 @@ export MUJOCO_GL=egl
 export PYOPENGL_PLATFORM=egl
 
 bash tests/e2e_tests/run_gpu_suite.sh \
-  <robot-libero_pro|robot-robocasa|robot-robotwin> \
+  <robot-libero|robot-robocasa|robot-robotwin> \
   /path/to/new-output-dir \
   /path/to/new-venv-root
 ```

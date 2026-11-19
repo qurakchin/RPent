@@ -42,9 +42,7 @@ def _target(write_toml, *, core=False, dependencies=()):
         "installs/targets/alpha.toml",
         f"""
         schema = 2
-        kind = "target"
         name = "alpha"
-        python = "3.11"
         core = {str(core).lower()}
         {body}
         """,
@@ -262,7 +260,6 @@ def test_target_override_is_reported(tmp_path, write_toml, monkeypatch):
 def test_doctor_prefers_the_activated_environment(tmp_path, monkeypatch):
     venv = _venv(tmp_path)
     monkeypatch.setenv("VIRTUAL_ENV", str(venv))
-    monkeypatch.setattr("rpent.cli.install._require_supported_platform", lambda: None)
     inspected = []
 
     def _record(path, **kwargs):
@@ -277,7 +274,6 @@ def test_doctor_prefers_the_activated_environment(tmp_path, monkeypatch):
 
 def test_doctor_without_an_environment_says_how_to_select_one(monkeypatch, capsys):
     monkeypatch.delenv("VIRTUAL_ENV", raising=False)
-    monkeypatch.setattr("rpent.cli.install._require_supported_platform", lambda: None)
     monkeypatch.setattr("rpent.cli.install.current_venv", lambda: None)
 
     assert install_cli.main(["doctor"]) == 2

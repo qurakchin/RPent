@@ -100,7 +100,8 @@ For a first LIBERO-PRO run, complete the installation, asset downloads, and mode
 
 For another variant, install the matching target from
 :doc:`../get_started/installation` in an isolated environment, then download
-its assets. Install only one LIBERO variant per Python environment:
+its assets. Standard and pro share one target; install LIBERO-plus in its own
+environment because it conflicts with ``sim-libero``:
 
 .. list-table::
    :header-rows: 1
@@ -109,20 +110,21 @@ its assets. Install only one LIBERO variant per Python environment:
      - Target
      - Assets
    * - ``standard``
-     - ``sim-libero_standard``
+     - ``sim-libero``
      - ``libero-download-assets --skip-existing``
    * - ``pro``
-     - ``robot-libero_pro``
+     - ``robot-libero`` (or ``sim-libero`` for simulation only)
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
      - ``sim-libero_plus``
      - ``liberoplus-download-assets --skip-existing``
 
-A ``sim-libero_*`` target contains the simulator and the RLinf runtime
-(``rpent-rlinf``) but no model. ``robot-libero_pro`` adds Pi0.5
-(``rpent-openpi``), SAM3, and the flywheel dependencies. To run standard or
-plus with Pi0.5 and SAM3 locally, install the ``openpi`` and ``sam3`` targets in
-their own environments and pass the endpoints. Download model weights
+``sim-libero`` contains the simulator and the RLinf runtime
+(``infra-rlinf``) but no model, and covers the standard and pro suites.
+``robot-libero`` adds Pi0.5 (``model-openpi``), SAM3, and the flywheel
+dependencies. To run standard or plus with Pi0.5 and SAM3 locally, install the
+``model-openpi`` and ``model-sam3`` targets in their own environments and pass
+the endpoints. Download model weights
 separately as described below.
 
 At runtime, set ``--libero-type`` to match the installed variant.
@@ -292,7 +294,7 @@ What Runs Where
 LIBERO separates simulation and model inference into services. The toolkit
 uses their clients to execute the planner's requests.
 
-- **env_server** (``robots/libero/env_server.py``) — owns the LIBERO
+- **env_server** (``components/sim/libero/env_server.py``) — owns the LIBERO
   MuJoCo env and EGL rendering. Exposes ``reset``, ``step``,
   ``chunk_step``, ``render_camera``, ``get_camera_meta``, … over an RPC
   transport (HTTP by default; socket via ``--transport socket``).

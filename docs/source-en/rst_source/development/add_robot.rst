@@ -55,7 +55,7 @@ skeleton is:
 .. code-block:: text
 
    robots/myrobot/
-       component.toml          # kind, probe, dependencies, docs
+       component.toml          # probe, requires, dependencies, docs
        __init__.py             # lazy package entry point
        spec.py                 # RobotSpec, factories, Dashboard spec, runtime hooks
        config.py               # CLI flags, RunConfig, task selection
@@ -77,38 +77,46 @@ current file for each role until that migration lands.
 .. code-block:: toml
 
    schema = 2
-   name = "myrobot"
-   kind = "robot"
+   name = "robot-myrobot"
    probe = "robots.myrobot"
    python = ">=3.10,<3.13"
+   requires = ["sim-myrobot"]
 
-   dependencies = ["my-simulator==1.2"]
+   dependencies = ["myrobot-sdk==1.2"]
 
-A component owns the index its packages come from, so ``index-url``,
-``extra-index-urls``, and ``index-strategy`` belong in its own manifest. A
-composition target inherits them, adds the component's extra index URLs to its
-own, and fails when two components in one environment ask for different index
-URLs or strategies. ``manylinux`` works the other way: the target states the
-baseline it installs for, and discovery fails when a component needs a newer
-one.
+The name is ``<kind>-<directory>``: a component in ``robots/`` is always
+``robot-<directory>``, and a simulator in ``components/sim/`` is
+``sim-<directory>``. A component owns the index its packages come from, so
+``index-url``, ``extra-index-urls``, and ``index-strategy`` belong in its own
+manifest. A composition target inherits them, adds the component's extra index
+URLs to its own, and fails when two components in one environment ask for
+different index URLs or strategies. ``manylinux`` is declared per component
+(default ``2_31``), and the target installs for the newest baseline any
+component in its closure declares. ``platforms`` lists the hosts a component
+supports and defaults to ``["linux-x86_64"]``.
 
 ``probe`` names the importable package. ``rpent-install install`` and
 ``rpent-install doctor`` import it inside the target environment together with the
 slice's environment adapter, so a successful probe proves the real
 dependencies are present. Keep only this robot's packages in
 ``dependencies``; a package that two or more components need belongs in a
-``deps`` component under ``installs/deps/``. ``imports`` is only for a robot slice
-that reuses another slice's code: name the other robot, and make one of the
-two ``requires`` the other so the install closure includes both. A robot slice
-and a model service share a contract instead of importing each other.
+shared ``infra`` or ``tool`` component that the others name in ``requires``.
+``imports`` is only for a robot slice that reuses another slice's code: name
+the other robot, and make one of the two ``requires`` the other so the install
+closure includes both. A robot slice and a model service share a contract
+instead of importing each other.
 
 A robot is installed through a target rather than its component name, so add
-``installs/targets/robot-<name>.toml`` selecting ``[components.<name>]`` (plus
-the models the robot runs) and assign that target to a runner in
-``tests/tooling/matrix.py``; ``python -m tests.tooling.check --all`` fails
-while a robot has no target. A reproduction lock under ``tests/locks/`` is
-optional and never required for installation. See
-:doc:`../get_started/installation`.
+``installs/targets/robot-<name>.toml`` selecting ``[components.robot-<name>]``
+(plus the models the robot runs) and assign that target to a runner in
+``tests/tooling/matrix.py``; ``rpent-install check --all`` fails while a robot
+has no target. A reproduction lock under ``tests/locks/`` is optional and
+never required for installation. See :doc:`../get_started/installation`.
+
+If the integration also adds a simulator, its env server, observation, and
+control code belong under ``components/sim/<name>/``; the robot names it in
+``requires`` and imports it, while simulators import neither robots nor model
+services.
 
 ``__init__.py`` is the package entry point and must stay lazy. Robot discovery
 imports every package before the user selects one, so an eager import of a

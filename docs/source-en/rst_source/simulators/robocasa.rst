@@ -572,7 +572,7 @@ VLA Inference Check
 Complete :ref:`VLA configuration <robocasa-vla-configuration>`, then select an
 available GPU and a fresh output directory. The target's dependencies omit the
 test runner; add it to the environment with
-``uv pip install --python .venvs/robocasa/bin/python pytest pytest-timeout``.
+``uv pip install --python .venvs/robot-robocasa/bin/python pytest pytest-timeout``.
 
 .. code-block:: bash
 

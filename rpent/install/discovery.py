@@ -16,26 +16,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
+    COMPONENT_DIRECTORIES,
     Component,
     Target,
     load_component,
-    load_deps_component,
     load_target,
     target_from_component,
 )
 
-#: Every component root and the glob that finds it. Directory kinds read a
-#: ``component.toml``; the ``deps`` kind reads one file per component.
-COMPONENT_ROOTS = (
-    ("robots/*/component.toml", "robot"),
-    ("components/models/*/component.toml", "model"),
-    ("installs/deps/*.toml", "deps"),
+#: Every component root and the glob that finds it, one directory manifest per
+#: component. The glob order fixes the order components are reported in.
+COMPONENT_ROOTS = tuple(
+    (f"{directory}/*/component.toml", kind)
+    for kind, directory in COMPONENT_DIRECTORIES.items()
 )
 
 
@@ -89,21 +88,13 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
     """Load every component manifest under ``root``.
 
     Raises:
-        InstallConfigError: a manifest is invalid, duplicated, or has a kind
-            that does not match the directory root it lives under.
+        InstallConfigError: a manifest is invalid, duplicated, or has a name
+            that does not match the root it lives under.
     """
     repo_root = (root or repository_root()).resolve()
     components: dict[str, Component] = {}
-    for manifest, expected_kind in _component_manifests(repo_root):
-        if expected_kind == "deps":
-            component = load_deps_component(manifest)
-        else:
-            component = load_component(manifest)
-        if component.kind != expected_kind:
-            raise InstallConfigError(
-                f"{manifest}: kind {component.kind!r} does not match the "
-                f"{expected_kind!r} component root"
-            )
+    for manifest, kind in _component_manifests(repo_root):
+        component = load_component(manifest, kind)
         previous = components.get(component.name)
         if previous is not None:
             raise InstallConfigError(
@@ -113,21 +104,17 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
         components[component.name] = component
     _check_conflicts(components)
     _check_imports(components)
-    return _close_conflicts(components)
+    return components
 
 
 def _check_imports(components: dict[str, Component]) -> None:
     """Allow ``imports`` on robot slices, naming a co-installed robot.
 
-    Toolkits and model services share a contract instead of importing each
-    other's modules, so an ``imports`` entry on either is a manifest error
-    rather than a boundary the layout check has to honour.
+    Every other component shares a contract with its neighbors instead of
+    importing their modules, so an ``imports`` entry on one is a manifest
+    error rather than a boundary the layout check has to honour.
     """
-    reverse = {
-        other.name: set(other.requires)
-        for other in components.values()
-        if not other.is_deps
-    }
+    reverse = {other.name: set(other.requires) for other in components.values()}
     for component in components.values():
         for other in component.imports:
             if component.kind != "robot":
@@ -155,44 +142,12 @@ def _check_imports(components: dict[str, Component]) -> None:
                 )
 
 
-def _check_deps_consumers(
-    components: dict[str, Component], targets: dict[str, Target]
-) -> None:
-    """Require every deps component to earn its indirection.
-
-    A deps component either shares its packages between at least two
-    components, or names a package group that a target installs into its
-    environment on purpose, like the flywheel runtime core code uses.
-    """
-    consumers: dict[str, list[str]] = {name: [] for name in components}
-    for component in components.values():
-        if component.is_deps:
-            continue
-        for required in component.requires:
-            if required in consumers:
-                consumers[required].append(component.name)
-    selected = {
-        name
-        for target in targets.values()
-        for name in target.components
-        if name in consumers and components[name].is_deps
-    }
-    for name, component in components.items():
-        if not component.is_deps:
-            continue
-        used_by = sorted(set(consumers[name]))
-        if len(used_by) >= 2 or name in selected:
-            continue
-        raise InstallConfigError(
-            f"{component.manifest_path}: deps component {name!r} is required "
-            f"by {', '.join(used_by) or 'no component'} and no target selects "
-            "it; a single consumer belongs in that component's own "
-            "dependencies"
-        )
-
-
 def _check_conflicts(components: dict[str, Component]) -> None:
-    """Require every ``env_conflicts`` entry to name another known component."""
+    """Require every ``env_conflicts`` entry to name another known component.
+
+    The relation is read symmetrically by resolution, so a manifest names one
+    side of a conflict and the other side needs no edit.
+    """
     for component in components.values():
         for other in component.env_conflicts:
             if other not in components:
@@ -205,140 +160,6 @@ def _check_conflicts(components: dict[str, Component]) -> None:
                     f"{component.manifest_path}: env_conflicts names the component "
                     "itself"
                 )
-
-
-def _close_conflicts(components: dict[str, Component]) -> dict[str, Component]:
-    """Return components whose ``env_conflicts`` include the mirror declaration.
-
-    A manifest may name a conflicting component once; the effective relation is
-    symmetric, so the other side reports it without editing that manifest.
-    Manifests that already declare both sides keep their written order.
-    """
-    declared = {
-        name: set(component.env_conflicts) for name, component in components.items()
-    }
-    for name, others in list(declared.items()):
-        for other in others:
-            declared[other].add(name)
-    return {
-        name: (
-            component
-            if set(component.env_conflicts) == declared[name]
-            else replace(component, env_conflicts=tuple(sorted(declared[name])))
-        )
-        for name, component in components.items()
-    }
-
-
-def _baseline(value: str) -> tuple[int, int]:
-    """Return a ``manylinux`` value as comparable numbers."""
-    major, minor = value.split("_")
-    return int(major), int(minor)
-
-
-def _installed_components(
-    target: Target, components: dict[str, Component]
-) -> list[Component]:
-    """Return the closure components this target installs into its environment."""
-    seen: set[str] = set()
-    pending = list(target.components)
-    installed: list[Component] = []
-    while pending:
-        name = pending.pop(0)
-        if name in seen or name not in components:
-            continue
-        seen.add(name)
-        component = components[name]
-        installed.append(component)
-        pending.extend(component.requires)
-    return installed
-
-
-def _inherit_settings(
-    target: Target,
-    components: dict[str, Component],
-    root: Path,
-) -> Target:
-    """Apply the index settings the target's components declare.
-
-    A component owns the index its packages come from, so a composition target
-    that leaves ``index-url`` or ``index-strategy`` unset inherits them, and
-    extra index URLs are unioned with the target's. A disagreement is an error:
-    the environment cannot resolve against two indexes at once, and picking one
-    side would silently break the other component.
-    """
-    installed = _installed_components(target, components)
-    if not installed:
-        return target
-
-    index_urls: dict[str, list[str]] = {}
-    strategies: dict[str, list[str]] = {}
-    extra_urls: dict[str, list[str]] = {}
-    for component in installed:
-        settings = component.settings
-        if settings.index_url:
-            index_urls.setdefault(settings.index_url, []).append(component.name)
-        if settings.index_strategy:
-            strategies.setdefault(settings.index_strategy, []).append(component.name)
-        for url in settings.extra_index_urls:
-            extra_urls.setdefault(url, []).append(component.name)
-
-    index_url = target.index_url
-    if index_url is None and index_urls:
-        if len(index_urls) > 1:
-            raise InstallConfigError(
-                f"{target.relative_path(root)}: components declare different "
-                f"index URLs: {_describe_settings(index_urls)}; one environment "
-                "resolves against one index"
-            )
-        index_url = next(iter(index_urls))
-
-    index_strategy = target.index_strategy
-    if index_strategy is None and strategies:
-        if len(strategies) > 1:
-            raise InstallConfigError(
-                f"{target.relative_path(root)}: components declare different "
-                f"index strategies: {_describe_settings(strategies)}; set "
-                "'index-strategy' on the target to decide"
-            )
-        index_strategy = next(iter(strategies))
-
-    declared = max(
-        (component.settings.manylinux for component in installed), key=_baseline
-    )
-    if _baseline(declared) > _baseline(target.manylinux):
-        requiring = ", ".join(
-            component.name
-            for component in installed
-            if component.settings.manylinux == declared
-        )
-        raise InstallConfigError(
-            f"{target.relative_path(root)}: manylinux {target.manylinux} cannot serve "
-            f"{requiring}, which needs manylinux {declared}; raise 'manylinux' "
-            "on the target"
-        )
-
-    extra_index_urls = tuple(sorted({*target.extra_index_urls, *extra_urls}))
-    if (
-        index_url == target.index_url
-        and index_strategy == target.index_strategy
-        and extra_index_urls == target.extra_index_urls
-    ):
-        return target
-    return replace(
-        target,
-        index_url=index_url,
-        index_strategy=index_strategy,
-        extra_index_urls=extra_index_urls,
-    )
-
-
-def _describe_settings(values: dict[str, list[str]]) -> str:
-    """Return ``value (owners)`` pairs for an error message."""
-    return "; ".join(
-        f"{value!r} from {', '.join(owners)}"
-        for value, owners in sorted(values.items())
-    )
 
 
 def target_roots(root: Path) -> tuple[Path, ...]:
@@ -362,7 +183,7 @@ def _targets(repo_root: Path, components: dict[str, Component]) -> dict[str, Tar
         for path in sorted(directory.glob("*.toml")):
             if _is_metadata_file(path):
                 continue
-            target = _inherit_settings(load_target(path), components, repo_root)
+            target = load_target(path)
             previous = targets.get(target.name)
             if previous is not None:
                 raise InstallConfigError(
@@ -374,14 +195,11 @@ def _targets(repo_root: Path, components: dict[str, Component]) -> dict[str, Tar
             _check_override_target(target, components, repo_root)
             targets[target.name] = target
     for name, component in sorted(components.items()):
-        if component.is_deps or component.variant_required or component.kind == "robot":
-            # A deps component has no code, a variant component cannot choose
-            # its variant by name, and a robot is an integration, not an
-            # install unit: each needs a target file that names what to
-            # install.
+        if component.kind == "robot":
+            # A robot is an integration, not an install unit: it needs a target
+            # file that names what to install alongside it.
             continue
         targets[name] = target_from_component(component)
-    _check_deps_consumers(components, targets)
     return targets
 
 
@@ -405,8 +223,7 @@ def _check_override_target(
             "non-robot components are already installable under their own "
             "name, so rename the target"
         )
-    selected = target.components.get(component.name)
-    if selected is None:
+    if component.name not in target.components:
         raise InstallConfigError(
             f"target {target.name!r} in {target.relative_path(repo_root)} "
             f"overrides robot component {component.manifest_path} but does "
@@ -418,11 +235,9 @@ def _check_override_target(
 def discover_targets(root: Path | None = None) -> dict[str, Target]:
     """Load every target, including one synthesized per non-robot component.
 
-    A target that reuses a component name without being a robot's override,
-    an override that does not install its own robot, and a composition target
-    whose installed components disagree about an index or need a newer
-    ``manylinux`` baseline are rejected rather than installed under a silently
-    narrowed environment.
+    A target that reuses a component name without being a robot's override and
+    an override that does not install its own robot are rejected rather than
+    installed under a silently narrowed environment.
     """
     repo_root = (root or repository_root()).resolve()
     return _targets(repo_root, discover_components(repo_root))

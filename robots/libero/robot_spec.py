@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from robots.libero.prompt_bundle import system_prompt, user_prompt
-from robots.libero.suites import LIBERO_SUITE_NAMES, resolve_libero_type
+from components.sim.libero.suites import LIBERO_SUITE_NAMES, resolve_libero_type
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
@@ -460,7 +460,7 @@ def _spawn_vla_server(
 def _make_model_client(rpc: RpcClient, wam: AMConfig | None) -> Any:
     """Bind the platform client and validate the worker before executing actions."""
     if wam is not None:
-        from robots.libero.wam_client import LiberoWAMClient
+        from components.sim.libero.wam_client import LiberoWAMClient
 
         try:
             client = LiberoWAMClient(rpc)

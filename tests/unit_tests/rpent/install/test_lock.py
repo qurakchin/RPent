@@ -31,7 +31,6 @@ from rpent.install.lock import (
     new_lock_timestamp,
     resolve_target,
 )
-from rpent.install.manifest import Selection
 
 
 @pytest.fixture
@@ -48,8 +47,7 @@ def repo(tmp_path, write_toml):
         "components/models/alpha/component.toml",
         """
         schema = 2
-        name = "alpha"
-        kind = "model"
+        name = "model-alpha"
         probe = "json"
         python = "3.11"
         dependencies = ["numpy>=2"]
@@ -59,8 +57,7 @@ def repo(tmp_path, write_toml):
         "components/models/beta/component.toml",
         """
         schema = 2
-        name = "beta"
-        kind = "model"
+        name = "model-beta"
         probe = "json"
         python = "3.11"
         manylinux = "2_35"
@@ -130,7 +127,7 @@ def test_compile_writes_the_resolved_requirements(repo, fake_uv):
     cutoff = new_lock_timestamp()
 
     text = compile_target(
-        catalog.targets["alpha"],
+        catalog.targets["model-alpha"],
         catalog,
         root=repo,
         uv=str(fake_uv),
@@ -154,7 +151,7 @@ def test_compile_without_a_cutoff_writes_only_the_python_header(repo, fake_uv):
     output.parent.mkdir(parents=True, exist_ok=True)
 
     text = compile_target(
-        catalog.targets["alpha"],
+        catalog.targets["model-alpha"],
         catalog,
         root=repo,
         uv=str(fake_uv),
@@ -175,7 +172,7 @@ def test_compile_runs_in_the_checkout(repo, fake_uv, monkeypatch):
     output.parent.mkdir(parents=True, exist_ok=True)
 
     compile_target(
-        catalog.targets["alpha"], catalog, root=repo, uv=str(fake_uv), output=output
+        catalog.targets["model-alpha"], catalog, root=repo, uv=str(fake_uv), output=output
     )
 
     assert (repo / "uv-pwd").read_text(encoding="utf-8").splitlines() == [
@@ -192,8 +189,7 @@ def test_compile_resolves_override_files_against_the_checkout(
         "components/models/alpha/component.toml",
         """
         schema = 2
-        name = "alpha"
-        kind = "model"
+        name = "model-alpha"
         probe = "json"
         python = "3.11"
         dependencies = ["numpy>=2"]
@@ -206,7 +202,7 @@ def test_compile_resolves_override_files_against_the_checkout(
     output.parent.mkdir(parents=True, exist_ok=True)
 
     compile_target(
-        catalog.targets["alpha"], catalog, root=repo, uv=str(fake_uv), output=output
+        catalog.targets["model-alpha"], catalog, root=repo, uv=str(fake_uv), output=output
     )
 
     arguments = _arguments(fake_uv)
@@ -215,13 +211,13 @@ def test_compile_resolves_override_files_against_the_checkout(
     assert os.path.isabs(value)
 
 
-def test_compile_uses_the_target_manylinux_baseline(repo, fake_uv):
+def test_compile_uses_the_closure_manylinux_baseline(repo, fake_uv):
     catalog = discover(repo)
     output = repo / "tests/locks/beta.lock"
     output.parent.mkdir(parents=True, exist_ok=True)
 
     compile_target(
-        catalog.targets["beta"], catalog, root=repo, uv=str(fake_uv), output=output
+        catalog.targets["model-beta"], catalog, root=repo, uv=str(fake_uv), output=output
     )
 
     arguments = _arguments(fake_uv)
@@ -233,16 +229,11 @@ def test_compile_uses_the_target_manylinux_baseline(repo, fake_uv):
 def test_compile_rejects_a_python_request_no_supported_minor_satisfies(
     tmp_path, make_component, make_target, make_catalog, fake_uv
 ):
-    component = make_component("alpha", python=">=3.10,<3.11")
-    target = make_target(
-        "alpha",
-        components={"alpha": Selection()},
-        python="3.12",
-        core=False,
-    )
+    component = make_component("robot-alpha", python=">=3.13")
+    target = make_target("alpha", ["robot-alpha"], core=False)
     catalog = make_catalog([component], {"alpha": target})
 
-    with pytest.raises(InstallError, match="no supported version"):
+    with pytest.raises(InstallError, match="no supported Python version"):
         compile_target(
             target, catalog, root=tmp_path, uv=str(fake_uv), output=tmp_path / "x"
         )
@@ -251,7 +242,7 @@ def test_compile_rejects_a_python_request_no_supported_minor_satisfies(
 def test_resolve_target_compiles_without_writing_a_lock(repo, fake_uv):
     catalog = discover(repo)
 
-    text = resolve_target(catalog.targets["alpha"], catalog, root=repo, uv=str(fake_uv))
+    text = resolve_target(catalog.targets["model-alpha"], catalog, root=repo, uv=str(fake_uv))
 
     assert "numpy>=2" in text
     assert not (repo / "tests/locks/alpha.lock").exists()

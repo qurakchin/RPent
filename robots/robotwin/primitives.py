@@ -25,9 +25,9 @@ from pydantic import Field
 
 from components.models.lingbot.client import LingBotVLAClient
 from robots.robotwin.env_client import RoboTwinEnvClient
-from robots.robotwin.observation import physical_observation
+from components.sim.robotwin.observation import physical_observation
 from robots.robotwin.robot_spec import MODEL_SPEC, ROBOTWIN_CAMERA_NAMES
-from robots.robotwin.wam_client import RoboTwinWAMClient
+from components.sim.robotwin.wam_client import RoboTwinWAMClient
 from rpent.session.env_capture import CapturingEnvClient
 from rpent.tools import ToolResult, tool
 

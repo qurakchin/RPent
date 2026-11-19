@@ -19,7 +19,7 @@ directly at the point of use keeps core imports working without every robot
 extra installed. This guard replaces local ``try: import ... except
 ImportError: ... = None`` fallbacks with one actionable message::
 
-    torch = require("sam3", "torch")
+    torch = require("model-sam3", "torch")
 """
 
 from __future__ import annotations

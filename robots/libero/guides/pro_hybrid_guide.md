@@ -88,12 +88,12 @@ multi-pixel-median tip from the perception protocol.
 
 ## 2. Setup (do these once on a fresh checkout)
 
-Install the `robot-libero_pro` target; it pins LIBERO-PRO at a commit from the
+Install the `robot-libero` target; it pins LIBERO-PRO at a commit from the
 `rpent` branch and installs the perception stack (Pi0.5 and SAM 3.0) into one
 environment:
 
 ```bash
-rpent-install install robot-libero_pro
+rpent-install install robot-libero
 ```
 
 The target covers the liberopro install and its benchmark registration. The
@@ -110,7 +110,7 @@ branch. Confirm it from
 inside that environment:
 
 ```bash
-.venvs/robot-libero_pro/bin/python -m pip show liberopro
+.venvs/robot-libero/bin/python -m pip show liberopro
 # Name: liberopro  Version: 0.1.0  Location: /path/to/site-packages/liberopro
 ```
 
@@ -122,7 +122,7 @@ instruction reaches Pi0 / hybrid. The pinned revision carries that
 registration; verify it in the installed environment:
 
 ```bash
-.venvs/robot-libero_pro/bin/python -c \
+.venvs/robot-libero/bin/python -c \
   "import liberopro.liberopro.benchmark as b; print(b.get_benchmark('libero_spatial_task')().get_task(0).language)"
 ```
 

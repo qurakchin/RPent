@@ -121,8 +121,8 @@ RPent is built for four kinds of users:
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # Recommended default (LIBERO-PRO):
-./rpent-install.sh install robot-libero_pro
-source .venvs/robot-libero_pro/bin/activate
+./rpent-install.sh install robot-libero
+source .venvs/robot-libero/bin/activate
 
 # Other targets install into .venvs/<target> as well:
 rpent-install install robot-robocasa    # RoboCasa
@@ -131,7 +131,7 @@ rpent-install install robot-franka      # Franka
 rpent-install install robot-dual_franka # Dual Franka
 ```
 
-`robot-libero_pro` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every target, compatibility extras, and diagnostics.
+`robot-libero` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every target and diagnostics.
 
 For RoboCasa setup, task memory, and the Target50 protocol, see the
 [RoboCasa guide](https://rpent.readthedocs.io/en/latest/rst_source/simulators/robocasa.html).

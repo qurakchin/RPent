@@ -1,6 +1,5 @@
 schema = 2
-name = "openpi"
-kind = "model"
+name = "model-openpi"
 probe = "openpi"
 python = ">=3.10,<3.13"
 description = "Pi0.5 policy runtime used as a diagnostic environment."

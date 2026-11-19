@@ -1,13 +1,10 @@
 schema = 2
-name = "robocasa"
-kind = "robot"
+name = "robot-robocasa"
 probe = "robots.robocasa"
 python = ">=3.10,<3.11"
-description = "RoboCasa simulation with RLinf's RoboCasa365 and RLDX stack."
-requires = ["rlinf"]
-env_conflicts = ["franka", "dual_franka", "robotwin"]
+description = "RoboCasa adapter with RLinf's RoboCasa365 and RLDX stack."
+# The RoboCasa365 and robosuite packages belong to `sim-robocasa`.
+requires = ["sim-robocasa"]
+env_conflicts = ["robot-franka", "robot-dual_franka", "sim-robotwin"]
 
-dependencies = [
-  "rpent-robocasa365 @ git+https://github.com/RLinf/robocasa.git@2692d8fc5fd86708a1b2028dcbce892ec418a9e7",
-  "robosuite @ git+https://github.com/RLinf/robosuite.git@97cfbde4b68d8ec43dad20cf4747297866a6ca2e",
-]
+dependencies = []

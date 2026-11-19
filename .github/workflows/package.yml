@@ -85,7 +85,6 @@ jobs:
           robots = package_root("robots")
           for relative in (
               "robocasa/eval/target50.json",
-              "robotwin/eval/demo_randomized.json",
               "franka/config/example.yaml",
               "dual_franka/config/example.yaml",
               "libero/guides/env_calibration.md",
@@ -93,6 +92,10 @@ jobs:
           ):
               if not (robots / relative).is_file():
                   sys.exit(f"{relative} is missing from the source wheel")
+          sim = package_root("components.sim")
+          if not (sim / "robotwin/eval/demo_randomized.json").is_file():
+              sys.exit("robotwin/eval/demo_randomized.json is missing")
+
           PY
           "$RUNNER_TEMP/venv-editable/bin/python" - <<'PY'
           import importlib.util

@@ -17,7 +17,6 @@
 import pytest
 
 from rpent.install.errors import InstallConfigError
-from rpent.install.manifest import Selection
 from rpent.install.requirements import (
     INPUT_SCHEMA,
     installed_dependencies,
@@ -32,18 +31,16 @@ from rpent.install.resolve import resolve
 @pytest.fixture
 def resolution(make_component, make_target, make_catalog):
     robot = make_component(
-        "alpha",
+        "robot-alpha",
         dependencies=["numpy>=2", "torch==2.7.0"],
-        optional={"pro": ("extra-package",)},
     )
     model = make_component(
-        "molmo",
-        kind="model",
+        "model-molmo",
         dependencies=["transformers>=4.57"],
     )
     target = make_target(
         "alpha",
-        {"alpha": Selection(variant="pro"), "molmo": Selection()},
+        ["robot-alpha", "model-molmo"],
         dependencies=["pytest"],
     )
     catalog = make_catalog(components=[robot, model])
@@ -63,9 +60,8 @@ def test_render_requirements_groups_core_target_and_components(resolution, tmp_p
     ]
     assert "# RPent core\nPyYAML\npackaging" in text
     assert "# target alpha\npytest" in text
-    assert "# component alpha (pro)" in text
+    assert "# component robot-alpha" in text
     assert text.index("numpy>=2") < text.index("torch==2.7.0")
-    assert "extra-package" in text
 
 
 def test_a_selected_model_renders_its_own_packages(resolution, tmp_path):
@@ -73,12 +69,12 @@ def test_a_selected_model_renders_its_own_packages(resolution, tmp_path):
         resolution, root=tmp_path, core_dependencies=("packaging",)
     )
 
-    assert "# component molmo" in text
+    assert "# component model-molmo" in text
     assert "transformers>=4.57" in text
 
 
 def test_core_can_be_disabled(make_component, make_target, make_catalog):
-    target = make_target("molmo", {}, core=False)
+    target = make_target("molmo", [], core=False)
     catalog = make_catalog(components=[])
     resolution = resolve(target, catalog)
 
@@ -103,8 +99,11 @@ def test_requirements_hash_tracks_manifests_and_options(
         resolution, root=tmp_path, core_dependencies=("packaging",)
     )
     assert inputs["schema"] == INPUT_SCHEMA
-    assert inputs["target"]["components"]["alpha"]["variant"] == "pro"
-    assert inputs["target"]["components"]["molmo"]["variant"] is None
+    assert inputs["target"]["components"]["robot-alpha"] == {
+        "manifest_sha256": "robot-alpha"
+    }
+    assert inputs["target"]["python"] == "3.12"
+    assert inputs["target"]["platform"] == "linux-x86_64"
     assert inputs["target"]["manylinux"] == "2_31"
     assert inputs["core_dependencies"] == ["packaging"]
 
@@ -112,11 +111,15 @@ def test_requirements_hash_tracks_manifests_and_options(
 def test_requirements_hash_tracks_the_manylinux_baseline(
     make_component, make_target, make_catalog, tmp_path
 ):
-    robot = make_component("alpha")
-    catalog = make_catalog([robot])
-    default = resolve(make_target("alpha", {"alpha": Selection()}), catalog)
+    default_robot = make_component("robot-alpha")
+    raised_robot = make_component("robot-beta", manylinux="2_35")
+    default = resolve(
+        make_target("alpha", ["robot-alpha"]),
+        make_catalog([default_robot]),
+    )
     raised = resolve(
-        make_target("alpha", {"alpha": Selection()}, manylinux="2_35"), catalog
+        make_target("beta", ["robot-beta"]),
+        make_catalog([raised_robot]),
     )
 
     # The baseline decides which wheel tags uv may select, so it is an input
@@ -127,22 +130,19 @@ def test_requirements_hash_tracks_the_manylinux_baseline(
     assert requirements_inputs(raised, root=tmp_path)["target"]["manylinux"] == "2_35"
 
 
-def test_requirements_inputs_record_deps_components(
+def test_requirements_inputs_record_components(
     make_component, make_target, make_catalog, tmp_path
 ):
-    rlinf = make_component("rlinf", kind="deps")
-    alpha = make_component("alpha", requires=["rlinf"])
-    target = make_target("sim", {"alpha": Selection()})
+    rlinf = make_component("infra-rlinf")
+    alpha = make_component("robot-alpha", requires=["infra-rlinf"])
+    target = make_target("sim", ["robot-alpha"])
     catalog = make_catalog([rlinf, alpha], {"sim": target})
 
     resolution = resolve(target, catalog)
 
     inputs = requirements_inputs(resolution, root=tmp_path)
     # A component entry records only what decides the environment's contents.
-    assert set(inputs["target"]["components"]["rlinf"]) == {
-        "manifest_sha256",
-        "variant",
-    }
+    assert set(inputs["target"]["components"]["infra-rlinf"]) == {"manifest_sha256"}
 
 
 def test_requirements_hash_ignores_a_checked_in_lock(
@@ -150,8 +150,8 @@ def test_requirements_hash_ignores_a_checked_in_lock(
 ):
     # Locks are reproduction artifacts, not installation inputs: rewriting or
     # deleting one cannot change what a reinstall produces.
-    robot = make_component("alpha", dependencies=["numpy>=2"])
-    target = make_target("alpha", {"alpha": Selection()})
+    robot = make_component("robot-alpha", dependencies=["numpy>=2"])
+    target = make_target("alpha", ["robot-alpha"])
     resolution = resolve(target, make_catalog([robot], {"alpha": target}))
     lock = write_toml("tests/locks/alpha.lock", "numpy==2.0.0")
 
@@ -172,8 +172,8 @@ def test_requirements_hash_tracks_component_overrides(
     declared = "robots/alpha/requirements/override.txt"
     # Manifests resolve overrides to absolute paths when they are loaded.
     override = write_toml(declared, "numpy<2")
-    robot = make_component("alpha", dependencies=["numpy>=2"], overrides=[override])
-    target = make_target("alpha", {"alpha": Selection()})
+    robot = make_component("robot-alpha", dependencies=["numpy>=2"], overrides=[override])
+    target = make_target("alpha", ["robot-alpha"])
     resolution = resolve(target, make_catalog([robot], {"alpha": target}))
 
     baseline = requirements_sha256(resolution, root=tmp_path)
@@ -193,8 +193,8 @@ def test_requirement_file_hashes_ignore_comments_and_blank_lines(
     make_component, make_target, make_catalog, tmp_path, write_toml
 ):
     override = write_toml("robots/alpha/requirements/override.txt", "numpy<2")
-    robot = make_component("alpha", dependencies=["numpy>=2"], overrides=[override])
-    target = make_target("alpha", {"alpha": Selection()})
+    robot = make_component("robot-alpha", dependencies=["numpy>=2"], overrides=[override])
+    target = make_target("alpha", ["robot-alpha"])
     resolution = resolve(target, make_catalog([robot], {"alpha": target}))
 
     baseline = requirements_sha256(resolution, root=tmp_path)
@@ -214,8 +214,8 @@ def test_override_that_is_not_utf8_is_a_configuration_error(
     override = tmp_path / "robots/alpha/requirements/override.txt"
     override.parent.mkdir(parents=True)
     override.write_text("numpy<2\n", encoding="utf-8")
-    robot = make_component("alpha", dependencies=["numpy>=2"], overrides=[override])
-    target = make_target("alpha", {"alpha": Selection()})
+    robot = make_component("robot-alpha", dependencies=["numpy>=2"], overrides=[override])
+    target = make_target("alpha", ["robot-alpha"])
     resolution = resolve(target, make_catalog([robot], {"alpha": target}))
 
     # uv rejects a requirement file it cannot decode, so recording it as an
@@ -233,8 +233,8 @@ def test_requirements_hash_does_not_depend_on_how_the_checkout_is_named(
     override = checkout / "robots/alpha/requirements/override.txt"
     override.parent.mkdir(parents=True)
     override.write_text("numpy<2\n", encoding="utf-8")
-    robot = make_component("alpha", overrides=[override])
-    target = make_target("alpha", {"alpha": Selection()})
+    robot = make_component("robot-alpha", overrides=[override])
+    target = make_target("alpha", ["robot-alpha"])
     resolution = resolve(target, make_catalog([robot], {"alpha": target}))
 
     linked = tmp_path / "linked"
@@ -248,8 +248,8 @@ def test_requirements_hash_does_not_depend_on_how_the_checkout_is_named(
 def test_requirements_hash_tracks_uv_settings_but_not_conflicts(
     make_component, make_target, make_catalog, tmp_path, write_toml
 ):
-    robot = make_component("alpha")
-    target = make_target("alpha", {"alpha": Selection()})
+    robot = make_component("robot-alpha")
+    target = make_target("alpha", ["robot-alpha"])
     resolution = resolve(target, make_catalog([robot], {"alpha": target}))
     settings = """
         [project]

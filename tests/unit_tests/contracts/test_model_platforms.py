@@ -24,11 +24,11 @@ from types import ModuleType
 import numpy as np
 import pytest
 
-from robots.libero import control as libero_control
-from robots.robodojo import access as robodojo_access
-from robots.robotwin import contracts as robotwin_contracts
-from robots.robotwin import control as robotwin_control
-from robots.robotwin import observation as robotwin_observation
+from components.sim.libero import control as libero_control
+from components.sim.robodojo import access as robodojo_access
+from components.sim.robotwin import contracts as robotwin_contracts
+from components.sim.robotwin import control as robotwin_control
+from components.sim.robotwin import observation as robotwin_observation
 from robots.yam import contracts as yam_contracts
 
 MODEL_PLATFORMS = Path(__file__).resolve().parents[3] / "components" / "models"

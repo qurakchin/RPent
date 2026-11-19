@@ -41,8 +41,7 @@ def _component(write_toml, root, name, kind, *, requires=(), imports=()):
         f"{root}/{name}/component.toml",
         f"""
         schema = 2
-        name = "{name}"
-        kind = "{kind}"
+        name = "{kind}-{name}"
         probe = "{name}"
         requires = [{required}]
         imports = [{imported}]
@@ -163,7 +162,7 @@ def test_relative_sibling_model_import_is_reported(tmp_path, write_toml):
 
 def test_declared_extension_allows_a_relative_import(tmp_path, write_toml):
     _component(
-        write_toml, "robots", "alpha", "robot", requires=["beta"], imports=["beta"]
+        write_toml, "robots", "alpha", "robot", requires=["robot-beta"], imports=["robot-beta"]
     )
     _component(write_toml, "robots", "beta", "robot")
     _write(tmp_path / "robots" / "alpha" / "module.py", "from .. import beta\n")
@@ -191,7 +190,7 @@ def test_apple_double_python_files_are_ignored(tmp_path, write_toml):
 
 def test_declared_coinstalled_extension_allows_cross_robot_import(tmp_path, write_toml):
     _component(
-        write_toml, "robots", "alpha", "robot", requires=["beta"], imports=["beta"]
+        write_toml, "robots", "alpha", "robot", requires=["robot-beta"], imports=["robot-beta"]
     )
     _component(write_toml, "robots", "beta", "robot")
     _write(

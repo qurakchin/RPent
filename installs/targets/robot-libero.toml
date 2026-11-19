@@ -1,0 +1,11 @@
+schema = 2
+name = "robot-libero"
+description = "LIBERO with Pi0.5, SAM 3.0, and LeRobot trajectory export and replay."
+
+[components.robot-libero]
+
+[components.model-openpi]
+
+[components.model-sam3]
+
+[components.tool-flywheel]

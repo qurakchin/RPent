@@ -35,7 +35,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 .. code-block:: text
 
    robots/myrobot/
-       component.toml          # kind、probe、依赖、docs
+       component.toml          # probe、requires、依赖、docs
        __init__.py             # 惰性包入口
        spec.py                 # RobotSpec、工厂、Dashboard 描述和 runtime 钩子
        config.py               # 命令行参数、RunConfig、任务选择
@@ -53,16 +53,20 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 .. code-block:: toml
 
    schema = 2
-   name = "myrobot"
-   kind = "robot"
+   name = "robot-myrobot"
    probe = "robots.myrobot"
    python = ">=3.10,<3.13"
+   requires = ["sim-myrobot"]
 
-   dependencies = ["my-simulator==1.2"]
+   dependencies = ["myrobot-sdk==1.2"]
 
-包来自哪个索引由组件自己声明：``index-url``、``extra-index-urls``、``index-strategy`` 写在组件的清单里，组合目标会继承这些设置，并把组件的额外索引并入自己的；同一环境里两个组件要求不同的索引地址或策略时报错。``manylinux`` 相反：基线由目标为自己安装的环境声明，组件需要更新的基线时由发现阶段报错。``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进 ``installs/deps/`` 下的 deps 组件。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。机器人切片与模型服务之间共享契约，不互相 import。
+名字是 ``<kind>-<目录名>``：``robots/`` 下的组件固定叫 ``robot-<目录>``，``components/sim/`` 下的仿真器叫 ``sim-<目录>``。包来自哪个索引由组件自己声明：``index-url``、``extra-index-urls``、``index-strategy`` 写在组件的清单里，组合目标会继承这些设置，并把组件的额外索引并入自己的；同一环境里两个组件要求不同的索引地址或策略时报错。``manylinux`` 由各组件自己声明（默认 ``2_31``），目标按闭包内最高的基线安装。``platforms`` 列出组件支持的主机，默认是 ``["linux-x86_64"]``。
 
-机器人不按组件名安装，而是通过目标安装：在 ``installs/targets/robot-<name>.toml`` 中选中 ``[components.<name>]``（以及它运行的模型），再在 ``tests/tooling/matrix.py`` 里把该目标分配给 runner；有机器人没有目标时 ``python -m tests.tooling.check --all`` 会失败。``tests/locks/`` 下的复现锁是可选的，安装不依赖它。见 :doc:`../get_started/installation`。
+``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进共享的 ``infra`` 或 ``tool`` 组件，由其他组件在 ``requires`` 中声明。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。机器人切片与模型服务之间共享契约，不互相 import。
+
+机器人不按组件名安装，而是通过目标安装：在 ``installs/targets/robot-<name>.toml`` 中选中 ``[components.robot-<name>]``（以及它运行的模型），再在 ``tests/tooling/matrix.py`` 里把该目标分配给 runner；有机器人没有目标时 ``rpent-install check --all`` 会失败。``tests/locks/`` 下的复现锁是可选的，安装不依赖它。见 :doc:`../get_started/installation`。
+
+如果接入同时新增仿真环境，它的 env server、观测和控制代码放在 ``components/sim/<name>/`` 下；机器人在 ``requires`` 中声明并 import 它，仿真器不 import 机器人或模型服务。
 
 ``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的环境。通过 ``__getattr__`` 暴露工厂：
 

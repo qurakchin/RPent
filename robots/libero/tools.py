@@ -35,7 +35,7 @@ from rpent.tools import Tool, ToolResult, tool
 from rpent.utils.logging import get_logger
 
 if TYPE_CHECKING:
-    from robots.libero.wam_client import LiberoWAMClient
+    from components.sim.libero.wam_client import LiberoWAMClient
     from rpent.models.client import BaseVLAClient
 
 logger = get_logger("libero_tools")

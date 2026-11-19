@@ -1,10 +1,7 @@
 schema = 2
-kind = "target"
 name = "robot-yam"
-python = "3.11"
-
 description = "Dual-arm YAM with Pi0.5."
 
-[components.yam]
+[components.robot-yam]
 
-[components.openpi]
+[components.model-openpi]

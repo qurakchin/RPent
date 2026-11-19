@@ -1,6 +1,5 @@
 schema = 2
-name = "molmo"
-kind = "model"
+name = "model-molmo"
 probe = "components.models.molmo.server"
 python = ">=3.10,<3.13"
 # The model server runs from this interpreter with PYTHONPATH pointing at the
@@ -10,7 +9,7 @@ description = "Molmo visual grounding in a standalone environment."
 # Molmo's model code needs transformers >=4.57, while RoboTwin's stack is pinned
 # to 4.51.3. Install Molmo in its own environment and connect over RPC; placing both
 # in one environment is rejected before installation.
-env_conflicts = ["robotwin"]
+env_conflicts = ["sim-robotwin"]
 
 dependencies = [
   "transformers>=4.57",

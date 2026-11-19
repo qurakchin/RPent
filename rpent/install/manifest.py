@@ -14,12 +14,16 @@
 
 """Install manifests: code components and the targets users install.
 
-One schema covers both. A directory component (``robots/``,
-``components/models/``) declares the packages it owns
-and can be installed directly by name. A target is a manifest without code:
-``installs/targets/<name>.toml`` composes components, ``tests/targets/`` serves
-only tests and CI. Targets may add packages that belong to no component but
-never repeat a component's declarations.
+Every component owns one directory below a root named after its kind, and its
+name is ``<kind>-<directory>``: ``sim-example`` lives at
+``components/sim/example``. The kind is a property of the directory, so a
+manifest cannot disagree with where it lives and a target's component list
+names exactly what it installs.
+
+A target is a manifest without code: ``installs/targets/<name>.toml`` composes
+components, ``tests/targets/`` serves only tests and CI. Targets may add
+packages that belong to no component but never repeat a component's
+declarations.
 """
 
 from __future__ import annotations
@@ -41,14 +45,43 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
     import tomli as tomllib
 
 SCHEMA = 2
-KINDS = ("robot", "model", "deps", "target")
-#: Kinds declared by ``component.toml`` inside the component's own directory.
-DIRECTORY_KINDS = ("robot", "model")
+#: Component roots, relative to the checkout, by kind. A component's name is
+#: ``<kind>-<directory name>``, which keeps every installable name unique across
+#: roots without a separate namespace.
+COMPONENT_DIRECTORIES = {
+    "robot": "robots",
+    "sim": "components/sim",
+    "model": "components/models",
+    "tool": "components/tools",
+    "infra": "components/infra",
+}
+KINDS = tuple(COMPONENT_DIRECTORIES)
+#: Hosts a component can declare. ``linux-x86_64`` is the only default: every
+#: current runtime depends on Linux wheels, and macOS support is per component.
+PLATFORMS = (
+    "linux-x86_64",
+    "linux-aarch64",
+    "darwin-arm64",
+    "darwin-x86_64",
+)
+DEFAULT_PLATFORMS = ("linux-x86_64",)
 #: ``uv``'s multi-index strategies; see ``--index-strategy`` in ``uv pip compile``.
 INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
-#: Python minors the repository supports, newest first. A requested range is
-#: resolved to the highest minor in this list that all components accept.
+#: Python minors the repository supports, newest first. A component's range is
+#: resolved to the highest minor in this list that every component accepts.
 PYTHON_MINORS = ("3.12", "3.11", "3.10")
+#: The newest glibc baseline a component needs. ``uv`` compiles a lock for the
+#: newest baseline in the target's closure, and a newer baseline admits every
+#: wheel an older one does.
+DEFAULT_MANYLINUX = "2_31"
+#: ``uv --python-platform`` value per host. Only the linux entries depend on the
+#: glibc baseline.
+PLATFORM_TAGS = {
+    "linux-x86_64": "x86_64-manylinux_{baseline}",
+    "linux-aarch64": "aarch64-manylinux_{baseline}",
+    "darwin-arm64": "aarch64-apple-darwin",
+    "darwin-x86_64": "x86_64-apple-darwin",
+}
 _MANYLINUX = re.compile(r"^\d+_\d+$")
 #: A git dependency must name an immutable ref. Branches move, which makes a
 #: lock compiled yesterday install different code tomorrow.
@@ -84,31 +117,26 @@ _ALLOWED_KEYS = {
         {
             "schema",
             "name",
-            "kind",
             "probe",
             "python",
-            "variant",
-            "variant_required",
+            "platforms",
+            "manylinux",
             "requires",
             "imports",
             "env_conflicts",
             "dependencies",
-            "optional",
             "overrides",
             "core",
             "description",
             "index-url",
             "extra-index-urls",
             "index-strategy",
-            "manylinux",
         }
     ),
     "target": frozenset(
         {
             "schema",
             "name",
-            "kind",
-            "python",
             "components",
             "dependencies",
             "core",
@@ -116,7 +144,6 @@ _ALLOWED_KEYS = {
             "index-url",
             "extra-index-urls",
             "index-strategy",
-            "manylinux",
         }
     ),
 }
@@ -204,31 +231,11 @@ def _dependency_list(
     return values
 
 
-def _optional_groups(data: dict[str, Any], path: Path) -> dict[str, tuple[str, ...]]:
-    optional = data.get("optional", {})
-    if not isinstance(optional, dict):
-        raise InstallConfigError(f"{path}: 'optional' must be a table")
-    groups: dict[str, tuple[str, ...]] = {}
-    for name, values in optional.items():
-        if not isinstance(name, str) or not name:
-            raise InstallConfigError(f"{path}: optional group names must be strings")
-        if not isinstance(values, list) or not all(
-            isinstance(item, str) and item for item in values
-        ):
-            raise InstallConfigError(
-                f"{path}: optional group {name!r} must be a list of strings"
-            )
-        for value in values:
-            _check_git_dependency(value, path)
-        groups[name] = tuple(values)
-    return groups
-
-
 def python_specifier(value: str) -> "SpecifierSet":
     """Return the PEP 440 specification a Python request denotes.
 
-    A bare version such as ``3.11`` means ``==3.11.*``: targets and components
-    mean the minor, not one patch release. A range is used as written.
+    A bare version such as ``3.11`` means ``==3.11.*``: components mean the
+    minor, not one patch release. A range is used as written.
     """
     from packaging.specifiers import SpecifierSet
 
@@ -238,17 +245,12 @@ def python_specifier(value: str) -> "SpecifierSet":
     return SpecifierSet(text)
 
 
-def _python_spec(data: dict[str, Any], path: Path, *, required: bool) -> str | None:
+def _python_spec(data: dict[str, Any], path: Path) -> str | None:
     """Read a Python version request and reject malformed specifiers."""
     from packaging.specifiers import InvalidSpecifier
 
     value = _optional_string(data, "python", path)
     if value is None:
-        if required:
-            raise InstallConfigError(
-                f"{path}: 'python' is required; write a version such as '3.11' "
-                "or a range such as '>=3.10,<3.13'"
-            )
         return None
     try:
         python_specifier(value)
@@ -259,39 +261,40 @@ def _python_spec(data: dict[str, Any], path: Path, *, required: bool) -> str | N
     return value
 
 
-@dataclass(frozen=True)
-class TargetSettings:
-    """Install settings shared by components and targets."""
-
-    core: bool = True
-    description: str | None = None
-    index_url: str | None = None
-    extra_index_urls: tuple[str, ...] = ()
-    index_strategy: str | None = None
-    manylinux: str = "2_31"
-
-
-def _target_settings(data: dict[str, Any], path: Path) -> TargetSettings:
-    core = data.get("core", True)
-    if not isinstance(core, bool):
-        raise InstallConfigError(f"{path}: 'core' must be a boolean")
-    manylinux = data.get("manylinux", "2_31")
-    if not isinstance(manylinux, str) or not _MANYLINUX.match(manylinux):
+def _platforms(data: dict[str, Any], path: Path) -> tuple[str, ...]:
+    """Read the hosts a component installs on, defaulting to linux-x86_64."""
+    declared = _string_list(data, "platforms", path) or DEFAULT_PLATFORMS
+    unknown = sorted(set(declared) - set(PLATFORMS))
+    if unknown:
         raise InstallConfigError(
-            f"{path}: 'manylinux' must name a glibc baseline such as '2_31'"
+            f"{path}: unknown platform(s) {', '.join(unknown)}; expected one of "
+            f"{', '.join(PLATFORMS)}"
         )
+    return tuple(sorted(set(declared)))
+
+
+def _manylinux(data: dict[str, Any], path: Path) -> str:
+    value = data.get("manylinux", DEFAULT_MANYLINUX)
+    if not isinstance(value, str) or not _MANYLINUX.match(value):
+        raise InstallConfigError(
+            f"{path}: 'manylinux' must name a glibc baseline such as "
+            f"{DEFAULT_MANYLINUX!r}"
+        )
+    return value
+
+
+def _index_settings(
+    data: dict[str, Any], path: Path
+) -> tuple[str | None, tuple[str, ...], str | None]:
     index_strategy = _optional_string(data, "index-strategy", path)
     if index_strategy is not None and index_strategy not in INDEX_STRATEGIES:
         raise InstallConfigError(
             f"{path}: 'index-strategy' must be one of {', '.join(INDEX_STRATEGIES)}"
         )
-    return TargetSettings(
-        core=core,
-        description=_optional_string(data, "description", path),
-        index_url=_optional_string(data, "index-url", path),
-        extra_index_urls=_string_list(data, "extra-index-urls", path),
-        index_strategy=index_strategy,
-        manylinux=manylinux,
+    return (
+        _optional_string(data, "index-url", path),
+        _string_list(data, "extra-index-urls", path),
+        index_strategy,
     )
 
 
@@ -308,41 +311,21 @@ class Component:
     requires: tuple[str, ...]
     imports: tuple[str, ...]
     env_conflicts: tuple[str, ...]
-    default_variant: str | None
-    variant_required: bool
     dependencies: tuple[str, ...]
-    optional: dict[str, tuple[str, ...]]
     overrides: tuple[Path, ...]
     manifest_sha256: str
-    settings: TargetSettings = TargetSettings()
+    platforms: tuple[str, ...] = DEFAULT_PLATFORMS
+    manylinux: str = DEFAULT_MANYLINUX
+    core: bool = True
+    description: str | None = None
+    index_url: str | None = None
+    extra_index_urls: tuple[str, ...] = ()
+    index_strategy: str | None = None
 
     @property
     def manifest_path(self) -> Path:
         """Return the manifest path."""
         return self.manifest
-
-    @property
-    def is_deps(self) -> bool:
-        """Return whether this component only groups packages for its consumers."""
-        return self.kind == "deps"
-
-    def dependencies_for(self, variant: str | None) -> tuple[str, ...]:
-        """Return the component's direct dependencies for one optional variant."""
-        if variant is None:
-            return self.dependencies
-        if variant not in self.optional:
-            raise InstallConfigError(
-                f"{self.manifest_path}: unknown variant {variant!r}; "
-                f"expected one of {', '.join(sorted(self.optional)) or '<none>'}"
-            )
-        return self.dependencies + self.optional[variant]
-
-
-@dataclass(frozen=True)
-class Selection:
-    """How a target installs one optional variant of a component."""
-
-    variant: str | None = None
 
 
 @dataclass(frozen=True)
@@ -351,15 +334,13 @@ class Target:
 
     name: str
     path: Path
-    python: str
-    components: dict[str, Selection]
+    components: tuple[str, ...]
     dependencies: tuple[str, ...]
     index_url: str | None
     extra_index_urls: tuple[str, ...]
     index_strategy: str | None
     core: bool
     description: str | None
-    manylinux: str = "2_31"
 
     def relative_path(self, root: Path) -> str:
         """Return the manifest path relative to the checkout, for messages.
@@ -385,53 +366,26 @@ class Target:
         return f"tests/locks/{self.name}.lock"
 
 
-def load_component(path: Path) -> Component:
-    """Load and validate one ``component.toml`` from a component directory."""
+def load_component(path: Path, kind: str) -> Component:
+    """Load and validate one ``component.toml`` from a component root.
+
+    ``kind`` comes from the root the manifest was discovered under; the name
+    must then be ``<kind>-<directory>`` so a manifest cannot claim another
+    root's component.
+    """
+    if kind not in COMPONENT_DIRECTORIES:
+        raise InstallConfigError(
+            f"{path}: unknown component kind {kind!r}; expected one of "
+            f"{', '.join(KINDS)}"
+        )
     data = _read_toml(path)
     _schema(data, path)
     name = _name(data, path)
-    if path.parent.name != name:
+    expected = f"{kind}-{path.parent.name}"
+    if name != expected:
         raise InstallConfigError(
-            f"{path}: name {name!r} must match its directory {path.parent.name!r}"
-        )
-    kind = data.get("kind")
-    if kind == "deps":
-        raise InstallConfigError(
-            f"{path}: 'deps' components live at installs/deps/<name>.toml"
-        )
-    if kind == "target":
-        raise InstallConfigError(
-            f"{path}: 'target' manifests live at installs/targets/<name>.toml"
-        )
-    return _component(data, path, name=name, kind=kind)
-
-
-def load_deps_component(path: Path) -> Component:
-    """Load and validate one ``installs/deps/<name>.toml`` manifest."""
-    data = _read_toml(path)
-    _schema(data, path)
-    name = _name(data, path)
-    if path.stem != name:
-        raise InstallConfigError(
-            f"{path}: name {name!r} must match its file name {path.stem!r}"
-        )
-    kind = data.get("kind")
-    if kind != "deps":
-        raise InstallConfigError(
-            f"{path}: 'kind' must be 'deps'; use component.toml in a component "
-            "directory for robots and models"
-        )
-    if data.get("imports"):
-        raise InstallConfigError(
-            f"{path}: deps components have no code; remove 'imports'"
-        )
-    if data.get("requires"):
-        # Deps components have no code to call anything, and the resolver only
-        # walks `requires` from the components that consumers place. Accepting
-        # the field would silently ignore it.
-        raise InstallConfigError(
-            f"{path}: deps components have no code and cannot require other "
-            "components; list their packages under 'dependencies'"
+            f"{path}: name {name!r} must be {expected!r} so it matches the "
+            f"{COMPONENT_DIRECTORIES[kind]}/ root and its directory"
         )
     return _component(data, path, name=name, kind=kind)
 
@@ -441,33 +395,13 @@ def _component(
     path: Path,
     *,
     name: str,
-    kind: Any,
+    kind: str,
 ) -> Component:
     """Build a component from parsed data, validating shared fields."""
     _reject_unknown(data, path, "component")
-    if kind not in KINDS:
-        raise InstallConfigError(f"{path}: 'kind' must be one of {', '.join(KINDS)}")
     probe = data.get("probe")
     if not isinstance(probe, str) or not probe:
         raise InstallConfigError(f"{path}: 'probe' must be a non-empty import path")
-    python = _python_spec(data, path, required=False)
-    optional = _optional_groups(data, path)
-    default_variant = _optional_string(data, "variant", path)
-    if default_variant is not None and default_variant not in optional:
-        raise InstallConfigError(
-            f"{path}: 'variant' {default_variant!r} is not an optional group"
-        )
-    variant_required = data.get("variant_required", False)
-    if not isinstance(variant_required, bool):
-        raise InstallConfigError(f"{path}: 'variant_required' must be a boolean")
-    if variant_required and not optional:
-        raise InstallConfigError(
-            f"{path}: 'variant_required' is set but there are no [optional] groups"
-        )
-    if variant_required and default_variant is not None:
-        raise InstallConfigError(
-            f"{path}: 'variant_required' cannot be combined with a default 'variant'"
-        )
     declared_overrides = _string_list(data, "overrides", path)
     for relative in declared_overrides:
         if Path(relative).is_absolute():
@@ -479,49 +413,53 @@ def _component(
     for override in overrides:
         if not override.is_file():
             raise InstallConfigError(f"{path}: override file not found: {override}")
+    core = data.get("core", True)
+    if not isinstance(core, bool):
+        raise InstallConfigError(f"{path}: 'core' must be a boolean")
+    index_url, extra_index_urls, index_strategy = _index_settings(data, path)
     return Component(
         name=name,
         kind=kind,
         path=path.parent,
         manifest=path,
         probe=probe,
-        python=python,
+        python=_python_spec(data, path),
         requires=_string_list(data, "requires", path),
         imports=_string_list(data, "imports", path),
         env_conflicts=_string_list(data, "env_conflicts", path),
-        default_variant=default_variant,
-        variant_required=variant_required,
         dependencies=_dependency_list(data, "dependencies", path),
-        optional=optional,
         overrides=overrides,
         manifest_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-        settings=_target_settings(data, path),
+        platforms=_platforms(data, path),
+        manylinux=_manylinux(data, path),
+        core=core,
+        description=_optional_string(data, "description", path),
+        index_url=index_url,
+        extra_index_urls=extra_index_urls,
+        index_strategy=index_strategy,
     )
 
 
-def _selections(data: dict[str, Any], path: Path) -> dict[str, Selection]:
-    raw_components = data.get("components", {})
-    if not isinstance(raw_components, dict):
+def _components(data: dict[str, Any], path: Path) -> tuple[str, ...]:
+    """Return the component names a target selects.
+
+    The table's values must be empty: a component's own manifest decides what
+    it installs, so an option here could only disagree with it.
+    """
+    raw = data.get("components", {})
+    if not isinstance(raw, dict):
         raise InstallConfigError(f"{path}: 'components' must be a table")
-    components: dict[str, Selection] = {}
-    for component_name, raw in raw_components.items():
-        if not isinstance(raw, dict):
+    for component_name, entry in raw.items():
+        if not isinstance(entry, dict):
             raise InstallConfigError(
                 f"{path}: components.{component_name} must be a table"
             )
-        unknown = sorted(set(raw) - {"variant"})
-        if unknown:
+        if entry:
             raise InstallConfigError(
-                f"{path}: components.{component_name} has unknown field(s): "
-                f"{', '.join(unknown)}"
+                f"{path}: components.{component_name} must be empty; "
+                f"unexpected field(s): {', '.join(sorted(entry))}"
             )
-        variant = raw.get("variant")
-        if variant is not None and not isinstance(variant, str):
-            raise InstallConfigError(
-                f"{path}: components.{component_name}.variant must be a string"
-            )
-        components[component_name] = Selection(variant=variant)
-    return components
+    return tuple(sorted(raw))
 
 
 def load_target(path: Path) -> Target:
@@ -534,44 +472,33 @@ def load_target(path: Path) -> Target:
         raise InstallConfigError(
             f"{path}: name {name!r} must match its file name {path.stem!r}"
         )
-    kind = data.get("kind")
-    if kind != "target":
-        raise InstallConfigError(f'{path}: target manifests declare kind = "target"')
-    python = _python_spec(data, path, required=True)
-    settings = _target_settings(data, path)
+    core = data.get("core", True)
+    if not isinstance(core, bool):
+        raise InstallConfigError(f"{path}: 'core' must be a boolean")
+    index_url, extra_index_urls, index_strategy = _index_settings(data, path)
     return Target(
         name=name,
         path=path,
-        python=python,
-        components=_selections(data, path),
+        components=_components(data, path),
         dependencies=_dependency_list(data, "dependencies", path),
-        index_url=settings.index_url,
-        extra_index_urls=settings.extra_index_urls,
-        index_strategy=settings.index_strategy,
-        core=settings.core,
-        description=settings.description,
-        manylinux=settings.manylinux,
+        index_url=index_url,
+        extra_index_urls=extra_index_urls,
+        index_strategy=index_strategy,
+        core=core,
+        description=_optional_string(data, "description", path),
     )
 
 
 def target_from_component(component: Component) -> Target:
     """Return the install target a component forms when installed by name."""
-    if component.python is None:
-        raise InstallConfigError(
-            f"{component.manifest_path}: a component installable on its own needs "
-            "'python'; add a version or a range"
-        )
-    settings = component.settings
     return Target(
         name=component.name,
         path=component.manifest,
-        python=component.python,
-        components={component.name: Selection()},
+        components=(component.name,),
         dependencies=(),
-        index_url=settings.index_url,
-        extra_index_urls=settings.extra_index_urls,
-        index_strategy=settings.index_strategy,
-        core=settings.core,
-        description=settings.description,
-        manylinux=settings.manylinux,
+        index_url=component.index_url,
+        extra_index_urls=component.extra_index_urls,
+        index_strategy=component.index_strategy,
+        core=component.core,
+        description=component.description,
     )

@@ -93,10 +93,6 @@ def source_state(root: Path) -> tuple[str | None, bool]:
     return commit or None, bool(status.strip())
 
 
-#: The only host RPent installs environments for. Locks target this tag.
-SUPPORTED_PLATFORM = "linux-x86_64"
-
-
 def runtime_platform() -> str:
     """Return this interpreter's platform in ``<system>-<machine>`` notation."""
     system = platform.system().lower()

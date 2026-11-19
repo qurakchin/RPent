@@ -1,6 +1,5 @@
 schema = 2
-name = "xpolicylab"
-kind = "model"
+name = "model-xpolicylab"
 probe = "components.models.xpolicylab.server"
 python = ">=3.10,<3.13"
 

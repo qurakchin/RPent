@@ -21,21 +21,26 @@ with documentation instead of assuming either is correct.
 - `tests/tooling/`: maintainer checks and lock generation, run as
   `python -m tests.tooling.<tool>`; it depends on `rpent/install/` and is not
   part of the wheel.
-- `robots/<name>/`: each robot or simulator slice, owning native translation
-  and its differentiated features.
+- `robots/<name>/`: each robot slice, owning native translation and its
+  differentiated features.
+- `components/sim/<name>/`: simulator servers, observations, controls, and
+  suites that robots and model services share.
 - `components/models/<name>/`: installable model services.
-- `installs/targets/` and `installs/deps/`: user install targets and
-  dependency-only manifests. Components other than robots are installable
-  under their own names, so these files add compositions and let a target
-  select a `deps` component into its environment. `tests/targets/` holds
-  development and test targets in the same namespace, and `tests/locks/` holds
-  the optional reproduction locks, one per target.
+- `components/tools/<name>/` and `components/infra/<name>/`: out-of-tree tools
+  and shared runtimes.
+- `installs/targets/`: user install targets. A component is named
+  `<kind>-<directory>` and installs under that name unless it is a robot, which
+  installs only through a target. `tests/targets/` holds development and test
+  targets in the same namespace, and `tests/locks/` holds the optional
+  reproduction locks, one per target.
 - `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
 
-The dependency direction is `robots/` → `components/` → `rpent/`: the core
-discovers components by name and never imports them statically, and model
-services do not import robots or each other; they expose contracts instead.
+Component imports only point downward: a robot slice may import model
+services, simulators, tools, and infra; a model service may import tools and
+infra but not robots, simulators, or sibling models; a simulator may import
+tools and infra but not robots or model services. The core discovers components
+by name and never imports them statically.
 
 ## Development principles
 

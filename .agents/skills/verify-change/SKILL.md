@@ -46,7 +46,7 @@ and call [the existing runner](../../../tests/e2e_tests/run_gpu_suite.sh):
 
 ```bash
 bash tests/e2e_tests/run_gpu_suite.sh \
-  <robot-libero_pro|robot-robocasa|robot-robotwin> \
+  <robot-libero|robot-robocasa|robot-robotwin> \
   /path/to/new-output-dir \
   /path/to/new-venv-root
 ```

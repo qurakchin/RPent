@@ -48,12 +48,12 @@ source .venvs/dev/bin/activate
 # For robot work, install that target into its own environment. Targets
 # cannot share a virtualenv because their pins differ, and every target
 # resolves its dependencies from the manifests.
-rpent-install install robot-libero_pro  # LIBERO
+rpent-install install robot-libero  # LIBERO
 rpent-install install robot-robocasa    # RoboCasa
 rpent-install install robot-robotwin    # RoboTwin
 
 # The target's dependencies omit the test runner; add it to that environment.
-uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout
+uv pip install --python .venvs/robot-libero/bin/python pytest pytest-timeout
 
 # Install and enable the repository hooks.
 uv pip install pre-commit==4.6.2
@@ -73,12 +73,14 @@ Follow these conventions while developing:
 - **Keep the change focused.** A feature, an unrelated refactor, and
   repository-wide cleanup should normally be separate pull requests.
 - **Keep code in the appropriate module.** Reuse existing implementations
-  where possible. Put integration code for a specific robot or simulation
-  environment in its `robots/<name>/` directory and model services in
-  `components/models/<name>/`. Place shared functionality in common modules
-  with matching responsibilities.
-  Install recipes and dependency-only components live under `installs/`;
-  optional reproduction locks live under `tests/locks/`.
+  where possible. Put integration code for a specific robot in
+  `robots/<name>/`, simulator servers and observations in
+  `components/sim/<name>/`, and model services in
+  `components/models/<name>/`. Shared tools and runtimes live under
+  `components/tools/` and `components/infra/`. Place shared functionality in
+  common modules with matching responsibilities.
+  Install targets live under `installs/targets/` and `tests/targets/`; optional
+  reproduction locks live under `tests/locks/`.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and

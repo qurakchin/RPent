@@ -34,7 +34,7 @@ jobs:
       - name: Check every target
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m tests.tooling.check --all
+            python -m rpent.cli.install check --all
       - name: Check the runner partition
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
@@ -56,7 +56,7 @@ jobs:
           # target resolves to and the platform. A checked-in lock is a
           # reproduction artifact and plays no part here.
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m tests.tooling.check "${{ inputs.target }}" --inputs-hash \
+            python -m rpent.cli.install check "${{ inputs.target }}" --inputs-hash \
             > "$RUNNER_TEMP/inputs"
           cat "$RUNNER_TEMP/inputs"
           inputs=$(sed -n 's/^inputs=//p' "$RUNNER_TEMP/inputs")
@@ -138,7 +138,7 @@ jobs:
         shell: bash
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m tests.tooling.check minimal --inputs-hash \
+            python -m rpent.cli.install check minimal --inputs-hash \
             > "$RUNNER_TEMP/inputs"
           cat "$RUNNER_TEMP/inputs"
           inputs=$(sed -n 's/^inputs=//p' "$RUNNER_TEMP/inputs")

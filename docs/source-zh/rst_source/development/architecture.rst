@@ -53,7 +53,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 
 共享执行逻辑、接口和模型基类位于 ``rpent/`` 中，各环境的具体实现位于 ``robots/`` 下的独立包中。不属于机器人的可安装组件放在 ``components/``，安装目标与依赖锁放在 ``installs/``。
 
-依赖方向固定为 ``robots/`` → ``components/`` → ``rpent/``：核心按名字发现组件，从不静态 import 它们；工具包与模型服务之间也不互相 import。
+import 只指向下层：机器人切片可以 import 仿真器、模型服务、工具和 infra；模型服务可以 import 工具和 infra，但不能 import 机器人、仿真器或同级模型；仿真器可以 import 工具和 infra，但不能 import 机器人和模型服务。核心按名字发现组件，从不静态 import 它们；需要复用彼此行为的组件共享契约，而不是互相 import。
 
 .. code-block:: text
 
@@ -78,11 +78,13 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      dual_franka/
      robodojo/
      yam/
-   components/
-     models/         # 模型服务，每个子目录一个可安装组件
+   components/       # 可安装的非机器人组件，命名为 <kind>-<目录名>
+     sim/            # 仿真器服务、观测、控制与套件
+     models/         # 模型服务
+     tools/          # 仓库外工具，例如 flywheel
+     infra/          # 共享运行时，例如 RLinf
    installs/
      targets/        # 受支持的安装目标
-     deps/           # 纯依赖组件清单
    tests/
      locks/          # 可选的复现锁，每个目标一份
 

@@ -242,7 +242,7 @@ the complete option list.
    ``--seed`` is the exact RoboTwin scene seed. For the standard
    ``demo_randomized`` evaluation, use one of the five validated seeds for the
    selected task in the `RoboTwin evaluation suite
-   <https://github.com/RLinf/RPent/blob/main/robots/robotwin/eval/demo_randomized.json>`_.
+   <https://github.com/RLinf/RPent/blob/main/components/sim/robotwin/eval/demo_randomized.json>`_.
 
    The suite was filtered with RoboTwin expert execution: seeds that could not
    be initialized stably or did not pass the expert rollout were skipped.
@@ -372,7 +372,7 @@ This run produced 156 successes, 58 task failures, and 36 episode timeouts.
 
 The evaluation covers 50 RoboTwin tasks and runs five episodes per task, for a
 total of 250 episodes. For each task, use the five official verified expert
-seeds listed in ``robots/robotwin/eval/demo_randomized.json``. Because the
+seeds listed in ``components/sim/robotwin/eval/demo_randomized.json``. Because the
 solvable seeds can differ across tasks, select each task's corresponding seeds
 from that file rather than applying one fixed seed list to every task.
 For a listed task/seed pair, RPent also binds the table's ``task_language``

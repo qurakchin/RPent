@@ -20,82 +20,110 @@ from rpent.install.discovery import discover, discover_components, discover_targ
 from rpent.install.errors import InstallConfigError
 
 
-def _manifest(write_toml, relative, name, kind, *, conflicts=(), requires=()):
+def _manifest(
+    write_toml,
+    relative,
+    directory,
+    kind,
+    *,
+    conflicts=(),
+    requires=(),
+    imports=(),
+    extra="",
+):
     rendered = ", ".join(f'"{item}"' for item in conflicts)
     required = ", ".join(f'"{item}"' for item in requires)
+    imported = ", ".join(f'"{item}"' for item in imports)
     return write_toml(
-        f"{relative}/{name}/component.toml",
+        f"{relative}/{directory}/component.toml",
         f"""
         schema = 2
-        name = "{name}"
-        kind = "{kind}"
-        python = "3.11"
-        probe = "{name}"
+        name = "{kind}-{directory}"
+        probe = "{kind}_{directory}"
         requires = [{required}]
+        imports = [{imported}]
         env_conflicts = [{rendered}]
+        {extra}
         """,
     )
 
 
-def test_discovery_loads_components_targets_and_conflict_symmetry(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["beta"])
-    _manifest(write_toml, "robots", "beta", "robot", conflicts=["alpha"])
+def test_discovery_loads_components_and_targets(tmp_path, write_toml):
+    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["robot-beta"])
+    _manifest(write_toml, "robots", "beta", "robot")
     _manifest(write_toml, "components/models", "sam3", "model")
     write_toml(
-        "installs/targets/gpu.toml",
+        "installs/targets/robot-alpha.toml",
         """
         schema = 2
-        kind = "target"
-        name = "gpu"
-        python = "3.11"
+        name = "robot-alpha"
 
-        [components.alpha]
+        [components.robot-alpha]
 
-        [components.beta]
+        [components.robot-beta]
         """,
     )
 
     catalog = discover(tmp_path)
 
-    assert sorted(catalog.components) == ["alpha", "beta", "sam3"]
-    assert catalog.components["sam3"].kind == "model"
-    assert "alpha" in catalog.targets["gpu"].components
+    assert sorted(catalog.components) == [
+        "model-sam3",
+        "robot-alpha",
+        "robot-beta",
+    ]
+    assert catalog.components["model-sam3"].kind == "model"
+    assert "robot-alpha" in catalog.targets["robot-alpha"].components
 
 
-def test_component_kind_must_match_root(tmp_path, write_toml):
+def test_component_name_must_match_its_root_and_directory(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "model")
 
-    with pytest.raises(InstallConfigError, match="does not match"):
+    with pytest.raises(InstallConfigError, match="must be 'robot-alpha'"):
         discover_components(tmp_path)
 
 
-def test_duplicate_component_names_are_rejected(tmp_path, write_toml):
+def test_a_target_declared_twice_is_rejected(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "robot")
-    _manifest(write_toml, "components/models", "alpha", "model")
+    write_toml(
+        "installs/targets/shared.toml",
+        """
+        schema = 2
+        name = "shared"
+        """,
+    )
+    write_toml(
+        "tests/targets/shared.toml",
+        """
+        schema = 2
+        name = "shared"
+        """,
+    )
 
     with pytest.raises(InstallConfigError, match="declared twice"):
-        discover_components(tmp_path)
+        discover_targets(tmp_path)
 
 
 def test_conflicts_must_reference_known_components(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["missing"])
+    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["robot-missing"])
 
     with pytest.raises(InstallConfigError, match="unknown component"):
         discover_components(tmp_path)
 
 
-def test_one_sided_conflicts_are_closed_symmetrically(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["beta"])
+def test_one_sided_conflicts_are_kept_as_declared(tmp_path, write_toml):
+    # Resolution reads the conflict from either side, so the other manifest
+    # needs no mirror entry and discovery does not rewrite it.
+    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["robot-beta"])
     _manifest(write_toml, "robots", "beta", "robot")
 
     components = discover_components(tmp_path)
 
-    assert components["alpha"].env_conflicts == ("beta",)
-    assert components["beta"].env_conflicts == ("alpha",)
+    assert components["robot-alpha"].env_conflicts == ("robot-beta",)
+    assert components["robot-beta"].env_conflicts == ()
 
 
 def test_conflicts_must_not_name_the_component_itself(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["alpha"])
+    _manifest(write_toml, "robots", "alpha", "robot", conflicts=["robot-alpha"])
 
     with pytest.raises(InstallConfigError, match="names the component itself"):
         discover_components(tmp_path)
@@ -106,37 +134,33 @@ def test_targets_are_discovered_by_filename(tmp_path, write_toml):
         "installs/targets/alpha.toml",
         """
         schema = 2
-        kind = "target"
         name = "alpha"
-        python = "3.10"
         """,
     )
 
     targets = discover_targets(tmp_path)
 
-    assert targets["alpha"].python == "3.10"
+    assert targets["alpha"].components == ()
 
 
-def test_a_component_without_a_target_file_is_installable_by_name(tmp_path, write_toml):
-    write_toml(
-        "components/models/alpha/component.toml",
-        """
-        schema = 2
-        name = "alpha"
-        kind = "model"
-        probe = "alpha"
-        python = "3.11"
-        """,
-    )
+def test_a_non_robot_component_installs_under_its_own_name(tmp_path, write_toml):
+    _manifest(write_toml, "components/models", "alpha", "model")
 
     targets = discover_targets(tmp_path)
 
-    assert targets["alpha"].python == "3.11"
+    assert targets["model-alpha"].components == ("model-alpha",)
     assert (
-        targets["alpha"].relative_path(tmp_path)
+        targets["model-alpha"].relative_path(tmp_path)
         == "components/models/alpha/component.toml"
     )
-    assert list(targets["alpha"].components) == ["alpha"]
+
+
+def test_a_sim_component_installs_under_its_own_name(tmp_path, write_toml):
+    _manifest(write_toml, "components/sim", "libero", "sim")
+
+    targets = discover_targets(tmp_path)
+
+    assert targets["sim-libero"].components == ("sim-libero",)
 
 
 def test_a_robot_needs_an_explicit_target(tmp_path, write_toml):
@@ -144,18 +168,16 @@ def test_a_robot_needs_an_explicit_target(tmp_path, write_toml):
     # a target file can declare.
     _manifest(write_toml, "robots", "alpha", "robot")
 
-    assert "alpha" not in discover_targets(tmp_path)
+    assert "robot-alpha" not in discover_targets(tmp_path)
 
 
 def test_a_robot_override_target_must_select_the_robot(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "robot")
     write_toml(
-        "installs/targets/alpha.toml",
+        "installs/targets/robot-alpha.toml",
         """
         schema = 2
-        kind = "target"
-        name = "alpha"
-        python = "3.11"
+        name = "robot-alpha"
 
         [components]
         """,
@@ -168,34 +190,33 @@ def test_a_robot_override_target_must_select_the_robot(tmp_path, write_toml):
 def test_a_robot_override_target_installs_the_robot_it_names(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "robot")
     write_toml(
-        "installs/targets/alpha.toml",
+        "installs/targets/robot-alpha.toml",
         """
         schema = 2
-        kind = "target"
-        name = "alpha"
-        python = "3.11"
+        name = "robot-alpha"
 
-        [components.alpha]
+        [components.robot-alpha]
         """,
     )
 
     targets = discover_targets(tmp_path)
 
-    assert list(targets["alpha"].components) == ["alpha"]
-    assert targets["alpha"].relative_path(tmp_path) == "installs/targets/alpha.toml"
+    assert targets["robot-alpha"].components == ("robot-alpha",)
+    assert (
+        targets["robot-alpha"].relative_path(tmp_path)
+        == "installs/targets/robot-alpha.toml"
+    )
 
 
 def test_a_target_may_not_reuse_a_non_robot_component_name(tmp_path, write_toml):
     _manifest(write_toml, "components/models", "sam3", "model")
     write_toml(
-        "installs/targets/sam3.toml",
+        "installs/targets/model-sam3.toml",
         """
         schema = 2
-        kind = "target"
-        name = "sam3"
-        python = "3.11"
+        name = "model-sam3"
 
-        [components.sam3]
+        [components.model-sam3]
         """,
     )
 
@@ -204,16 +225,7 @@ def test_a_target_may_not_reuse_a_non_robot_component_name(tmp_path, write_toml)
 
 
 def test_imports_must_be_declared_in_requires(tmp_path, write_toml):
-    write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 2
-        name = "alpha"
-        kind = "robot"
-        probe = "alpha"
-        imports = ["beta"]
-        """,
-    )
+    _manifest(write_toml, "robots", "alpha", "robot", imports=["robot-beta"])
     _manifest(write_toml, "robots", "beta", "robot")
 
     with pytest.raises(InstallConfigError, match="neither.*requires the other"):
@@ -221,34 +233,22 @@ def test_imports_must_be_declared_in_requires(tmp_path, write_toml):
 
 
 def test_imports_may_rely_on_the_other_components_requires(tmp_path, write_toml):
-    write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 2
-        name = "alpha"
-        kind = "robot"
-        probe = "alpha"
-        imports = ["beta"]
-        """,
-    )
-    _manifest(write_toml, "robots", "beta", "robot", requires=["alpha"])
+    _manifest(write_toml, "robots", "alpha", "robot", imports=["robot-beta"])
+    _manifest(write_toml, "robots", "beta", "robot", requires=["robot-alpha"])
 
     components = discover_components(tmp_path)
 
-    assert components["alpha"].imports == ("beta",)
+    assert components["robot-alpha"].imports == ("robot-beta",)
 
 
 def test_imports_must_name_a_same_kind_component(tmp_path, write_toml):
-    write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 2
-        name = "alpha"
-        kind = "robot"
-        probe = "alpha"
-        requires = ["sam3"]
-        imports = ["sam3"]
-        """,
+    _manifest(
+        write_toml,
+        "robots",
+        "alpha",
+        "robot",
+        requires=["model-sam3"],
+        imports=["model-sam3"],
     )
     _manifest(write_toml, "components/models", "sam3", "model")
 
@@ -257,18 +257,15 @@ def test_imports_must_name_a_same_kind_component(tmp_path, write_toml):
 
 
 def test_imports_are_only_allowed_on_robot_slices(tmp_path, write_toml):
-    write_toml(
-        "components/models/alpha/component.toml",
-        """
-        schema = 2
-        name = "alpha"
-        kind = "model"
-        probe = "alpha"
-        requires = ["beta"]
-        imports = ["beta"]
-        """,
+    _manifest(
+        write_toml,
+        "components/models",
+        "alpha",
+        "model",
+        requires=["model-beta"],
+        imports=["model-beta"],
     )
-    _manifest(write_toml, "components/models", "beta", "model", requires=["alpha"])
+    _manifest(write_toml, "components/models", "beta", "model", requires=["model-alpha"])
 
     with pytest.raises(InstallConfigError, match="imports is only for robot slices"):
         discover_components(tmp_path)
@@ -279,9 +276,7 @@ def test_apple_double_metadata_is_ignored(tmp_path, write_toml):
         "installs/targets/gpu.toml",
         """
         schema = 2
-        kind = "target"
         name = "gpu"
-        python = "3.10"
         """,
     )
     # A network filesystem stores macOS extended attributes as ._<name> files.
@@ -291,198 +286,35 @@ def test_apple_double_metadata_is_ignored(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "robot")
     (tmp_path / "robots" / "._alpha").write_bytes(b"\xa3 metadata")
 
-    assert list(discover_components(tmp_path)) == ["alpha"]
+    assert list(discover_components(tmp_path)) == ["robot-alpha"]
     assert sorted(discover_targets(tmp_path)) == ["gpu"]
 
 
-def test_a_target_inherits_the_index_settings_its_components_declare(
-    tmp_path, write_toml
-):
-    write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 2
-        name = "alpha"
-        kind = "robot"
-        python = "3.11"
-        probe = "alpha"
-        manylinux = "2_35"
+def test_a_component_target_keeps_the_component_index_settings(tmp_path, write_toml):
+    _manifest(
+        write_toml,
+        "components/models",
+        "alpha",
+        "model",
+        extra="""
         index-url = "https://example.invalid/simple"
         extra-index-urls = ["https://example.invalid/extra"]
         index-strategy = "unsafe-best-match"
         """,
     )
-    write_toml(
-        "installs/targets/gpu.toml",
-        """
-        schema = 2
-        kind = "target"
-        name = "gpu"
-        python = "3.11"
-        manylinux = "2_35"
 
-        [components.alpha]
-        """,
-    )
-
-    target = discover_targets(tmp_path)["gpu"]
+    target = discover_targets(tmp_path)["model-alpha"]
 
     assert target.index_url == "https://example.invalid/simple"
     assert target.index_strategy == "unsafe-best-match"
     assert target.extra_index_urls == ("https://example.invalid/extra",)
 
 
-def test_a_target_keeps_its_own_extra_index_urls_beside_the_inherited_ones(
-    tmp_path, write_toml
-):
-    write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 2
-        name = "alpha"
-        kind = "robot"
-        python = "3.11"
-        probe = "alpha"
-        extra-index-urls = ["https://example.invalid/alpha"]
-        """,
-    )
-    write_toml(
-        "installs/targets/gpu.toml",
-        """
-        schema = 2
-        kind = "target"
-        name = "gpu"
-        python = "3.11"
-        extra-index-urls = ["https://example.invalid/target"]
-
-        [components.alpha]
-        """,
+def test_an_infra_component_installs_under_its_own_name(tmp_path, write_toml):
+    _manifest(write_toml, "components/infra", "rlinf", "infra")
+    _manifest(
+        write_toml, "robots", "alpha", "robot", requires=["infra-rlinf"]
     )
 
-    target = discover_targets(tmp_path)["gpu"]
-
-    assert target.extra_index_urls == (
-        "https://example.invalid/alpha",
-        "https://example.invalid/target",
-    )
-
-
-def test_components_that_need_different_indexes_cannot_share_an_environment(
-    tmp_path, write_toml
-):
-    write_toml(
-        "components/models/alpha/component.toml",
-        """
-        schema = 2
-        name = "alpha"
-        kind = "model"
-        python = "3.11"
-        probe = "alpha"
-        index-strategy = "unsafe-best-match"
-        """,
-    )
-    write_toml(
-        "components/models/beta/component.toml",
-        """
-        schema = 2
-        name = "beta"
-        kind = "model"
-        python = "3.11"
-        probe = "beta"
-        index-strategy = "unsafe-first-match"
-        """,
-    )
-    write_toml(
-        "installs/targets/gpu.toml",
-        """
-        schema = 2
-        kind = "target"
-        name = "gpu"
-        python = "3.11"
-
-        [components.alpha]
-
-        [components.beta]
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="different index strategies"):
-        discover_targets(tmp_path)
-
-
-def test_a_target_baseline_must_cover_the_components_it_installs(tmp_path, write_toml):
-    write_toml(
-        "robots/alpha/component.toml",
-        """
-        schema = 2
-        name = "alpha"
-        kind = "robot"
-        python = "3.11"
-        probe = "alpha"
-        manylinux = "2_35"
-        """,
-    )
-    write_toml(
-        "installs/targets/gpu.toml",
-        """
-        schema = 2
-        kind = "target"
-        name = "gpu"
-        python = "3.11"
-        manylinux = "2_31"
-
-        [components.alpha]
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="cannot serve alpha"):
-        discover_targets(tmp_path)
-
-
-def _deps_manifest(write_toml, name):
-    return write_toml(
-        f"installs/deps/{name}.toml",
-        f"""
-        schema = 2
-        name = "{name}"
-        kind = "deps"
-        python = "3.11"
-        probe = "{name}"
-        """,
-    )
-
-
-def test_a_target_may_select_a_deps_component(tmp_path, write_toml):
-    _deps_manifest(write_toml, "shared")
-    _manifest(write_toml, "robots", "alpha", "robot", requires=["shared"])
-    write_toml(
-        "installs/targets/gpu.toml",
-        """
-        schema = 2
-        kind = "target"
-        name = "gpu"
-        python = "3.11"
-
-        [components.alpha]
-
-        [components.shared]
-        """,
-    )
-
-    targets = discover_targets(tmp_path)
-
-    assert "shared" in targets["gpu"].components
-
-
-def test_a_deps_component_needs_two_consumers_or_a_target_selection(
-    tmp_path, write_toml
-):
-    _deps_manifest(write_toml, "shared")
-    _manifest(write_toml, "robots", "alpha", "robot", requires=["shared"])
-
-    with pytest.raises(InstallConfigError, match="no target selects it"):
-        discover_targets(tmp_path)
-
-    _manifest(write_toml, "robots", "beta", "robot", requires=["shared"])
-
-    assert "shared" in discover(tmp_path).components
+    assert "infra-rlinf" in discover(tmp_path).components
+    assert discover(tmp_path).targets["infra-rlinf"].components == ("infra-rlinf",)

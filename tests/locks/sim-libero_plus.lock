@@ -1,5 +1,5 @@
 # python = 3.11
-# exclude_newer = 2026-11-18T18:59:32Z
+# exclude_newer = 2026-11-19T10:45:38Z
 absl-py==2.5.1
 accelerate==1.16.0
 agent-client-protocol==0.12.1
@@ -18,13 +18,13 @@ certifi==2026.10.23
 cffi==2.1.1
 cfgv==3.5.0
 charset-normalizer==3.5.2
-claude-agent-sdk==0.2.184
+claude-agent-sdk==0.2.185
 click==8.5.1
 colorful==0.6.0a1
 crcmod==1.7
 cryptography==50.0.2
 cuda-bindings==13.5.0
-cuda-pathfinder==1.9.0
+cuda-pathfinder==1.9.1
 cuda-toolkit==13.2.2
 datasets==5.2.0
 debugpy==1.8.22
@@ -34,7 +34,7 @@ distro==1.9.0
 docstring-parser==0.18.0
 einops==0.9.0.dev0
 etils==1.15.0
-fastapi==0.164.0
+fastapi==0.165.0
 fasteners==0.20
 filelock==4.2.12
 frozenlist==1.8.0
@@ -177,7 +177,7 @@ rsa==4.7.2
 ruff==0.17.5
 safetensors==0.9.0rc1
 scipy==1.17.1
-sentry-sdk==3.0.0b4
+sentry-sdk==3.0.0rc1
 setuptools==84.2.1
 simplejson==4.3.0
 six==1.17.0
