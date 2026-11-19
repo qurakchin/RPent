@@ -125,10 +125,10 @@ git clone https://github.com/RLinf/RPent rpent && cd rpent
 source .venvs/robot-libero_pro/bin/activate
 
 # 其他目标同样安装到 .venvs/<目标>：
-rpent-install install robocasa       # RoboCasa
-rpent-install install robotwin       # RoboTwin
-rpent-install install robot-franka   # Franka
-rpent-install install robot-dual_franka  # 双臂 Franka
+rpent-install install robot-robocasa    # RoboCasa
+rpent-install install robot-robotwin    # RoboTwin
+rpent-install install robot-franka      # Franka
+rpent-install install robot-dual_franka # 双臂 Franka
 ```
 
 `robot-libero_pro` 是默认推荐目标。全部目标、兼容 extra 和诊断方法见

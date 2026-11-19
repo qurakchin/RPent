@@ -68,7 +68,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
    python -m tests.tooling.extras --write
 
-CI 会运行 ``python -m tests.tooling.extras --check``，区块过期会导致构建失败；只有 ``--write`` 会修改 ``pyproject.toml``。组件可以按自己的名字安装；如果它需要复合环境，再在 ``installs/targets/`` 下新增目标文件。``tests/locks/`` 下的复现锁是可选的，安装不依赖它。见 :doc:`../get_started/installation`。
+CI 会运行 ``python -m tests.tooling.extras --check``，区块过期会导致构建失败；只有 ``--write`` 会修改 ``pyproject.toml``。机器人不按组件名安装，而是通过目标安装：在 ``installs/targets/robot-<name>.toml`` 中选中 ``[components.<name>]``（以及它运行的模型），再在 ``tests/tooling/matrix.py`` 里把该目标分配给 runner；有机器人没有目标时 ``python -m tests.tooling.check --all`` 会失败。``tests/locks/`` 下的复现锁是可选的，安装不依赖它。见 :doc:`../get_started/installation`。
 
 ``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的环境。通过 ``__getattr__`` 暴露工厂：
 

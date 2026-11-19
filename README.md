@@ -125,10 +125,10 @@ git clone https://github.com/RLinf/RPent rpent && cd rpent
 source .venvs/robot-libero_pro/bin/activate
 
 # Other targets install into .venvs/<target> as well:
-rpent-install install robocasa       # RoboCasa
-rpent-install install robotwin       # RoboTwin
-rpent-install install robot-franka   # Franka
-rpent-install install robot-dual_franka  # Dual Franka
+rpent-install install robot-robocasa    # RoboCasa
+rpent-install install robot-robotwin    # RoboTwin
+rpent-install install robot-franka      # Franka
+rpent-install install robot-dual_franka # Dual Franka
 ```
 
 `robot-libero_pro` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every target, compatibility extras, and diagnostics.

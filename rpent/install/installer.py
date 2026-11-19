@@ -41,10 +41,10 @@ from rpent.install.requirements import (
 from rpent.install.resolve import Resolution, resolve
 from rpent.utils.config import get_repo_root
 
-#: Generated requirements files, one per installed environment.
-STATE_DIR = ".rpent"
 #: Default per-target virtualenvs; gitignored installation output.
 VENV_DIR = ".venvs"
+#: Rendered requirements file kept inside the installed virtualenv.
+REQUIREMENTS_NAME = "rpent-requirements.txt"
 
 
 def default_venv(root: Path, target: Target) -> Path:
@@ -52,9 +52,13 @@ def default_venv(root: Path, target: Target) -> Path:
     return root / VENV_DIR / target.name
 
 
-def requirements_file(root: Path, target: Target) -> Path:
-    """Return the generated requirements path for a target."""
-    return root / STATE_DIR / "requirements" / f"{target.name}.txt"
+def requirements_file(venv: Path) -> Path:
+    """Return the requirements path recorded inside ``venv``.
+
+    The file lives in the environment it produced, so an installed venv carries
+    its own reproduction input and removing it needs no separate cleanup.
+    """
+    return Path(venv) / REQUIREMENTS_NAME
 
 
 def venv_python(venv: Path) -> Path:
@@ -112,29 +116,6 @@ def run_command(
     return result.stdout if capture else ""
 
 
-def _component_targets(catalog: Catalog) -> dict[str, list[str]]:
-    """Return component -> targets whose resolution closure contains it.
-
-    ``require()`` reads this reverse index from the installation fingerprint,
-    so a missing optional dependency can name the target that provides it
-    without reading the checkout's manifests at the point of failure. A target
-    that does not resolve is a configuration error reported by
-    ``tests.tooling.check``; leaving it out keeps the index usable.
-    """
-    mapping: dict[str, list[str]] = {name: [] for name in catalog.components}
-    for target_name, target in sorted(catalog.targets.items()):
-        resolution = resolve(target, catalog)
-        if not resolution.ok:
-            continue
-        for name in resolution.components:
-            mapping.setdefault(name, []).append(target_name)
-    return {
-        name: sorted(set(targets))
-        for name, targets in sorted(mapping.items())
-        if targets
-    }
-
-
 def target_resolution(target: str, catalog: Catalog, *, root: Path) -> Resolution:
     """Resolve one named target."""
     target = catalog.targets.get(target)
@@ -171,7 +152,6 @@ def install(
         resolution, root=repo_root, core_dependencies=core
     )
     destination = (venv or default_venv(repo_root, target)).resolve()
-    requirements_path = requirements_file(repo_root, target)
 
     python_version = resolution.python
 
@@ -197,9 +177,6 @@ def install(
             "fingerprint; pass --force to install into it anyway"
         )
 
-    requirements_path.parent.mkdir(parents=True, exist_ok=True)
-    requirements_path.write_text(main_requirements, encoding="utf-8")
-
     uv = find_uv()
     python = venv_python(destination)
     if not python.exists():
@@ -215,6 +192,9 @@ def install(
             f"{destination} exists but has no Python interpreter; remove it and "
             f"rerun `rpent-install install {target.name}`"
         )
+
+    requirements_path = requirements_file(destination)
+    requirements_path.write_text(main_requirements, encoding="utf-8")
 
     # Install the requirements rendered from the manifests. A checked-in lock
     # is a reproduction artifact, not an installation input, so a stale or
@@ -268,18 +248,13 @@ def install(
             }
             for name, resolved in sorted(resolution.components.items())
         },
-        # A reverse index for require(): the targets that would install a
-        # component the current environment does not contain. Computing it
-        # here costs one catalog resolution per target instead of every
-        # failed import reading manifests.
-        "component_targets": _component_targets(catalog),
         "requirements_sha256": requirements_sha256(
             resolution,
             root=repo_root,
             core_dependencies=core,
         ),
         "freeze_sha256": freeze_sha256(frozen),
-        "requirements_file": str(requirements_path.relative_to(repo_root)),
+        "requirements_file": REQUIREMENTS_NAME,
         "installed_at": datetime.now(timezone.utc)
         .replace(microsecond=0)
         .isoformat()

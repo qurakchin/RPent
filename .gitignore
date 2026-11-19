@@ -25,7 +25,6 @@ build/
 .coverage
 .claude/settings.json
 .venv/
-.rpent/
 # Default virtualenvs created by `rpent-install install`.
 .venvs/
 /.codex-rpent-live/

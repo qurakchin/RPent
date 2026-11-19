@@ -21,7 +21,7 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
 
 该命令先列出每个组件及其类型和放置方式，再列出每个目标及其 Python 要求和组件。
 
-每个组件都可以按自己的名字安装：``rpent-install install robocasa`` 安装 RoboCasa 组件及其依赖。``installs/targets/`` 或 ``tests/targets/`` 中声明的目标补上单个组件表达不了的组合：同一环境中的多个组件、选定的变体、额外的运行时依赖或兼容 extra。两个目录作为同一个命名空间被发现，显式目标不得复用组件名。测试与开发目标（``dev``、``unit-cpu``、``tool-geometry``）位于 ``tests/targets/``。
+非机器人组件都可以按自己的名字安装：``rpent-install install sam3`` 安装 SAM 3.0 服务组件及其依赖。机器人只通过目标安装，由目标指明它运行的环境。``installs/targets/`` 或 ``tests/targets/`` 中声明的目标补上单个组件表达不了的组合：同一环境中的多个组件、选定的变体、额外的运行时依赖或兼容 extra。两个目录作为同一个命名空间被发现，显式目标不得复用组件名；唯一的例外是机器人的同名覆盖目标，它必须安装该机器人。测试与开发目标（``dev``、``unit-cpu``、``tool-geometry-eval``）位于 ``tests/targets/``。
 
 复合目标把仿真器或真机与其使用的模型装在一起，例如 ``robot-libero_pro`` 安装 LIBERO-PRO 并带上 Pi0.5 和 SAM 3.0，``robot-yam`` 安装 YAM 并带上 Pi0.5。目标之间互不引用，仓库没有具名的组合拆成独立的组件环境，运行时用 endpoint 连接。
 
@@ -106,21 +106,6 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
    * - ``sim-libero_plus``
      - 3.11
      - LIBERO-plus 仿真，范围与 ``sim-libero_standard`` 相同。
-   * - ``robocasa``
-     - 3.10
-     - RoboCasa 仿真，含 RLinf 的 RoboCasa365 和 RLDX 栈。
-   * - ``robotwin``
-     - 3.11
-     - RoboTwin 仿真，含 LingBot-VLA 和 cuRobo。
-   * - ``robodojo``
-     - 3.11
-     - RoboDojo 及其 RLinf fork、Isaac Sim，不含策略和分割模型。
-   * - ``franka`` / ``dual_franka``
-     - 3.11
-     - Franka 真机及平台依赖，不含策略模型。
-   * - ``yam``
-     - 3.11
-     - 双臂 YAM 控制依赖，不含策略模型。
    * - ``robot-libero_pro``
      - 3.11
      - LIBERO-PRO，含 Pi0.5、SAM 3.0 以及 LeRobot 轨迹导出和回放。
@@ -136,6 +121,12 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
    * - ``robot-robodojo``
      - 3.11
      - RoboDojo 及其 RLinf fork、Isaac Sim、Pi0.5 和 SAM 3.0。
+   * - ``robot-robocasa``
+     - 3.10
+     - RoboCasa 仿真，含 RLinf 的 RoboCasa365 和 RLDX 栈。
+   * - ``robot-robotwin``
+     - 3.11
+     - RoboTwin 仿真，含 LingBot-VLA 和 cuRobo。
    * - ``molmo``
      - 3.11
      - 独立的 Molmo 视觉定位服务（``core = false``）。
@@ -145,11 +136,11 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
    * - ``tool-flywheel``
      - 3.11
      - 不含仿真器和策略的 LeRobot 轨迹导出与回放。
-   * - ``tool-geometry``
+   * - ``tool-geometry-eval``
      - 3.11
      - 几何工具包及其冻结的 CPU 评测语料。
 
-其余组件（``apxinf``、``cosmos3``、``cosmos_policy``、``fast_wam``、``geometry``、``uniwam`` 和 ``xpolicylab``）同样按组件名安装；``rpent-install list`` 会打印完整列表。Python 列给出清单当前解析出的 minor，它可能比清单接受的范围更窄。
+其余非机器人组件（``apxinf``、``cosmos3``、``cosmos_policy``、``fast_wam``、``geometry``、``uniwam`` 和 ``xpolicylab``）同样按组件名安装；``rpent-install list`` 会打印完整列表。Python 列给出清单当前解析出的 minor，它可能比清单接受的范围更窄。
 
 安装命令
 --------
@@ -164,22 +155,18 @@ RPent 安装的是具名目标，而不是一组 extra。每个目标选择组�
    rpent-install install sim-libero_standard
    rpent-install install sim-libero_pro
    rpent-install install sim-libero_plus
-   rpent-install install robocasa
-   rpent-install install robotwin
-   rpent-install install robodojo
-   rpent-install install franka
-   rpent-install install dual_franka
-   rpent-install install yam
    rpent-install install robot-libero_pro
    rpent-install install robot-franka
    rpent-install install robot-dual_franka
    rpent-install install robot-yam
    rpent-install install robot-robodojo
+   rpent-install install robot-robocasa
+   rpent-install install robot-robotwin
    rpent-install install molmo
    rpent-install install openpi
    rpent-install install sam3
    rpent-install install tool-flywheel
-   rpent-install install tool-geometry
+   rpent-install install tool-geometry-eval
 
 诊断
 ----

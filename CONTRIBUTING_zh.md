@@ -45,8 +45,8 @@ source .venvs/dev/bin/activate
 # 开发 robot 时，在该目标自己的环境中安装。不同目标的依赖锁定不同，
 # 不能共用同一个虚拟环境；每个目标都从清单解析自己的依赖。
 rpent-install install robot-libero_pro  # LIBERO
-rpent-install install robocasa        # RoboCasa
-rpent-install install robotwin        # RoboTwin
+rpent-install install robot-robocasa    # RoboCasa
+rpent-install install robot-robotwin    # RoboTwin
 
 # 目标的依赖不包含测试运行器，需要另外装进该 robot 环境。
 uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout

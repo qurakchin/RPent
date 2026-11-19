@@ -121,11 +121,11 @@ def test_targets_are_discovered_by_filename(tmp_path, write_toml):
 
 def test_a_component_without_a_target_file_is_installable_by_name(tmp_path, write_toml):
     write_toml(
-        "robots/alpha/component.toml",
+        "components/toolkits/alpha/component.toml",
         """
         schema = 2
         name = "alpha"
-        kind = "robot"
+        kind = "toolkit"
         probe = "alpha"
         python = "3.11"
         """,
@@ -134,8 +134,75 @@ def test_a_component_without_a_target_file_is_installable_by_name(tmp_path, writ
     targets = discover_targets(tmp_path)
 
     assert targets["alpha"].python == "3.11"
-    assert targets["alpha"].relative_path(tmp_path) == "robots/alpha/component.toml"
+    assert (
+        targets["alpha"].relative_path(tmp_path)
+        == "components/toolkits/alpha/component.toml"
+    )
     assert list(targets["alpha"].components) == ["alpha"]
+
+
+def test_a_robot_needs_an_explicit_target(tmp_path, write_toml):
+    # Installing a robot means choosing the environment it runs in, which only
+    # a target file can declare.
+    _manifest(write_toml, "robots", "alpha", "robot")
+
+    assert "alpha" not in discover_targets(tmp_path)
+
+
+def test_a_robot_override_target_must_select_the_robot(tmp_path, write_toml):
+    _manifest(write_toml, "robots", "alpha", "robot")
+    write_toml(
+        "installs/targets/alpha.toml",
+        """
+        schema = 2
+        kind = "target"
+        name = "alpha"
+        python = "3.11"
+
+        [components]
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="does not select it"):
+        discover_targets(tmp_path)
+
+
+def test_a_robot_override_target_installs_the_robot_it_names(tmp_path, write_toml):
+    _manifest(write_toml, "robots", "alpha", "robot")
+    write_toml(
+        "installs/targets/alpha.toml",
+        """
+        schema = 2
+        kind = "target"
+        name = "alpha"
+        python = "3.11"
+
+        [components.alpha]
+        """,
+    )
+
+    targets = discover_targets(tmp_path)
+
+    assert list(targets["alpha"].components) == ["alpha"]
+    assert targets["alpha"].relative_path(tmp_path) == "installs/targets/alpha.toml"
+
+
+def test_a_target_may_not_reuse_a_non_robot_component_name(tmp_path, write_toml):
+    _manifest(write_toml, "components/models", "sam3", "model")
+    write_toml(
+        "installs/targets/sam3.toml",
+        """
+        schema = 2
+        kind = "target"
+        name = "sam3"
+        python = "3.11"
+
+        [components.sam3]
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="already installable under"):
+        discover_targets(tmp_path)
 
 
 def test_imports_must_be_declared_in_requires(tmp_path, write_toml):
@@ -227,7 +294,7 @@ def test_apple_double_metadata_is_ignored(tmp_path, write_toml):
     (tmp_path / "robots" / "._alpha").write_bytes(b"\xa3 metadata")
 
     assert list(discover_components(tmp_path)) == ["alpha"]
-    assert sorted(discover_targets(tmp_path)) == ["alpha", "gpu"]
+    assert sorted(discover_targets(tmp_path)) == ["gpu"]
 
 
 def test_a_target_inherits_the_index_settings_its_components_declare(

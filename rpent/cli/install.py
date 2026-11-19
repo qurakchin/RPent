@@ -14,10 +14,10 @@
 
 """``rpent-install``: list, install, and diagnose target environments.
 
-A target is a component installed under its own name or a composition file in
-``installs/targets/`` or ``tests/targets/``. Repository checks and lock
-generation are maintainer tools under ``tests/tooling/`` and are not part of
-this command.
+A target is a non-robot component installed under its own name, or a file in
+``installs/targets/`` or ``tests/targets/`` that composes components or selects
+a robot. Repository checks and lock generation are maintainer tools under
+``tests/tooling/`` and are not part of this command.
 """
 
 from __future__ import annotations

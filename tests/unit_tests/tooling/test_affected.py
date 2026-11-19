@@ -135,8 +135,8 @@ def test_core_change_installs_the_pilot_targets_in_a_pull_request(
         targets={
             "alpha": make_target("alpha", {"alpha": Selection()}),
             "minimal": make_target("minimal", {}),
-            "robotwin": make_target("robotwin", {}),
-            "tool-geometry": make_target("tool-geometry", {}),
+            "robot-robotwin": make_target("robot-robotwin", {}),
+            "tool-geometry-eval": make_target("tool-geometry-eval", {}),
         },
     )
 
@@ -147,10 +147,14 @@ def test_core_change_installs_the_pilot_targets_in_a_pull_request(
         assert scope.targets == (
             "alpha",
             "minimal",
-            "robotwin",
-            "tool-geometry",
+            "robot-robotwin",
+            "tool-geometry-eval",
         )
-        assert scope.pr_targets == ("minimal", "robotwin", "tool-geometry")
+        assert scope.pr_targets == (
+            "minimal",
+            "robot-robotwin",
+            "tool-geometry-eval",
+        )
 
 
 def test_installer_change_installs_every_target_in_a_pull_request(
@@ -161,7 +165,7 @@ def test_installer_change_installs_every_target_in_a_pull_request(
         components=[alpha],
         targets={
             "robot-libero_pro": make_target("robot-libero_pro", {}),
-            "tool-geometry": make_target("tool-geometry", {}),
+            "tool-geometry-eval": make_target("tool-geometry-eval", {}),
         },
     )
 
@@ -169,7 +173,7 @@ def test_installer_change_installs_every_target_in_a_pull_request(
 
     assert scope.full
     assert scope.tests == ("tests/unit_tests",)
-    assert scope.pr_targets == ("robot-libero_pro", "tool-geometry")
+    assert scope.pr_targets == ("robot-libero_pro", "tool-geometry-eval")
 
 
 def _install_data_catalog(make_component, make_target, make_catalog):
@@ -306,12 +310,23 @@ def test_main_prints_scope_as_json(tmp_path, write_toml, capsys):
         python = "{major}.{minor}"
         """,
     )
+    write_toml(
+        "installs/targets/robot-alpha.toml",
+        f"""
+        schema = 2
+        kind = "target"
+        name = "robot-alpha"
+        python = "{major}.{minor}"
+
+        [components.alpha]
+        """,
+    )
 
     assert affected.main(["robots/alpha/spec.py"], root=tmp_path) == 0
 
     scope = json.loads(capsys.readouterr().out)
     assert scope["components"] == ["alpha"]
-    assert scope["targets"] == ["alpha"]
+    assert scope["targets"] == ["robot-alpha"]
     assert not scope["full"]
 
 
@@ -324,7 +339,7 @@ def test_runner_filter_narrows_both_target_sets(tmp_path, write_toml, capsys):
         dependencies = []
         """,
     )
-    for name in ("minimal", "molmo", "tool-geometry"):
+    for name in ("minimal", "molmo", "tool-geometry-eval"):
         write_toml(
             f"installs/targets/{name}.toml",
             f"""

@@ -116,10 +116,13 @@ not live under ``robots/``:
    python -m tests.tooling.extras --write
 
 CI runs ``python -m tests.tooling.extras --check``, so a stale block fails the
-build; ``--write`` is the only mode that edits ``pyproject.toml``. The
-component is installable under its own name; if it ships a compound
-environment, add a target file under ``installs/targets/``. A reproduction lock
-under ``tests/locks/`` is optional and never required for installation. See
+build; ``--write`` is the only mode that edits ``pyproject.toml``. A robot is
+installed through a target rather than its component name, so add
+``installs/targets/robot-<name>.toml`` selecting ``[components.<name>]`` (plus
+the models the robot runs) and assign that target to a runner in
+``tests/tooling/matrix.py``; ``python -m tests.tooling.check --all`` fails
+while a robot has no target. A reproduction lock under ``tests/locks/`` is
+optional and never required for installation. See
 :doc:`../get_started/installation`.
 
 ``__init__.py`` is the package entry point and must stay lazy. Robot discovery

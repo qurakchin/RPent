@@ -83,12 +83,12 @@ Installation and Resources
 
 Use Linux, an NVIDIA GPU, working CUDA/EGL, ``git``, and
 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_. The
-``robocasa`` target needs Python 3.10; install it as described in
+``robot-robocasa`` target needs Python 3.10; install it as described in
 :doc:`../get_started/installation`:
 
 .. code-block:: bash
 
-   rpent-install install robocasa
+   rpent-install install robot-robocasa
 
 The target installs a CUDA-enabled Torch and torchvision pair; RLDX requires Torch >= 2.7 and
 torchvision >= 0.22. If your driver needs a different build, reinstall the

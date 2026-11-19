@@ -17,7 +17,8 @@
 Loading the catalog already rejects an invalid manifest, a duplicate component
 or target name, a broken ``requires``/``imports``/``env_conflicts`` reference,
 and a deps component with a single consumer. This tool adds the checks that
-need a target: its closure, placement, and variant selection resolve.
+need a target: its closure, placement, and variant selection resolve, and every
+robot component is selected by an explicit target.
 
 Checked-in locks are optional reproduction artifacts, not installation inputs,
 so this tool neither requires nor validates them. ``--resolve`` compiles the
@@ -48,6 +49,31 @@ from rpent.install.requirements import (
 from rpent.install.resolve import resolve
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def check_catalog(catalog: Catalog) -> list[str]:
+    """Return problems with the target set as a whole.
+
+    Robot components do not form same-name targets, so a robot that no target
+    selects cannot be installed at all. Installing a robot means choosing the
+    composition it runs in, which only a target file can declare.
+    """
+    problems: list[str] = []
+    for name, component in sorted(catalog.components.items()):
+        if component.kind != "robot":
+            continue
+        providers = sorted(
+            target.name
+            for target in catalog.targets.values()
+            if name in target.components
+        )
+        if not providers:
+            problems.append(
+                f"robot component {component.manifest_path} is not selected by "
+                f"any target; add installs/targets/<target>.toml with "
+                f"[components.{name}]"
+            )
+    return problems
 
 
 def check_target(
@@ -134,6 +160,12 @@ def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
         return 0
     uv = find_uv() if args.resolve else None
     failed = False
+    catalog_problems = check_catalog(catalog)
+    if catalog_problems:
+        failed = True
+        print("catalog: FAIL")
+        for problem in catalog_problems:
+            print(f"  {problem}")
     for name in names:
         if name not in catalog.targets:
             known = ", ".join(sorted(catalog.targets))

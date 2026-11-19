@@ -81,13 +81,14 @@ def test_component_outside_target_points_to_a_development_install(monkeypatch):
 
 
 def test_missing_component_names_the_targets_that_include_it(monkeypatch):
-    fingerprint = {
-        "target": "minimal",
-        "components": {},
-        "component_targets": {"sam3": ["dev", "libero-pro", "sam3-server"]},
-    }
+    fingerprint = {"target": "minimal", "components": {}}
     monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
     monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
+    monkeypatch.setattr(
+        components,
+        "_targets_by_component",
+        lambda: {"sam3": ["dev", "libero-pro", "sam3-server"]},
+    )
 
     with pytest.raises(components.MissingComponentError) as error:
         components.require("sam3", "definitely_missing_rpent_module")
@@ -95,6 +96,17 @@ def test_missing_component_names_the_targets_that_include_it(monkeypatch):
     message = str(error.value)
     assert "is not part of target 'minimal'" in message
     assert "dev, libero-pro, sam3-server" in message
+
+
+def test_target_index_comes_from_the_checkout(monkeypatch):
+    # The repair hint reads the manifests instead of an index stored with the
+    # installation, so a target added after that environment was installed is
+    # still offered.
+    monkeypatch.setattr(components, "_TARGETS_BY_COMPONENT", None)
+
+    index = components._targets_by_component()
+
+    assert "robot-libero_pro" in index["sam3"]
 
 
 def test_fingerprint_without_a_target_falls_back_to_the_general_hint(monkeypatch):

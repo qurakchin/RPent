@@ -66,7 +66,7 @@ ROBOT_SHARED_TESTS = (
 #: the core-only environment and the CPU toolkit without pulling the full GPU
 #: matrix into every core edit; nightly and release runs still install every
 #: target.
-PR_PILOT_TARGETS = ("minimal", "robotwin", "tool-geometry")
+PR_PILOT_TARGETS = ("minimal", "robot-robotwin", "tool-geometry-eval")
 #: Paths whose change can alter every installation, so a PR installs every
 #: target instead of the pilot set. Install data changes narrow their own
 #: target set first; a path here in a mixed change still widens it. Packaging

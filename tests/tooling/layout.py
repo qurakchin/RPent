@@ -88,18 +88,12 @@ ALLOWED_ROOT_FILES = (
 IGNORED_TOP_LEVEL = frozenset({"memory", "__pycache__"})
 #: Core subdirectories K5 does not scan, with the reason and the date by which
 #: the exception must be removed or renewed. Model-side wire contracts name the
-#: embodiment they control; the install tooling holds the authored target
-#: partition and the published extra names. An expired entry is an error, so a
-#: temporary exception cannot become permanent by being forgotten.
+#: embodiment they control. An expired entry is an error, so a temporary
+#: exception cannot become permanent by being forgotten.
 CORE_NAME_EXEMPTIONS = {
     "rpent/models": (
         "model-side wire contracts and the backend table name the embodiment "
         "they speak to",
-        date(2027, 6, 30),
-    ),
-    "rpent/install": (
-        "the authored target partition and generated extra names are data, "
-        "not scheduling logic",
         date(2027, 6, 30),
     ),
 }
@@ -473,7 +467,7 @@ def check_imports(root: Path) -> list[Finding]:
         if path.name.startswith("."):
             # AppleDouble metadata for a synced checkout, not source.
             continue
-        if any(part in {".git", ".rpent", "tests", "docs"} for part in path.parts):
+        if any(part in {".git", "tests", "docs"} for part in path.parts):
             continue
         owner = _owner(path, root)
         if owner is None:
@@ -597,7 +591,7 @@ def check_core_robot_names(root: Path, *, today: date | None = None) -> list[Fin
             )
     used: set[Path] = set()
     for path in sorted((root / "rpent").rglob("*.py")):
-        if any(part in {".git", ".rpent", "__pycache__"} for part in path.parts):
+        if any(part in {".git", "__pycache__"} for part in path.parts):
             continue
         exemption = next(
             (
@@ -676,7 +670,7 @@ def check_pure_data_imports(root: Path) -> list[Finding]:
     findings: list[Finding] = []
     stdlib = sys.stdlib_module_names
     for path in sorted(root.rglob("*.py")):
-        if any(part in {".git", ".rpent", "tests", "docs"} for part in path.parts):
+        if any(part in {".git", "tests", "docs"} for part in path.parts):
             continue
         owner = _owner(path, root)
         if path.name in PURE_DATA_FILES:

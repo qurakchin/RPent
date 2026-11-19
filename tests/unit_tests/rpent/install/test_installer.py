@@ -51,11 +51,11 @@ def repo(tmp_path, write_toml):
     )
     major, minor = sys.version_info[:2]
     write_toml(
-        "robots/alpha/component.toml",
+        "components/toolkits/alpha/component.toml",
         f"""
         schema = 2
         name = "alpha"
-        kind = "robot"
+        kind = "toolkit"
         probe = "json"
         python = "{major}.{minor}"
         dependencies = ["numpy>=2"]
@@ -168,8 +168,8 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
     assert fingerprint["schema"] == INPUT_SCHEMA
     assert fingerprint["target"] == "alpha"
     assert fingerprint["components"]["alpha"]["placement"] == "in-env"
-    assert fingerprint["component_targets"]["alpha"] == ["alpha"]
-    assert fingerprint["requirements_file"] == ".rpent/requirements/alpha.txt"
+    assert fingerprint["requirements_file"] == "rpent-requirements.txt"
+    assert "component_targets" not in fingerprint
     assert "lock" not in fingerprint
     assert fingerprint["source_commit"] is None
     assert os.path.isfile(venv / "bin" / "python")
@@ -180,7 +180,7 @@ def test_install_installs_from_the_rendered_requirements(repo, tmp_path, monkeyp
 
     fingerprint = install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
-    requirements = repo / ".rpent" / "requirements" / "alpha.txt"
+    requirements = tmp_path / "venv" / "rpent-requirements.txt"
     requirements_arguments = install_arguments()[0]
     assert requirements_arguments[requirements_arguments.index("-r") + 1] == str(
         requirements
@@ -207,7 +207,7 @@ def test_install_does_not_read_a_checked_in_lock(repo, tmp_path, monkeypatch):
 
     arguments = install_arguments()[0]
     assert arguments[arguments.index("-r") + 1] == str(
-        repo / ".rpent" / "requirements" / "alpha.txt"
+        tmp_path / "venv" / "rpent-requirements.txt"
     )
     assert str(stale) not in arguments
 
@@ -219,25 +219,25 @@ def test_install_passes_override_files_by_absolute_path(
     # be run from a subdirectory, so manifests are resolved against the
     # checkout before being handed over.
     write_toml(
-        "robots/alpha/component.toml",
+        "components/toolkits/alpha/component.toml",
         """
         schema = 2
         name = "alpha"
-        kind = "robot"
+        kind = "toolkit"
         probe = "json"
         python = "3.11"
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
     )
-    write_toml("robots/alpha/requirements/override.txt", "numpy<3\n")
+    write_toml("components/toolkits/alpha/requirements/override.txt", "numpy<3\n")
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
     install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
     arguments = install_arguments()[0]
     value = arguments[arguments.index("--override") + 1]
-    assert value == str(repo / "robots/alpha/requirements/override.txt")
+    assert value == str(repo / "components/toolkits/alpha/requirements/override.txt")
     assert os.path.isabs(value)
 
 
@@ -245,7 +245,7 @@ def test_install_runs_uv_inside_the_checkout(repo, tmp_path, monkeypatch):
     # uv discovers ``[tool.uv]`` by walking up from its working directory, so
     # installing from a subdirectory must not resolve with other settings.
     _fake_uv(tmp_path, monkeypatch)
-    monkeypatch.chdir(repo / "robots")
+    monkeypatch.chdir(repo / "components")
 
     install("alpha", root=repo, venv=tmp_path / "venv", verbose=False)
 
@@ -266,11 +266,11 @@ def test_install_probes_the_deps_components_of_the_environment(
     major, minor = sys.version_info[:2]
     for name in ("alpha", "beta"):
         write_toml(
-            f"robots/{name}/component.toml",
+            f"components/toolkits/{name}/component.toml",
             f"""
             schema = 2
             name = "{name}"
-            kind = "robot"
+            kind = "toolkit"
             probe = "json"
             python = "{major}.{minor}"
             requires = ["shared"]
@@ -377,5 +377,6 @@ def test_dry_run_prints_the_requirements_and_creates_nothing(
     assert "# target alpha:" in printed
     assert "numpy>=2" in printed
     assert not venv.exists()
-    assert not (repo / ".rpent" / "requirements" / "alpha.txt").exists()
+    assert not (venv / "rpent-requirements.txt").exists()
+    assert not (repo / ".rpent").exists()
     assert not (tmp_path / "uv-install-args").exists()

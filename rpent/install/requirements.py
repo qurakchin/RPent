@@ -42,7 +42,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 #: changes meaning or the repository layout moves the files the inputs name, not
 #: merely when one is added: ``doctor`` uses it to tell an installation recorded
 #: by an older input mode from one whose inputs drifted.
-INPUT_SCHEMA = 8
+INPUT_SCHEMA = 9
 
 #: ``[tool.uv]`` entries that do not change an installation's contents.
 #: ``conflicts`` only constrains extra combinations in the generated

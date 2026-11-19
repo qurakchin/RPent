@@ -49,8 +49,8 @@ source .venvs/dev/bin/activate
 # cannot share a virtualenv because their pins differ, and every target
 # resolves its dependencies from the manifests.
 rpent-install install robot-libero_pro  # LIBERO
-rpent-install install robocasa        # RoboCasa
-rpent-install install robotwin        # RoboTwin
+rpent-install install robot-robocasa    # RoboCasa
+rpent-install install robot-robotwin    # RoboTwin
 
 # The target's dependencies omit the test runner; add it to that environment.
 uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout

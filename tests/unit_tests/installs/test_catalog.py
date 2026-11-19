@@ -33,6 +33,34 @@ def test_every_target_selects_known_components(catalog):
         assert not missing, f"target {name!r} selects unknown components {missing}"
 
 
+def test_every_robot_is_selected_by_a_target(catalog):
+    # Installing a robot means choosing the environment it runs in, which only
+    # a target file declares; a robot that no target selects cannot be
+    # installed at all.
+    for name, component in sorted(catalog.components.items()):
+        if component.kind != "robot":
+            continue
+        providers = [
+            target.name
+            for target in catalog.targets.values()
+            if name in target.components
+        ]
+        assert providers, f"robot component {name!r} has no install target"
+
+
+def test_a_robot_target_is_a_file_not_the_component_manifest(catalog):
+    # A same-name target is an explicit override, never the synthesized target
+    # a non-robot component would get.
+    for name, component in sorted(catalog.components.items()):
+        if component.kind != "robot":
+            continue
+        target = catalog.targets.get(name)
+        if target is None:
+            continue
+        assert target.path != component.manifest
+        assert name in target.components
+
+
 def test_every_target_resolves(catalog):
     for name, target in sorted(catalog.targets.items()):
         resolution = resolve(target, catalog)

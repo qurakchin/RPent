@@ -20,8 +20,8 @@ set -euo pipefail
 unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX
 
 if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <robot-libero_pro|robocasa|robotwin> <output-dir> <venv-root>"
-  echo "Targets are the robot-libero_pro, robocasa, and robotwin targets."
+  echo "Usage: $0 <robot-libero_pro|robot-robocasa|robot-robotwin> <output-dir> <venv-root>"
+  echo "Targets are the robot-libero_pro, robot-robocasa, and robot-robotwin targets."
   exit 2
 fi
 
@@ -303,14 +303,14 @@ case "$target" in
     )
     find "$venv_dir" -depth -delete
     ;;
-  robocasa)
+  robot-robocasa)
     require_dir RLDX_MODEL_PATH
     require_dir ROBOCASA_ASSETS_PATH
     export RPENT_RUN_ROBOCASA_INTEGRATION=1
     run_in_clean_env \
-      robocasa robocasa tests/e2e_tests/robocasa "$output_dir/robocasa"
+      robocasa robot-robocasa tests/e2e_tests/robocasa "$output_dir/robocasa"
     ;;
-  robotwin)
+  robot-robotwin)
     require_dir LINGBOT_MODEL_PATH
     require_dir ROBOTWIN_ASSETS_PATH
     if [[ ! -d "$LINGBOT_MODEL_PATH/qwen_base" ]]; then
@@ -318,7 +318,7 @@ case "$target" in
       exit 1
     fi
     run_in_clean_env \
-      robotwin robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
+      robotwin robot-robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
     ;;
   *)
     echo "Unknown target: $target"

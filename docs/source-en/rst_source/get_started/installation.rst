@@ -29,14 +29,17 @@ List targets
 The command prints every component with its kind and placements, then every
 target with its Python request and components.
 
-Every component is installable under its own name: ``rpent-install install
-robocasa`` installs the RoboCasa component and its dependencies. Targets
-declared in ``installs/targets/`` or ``tests/targets/`` add the compositions a
-single component cannot express: several components in one environment, a
-selected variant, extra runtime dependencies, or a compatibility extra. The
-two directories are discovered as one namespace, and an explicit target may
-not reuse a component name. Test and development targets (``dev``,
-``unit-cpu``, ``tool-geometry``) live in ``tests/targets/``.
+Every non-robot component is installable under its own name: ``rpent-install
+install sam3`` installs the SAM 3.0 service component and its dependencies.
+Robots install only through a target, which names the environment the robot
+runs in. Targets declared in ``installs/targets/`` or ``tests/targets/`` add
+the compositions a single component cannot express: several components in one
+environment, a selected variant, extra runtime dependencies, or a
+compatibility extra. The two directories are discovered as one namespace, and
+an explicit target may not reuse a component name; the one exception is a
+robot's same-name override target, which must install that robot. Test and
+development targets (``dev``, ``unit-cpu``, ``tool-geometry-eval``) live in
+``tests/targets/``.
 
 Compound targets install one simulator or robot with the models it runs, for
 example ``robot-libero_pro`` (LIBERO-PRO with Pi0.5 and SAM 3.0) and
@@ -169,22 +172,6 @@ Targets
    * - ``sim-libero_plus``
      - 3.11
      - LIBERO-plus simulation, same scope as ``sim-libero_standard``.
-   * - ``robocasa``
-     - 3.10
-     - RoboCasa simulation with RLinf's RoboCasa365 and RLDX stack.
-   * - ``robotwin``
-     - 3.11
-     - RoboTwin simulation with LingBot-VLA and cuRobo.
-   * - ``robodojo``
-     - 3.11
-     - RoboDojo with its RLinf fork and Isaac Sim, without a policy or
-       segmentation model.
-   * - ``franka`` / ``dual_franka``
-     - 3.11
-     - Franka hardware and platform dependencies without a policy model.
-   * - ``yam``
-     - 3.11
-     - Dual-arm YAM control dependencies without a policy model.
    * - ``robot-libero_pro``
      - 3.11
      - LIBERO-PRO with Pi0.5, SAM 3.0, and LeRobot trajectory export and
@@ -201,6 +188,12 @@ Targets
    * - ``robot-robodojo``
      - 3.11
      - RoboDojo with its RLinf fork and Isaac Sim, Pi0.5, and SAM 3.0.
+   * - ``robot-robocasa``
+     - 3.10
+     - RoboCasa simulation with RLinf's RoboCasa365 and RLDX stack.
+   * - ``robot-robotwin``
+     - 3.11
+     - RoboTwin simulation with LingBot-VLA and cuRobo.
    * - ``molmo``
      - 3.11
      - Standalone Molmo visual grounder (``core = false``).
@@ -210,11 +203,11 @@ Targets
    * - ``tool-flywheel``
      - 3.11
      - LeRobot trajectory export and replay without a simulator or policy.
-   * - ``tool-geometry``
+   * - ``tool-geometry-eval``
      - 3.11
      - Geometry toolkit with its frozen CPU evaluation corpus.
 
-The remaining components (``apxinf``, ``cosmos3``, ``cosmos_policy``,
+The remaining non-robot components (``apxinf``, ``cosmos3``, ``cosmos_policy``,
 ``fast_wam``, ``geometry``, ``uniwam``, and ``xpolicylab``) install under their
 own names as well; ``rpent-install list`` prints the full set. The Python column
 shows the minor the manifests currently resolve to, which can be narrower than
@@ -234,22 +227,18 @@ On a fresh checkout, prefix the command as shown above.
    rpent-install install sim-libero_standard
    rpent-install install sim-libero_pro
    rpent-install install sim-libero_plus
-   rpent-install install robocasa
-   rpent-install install robotwin
-   rpent-install install robodojo
-   rpent-install install franka
-   rpent-install install dual_franka
-   rpent-install install yam
    rpent-install install robot-libero_pro
    rpent-install install robot-franka
    rpent-install install robot-dual_franka
    rpent-install install robot-yam
    rpent-install install robot-robodojo
+   rpent-install install robot-robocasa
+   rpent-install install robot-robotwin
    rpent-install install molmo
    rpent-install install openpi
    rpent-install install sam3
    rpent-install install tool-flywheel
-   rpent-install install tool-geometry
+   rpent-install install tool-geometry-eval
 
 Diagnose
 --------

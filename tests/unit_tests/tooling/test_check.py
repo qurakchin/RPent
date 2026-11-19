@@ -126,8 +126,30 @@ def test_all_checks_every_target(tmp_path, write_toml, capsys):
     out = capsys.readouterr().out
     assert "target alpha-env: ok" in out
     assert "target alpha-env-2: ok" in out
-    # The component itself forms a target, so --all checks it too.
-    assert "target alpha: ok" in out
+    # Robots install only through a target, so no same-name target exists.
+    assert "target alpha: ok" not in out
+
+
+def test_a_robot_without_a_target_fails_the_catalog(tmp_path, write_toml, capsys):
+    _write_component(write_toml)
+    write_toml(
+        "installs/targets/minimal.toml",
+        """
+        schema = 2
+        kind = "target"
+        name = "minimal"
+        python = "3.11"
+        core = false
+
+        [components]
+        """,
+    )
+
+    assert check.main(["--all"], root=tmp_path) == 1
+
+    out = capsys.readouterr().out
+    assert "catalog: FAIL" in out
+    assert "robots/alpha/component.toml is not selected by any target" in out
 
 
 def test_unknown_target_is_reported(tmp_path, write_toml, capsys):

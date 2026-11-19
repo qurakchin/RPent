@@ -348,17 +348,16 @@ def target_roots(root: Path) -> tuple[Path, ...]:
     """Return the directories target manifests are discovered in.
 
     User targets live under ``installs/targets/``; the ones that serve only
-    tests and CI live under ``tests/targets/``. Every component directory is
-    also an install target under its own name, so a single-component
-    environment needs no file here.
+    tests and CI live under ``tests/targets/``. Every non-robot component
+    directory is also an install target under its own name, so a
+    single-component environment needs no file here; robots always need an
+    explicit target because a robot is never installed on its own by name.
     """
     return (root / "installs" / "targets", root / "tests" / "targets")
 
 
 def _targets(repo_root: Path, components: dict[str, Component]) -> dict[str, Target]:
     user_targets, test_targets = target_roots(repo_root)
-    # A checkout with no composition targets is still installable: every code
-    # component forms a target under its own name below.
     targets: dict[str, Target] = {}
     for directory in (user_targets, test_targets):
         if not directory.is_dir():
@@ -375,31 +374,57 @@ def _targets(repo_root: Path, components: dict[str, Component]) -> dict[str, Tar
                     f"{target.relative_path(repo_root)}; "
                     "test targets share the user target namespace"
                 )
+            _check_override_target(target, components, repo_root)
             targets[target.name] = target
     for name, component in sorted(components.items()):
-        if component.is_deps or component.variant_required:
-            # A component that must choose a variant cannot be installed by
-            # name on its own; a target file names the variant to use.
+        if component.is_deps or component.variant_required or component.kind == "robot":
+            # A deps component has no code, a variant component cannot choose
+            # its variant by name, and a robot is an integration, not an
+            # install unit: each needs a target file that names what to
+            # install.
             continue
-        previous = targets.get(name)
-        if previous is not None:
-            raise InstallConfigError(
-                f"target {name!r} in {previous.relative_path(repo_root)} "
-                f"duplicates the component {component.manifest_path}; "
-                f"a component is already "
-                "installable by name, so remove the target file or rename it"
-            )
         targets[name] = target_from_component(component)
     return targets
 
 
-def discover_targets(root: Path | None = None) -> dict[str, Target]:
-    """Load every target, including one synthesized per code component.
+def _check_override_target(
+    target: Target, components: dict[str, Component], repo_root: Path
+) -> None:
+    """Reject a target that reuses a component name without being its override.
 
-    A target and a component that share a name, and a composition target whose
-    installed components disagree about an index or need a newer ``manylinux``
-    baseline, are rejected rather than installed under a silently narrowed
-    environment.
+    A target name must not collide with a component name, because the
+    component already installs under that name. The one exception is a robot
+    component's same-name override target, which exists to bind the robot to a
+    composition; it must install the robot it is named after.
+    """
+    component = components.get(target.name)
+    if component is None:
+        return
+    if component.kind != "robot":
+        raise InstallConfigError(
+            f"target {target.name!r} in {target.relative_path(repo_root)} "
+            f"reuses the name of component {component.manifest_path}; "
+            "non-robot components are already installable under their own "
+            "name, so rename the target"
+        )
+    selected = target.components.get(component.name)
+    if selected is None:
+        raise InstallConfigError(
+            f"target {target.name!r} in {target.relative_path(repo_root)} "
+            f"overrides robot component {component.manifest_path} but does "
+            f"not select it; add [components.{component.name}] to the target "
+            "or rename it"
+        )
+
+
+def discover_targets(root: Path | None = None) -> dict[str, Target]:
+    """Load every target, including one synthesized per non-robot component.
+
+    A target that reuses a component name without being a robot's override,
+    an override that does not install its own robot, and a composition target
+    whose installed components disagree about an index or need a newer
+    ``manylinux`` baseline are rejected rather than installed under a silently
+    narrowed environment.
     """
     repo_root = (root or repository_root()).resolve()
     return _targets(repo_root, discover_components(repo_root))
