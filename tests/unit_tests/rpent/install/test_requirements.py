@@ -17,8 +17,9 @@
 import pytest
 
 from rpent.install.errors import InstallConfigError
+from rpent.install.fingerprint import FINGERPRINT_SCHEMA_FIELD
 from rpent.install.requirements import (
-    REQUIREMENTS_SCHEMA,
+    FINGERPRINT_SCHEMA,
     read_core_dependencies,
     render_requirements,
     requirements_inputs,
@@ -73,7 +74,7 @@ def test_requirements_inputs_record_the_targets_and_closure(resolution, tmp_path
         resolution, root=tmp_path, core_dependencies=("packaging",)
     )
 
-    assert inputs["schema"] == REQUIREMENTS_SCHEMA
+    assert inputs[FINGERPRINT_SCHEMA_FIELD] == FINGERPRINT_SCHEMA
     assert inputs["targets"] == ["robot-alpha"]
     assert sorted(inputs["components"]) == ["model-sam3", "robot-alpha"]
     assert inputs["core_dependencies"] == ["packaging"]

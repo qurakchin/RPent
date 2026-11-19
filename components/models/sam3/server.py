@@ -80,10 +80,12 @@ class Sam3Facade(RpcFacade):
 
     def _load(self, checkpoint: str) -> None:
         """Load the official SAM 3.0 model and interactive point head."""
-        torch = require("sam3", "torch")
-        Sam3Processor = require("sam3", "sam3.model.sam3_image_processor").Sam3Processor
+        torch = require("model-sam3", "torch")
+        Sam3Processor = require(
+            "model-sam3", "sam3.model.sam3_image_processor"
+        ).Sam3Processor
         build_sam3_image_model = require(
-            "sam3", "sam3.model_builder"
+            "model-sam3", "sam3.model_builder"
         ).build_sam3_image_model
 
         if not torch.cuda.is_available():

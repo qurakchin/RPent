@@ -17,10 +17,8 @@
 from __future__ import annotations
 
 import os
-import re
 import shutil
 import subprocess
-import sys
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +30,7 @@ from rpent.install.discovery import Catalog, discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     FINGERPRINT_NAME,
+    FINGERPRINT_SCHEMA_FIELD,
     freeze_sha256,
     read_fingerprint,
     runtime_platform,
@@ -41,7 +40,7 @@ from rpent.install.fingerprint import (
 )
 from rpent.install.manifest import Component
 from rpent.install.requirements import (
-    REQUIREMENTS_SCHEMA,
+    FINGERPRINT_SCHEMA,
     read_core_dependencies,
     render_requirements,
     requirements_sha256,
@@ -94,12 +93,19 @@ def find_uv() -> str:
     return uv
 
 
+#: A command that neither finishes nor fails leaves the installer waiting
+#: forever. The limit is generous because a first GPU install downloads several
+#: gigabytes, and it exists to turn a hung network call into an error.
+DEFAULT_COMMAND_TIMEOUT = 3600.0
+
+
 def run_command(
     command: list[str],
     *,
     env: dict[str, str] | None = None,
     capture: bool = False,
     cwd: Path | None = None,
+    timeout: float = DEFAULT_COMMAND_TIMEOUT,
 ) -> str:
     """Run ``command`` and return its captured stdout.
 
@@ -115,9 +121,14 @@ def run_command(
             capture_output=capture,
             env=env,
             cwd=cwd,
+            timeout=timeout,
         )
     except FileNotFoundError as exc:
         raise InstallError(f"command not found: {command[0]}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise InstallError(
+            f"command timed out after {timeout:g}s: {' '.join(command)}"
+        ) from exc
     except subprocess.CalledProcessError as exc:
         detail = (exc.stderr or exc.stdout or "").strip()
         message = f"command failed ({exc.returncode}): {' '.join(command)}"
@@ -138,41 +149,25 @@ def _supports_python(component: Component, version: str) -> bool:
     return supported.contains(version, prereleases=True)
 
 
-def _minor_candidates(components: Iterable[Component]) -> list[str]:
-    """Return the minor versions named by the components' Python ranges."""
-    candidates: set[tuple[int, int]] = set()
-    for component in components:
-        if component.python is None:
-            continue
-        try:
-            supported = SpecifierSet(component.python)
-        except InvalidSpecifier:
-            continue
-        for specifier in supported:
-            match = re.fullmatch(r"(\d+)\.(\d+)", specifier.version)
-            if match is None:
-                continue
-            major, minor = int(match.group(1)), int(match.group(2))
-            candidates.add((major, minor))
-            candidates.add((major, max(minor - 1, 0)))
-    return [f"{major}.{minor}" for major, minor in sorted(candidates, reverse=True)]
+#: The Python minors RPent supports, newest first. It mirrors ``requires-python``
+#: in the root ``pyproject.toml``: the interpreter is chosen from the manifests,
+#: never from the shell that happens to run the installer, so the same checkout
+#: produces the same environment on every machine.
+SUPPORTED_PYTHONS = ("3.12", "3.11", "3.10")
 
 
 def choose_python(components: Iterable[Component]) -> str:
-    """Return the interpreter to create a new environment with.
+    """Return the newest supported interpreter every component accepts.
 
-    The running interpreter is the first choice: the caller already has it, and
-    an environment built with it needs no download. When a component rules it
-    out, the highest version every component supports is used instead; a target
-    set with no common version is reported by ``python_errors`` before the
-    environment is created.
+    A component with no common version is reported by ``python_errors`` before
+    the environment is created; the newest supported minor is returned here so
+    the error names a version rather than a failed lookup.
     """
     components = list(components)
-    host = f"{sys.version_info.major}.{sys.version_info.minor}"
-    for version in (host, *_minor_candidates(components)):
+    for version in SUPPORTED_PYTHONS:
         if all(_supports_python(component, version) for component in components):
             return version
-    return host
+    return SUPPORTED_PYTHONS[0]
 
 
 def resolve_targets(
@@ -201,9 +196,8 @@ _BASE_DISTRIBUTIONS = frozenset(
 def _installed_distributions(python: Path) -> list[str] | None:
     """Return the distributions in ``python``'s environment, or ``None``.
 
-    ``None`` means the interpreter could not be asked. It is a broken
-    environment either way, and the install reports that with its own error
-    rather than as an ambiguous package list.
+    ``None`` means the interpreter could not be asked, which is itself a
+    broken environment; the caller reports that rather than an empty list.
     """
     source = (
         "import importlib.metadata\n"
@@ -224,15 +218,22 @@ def _reject_foreign_venv(destination: Path) -> None:
 
     Such an environment was not created by ``rpent-install``, so its packages
     belong to whoever installed them; adding this environment's packages would
-    mix two dependency sets in one interpreter. A ``uv venv`` nothing was
-    installed into yet is still empty and is used as it is.
+    mix two dependency sets in one interpreter. Two exceptions are ours: a
+    ``uv venv`` nothing was installed into yet is empty, and an environment
+    holding the rendered requirements is one whose install failed before it
+    wrote a fingerprint, so the same command may repair it.
     """
+    if requirements_file(destination).is_file():
+        return
     python = venv_python(destination)
     if not python.exists():
         return
     packages = _installed_distributions(python)
     if packages is None:
-        return
+        raise InstallError(
+            f"{destination} has a Python interpreter that cannot be run; "
+            "remove it and install the environment again"
+        )
     foreign = sorted(
         name
         for name in packages
@@ -371,7 +372,7 @@ def install(
     write_freeze(destination, frozen)
     commit, dirty = source_state(repo_root)
     fingerprint = {
-        "schema": REQUIREMENTS_SCHEMA,
+        FINGERPRINT_SCHEMA_FIELD: FINGERPRINT_SCHEMA,
         "targets": list(resolution.targets),
         "python": _python_version(python),
         "platform": runtime_platform(),
@@ -420,31 +421,35 @@ def _python_version(python: Path) -> str:
         return "unknown"
 
 
-def probe_source(probe: str) -> str:
-    """Return the source an install probe runs for ``probe``.
+#: Role modules a component of each kind must import, relative to its ``probe``
+#: package. Importing the package alone is a weak check: a slice's entry point
+#: stays lazy so a missing optional dependency does not break discovery, and a
+#: package that contains nothing would pass. ``infra`` components own no code
+#: and probe the third-party package they install, so they have no roles.
+ROLE_MODULES = {
+    "robot": ("robot_spec", "env_client"),
+    "sim": ("env_server",),
+    "model": ("server",),
+    "tool": ("cli",),
+}
 
-    Importing the package alone is a weak check: a robot slice's entry point
-    stays lazy so a missing optional dependency does not break discovery. The
-    slice's role module is probed too, so the probe verifies real dependencies
-    without pinning the manifest to a file name; a component that probes a
-    third-party package has no such module and the lookup finds nothing.
+
+def probe_source(probe: str, kind: str) -> str:
+    """Return the source an install probe runs for a component of ``kind``.
+
+    The probe imports the component's package and the role modules its kind
+    owns, so an environment that installed the package without the component's
+    own code fails here rather than the first time the component is used.
     """
-    role = f"{probe}.robot_spec"
-    return (
-        "import importlib\n"
-        "import importlib.util\n"
-        f"import {probe}\n"
-        f'ROLE = "{role}"\n'
-        "try:\n"
-        "    found = importlib.util.find_spec(ROLE)\n"
-        "except (ImportError, AttributeError, ValueError):\n"
-        "    found = None\n"
-        "if found is not None:\n"
-        "    importlib.import_module(ROLE)\n"
-    )
+    roles = ROLE_MODULES.get(kind, ())
+    lines = [f"import {probe}"]
+    if roles:
+        lines.insert(0, "import importlib")
+        lines.extend(f'importlib.import_module("{probe}.{role}")' for role in roles)
+    return "\n".join(lines) + "\n"
 
 
-def probe_command(python: Path, probe: str) -> list[str]:
+def probe_command(python: Path, probe: str, kind: str) -> list[str]:
     """Return the command that runs an install probe inside ``python``.
 
     ``-I`` keeps the caller's environment and working directory out of
@@ -452,7 +457,7 @@ def probe_command(python: Path, probe: str) -> list[str]:
     editable install of the checkout, not the source tree the command happens
     to be running in.
     """
-    return [str(python), "-I", "-c", probe_source(probe)]
+    return [str(python), "-I", "-c", probe_source(probe, kind)]
 
 
 def repair_command(resolution: Resolution) -> str:
@@ -471,7 +476,7 @@ def _probe_components(
         if verbose:
             print(f"probe {name}: import {probe}")
         try:
-            run_command(probe_command(python, probe), capture=True)
+            run_command(probe_command(python, probe, component.kind), capture=True)
         except InstallError as exc:
             raise InstallError(
                 f"component {name!r} is not importable in {python.parent.parent}\n"

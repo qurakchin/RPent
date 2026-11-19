@@ -2,7 +2,6 @@ schema = 2
 name = "model-uniwam"
 probe = "components.models.uniwam.server"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
 # The official UniWAM deployment and its weights are supplied by the
 # operator; the RPent worker owns only request translation.
 

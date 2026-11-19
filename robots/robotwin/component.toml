@@ -2,7 +2,6 @@ schema = 2
 name = "robot-robotwin"
 probe = "robots.robotwin"
 python = ">=3.11,<3.12"
-platforms = ["linux-x86_64"]
 requires = ["sim-robotwin", "model-lingbot"]
 env_conflicts = ["robot-franka", "robot-dual_franka", "robot-libero", "robot-robocasa", "robot-robodojo", "model-molmo"]
 

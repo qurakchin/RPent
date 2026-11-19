@@ -15,15 +15,16 @@
 """The installer resolves targets, renders requirements, and records fingerprints."""
 
 import os
-import shlex
 import stat
+import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
 from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
-from rpent.install.fingerprint import read_fingerprint, runtime_platform
+from rpent.install.fingerprint import FINGERPRINT_SCHEMA_FIELD, read_fingerprint
 from rpent.install.installer import (
     choose_python,
     default_venv,
@@ -32,12 +33,13 @@ from rpent.install.installer import (
     index_options,
     install,
     probe_command,
+    probe_source,
     requirements_file,
     resolve_targets,
 )
 from rpent.install.manifest import SCHEMA
 from rpent.install.requirements import (
-    REQUIREMENTS_SCHEMA,
+    FINGERPRINT_SCHEMA,
     read_core_dependencies,
     requirements_sha256,
 )
@@ -95,6 +97,20 @@ def test_dry_run_renders_requirements_without_uv(repo, monkeypatch, capsys):
     assert "packaging" in capsys.readouterr().out
 
 
+def test_install_refuses_a_machine_the_components_do_not_support(repo, monkeypatch):
+    # Components support ``linux-x86_64`` unless a manifest says otherwise, so
+    # installing on another machine fails before uv resolves packages there.
+    monkeypatch.setattr(
+        "rpent.install.installer.runtime_platform", lambda: "darwin-arm64"
+    )
+
+    with pytest.raises(
+        InstallError,
+        match="supports linux-x86_64, but this environment targets darwin-arm64",
+    ):
+        install(["robot-alpha"], root=repo, dry_run=True, verbose=False)
+
+
 def test_environment_id_is_order_independent():
     assert environment_id(["robot-beta", "robot-alpha", "robot-alpha"]) == (
         "robot-alpha+robot-beta"
@@ -125,11 +141,12 @@ def test_unknown_target_lists_known_components(repo):
         install(["robot-missing"], root=repo, dry_run=True, verbose=False)
 
 
-def test_choose_python_prefers_the_running_interpreter(make_component):
-    host = f"{sys.version_info.major}.{sys.version_info.minor}"
+def test_choose_python_uses_the_newest_supported_minor(make_component):
+    # The interpreter comes from the manifests, not from the shell that runs
+    # the installer, so the same checkout builds the same environment anywhere.
     component = make_component("robot-alpha", python=">=3.10,<3.15")
 
-    assert choose_python([component]) == host
+    assert choose_python([component]) == "3.12"
 
 
 def test_choose_python_picks_the_highest_supported_minor(make_component):
@@ -167,16 +184,23 @@ def _fake_uv(tmp_path, monkeypatch):
     """Create a uv stand-in and return it with a reader for install arguments."""
     uv = tmp_path / "uv"
     uv.write_text(
-        f"""#!/bin/sh
+        """#!/bin/sh
 set -eu
 pwd -P >> "$(dirname "$0")/uv-pwd"
 if [ "$1" = "venv" ]; then
   for last; do :; done
   mkdir -p "$last/bin"
-  printf '#!/bin/sh\\nexec {shlex.quote(sys.executable)} "$@"\\n' > "$last/bin/python"
+  cat > "$last/bin/python" <<'STUB'
+#!/bin/sh
+case "$*" in
+  *importlib.metadata*) ;;
+  *platform*) printf '3.11.9\n' ;;
+esac
+exit 0
+STUB
   chmod +x "$last/bin/python"
 elif [ "$1 $2" = "pip install" ]; then
-  {{ printf '%s\\n' "$@"; echo --; }} >> "$(dirname "$0")/uv-install-args"
+  { printf '%s\n' "$@"; echo --; } >> "$(dirname "$0")/uv-install-args"
 elif [ "$1 $2" = "pip freeze" ]; then
   echo "alpha==1.0.0"
 fi
@@ -207,10 +231,10 @@ def test_install_records_a_fingerprint(repo, tmp_path, monkeypatch, capsys):
     fingerprint = install(["robot-alpha"], root=repo, venv=venv, verbose=True)
 
     assert read_fingerprint(venv) == fingerprint
-    assert fingerprint["schema"] == REQUIREMENTS_SCHEMA
+    assert fingerprint[FINGERPRINT_SCHEMA_FIELD] == FINGERPRINT_SCHEMA
     assert fingerprint["targets"] == ["robot-alpha"]
     assert sorted(fingerprint["components"]) == ["robot-alpha"]
-    assert fingerprint["platform"] == runtime_platform()
+    assert fingerprint["platform"] == "linux-x86_64"
     assert fingerprint["source_commit"] is None
     assert os.path.isfile(venv / "bin" / "python")
     # The rendered requirements and the resolved versions stay with the
@@ -367,11 +391,62 @@ def test_install_reuses_a_virtualenv_with_nothing_installed(
 def test_probe_command_isolates_the_environment(tmp_path):
     # PYTHONPATH and the caller's directory would let the probe import the
     # source tree, so an editable install missing from the venv would pass.
-    command = probe_command(tmp_path / "python", "robots.alpha")
+    command = probe_command(tmp_path / "python", "robots.alpha", "robot")
 
     assert command[:3] == [str(tmp_path / "python"), "-I", "-c"]
     assert "robots.alpha.robot_spec" in command[3]
+    assert "robots.alpha.env_client" in command[3]
     assert "adapter" not in command[3]
+
+
+def test_probe_checks_the_role_modules_of_each_kind():
+    # Importing the package alone passes for a component that installed only
+    # its name; every kind names the modules its components must own.
+    assert 'importlib.import_module("components.tools.flywheel.cli")' in probe_source(
+        "components.tools.flywheel", "tool"
+    )
+    assert 'importlib.import_module("components.sim.libero.env_server")' in (
+        probe_source("components.sim.libero", "sim")
+    )
+    assert 'importlib.import_module("components.models.openpi.server")' in (
+        probe_source("components.models.openpi", "model")
+    )
+    # Infra components install a third-party package and own no roles.
+    assert probe_source("rlinf", "infra") == "import rlinf\n"
+
+
+def test_a_component_without_its_role_modules_fails_its_probe():
+    command = probe_command(Path(sys.executable), "json", "robot")
+
+    result = subprocess.run(command, text=True, capture_output=True)
+
+    assert result.returncode != 0
+    assert "json.robot_spec" in result.stderr
+
+
+def test_install_repairs_an_environment_left_by_a_failed_install(
+    repo, tmp_path, monkeypatch
+):
+    # A failure after the packages were written leaves the rendered
+    # requirements but no fingerprint. Refusing that environment would make the
+    # repair command the installer prints fail exactly when it is needed.
+    _fake_uv(tmp_path, monkeypatch)
+    venv = _plain_venv(tmp_path, "pip", "numpy")
+    requirements_file(venv).write_text("numpy>=2\n", encoding="utf-8")
+
+    fingerprint = install(["robot-alpha"], root=repo, venv=venv, verbose=False)
+
+    assert fingerprint["targets"] == ["robot-alpha"]
+
+
+def test_install_reports_an_interpreter_it_cannot_run(repo, tmp_path, monkeypatch):
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    (venv / "bin").mkdir(parents=True)
+    (venv / "bin" / "python").write_text("#!/bin/sh\n", encoding="utf-8")
+
+    with pytest.raises(InstallError, match="cannot be run"):
+        install(["robot-alpha"], root=repo, venv=venv, verbose=False)
 
 
 def test_install_accepts_a_venv_installed_for_the_same_target_set(
@@ -405,7 +480,9 @@ def test_install_fails_before_uv_when_no_interpreter_fits(
     # install checks the components against that interpreter before resolving.
     venv = tmp_path / "venv"
     (venv / "bin").mkdir(parents=True)
-    (venv / "bin" / "python").write_text("#!/bin/sh\n", encoding="utf-8")
+    python = venv / "bin" / "python"
+    python.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    python.chmod(0o755)
     monkeypatch.setattr(
         "rpent.install.installer._python_version", lambda python: "3.12.1"
     )

@@ -121,8 +121,8 @@ class MolmoFacade(RpcFacade):
         self._register_rpc()
 
     def _load(self, checkpoint: str) -> None:
-        torch = require("molmo", "torch")
-        transformers = require("molmo", "transformers")
+        torch = require("model-molmo", "torch")
+        transformers = require("model-molmo", "transformers")
         AutoModelForImageTextToText = transformers.AutoModelForImageTextToText
         AutoProcessor = transformers.AutoProcessor
 

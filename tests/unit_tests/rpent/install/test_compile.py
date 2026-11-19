@@ -175,6 +175,38 @@ def test_check_rejects_an_unknown_platform(repo, fake_uv, capsys):
     assert "unknown platform 'solaris'" in capsys.readouterr().err
 
 
+def test_check_rejects_an_unknown_platform_without_resolving(repo, capsys):
+    # The platform also decides which components are supported, so an unknown
+    # one is an error even when nothing is compiled.
+    assert (
+        env_main(["--root", str(repo), "check", "robot-alpha", "--platform", "solaris"])
+        == 2
+    )
+
+    assert "unknown platform 'solaris'" in capsys.readouterr().err
+
+
+def test_check_reports_a_component_that_does_not_support_the_target_platform(
+    repo, write_toml, capsys
+):
+    # ``check`` judges the environment against the platform it targets, so a
+    # component restricted to another platform fails here instead of at install
+    # time on the machine that runs it.
+    write_toml(
+        "robots/alpha/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
+        probe = "json"
+        platforms = ["darwin-arm64"]
+        """,
+    )
+
+    assert env_main(["--root", str(repo), "check", "robot-alpha"]) == 1
+
+    assert "supports darwin-arm64" in capsys.readouterr().out
+
+
 def test_check_uses_the_default_manylinux_baseline(repo, fake_uv):
     assert env_main(["--root", str(repo), "check", "robot-alpha", "--resolve"]) == 0
 

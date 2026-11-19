@@ -254,7 +254,7 @@ def platform_errors(platform: str, components: Iterable[Component]) -> list[str]
     """Return errors for components that do not support ``platform``."""
     return [
         f"component {component.name!r} supports "
-        f"{', '.join(component.platforms)}, but this environment runs on "
+        f"{', '.join(component.platforms)}, but this environment targets "
         f"{platform}"
         for component in sorted(components, key=lambda item: item.name)
         if component.platforms and platform not in component.platforms
@@ -300,8 +300,9 @@ def resolve(
     """Return the environment a ``install <targets>`` command would create.
 
     ``python`` and ``platform`` describe the environment that will run the
-    components; ``rpent-install check`` leaves them out to validate manifests
-    without tying the answer to the machine that runs the check.
+    components. ``rpent-install check`` passes the platform the environment
+    targets — not the machine running the check — and leaves the interpreter
+    out, because a check does not create the environment.
     """
     names = tuple(sorted(set(targets)))
     resolution = Resolution(targets=names)

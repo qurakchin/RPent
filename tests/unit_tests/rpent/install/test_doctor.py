@@ -26,13 +26,13 @@ from rpent.install.doctor import (
 )
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
+    FINGERPRINT_SCHEMA_FIELD,
     fingerprint_sha256,
-    runtime_platform,
     write_fingerprint,
 )
 from rpent.install.installer import resolve_targets
 from rpent.install.manifest import SCHEMA
-from rpent.install.requirements import REQUIREMENTS_SCHEMA, requirements_sha256
+from rpent.install.requirements import FINGERPRINT_SCHEMA, requirements_sha256
 
 
 @pytest.fixture
@@ -69,11 +69,11 @@ def _venv(tmp_path):
 
 def _fingerprint(repo, *, targets=("robot-alpha",), python="3.11.9", **extra):
     resolution = resolve_targets(
-        targets, discover(repo), root=repo, platform=runtime_platform()
+        targets, discover(repo), root=repo, platform="linux-x86_64"
     )
     assert resolution.ok, resolution.errors
     fingerprint = {
-        "schema": REQUIREMENTS_SCHEMA,
+        FINGERPRINT_SCHEMA_FIELD: FINGERPRINT_SCHEMA,
         "targets": list(targets),
         "python": python,
         "requirements_sha256": requirements_sha256(resolution, root=repo),
@@ -98,7 +98,9 @@ def test_missing_fingerprint_reports_install_command(tmp_path):
 
 def test_fingerprint_without_targets_asks_for_a_reinstall(repo):
     venv = _venv(repo)
-    write_fingerprint(venv, {"schema": REQUIREMENTS_SCHEMA, "python": "3.11.9"})
+    write_fingerprint(
+        venv, {FINGERPRINT_SCHEMA_FIELD: FINGERPRINT_SCHEMA, "python": "3.11.9"}
+    )
 
     checks = check_installation(venv, root=repo)
 
@@ -111,7 +113,7 @@ def test_unresolvable_targets_are_reported(repo, monkeypatch):
     write_fingerprint(
         venv,
         {
-            "schema": REQUIREMENTS_SCHEMA,
+            FINGERPRINT_SCHEMA_FIELD: FINGERPRINT_SCHEMA,
             "targets": ["robot-removed"],
             "python": "3.11.9",
         },
@@ -149,11 +151,11 @@ def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(repo, monkeyp
     }
     _missing_uv(monkeypatch)
 
-    older = REQUIREMENTS_SCHEMA - 1
+    older = FINGERPRINT_SCHEMA - 1
     for schema, label in ((older, str(older)), (None, "unknown")):
         fingerprint = dict(recorded)
         if schema is not None:
-            fingerprint["schema"] = schema
+            fingerprint[FINGERPRINT_SCHEMA_FIELD] = schema
         write_fingerprint(venv, fingerprint)
 
         checks = check_installation(venv, root=repo)

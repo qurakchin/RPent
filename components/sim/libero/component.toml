@@ -2,7 +2,6 @@ schema = 2
 name = "sim-libero"
 probe = "components.sim.libero"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
 # LIBERO-PRO is the supported benchmark; the plain LIBERO packages
 # provide the task suites it builds on.
 # MuJoCo 3.4+ changes LIBERO settling, misplacing objects and reducing

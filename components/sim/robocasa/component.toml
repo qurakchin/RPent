@@ -2,7 +2,6 @@ schema = 2
 name = "sim-robocasa"
 probe = "components.sim.robocasa"
 python = ">=3.10,<3.11"
-platforms = ["linux-x86_64"]
 requires = ["infra-rlinf"]
 
 dependencies = [

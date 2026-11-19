@@ -19,6 +19,7 @@ import pytest
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
     DEFAULT_MANYLINUX,
+    DEFAULT_PLATFORMS,
     SCHEMA,
     load_component,
     load_package_component,
@@ -62,6 +63,22 @@ def test_component_manifest_reads_declarations(write_toml):
     assert component.extra_index_urls == ("https://example.invalid/extra",)
     assert component.index_strategy == "unsafe-first-match"
     assert not component.is_infra
+
+
+def test_platforms_default_to_the_supported_target(write_toml):
+    # Every component supports the one platform RPent installs on unless it
+    # says otherwise, so repeating the same list in every manifest adds noise
+    # without adding a decision.
+    path = write_toml(
+        "robots/alpha/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
+        probe = "robots.alpha"
+        """,
+    )
+
+    assert load_component(path, "robot").platforms == DEFAULT_PLATFORMS
 
 
 def test_component_name_must_name_kind_and_directory(write_toml):
@@ -236,7 +253,7 @@ def test_unknown_fields_and_old_schema_are_rejected(write_toml):
         load_component(typo, "robot")
 
 
-def test_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
+def test_git_dependencies_must_pin_a_full_commit(write_toml):
     branch = write_toml(
         "robots/alpha/component.toml",
         f"""
@@ -269,10 +286,11 @@ def test_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
 
     with pytest.raises(InstallConfigError, match="pins git ref 'main'"):
         load_component(branch, "robot")
+    # A tag names code today and different code after someone moves it, so it
+    # cannot record what an environment contains.
+    with pytest.raises(InstallConfigError, match="pins git ref 'v1.2.3'"):
+        load_component(tag, "robot")
     assert load_component(commit, "robot").dependencies[0].endswith("01234567")
-    assert load_component(tag, "robot").dependencies == (
-        "pkg @ git+https://github.com/example/pkg.git@v1.2.3",
-    )
 
 
 def test_git_dependency_without_a_ref_is_rejected(write_toml):

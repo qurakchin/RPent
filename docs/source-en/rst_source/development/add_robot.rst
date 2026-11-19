@@ -80,10 +80,13 @@ current file for each role until that migration lands.
    name = "robot-myrobot"
    probe = "robots.myrobot"
    python = ">=3.10,<3.13"
-   platforms = ["linux-x86_64"]
    requires = ["sim-mysim", "model-mymodel"]
 
    dependencies = ["my-simulator==1.2"]
+
+Every component supports ``linux-x86_64`` unless its manifest lists
+``platforms``; declare that field only when the component needs a narrower
+set.
 
 ``name`` must be ``robot-`` plus the directory name, because the prefix says
 which kind of component it is and where its code lives. ``requires`` names the

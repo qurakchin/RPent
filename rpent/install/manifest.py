@@ -67,6 +67,10 @@ INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
 #: not ask for a newer one. Current GPU wheels are published for baselines newer
 #: than uv's default ``manylinux_2_17`` target.
 DEFAULT_MANYLINUX = "2_31"
+#: The platforms a component supports when it does not restrict them. RPent
+#: installs on ``linux-x86_64``; a manifest only names ``platforms`` when it
+#: deliberately supports something else.
+DEFAULT_PLATFORMS = ("linux-x86_64",)
 #: Fields a manifest may declare. Anything else is a typo or belongs to a layout
 #: the schema version does not describe, so it is rejected rather than silently
 #: ignored.
@@ -88,10 +92,10 @@ FIELDS = frozenset(
         "index-strategy",
     }
 )
-#: A git dependency must name an immutable ref. Branches move, which makes a
-#: dependency declaration install different code tomorrow.
+#: A git dependency must name an immutable ref. Branches move, and tags can be
+#: moved too, which makes a dependency declaration install different code
+#: tomorrow.
 _FULL_COMMIT = re.compile(r"^[0-9a-f]{40}$")
-_VERSION_TAG = re.compile(r"^v?\d+(?:\.\d+)*(?:[-+][0-9A-Za-z.-]+)?$")
 _MANYLINUX = re.compile(r"^\d+_\d+$")
 
 
@@ -179,21 +183,21 @@ def _git_ref(requirement: str) -> str | None:
 
 
 def _check_git_dependency(requirement: str, path: Path) -> None:
-    """Reject a mutable git ref; commits and version tags are reproducible."""
+    """Reject a mutable git ref; only a 40-character commit is reproducible."""
     if "git+" not in requirement:
         return
     ref = _git_ref(requirement)
     if ref is None:
         raise InstallConfigError(
-            f"{path}: dependency {requirement!r} has no git ref; pin a "
-            "40-character commit or a version tag"
+            f"{path}: dependency {requirement!r} has no git ref; pin the "
+            "40-character commit to install"
         )
-    if _FULL_COMMIT.fullmatch(ref) or _VERSION_TAG.fullmatch(ref):
+    if _FULL_COMMIT.fullmatch(ref):
         return
     raise InstallConfigError(
-        f"{path}: dependency {requirement!r} pins git ref {ref!r}; use a "
-        "40-character commit or a version tag so the dependency cannot change when "
-        "the branch moves"
+        f"{path}: dependency {requirement!r} pins git ref {ref!r}; use the "
+        "40-character commit instead. Branches move, and tags can be moved too, "
+        "so neither names the code an installation contains"
     )
 
 
@@ -341,7 +345,7 @@ def _component(
         manifest=path,
         probe=probe,
         python=_optional_string(data, "python", path),
-        platforms=_string_list(data, "platforms", path),
+        platforms=_string_list(data, "platforms", path) or DEFAULT_PLATFORMS,
         manylinux=manylinux,
         requires=_string_list(data, "requires", path),
         imports=_string_list(data, "imports", path),

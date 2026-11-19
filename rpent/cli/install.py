@@ -116,7 +116,14 @@ def _report_resolution(
 
 
 def command_check(args: argparse.Namespace) -> int:
-    """Resolve component environments without installing anything."""
+    """Resolve component environments without installing anything.
+
+    Several components on one command line describe the single environment
+    ``install`` would create from them; ``--all`` checks every component's own
+    environment. Each resolution is checked against ``--platform``, the
+    platform the environment targets, so a component that does not support it
+    is reported even when the check runs elsewhere.
+    """
     catalog = discover(args.root)
     names = (
         sorted(catalog.components) if args.all else list(dict.fromkeys(args.targets))
@@ -131,7 +138,7 @@ def command_check(args: argparse.Namespace) -> int:
     failed = bool(unknown)
     uv = find_uv() if args.resolve else None
     platform = args.platform
-    if args.resolve and platform not in PLATFORM_TAGS:
+    if platform not in PLATFORM_TAGS:
         print(
             f"unknown platform {platform!r}; known: {', '.join(sorted(PLATFORM_TAGS))}",
             file=sys.stderr,
@@ -140,28 +147,25 @@ def command_check(args: argparse.Namespace) -> int:
     targets = [name for name in names if name in catalog.components]
     common = {"root": args.root, "uv": uv, "platform": platform}
 
+    def resolve_names(names: list[str]) -> Resolution:
+        return resolve_targets(names, catalog, root=args.root, platform=platform)
+
     if len(targets) > 1 and not args.all:
         # Naming several components on one command line asks for the
         # environment ``install`` would create from them, so they resolve
         # together: components that each resolve alone may still refuse to
         # share an environment. ``--all`` keeps asking about each component's
         # own environment, which is also the unit the CI matrix installs.
-        resolution = resolve_targets(targets, catalog, root=args.root)
+        resolution = resolve_names(targets)
         failed |= _report_resolution(" ".join(targets), resolution, **common)
         if not resolution.ok:
             # Attribute the failure to the manifests that need changing.
             for name in targets:
-                failed |= _report_resolution(
-                    name,
-                    resolve_targets([name], catalog, root=args.root),
-                    **common,
-                )
+                failed |= _report_resolution(name, resolve_names([name]), **common)
         return 1 if failed else 0
 
     for name in targets:
-        failed |= _report_resolution(
-            name, resolve_targets([name], catalog, root=args.root), **common
-        )
+        failed |= _report_resolution(name, resolve_names([name]), **common)
     return 1 if failed else 0
 
 
@@ -226,10 +230,25 @@ def build_parser() -> argparse.ArgumentParser:
     listing.set_defaults(handler=command_list)
 
     check = subcommands.add_parser(
-        "check", help="validate components without installing"
+        "check",
+        help="check environments without installing",
+        description=(
+            "Named components are checked as the one environment `install` "
+            "would create from them; --all checks each component's own "
+            "environment instead."
+        ),
     )
-    check.add_argument("targets", nargs="*")
-    check.add_argument("--all", action="store_true", help="check every component")
+    check.add_argument(
+        "targets",
+        nargs="*",
+        metavar="COMPONENT",
+        help="components that form one environment",
+    )
+    check.add_argument(
+        "--all",
+        action="store_true",
+        help="check every component in an environment of its own",
+    )
     check.add_argument(
         "--resolve",
         action="store_true",
@@ -238,7 +257,10 @@ def build_parser() -> argparse.ArgumentParser:
     check.add_argument(
         "--platform",
         default="linux-x86_64",
-        help="platform to compile for with --resolve (default: linux-x86_64)",
+        help=(
+            "platform the environment targets, used for component checks and "
+            "--resolve (default: linux-x86_64)"
+        ),
     )
     check.set_defaults(handler=command_check)
 

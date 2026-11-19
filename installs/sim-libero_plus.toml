@@ -2,7 +2,6 @@ schema = 2
 name = "sim-libero_plus"
 probe = "liberoplus"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
 # LIBERO-plus is a separately packaged fork that RLinf imports as
 # ``liberoplus`` when ``LIBERO_TYPE`` is ``plus``. It replaces the standard and
 # PRO packages: it needs robosuite<1.5, which they cannot share. The

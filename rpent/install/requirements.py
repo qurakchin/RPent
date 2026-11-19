@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any
 
 from rpent.install.errors import InstallConfigError
+from rpent.install.fingerprint import FINGERPRINT_SCHEMA_FIELD
 from rpent.install.resolve import Resolution
 
 try:  # Python 3.11+
@@ -40,8 +41,10 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 #: Identifies the layout of :func:`requirements_inputs`. Bump it when a key
 #: changes meaning or the repository layout moves the files the inputs name, not
 #: merely when one is added: ``doctor`` uses it to tell an installation recorded
-#: by an older input mode from one whose inputs drifted.
-REQUIREMENTS_SCHEMA = 6
+#: by an older input mode from one whose inputs drifted. It is recorded under
+#: ``FINGERPRINT_SCHEMA_FIELD``, never as ``schema``: that name belongs to the
+#: manifest layout version.
+FINGERPRINT_SCHEMA = 6
 
 
 def read_core_dependencies(root: Path) -> tuple[str, ...]:
@@ -197,7 +200,7 @@ def requirements_inputs(
     # that relative form independent of how the caller spelled the checkout.
     root = root.resolve()
     return {
-        "schema": REQUIREMENTS_SCHEMA,
+        FINGERPRINT_SCHEMA_FIELD: FINGERPRINT_SCHEMA,
         "targets": list(resolution.targets),
         "components": {
             name: {"manifest_sha256": component.manifest_sha256}

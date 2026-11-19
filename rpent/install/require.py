@@ -17,9 +17,11 @@
 Components declare their packages in ``component.toml``; importing them
 directly at the point of use keeps core imports working without every robot
 package installed. This guard replaces local ``try: import ... except
-ImportError: ... = None`` fallbacks with one actionable message::
+ImportError: ... = None`` fallbacks with one actionable message. The first
+argument is the component that owns the package, which is also the name
+``rpent-install`` accepts, not the import name::
 
-    torch = require("sam3", "torch")
+    torch = require("model-sam3", "torch")
 """
 
 from __future__ import annotations

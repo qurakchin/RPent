@@ -31,6 +31,9 @@ FINGERPRINT_NAME = "rpent-install.json"
 #: it hashes, so the versions an environment actually got stay readable after
 #: the environment itself changes.
 FREEZE_NAME = "rpent-install.freeze.txt"
+#: The fingerprint key recording which installation inputs were hashed. It is
+#: named apart from ``schema``, which versions the manifest layout.
+FINGERPRINT_SCHEMA_FIELD = "fingerprint_schema"
 
 
 def fingerprint_path(venv: Path) -> Path:
@@ -39,7 +42,12 @@ def fingerprint_path(venv: Path) -> Path:
 
 
 def freeze_path(venv: Path) -> Path:
-    """Return the recorded package listing path for ``venv``."""
+    """Return the recorded package listing path for ``venv``.
+
+    The listing is a readable record of what the install resolved; the
+    fingerprint's ``freeze_sha256`` is what ``doctor`` compares, so editing the
+    listing does not make an environment count as unchanged.
+    """
     return Path(venv) / FREEZE_NAME
 
 

@@ -40,7 +40,7 @@ def _rays(height: int, width: int, k: tuple, model: str, coeffs: tuple) -> np.nd
             axis=-1,
         )
     else:
-        rs = require("yam", "pyrealsense2")
+        rs = require("robot-yam", "pyrealsense2")
         if model == "modified_brown_conrady":
             raise ValueError(
                 "RealSense cannot deproject modified_brown_conrady color directly; rectify the stream first"

@@ -2,7 +2,6 @@ schema = 2
 name = "robot-libero"
 probe = "robots.libero"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
 # LIBERO measures task success inside robosuite; the Franka stack pins
 # numpy<2, and RoboTwin's runtime ships incompatible MuJoCo/Torch builds.
 # The exporter belongs to the evaluation environment, so a LIBERO install can

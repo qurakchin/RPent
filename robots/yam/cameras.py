@@ -112,7 +112,7 @@ class YamRgbdCameraRig:
     def open(self) -> None:
         if self._opened:
             return
-        rs = require("yam", "pyrealsense2")
+        rs = require("robot-yam", "pyrealsense2")
         self._rs = rs
         try:
             for name in YAM_CAMERA_NAMES:

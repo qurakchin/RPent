@@ -2,7 +2,6 @@ schema = 2
 name = "model-fast_wam"
 probe = "components.models.fast_wam.server"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
 # Model weights and the Fast-WAM runtime are supplied by the
 # deployment; the RPent worker owns only request translation.
 

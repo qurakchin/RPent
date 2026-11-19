@@ -2,7 +2,6 @@ schema = 2
 name = "robot-franka"
 probe = "robots.franka"
 python = ">=3.10,<3.13"
-platforms = ["linux-x86_64"]
 # Franka pins numpy<2 and gymnasium==0.29.1 for franky-control and the
 # camera stack, so it cannot share an environment with the simulator
 # adapters. The flash perception tools branch to the dual-arm

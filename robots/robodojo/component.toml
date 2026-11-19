@@ -2,7 +2,6 @@ schema = 2
 name = "robot-robodojo"
 probe = "robots.robodojo"
 python = ">=3.11,<3.12"
-platforms = ["linux-x86_64"]
 # RoboDojo pins its own RLinf fork and an Isaac Sim stack that breaks
 # the other simulator runtimes and the regular RLinf release, so it
 # requires infra-rlinf to stay out of its environment.

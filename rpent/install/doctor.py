@@ -25,11 +25,13 @@ from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.fingerprint import (
     FINGERPRINT_NAME,
+    FINGERPRINT_SCHEMA_FIELD,
     freeze_sha256,
     read_fingerprint,
     runtime_platform,
 )
 from rpent.install.installer import (
+    DEFAULT_COMMAND_TIMEOUT,
     find_uv,
     probe_command,
     repair_command,
@@ -37,7 +39,7 @@ from rpent.install.installer import (
     venv_python,
 )
 from rpent.install.requirements import (
-    REQUIREMENTS_SCHEMA,
+    FINGERPRINT_SCHEMA,
     read_core_dependencies,
     requirements_sha256,
 )
@@ -58,7 +60,19 @@ class Check:
 
 
 def _run(command: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, text=True, capture_output=True, **kwargs)
+    """Run a diagnostic command with the installer's timeout."""
+    try:
+        return subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            timeout=DEFAULT_COMMAND_TIMEOUT,
+            **kwargs,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise InstallError(
+            f"command timed out after {DEFAULT_COMMAND_TIMEOUT:g}s: {' '.join(command)}"
+        ) from exc
 
 
 def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
@@ -101,8 +115,8 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
     expected_requirements = requirements_sha256(
         resolution, root=repo_root, core_dependencies=core
     )
-    recorded_schema = fingerprint.get("schema")
-    if recorded_schema != REQUIREMENTS_SCHEMA:
+    recorded_schema = fingerprint.get(FINGERPRINT_SCHEMA_FIELD)
+    if recorded_schema != FINGERPRINT_SCHEMA:
         # `rpent-install` hashes a different set of inputs now, so the recorded
         # hash cannot be compared. Say so instead of reporting drifted inputs.
         interpreted = "unknown" if recorded_schema is None else recorded_schema
@@ -110,7 +124,7 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
             Check(
                 FAIL,
                 "fingerprint records installation input mode "
-                f"{interpreted}, current is {REQUIREMENTS_SCHEMA}; rerun "
+                f"{interpreted}, current is {FINGERPRINT_SCHEMA}; rerun "
                 f"`{repair_command(resolution)} --venv {venv}` to record the "
                 "current inputs",
             )
@@ -182,7 +196,7 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
 
     for name, component in resolution.components.items():
         probe = component.probe
-        result = _run(probe_command(python, probe))
+        result = _run(probe_command(python, probe, component.kind))
         if result.returncode != 0:
             checks.append(
                 Check(

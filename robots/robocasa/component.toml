@@ -2,7 +2,6 @@ schema = 2
 name = "robot-robocasa"
 probe = "robots.robocasa"
 python = ">=3.10,<3.11"
-platforms = ["linux-x86_64"]
 requires = ["sim-robocasa", "model-rldx"]
 env_conflicts = ["robot-franka", "robot-dual_franka", "robot-robotwin"]
 

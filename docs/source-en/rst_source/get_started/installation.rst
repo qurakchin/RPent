@@ -3,7 +3,8 @@ Installation
 
 An RPent environment is the set of components you name on the command line,
 plus the closure of their ``requires``. Each component declares its own
-dependencies, Python range, and platforms in ``component.toml``.
+dependencies and Python range in ``component.toml``; it supports
+``linux-x86_64`` unless its manifest lists other platforms.
 ``rpent-install`` creates the virtual environment, installs that closure with
 the core ``rpent`` package, runs an import probe for every component it
 installs, and writes an installation fingerprint.
@@ -12,9 +13,10 @@ Requirements
 ------------
 
 - Linux ``x86_64`` and `uv <https://docs.astral.sh/uv/getting-started/installation/>`_.
-- A Python minor version every selected component supports. The running
-  interpreter is used when it qualifies; otherwise ``rpent-install`` asks uv to
-  fetch one that does.
+- A Python minor version every selected component supports. ``rpent-install``
+  uses the newest of 3.12, 3.11, and 3.10 that the whole closure accepts and
+  asks uv to install it; the interpreter that runs the command does not decide
+  the environment's version.
 - A GPU and driver compatible with the selected component's PyTorch build.
 
 Components
@@ -91,10 +93,11 @@ and reports unknown names, unsupported Python versions, platform mismatches,
 conflicting exact pins, and the conflicts components declare with
 ``env_conflicts``. Naming several components checks the environment they form
 together, which is the one ``install`` creates; ``--all`` checks each component
-in an environment of its own. ``check`` downloads nothing. ``--resolve``
-additionally uses ``uv pip compile`` to prove the declared dependencies have a
-solution for a platform (``--platform``, default ``linux-x86_64``) and discards
-the compiled file afterwards.
+in an environment of its own. ``check`` downloads nothing. ``--platform``
+(default ``linux-x86_64``) names the platform the environment targets and
+decides which components are supported, whether or not ``--resolve`` is given.
+``--resolve`` additionally uses ``uv pip compile`` to prove the declared
+dependencies have a solution there and discards the compiled file afterwards.
 
 Install an environment
 ----------------------
@@ -133,9 +136,11 @@ An environment contains exactly the components you named and their closure. A
 venv installed for a different component set is refused; install that set under
 a different ``--venv``. A venv that already holds packages but was not created
 by ``rpent-install`` is refused too: its packages belong to whoever installed
-them, and only an empty one (a fresh ``uv venv``) is used as it is. The
-rendered requirements and the installed package versions are written into the
-environment itself, so they never outlive it. Without ``--venv``, a target set
+them, and only an empty one (a fresh ``uv venv``) is used as it is. An
+environment left by a failed install keeps the rendered requirements, so
+rerunning the same command adopts and finishes it. The rendered requirements
+and the installed package versions are written into the environment itself, so
+they never outlive it. Without ``--venv``, a target set
 installs into ``.rpent/venvs/<components joined by +>`` under the checkout;
 ``.rpent/`` is local state and is ignored by git, so later ``install`` and
 ``doctor`` runs find the same environment.
