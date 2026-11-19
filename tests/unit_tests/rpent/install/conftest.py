@@ -21,10 +21,10 @@ import pytest
 def supported_platform(monkeypatch):
     """Report ``linux-x86_64`` as this machine's platform.
 
-    Components support that platform unless a manifest says otherwise, so a
-    test running on a developer machine of another platform would stop at
-    resolution before reaching the behaviour it checks. A test that needs a
-    different host installs it explicitly.
+    The platform decides nothing about which components resolve; it is the
+    host recorded in a fingerprint and compared by ``doctor``. Pinning it keeps
+    those records identical on a developer machine. A test that needs another
+    host installs it explicitly.
     """
     for module in ("rpent.install.installer", "rpent.install.doctor"):
         monkeypatch.setattr(f"{module}.runtime_platform", lambda: "linux-x86_64")

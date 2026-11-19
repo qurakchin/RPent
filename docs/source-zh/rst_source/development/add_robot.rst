@@ -61,7 +61,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
    dependencies = ["my-simulator==1.2"]
 
-除非清单列出 ``platforms``，组件默认支持 ``linux-x86_64``；只有需要更窄的平台集合时才写这个字段。
+每个环境的目标都是 Linux ``x86_64``；清单不能收窄或扩大它，因此不写平台字段。
 
 ``planner = true`` 声明该切片导入 planner 层，因此它的环境会在运行时层 ``rpent`` 之上再装 ``rpent[planner]``。只提供模型服务或仿真器的组件不写这个标记，也可以在没有 planner 依赖栈的环境中安装。
 

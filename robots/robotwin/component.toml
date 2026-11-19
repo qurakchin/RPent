@@ -4,6 +4,8 @@ probe = "robots.robotwin"
 planner = true
 python = ">=3.11,<3.12"
 requires = ["sim-robotwin", "model-lingbot"]
-env_conflicts = ["robot-franka", "robot-dual_franka", "robot-libero", "robot-robocasa", "robot-robodojo", "model-molmo"]
+# model-molmo declares this conflict on the model side, where the package
+# requirement belongs.
+env_conflicts = ["robot-franka", "robot-dual_franka", "robot-libero", "robot-robocasa", "robot-robodojo"]
 
 dependencies = []

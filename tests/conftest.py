@@ -65,7 +65,6 @@ def make_component(tmp_path):
             manifest=directory / "component.toml",
             probe=values.pop("probe", f"rpent.{subject}"),
             python=values.pop("python", None),
-            platforms=tuple(values.pop("platforms", ())),
             requires=tuple(values.pop("requires", ())),
             imports=tuple(values.pop("imports", ())),
             env_conflicts=tuple(values.pop("env_conflicts", ())),

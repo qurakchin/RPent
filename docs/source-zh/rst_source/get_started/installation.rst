@@ -1,7 +1,7 @@
 安装
 ====
 
-一个 RPent 环境就是你写在命令行上的那些组件，加上它们 ``requires`` 的闭包。每个组件在 ``component.toml`` 中声明自己的依赖和 Python 版本范围；除非清单另列平台，组件支持 ``linux-x86_64``。``rpent-install`` 创建虚拟环境，安装该闭包和核心 ``rpent`` 包，对每个安装的组件执行导入探针，并写入安装指纹。
+一个 RPent 环境就是你写在命令行上的那些组件，加上它们 ``requires`` 的闭包。每个组件在 ``component.toml`` 中声明自己的依赖和 Python 版本范围。``rpent-install`` 创建虚拟环境，安装该闭包和核心 ``rpent`` 包，对每个安装的组件执行导入探针，并写入安装指纹。
 
 环境要求
 --------
@@ -63,7 +63,7 @@
    rpent-install list
    rpent-install check --all
 
-``check`` 读取清单，计算每个组件的 ``requires`` 闭包，报告未知组件名、不支持的 Python 版本、平台不匹配、互相矛盾的精确版本固定，以及组件通过 ``env_conflicts`` 声明的冲突。点名多个组件时检查它们共同组成的那个环境，也就是 ``install`` 会创建的环境；``--all`` 则逐个组件检查它自己的环境。它不会下载任何依赖。``--platform``（默认 ``linux-x86_64``）指定环境的目标平台，无论是否加 ``--resolve`` 都据此判断组件是否受支持。加上 ``--resolve`` 后，它还会用 ``uv pip compile`` 验证声明的依赖在该平台上可解，并在检查后删除生成的 requirements。
+``check`` 读取清单，计算每个组件的 ``requires`` 闭包，报告未知组件名、不支持的 Python 版本、互相矛盾的精确版本固定，以及组件通过 ``env_conflicts`` 声明的冲突。点名多个组件时检查它们共同组成的那个环境，也就是 ``install`` 会创建的环境；``--all`` 则逐个组件检查它自己的环境。它不会下载任何依赖。加上 ``--resolve`` 后，它还会用 ``uv pip compile`` 验证声明的依赖在 Linux ``x86_64`` 目标上可解，并在检查后删除生成的 requirements。
 
 安装环境
 --------
@@ -90,7 +90,7 @@
 
 ``rpent-install`` 需要在源码检出中运行。发布到 PyPI 的 wheel 只包含核心 ``rpent`` 包；``robots/`` 和 ``components/`` 及其 ``component.toml`` 只随源码检出和 sdist 发布。非可编辑的 ``pip install rpent`` 只提供 CLI；运行具体的机器人或模型服务请使用源码检出（或 sdist），因为 ``rpent-install`` 要在其中找到清单。
 
-环境只包含你写出的组件及其闭包。为其他组件集合安装过的 venv 会被拒绝；请为新的组件集合指定另一个 ``--venv``。已经装有包、但没有 ``rpent-install`` 指纹的 venv 同样会被拒绝：其中的包属于先安装它们的人，只有空环境（刚创建的 ``uv venv``）才会被直接使用。安装失败留下的环境里还有生成的 requirements，重跑同一条命令会接管并补完它。生成的 requirements 和实际安装的包版本都写进环境自身，不会留在环境之外。不传 ``--venv`` 时，目标集合安装到源码目录下的 ``.rpent/venvs/<组件名以 + 连接>``；``.rpent/`` 是本地状态、已被 git 忽略，之后的 ``install`` 和 ``doctor`` 会复用同一个环境。
+环境只包含你写出的组件及其闭包。环境里有什么决定既有 venv 能否复用，所以点名一个通过 ``requires`` 带出另一个的组件，与把两者都点名，描述的是同一个环境；组件换了包也仍是同一个环境。持有另一组组件的 venv 会被拒绝；请为这个集合指定另一个 ``--venv``，或加 ``--force`` 替换它。``--force`` 只重建该路径上的环境，不会删除不是虚拟环境的目录。已经装有包、但没有 ``rpent-install`` 指纹的 venv 同样会被拒绝：其中的包属于先安装它们的人，只有空环境（刚创建的 ``uv venv``）才会被直接使用。安装失败留下的环境里还有生成的 requirements，重跑同一条命令会接管并补完它。生成的 requirements 和实际安装的包版本都写进环境自身，不会留在环境之外。不传 ``--venv`` 时，目标集合安装到源码目录下的 ``.rpent/venvs/<组件名以 + 连接>``；``.rpent/`` 是本地状态、已被 git 忽略，之后的 ``install`` 和 ``doctor`` 会复用同一个环境。
 
 重复执行会复用环境并修复过期安装。安装器根据清单生成 requirements，再由 ``uv pip install`` 解析安装。清单中的直接依赖版本约束和 Git revision 仍然生效；随着上游发布新版本，不同时间全新安装的传递依赖版本可能不同。``--dry-run`` 只打印生成的 requirements，不执行安装。
 
@@ -125,7 +125,7 @@
    rpent-install doctor --venv .venv-libero
    rpent-install doctor --venv .venv-libero --fingerprint
 
-``doctor`` 将安装指纹与每项记录在案的安装输入比较（每个组件的清单 hash、它的 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查记录的 Python 版本和平台，运行 ``uv pip check`` 与组件探针，并比较当前安装包集合与记录的 freeze hash。``uv`` 的解析在仓库根目录进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内。为其他组件集合安装过的 venv 会报告为需要重装，而不是环境已漂移。``--fingerprint`` 打印存储的指纹及其 hash，不执行上述检查。
+``doctor`` 将安装指纹与每项记录在案的安装输入比较（每个组件的清单 hash、它的 override 文件，以及仓库的 ``[tool.uv]`` 设置），检查记录的 Python 版本和平台，运行 ``uv pip check`` 与组件探针，并比较当前安装包集合与记录的 freeze hash。``uv`` 的解析在仓库根目录进行，所以比较的设置不随命令的执行目录变化；用户级 ``uv`` 配置（``~/.config/uv``）不在比较范围内。为另一组组件安装过的 venv 会报告为需要重装，而不是环境已漂移。``--fingerprint`` 打印存储的指纹及其 hash，不执行上述检查。
 
 ``doctor`` 描述的是 ``rpent-install`` 按清单创建的环境。部分真机和仿真器文档会在该环境上继续追加包，例如可编辑安装的 RLinf 检出、SDK 或适配器包。这些追加会改变实际安装的包集合，因此 ``doctor`` 会把环境报告为已漂移，重跑 ``install`` 会记录新的包集合。需要指纹只对应组件闭包时，请在按清单装出的环境上运行 ``doctor``。
 

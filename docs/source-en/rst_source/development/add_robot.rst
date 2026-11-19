@@ -85,9 +85,8 @@ current file for each role until that migration lands.
 
    dependencies = ["my-simulator==1.2"]
 
-Every component supports ``linux-x86_64`` unless its manifest lists
-``platforms``; declare that field only when the component needs a narrower
-set.
+Every environment targets Linux ``x86_64``; a manifest cannot narrow or widen
+that, so it declares no platform field.
 
 ``planner = true`` declares that the slice imports the planner layer, so its
 environment installs ``rpent[planner]`` on top of the runtime ``rpent``. A

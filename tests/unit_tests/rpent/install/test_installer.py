@@ -96,20 +96,6 @@ def test_dry_run_renders_requirements_without_uv(repo, monkeypatch, capsys):
     assert "packaging" in capsys.readouterr().out
 
 
-def test_install_refuses_a_machine_the_components_do_not_support(repo, monkeypatch):
-    # Components support ``linux-x86_64`` unless a manifest says otherwise, so
-    # installing on another machine fails before uv resolves packages there.
-    monkeypatch.setattr(
-        "rpent.install.installer.runtime_platform", lambda: "darwin-arm64"
-    )
-
-    with pytest.raises(
-        InstallError,
-        match="supports linux-x86_64, but this environment targets darwin-arm64",
-    ):
-        install(["robot-alpha"], root=repo, dry_run=True, verbose=False)
-
-
 def test_environment_id_is_order_independent():
     assert environment_id(["robot-beta", "robot-alpha", "robot-alpha"]) == (
         "robot-alpha+robot-beta"
@@ -189,6 +175,7 @@ pwd -P >> "$(dirname "$0")/uv-pwd"
 if [ "$1" = "venv" ]; then
   for last; do :; done
   mkdir -p "$last/bin"
+  : > "$last/pyvenv.cfg"
   cat > "$last/bin/python" <<'STUB'
 #!/bin/sh
 case "$*" in
@@ -323,18 +310,110 @@ def test_install_runs_uv_inside_the_checkout(repo, tmp_path, monkeypatch):
     assert set(_uv_working_directories(tmp_path)) == {str(repo.resolve())}
 
 
-def test_install_refuses_a_venv_installed_for_another_target_set(
+def test_install_reuses_a_venv_holding_the_same_closure(
+    repo, tmp_path, write_toml, monkeypatch
+):
+    # ``robot-alpha`` requires ``infra-dev``, so naming both describes the same
+    # environment as naming only the slice. The typed names identify the
+    # directory and the record, not the environment.
+    write_toml(
+        "robots/alpha/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
+        probe = "json"
+        requires = ["infra-dev"]
+        dependencies = ["numpy>=2"]
+        """,
+    )
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    install(["robot-alpha"], root=repo, venv=venv, verbose=False)
+
+    fingerprint = install(
+        ["robot-alpha", "infra-dev"], root=repo, venv=venv, verbose=False
+    )
+
+    assert fingerprint["targets"] == ["infra-dev", "robot-alpha"]
+
+
+def test_install_refuses_a_venv_holding_another_closure(repo, tmp_path, monkeypatch):
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    install(["robot-alpha"], root=repo, venv=venv, verbose=False)
+
+    with pytest.raises(InstallError, match="holds a different environment"):
+        install(["robot-beta"], root=repo, venv=venv, verbose=False)
+
+
+def test_install_repairs_a_venv_after_a_component_manifest_changed(
+    repo, tmp_path, write_toml, monkeypatch
+):
+    # The same components with other packages are the same environment, so the
+    # command that built it is the command that brings it up to date.
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    install(["robot-alpha"], root=repo, venv=venv, verbose=False)
+    write_toml(
+        "robots/alpha/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "robot-alpha"
+        probe = "json"
+        dependencies = ["scipy>=1"]
+        """,
+    )
+
+    fingerprint = install(["robot-alpha"], root=repo, venv=venv, verbose=False)
+
+    assert fingerprint["targets"] == ["robot-alpha"]
+    assert "scipy>=1" in requirements_file(venv).read_text(encoding="utf-8")
+
+
+def test_install_force_replaces_a_venv_holding_another_closure(
     repo, tmp_path, monkeypatch
 ):
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
-    venv.mkdir()
-    (venv / "rpent-install.json").write_text(
-        '{"targets": ["robot-beta"]}\n', encoding="utf-8"
+    install(["robot-alpha"], root=repo, venv=venv, verbose=False)
+
+    fingerprint = install(
+        ["robot-beta"], root=repo, venv=venv, force=True, verbose=False
     )
 
-    with pytest.raises(InstallError, match="already installed for robot-beta"):
-        install(["robot-alpha"], root=repo, venv=venv, verbose=False)
+    assert fingerprint["targets"] == ["robot-beta"]
+    assert sorted(fingerprint["components"]) == ["robot-beta"]
+
+
+def test_install_force_refuses_to_replace_a_directory_that_is_not_a_venv(
+    repo, tmp_path, monkeypatch
+):
+    # ``--force`` answers "rebuild the environment at this path"; it does not
+    # license deleting whatever happens to be there.
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "notes.txt").write_text("keep me\n", encoding="utf-8")
+
+    with pytest.raises(InstallError, match="is not a virtualenv"):
+        install(["robot-alpha"], root=repo, venv=venv, force=True, verbose=False)
+
+    assert (venv / "notes.txt").is_file()
+
+
+def test_install_force_keeps_the_venv_when_uv_is_missing(repo, tmp_path, monkeypatch):
+    # The replacement is the rebuild; without uv there is nothing to rebuild
+    # with, so the environment that is there stays.
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    install(["robot-alpha"], root=repo, venv=venv, verbose=False)
+    monkeypatch.setattr("shutil.which", lambda name: None)
+    monkeypatch.delenv("RPENT_UV", raising=False)
+
+    with pytest.raises(InstallError, match="uv is required"):
+        install(["robot-beta"], root=repo, venv=venv, force=True, verbose=False)
+
+    assert read_fingerprint(venv)["targets"] == ["robot-alpha"]
 
 
 def _plain_venv(tmp_path, *packages):
@@ -451,20 +530,6 @@ def test_install_reports_an_interpreter_it_cannot_run(repo, tmp_path, monkeypatc
 
     with pytest.raises(InstallError, match="cannot be run"):
         install(["robot-alpha"], root=repo, venv=venv, verbose=False)
-
-
-def test_install_accepts_a_venv_installed_for_the_same_target_set(
-    repo, tmp_path, monkeypatch
-):
-    _fake_uv(tmp_path, monkeypatch)
-    venv = tmp_path / "venv"
-
-    install(["robot-beta", "robot-alpha"], root=repo, venv=venv, verbose=False)
-    fingerprint = install(
-        ["robot-alpha", "robot-beta"], root=repo, venv=venv, verbose=False
-    )
-
-    assert fingerprint["targets"] == ["robot-alpha", "robot-beta"]
 
 
 def test_install_fails_before_uv_when_no_interpreter_fits(

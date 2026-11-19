@@ -20,22 +20,14 @@ import tempfile
 from collections.abc import Iterable
 from pathlib import Path
 
-from rpent.install.errors import InstallError
 from rpent.install.installer import index_options, run_command
 from rpent.install.manifest import DEFAULT_MANYLINUX, Component
 from rpent.install.requirements import render_requirements
 from rpent.install.resolve import Resolution
 
-# Pin the manylinux baseline instead of uv's default glibc 2.17 target: current
-# GPU wheels are published for newer baselines (rerun-sdk for manylinux_2_31,
-# Isaac Sim for manylinux_2_35), so a 2.17 baseline cannot resolve them. A
-# component that needs a newer baseline raises it for its whole environment.
-PLATFORM_TAGS = {
-    "linux-x86_64": "x86_64-manylinux_{baseline}",
-    "linux-aarch64": "aarch64-manylinux_{baseline}",
-    "darwin-arm64": "aarch64-apple-darwin",
-    "darwin-x86_64": "x86_64-apple-darwin",
-}
+#: The wheel target every environment resolves against. RPent supports one
+#: platform; ``manylinux`` in a manifest raises the baseline within it.
+PLATFORM_TAG = "x86_64-manylinux_{baseline}"
 
 
 def manylinux_baseline(components: Iterable[Component]) -> str:
@@ -57,7 +49,6 @@ def compile_resolution(
     uv: str,
     output: Path,
     python: str,
-    platform: str,
     core_dependencies: tuple[str, ...] = (),
     planner_dependencies: tuple[str, ...] = (),
 ) -> str:
@@ -65,12 +56,7 @@ def compile_resolution(
 
     ``python`` is the ``major.minor`` interpreter the environment would run.
     """
-    platform_template = PLATFORM_TAGS.get(platform)
-    if platform_template is None:
-        raise InstallError(
-            f"unknown platform {platform!r}; known: {', '.join(sorted(PLATFORM_TAGS))}"
-        )
-    platform_tag = platform_template.format(
+    platform_tag = PLATFORM_TAG.format(
         baseline=manylinux_baseline(resolution.components.values())
     )
     requirements = render_requirements(
@@ -116,7 +102,6 @@ def resolve_resolution(
     root: Path,
     uv: str,
     python: str,
-    platform: str,
     core_dependencies: tuple[str, ...] = (),
     planner_dependencies: tuple[str, ...] = (),
 ) -> str:
@@ -134,7 +119,6 @@ def resolve_resolution(
             uv=uv,
             output=output,
             python=python,
-            platform=platform,
             core_dependencies=core_dependencies,
             planner_dependencies=planner_dependencies,
         )

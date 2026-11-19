@@ -10,6 +10,8 @@ python = ">=3.10,<3.13"
 requires = ["infra-rlinf"]
 env_conflicts = [
     "sim-libero",
+    "sim-robotwin",
+    "sim-robodojo",
     "robot-franka",
     "robot-dual_franka",
     "robot-robotwin",

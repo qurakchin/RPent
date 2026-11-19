@@ -289,17 +289,6 @@ def python_errors(
     return errors
 
 
-def platform_errors(platform: str, components: Iterable[Component]) -> list[str]:
-    """Return errors for components that do not support ``platform``."""
-    return [
-        f"component {component.name!r} supports "
-        f"{', '.join(component.platforms)}, but this environment targets "
-        f"{platform}"
-        for component in sorted(components, key=lambda item: item.name)
-        if component.platforms and platform not in component.platforms
-    ]
-
-
 def _merge_index_settings(
     resolution: Resolution, components: Iterable[Component]
 ) -> None:
@@ -335,17 +324,13 @@ def resolve(
     core_dependencies: tuple[str, ...] = (),
     planner_dependencies: tuple[str, ...] = (),
     python: str | None = None,
-    platform: str | None = None,
 ) -> Resolution:
     """Return the environment a ``install <targets>`` command would create.
 
-    ``python`` and ``platform`` describe the environment that will run the
-    components. ``rpent-install check`` passes the platform the environment
-    targets — not the machine running the check — and leaves the interpreter
-    out, because a check does not create the environment. Without a chosen
-    interpreter, the closure is still checked against the newest supported one,
-    so a set no interpreter can run fails here instead of after the install
-    selects one.
+    ``python`` describes the environment that will run the components; a check
+    that does not create one leaves it out. Without a chosen interpreter, the
+    closure is still checked against the newest supported one, so a set no
+    interpreter can run fails here instead of after the install selects one.
     """
     names = tuple(sorted(set(targets)))
     resolution = Resolution(targets=names)
@@ -399,8 +384,6 @@ def resolve(
                 owner="the environment",
             )
         )
-    if platform is not None:
-        resolution.errors.extend(platform_errors(platform, ordered.values()))
     _merge_index_settings(resolution, ordered.values())
 
     names_in_env = list(ordered)

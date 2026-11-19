@@ -28,7 +28,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from rpent.install.compile import PLATFORM_TAGS, resolve_resolution
+from rpent.install.compile import resolve_resolution
 from rpent.install.discovery import discover
 from rpent.install.doctor import FAIL, check_installation, inspect_installation
 from rpent.install.errors import InstallConfigError, InstallError
@@ -77,7 +77,6 @@ def _report_resolution(
     *,
     root: Path,
     uv: str | None,
-    platform: str,
 ) -> bool:
     """Print one resolution's verdict and return whether it failed."""
     if not resolution.ok:
@@ -97,7 +96,6 @@ def _report_resolution(
             root=root,
             uv=uv,
             python=python,
-            platform=platform,
             core_dependencies=read_core_dependencies(root),
             planner_dependencies=read_planner_dependencies(root),
         )
@@ -119,9 +117,7 @@ def command_check(args: argparse.Namespace) -> int:
 
     Several components on one command line describe the single environment
     ``install`` would create from them; ``--all`` checks every component's own
-    environment. Each resolution is checked against ``--platform``, the
-    platform the environment targets, so a component that does not support it
-    is reported even when the check runs elsewhere.
+    environment.
     """
     catalog = discover(args.root)
     names = (
@@ -136,18 +132,11 @@ def command_check(args: argparse.Namespace) -> int:
         print(f"unknown component {name!r}; known components: {known}", file=sys.stderr)
     failed = bool(unknown)
     uv = find_uv() if args.resolve else None
-    platform = args.platform
-    if platform not in PLATFORM_TAGS:
-        print(
-            f"unknown platform {platform!r}; known: {', '.join(sorted(PLATFORM_TAGS))}",
-            file=sys.stderr,
-        )
-        return 2
     targets = [name for name in names if name in catalog.components]
-    common = {"root": args.root, "uv": uv, "platform": platform}
+    common = {"root": args.root, "uv": uv}
 
     def resolve_names(names: list[str]) -> Resolution:
-        return resolve_targets(names, catalog, root=args.root, platform=platform)
+        return resolve_targets(names, catalog, root=args.root)
 
     if len(targets) > 1 and not args.all:
         # Naming several components on one command line asks for the
@@ -175,6 +164,7 @@ def command_install(args: argparse.Namespace) -> int:
         root=args.root,
         venv=args.venv,
         dry_run=args.dry_run,
+        force=args.force,
         verbose=True,
     )
     return 0
@@ -253,14 +243,6 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="also compile each environment with uv to prove it resolves",
     )
-    check.add_argument(
-        "--platform",
-        default="linux-x86_64",
-        help=(
-            "platform the environment targets, used for component checks and "
-            "--resolve (default: linux-x86_64)"
-        ),
-    )
     check.set_defaults(handler=command_check)
 
     installer = subcommands.add_parser(
@@ -276,6 +258,14 @@ def build_parser() -> argparse.ArgumentParser:
     installer.add_argument("--venv", type=Path, help="virtualenv path")
     installer.add_argument(
         "--dry-run", action="store_true", help="print requirements only"
+    )
+    installer.add_argument(
+        "--force",
+        action="store_true",
+        help=(
+            "replace the virtualenv at --venv when it holds other components "
+            "or was not created by rpent-install"
+        ),
     )
     installer.set_defaults(handler=command_install)
 

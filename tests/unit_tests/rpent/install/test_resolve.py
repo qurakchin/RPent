@@ -74,21 +74,18 @@ def test_no_targets_is_an_error(make_catalog):
     assert "name at least one component" in resolution.errors[0]
 
 
-def test_python_and_platform_ranges_are_checked(make_component, make_catalog):
-    robot = make_component("robot-alpha", python=">=3.12", platforms=("linux-x86_64",))
+def test_python_ranges_are_checked(make_component, make_catalog):
+    robot = make_component("robot-alpha", python=">=3.12")
     catalog = _catalog(make_catalog, robot)
 
-    resolution = resolve(
-        ["robot-alpha"], catalog, python="3.11.9", platform="darwin-arm64"
-    )
+    resolution = resolve(["robot-alpha"], catalog, python="3.11.9")
 
     assert not resolution.ok
     assert any("requires Python >=3.12" in error for error in resolution.errors)
-    assert any("supports linux-x86_64" in error for error in resolution.errors)
 
 
 def test_without_python_a_supported_range_resolves(make_component, make_catalog):
-    robot = make_component("robot-alpha", python=">=3.12", platforms=("linux-x86_64",))
+    robot = make_component("robot-alpha", python=">=3.12")
 
     resolution = resolve(["robot-alpha"], _catalog(make_catalog, robot))
 

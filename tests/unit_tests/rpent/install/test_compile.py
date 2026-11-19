@@ -21,11 +21,7 @@ from pathlib import Path
 import pytest
 
 from rpent.cli.install import main as env_main
-from rpent.install.compile import (
-    DEFAULT_MANYLINUX,
-    compile_resolution,
-    resolve_resolution,
-)
+from rpent.install.compile import DEFAULT_MANYLINUX, resolve_resolution
 from rpent.install.discovery import discover
 from rpent.install.errors import InstallError
 from rpent.install.installer import resolve_targets
@@ -50,7 +46,6 @@ def repo(tmp_path, write_toml):
         schema = {SCHEMA}
         name = "robot-alpha"
         probe = "json"
-        platforms = ["linux-x86_64"]
         dependencies = ["numpy>=2"]
         """,
     )
@@ -60,7 +55,6 @@ def repo(tmp_path, write_toml):
         schema = {SCHEMA}
         name = "robot-beta"
         probe = "json"
-        platforms = ["linux-x86_64"]
         """,
     )
     return tmp_path
@@ -146,68 +140,6 @@ def test_check_resolves_override_files_against_the_checkout(repo, fake_uv, write
     assert os.path.isabs(value)
 
 
-def test_compile_rejects_an_unknown_platform(repo, fake_uv, tmp_path):
-    with pytest.raises(InstallError, match="unknown platform 'solaris'"):
-        compile_resolution(
-            _resolution(repo, "robot-alpha"),
-            root=repo,
-            uv=str(fake_uv),
-            output=tmp_path / "x.txt",
-            python="3.11",
-            platform="solaris",
-        )
-
-
-def test_check_rejects_an_unknown_platform(repo, fake_uv, capsys):
-    assert (
-        env_main(
-            [
-                "--root",
-                str(repo),
-                "check",
-                "robot-alpha",
-                "--resolve",
-                "--platform",
-                "solaris",
-            ]
-        )
-        == 2
-    )
-    assert "unknown platform 'solaris'" in capsys.readouterr().err
-
-
-def test_check_rejects_an_unknown_platform_without_resolving(repo, capsys):
-    # The platform also decides which components are supported, so an unknown
-    # one is an error even when nothing is compiled.
-    assert (
-        env_main(["--root", str(repo), "check", "robot-alpha", "--platform", "solaris"])
-        == 2
-    )
-
-    assert "unknown platform 'solaris'" in capsys.readouterr().err
-
-
-def test_check_reports_a_component_that_does_not_support_the_target_platform(
-    repo, write_toml, capsys
-):
-    # ``check`` judges the environment against the platform it targets, so a
-    # component restricted to another platform fails here instead of at install
-    # time on the machine that runs it.
-    write_toml(
-        "robots/alpha/component.toml",
-        f"""
-        schema = {SCHEMA}
-        name = "robot-alpha"
-        probe = "json"
-        platforms = ["darwin-arm64"]
-        """,
-    )
-
-    assert env_main(["--root", str(repo), "check", "robot-alpha"]) == 1
-
-    assert "supports darwin-arm64" in capsys.readouterr().out
-
-
 def test_check_uses_the_default_manylinux_baseline(repo, fake_uv):
     assert env_main(["--root", str(repo), "check", "robot-alpha", "--resolve"]) == 0
 
@@ -227,7 +159,6 @@ def test_check_targets_the_newest_baseline_in_the_closure(repo, fake_uv, write_t
         schema = {SCHEMA}
         name = "sim-alpha"
         probe = "json"
-        platforms = ["linux-x86_64"]
         manylinux = "2_35"
         """,
     )
@@ -237,7 +168,6 @@ def test_check_targets_the_newest_baseline_in_the_closure(repo, fake_uv, write_t
         schema = {SCHEMA}
         name = "robot-alpha"
         probe = "json"
-        platforms = ["linux-x86_64"]
         requires = ["sim-alpha"]
         dependencies = ["numpy>=2"]
         """,
@@ -284,7 +214,6 @@ def test_resolve_resolution_cleans_up_compiled_requirements(repo, fake_uv):
         root=repo,
         uv=str(fake_uv),
         python=choose_python(resolution.components.values()),
-        platform="linux-x86_64",
         core_dependencies=read_core_dependencies(repo),
     )
 

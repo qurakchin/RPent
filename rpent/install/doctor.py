@@ -103,9 +103,7 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
     try:
         catalog = discover(repo_root)
-        resolution = resolve_targets(
-            targets, catalog, root=repo_root, platform=runtime_platform()
-        )
+        resolution = resolve_targets(targets, catalog, root=repo_root)
     except (InstallError, ValueError) as exc:
         checks.append(Check(FAIL, f"cannot resolve {' '.join(targets)!r}: {exc}"))
         return checks

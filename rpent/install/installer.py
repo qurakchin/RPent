@@ -19,7 +19,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -36,6 +36,7 @@ from rpent.install.fingerprint import (
     write_fingerprint,
     write_freeze,
 )
+from rpent.install.manifest import Component
 from rpent.install.requirements import (
     FINGERPRINT_SCHEMA,
     read_core_dependencies,
@@ -146,7 +147,6 @@ def resolve_targets(
     catalog: Catalog,
     *,
     root: Path,
-    platform: str | None = None,
 ) -> Resolution:
     """Resolve component names against the checkout's manifests."""
     return resolve(
@@ -154,7 +154,6 @@ def resolve_targets(
         catalog,
         core_dependencies=read_core_dependencies(root),
         planner_dependencies=read_planner_dependencies(root),
-        platform=platform,
     )
 
 
@@ -218,27 +217,75 @@ def _reject_foreign_venv(destination: Path) -> None:
     raise InstallError(
         f"{destination} already contains packages ({shown}) but has no "
         f"{FINGERPRINT_NAME}, so rpent-install did not create it; install this "
-        "environment under a different `--venv`, or remove it first"
+        "environment under a different `--venv`, remove it first, or pass "
+        "`--force` to replace it"
     )
 
 
-def _check_existing(destination: Path, targets: Sequence[str]) -> None:
-    """Reject a virtualenv that was installed for another component set."""
+def _closure(components: dict[str, Component]) -> tuple[str, ...]:
+    """Return an environment's identity: the components in its closure.
+
+    The closure decides what the environment contains, so it decides whether
+    two command lines describe the same environment. The names typed on the
+    command line name its directory and record how it was created. A manifest
+    that changed its packages describes the same environment, so rerunning the
+    command repairs it; one that changed its ``requires`` describes another.
+    """
+    return tuple(sorted(components))
+
+
+def _recorded_closure(fingerprint: dict[str, Any]) -> tuple[str, ...] | None:
+    """Return the identity a fingerprint records, or ``None`` without one."""
+    recorded = fingerprint.get("components")
+    if not isinstance(recorded, dict) or not recorded:
+        return None
+    names = tuple(sorted(recorded))
+    return names if all(isinstance(name, str) for name in names) else None
+
+
+def _replace(destination: Path) -> None:
+    """Remove an environment so the install rebuilds it.
+
+    ``--force`` answers "rebuild the environment at this path", not "delete
+    whatever is here": only a virtualenv is removed.
+    """
+    if not destination.exists():
+        return
+    if not (destination / "pyvenv.cfg").is_file():
+        raise InstallError(f"{destination} is not a virtualenv; refusing to replace it")
+    shutil.rmtree(destination)
+
+
+def _check_existing(destination: Path, resolution: Resolution, *, force: bool) -> None:
+    """Reject a virtualenv that holds a different environment.
+
+    Two command lines that name different components can still describe the
+    same ``requires`` closure, so the environment is identified by the
+    components it contains rather than by the names that were typed.
+    """
+    if force:
+        _replace(destination)
+        return
     existing = read_fingerprint(destination)
     if existing is None:
         _reject_foreign_venv(destination)
         return
-    recorded = existing.get("targets")
+    recorded = _recorded_closure(existing)
     if recorded is None:
+        # A fingerprint without a component table predates this identity or is
+        # damaged; ``doctor`` reports which one. Rebuilding would mix inputs.
         return
-    if sorted(recorded) != sorted(targets):
-        raise InstallError(
-            f"{destination} is already installed for {', '.join(recorded)}; "
-            "environments cannot share a virtualenv because their dependencies "
-            f"differ. Install this set into its own environment with "
-            f"`--venv {destination.parent / environment_id(targets)}`, or "
-            f"replace the existing one by removing {destination}"
-        )
+    wanted = _closure(resolution.components)
+    if recorded == wanted:
+        return
+    details = [f"  adds {name}" for name in sorted(set(wanted) - set(recorded))]
+    details += [f"  drops {name}" for name in sorted(set(recorded) - set(wanted))]
+    raise InstallError(
+        f"{destination} already holds a different environment:\n"
+        + "\n".join(details)
+        + "\ninstall this set under a different `--venv`, or pass `--force` to "
+        "replace it"
+    )
 
 
 def install(
@@ -247,17 +294,20 @@ def install(
     root: Path | None = None,
     venv: Path | None = None,
     dry_run: bool = False,
+    force: bool = False,
     verbose: bool = True,
 ) -> dict[str, Any]:
     """Install ``targets`` and their closure into one environment.
+
+    ``force`` replaces the environment at ``destination`` instead of rejecting
+    it when it holds different components or was not created by
+    ``rpent-install``.
 
     Returns the written fingerprint.
     """
     repo_root = (root or get_repo_root()).resolve()
     catalog = discover(repo_root)
-    resolution = resolve_targets(
-        targets, catalog, root=repo_root, platform=runtime_platform()
-    )
+    resolution = resolve_targets(targets, catalog, root=repo_root)
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
     core = read_core_dependencies(repo_root)
@@ -275,7 +325,10 @@ def install(
             "requirements": requirements,
         }
 
-    _check_existing(destination, resolution.targets)
+    # Find uv before ``--force`` removes anything: an environment is only
+    # replaced when the rebuild can start.
+    uv = find_uv()
+    _check_existing(destination, resolution, force=force)
 
     if venv_python(destination).exists():
         interpreter = _python_version(venv_python(destination))
@@ -291,7 +344,6 @@ def install(
             "and rerun with a matching `uv venv --python <version>`"
         )
 
-    uv = find_uv()
     python = venv_python(destination)
     if not python.exists():
         if verbose:

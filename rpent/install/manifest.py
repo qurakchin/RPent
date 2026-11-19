@@ -69,10 +69,6 @@ INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
 #: not ask for a newer one. Current GPU wheels are published for baselines newer
 #: than uv's default ``manylinux_2_17`` target.
 DEFAULT_MANYLINUX = "2_31"
-#: The platforms a component supports when it does not restrict them. RPent
-#: installs on ``linux-x86_64``; a manifest only names ``platforms`` when it
-#: deliberately supports something else.
-DEFAULT_PLATFORMS = ("linux-x86_64",)
 #: Fields a manifest may declare. Anything else is a typo or belongs to a layout
 #: the schema version does not describe, so it is rejected rather than silently
 #: ignored.
@@ -82,7 +78,6 @@ FIELDS = frozenset(
         "name",
         "probe",
         "python",
-        "platforms",
         "manylinux",
         "planner",
         "requires",
@@ -226,7 +221,6 @@ class Component:
     manifest: Path
     probe: str
     python: str | None
-    platforms: tuple[str, ...]
     #: The oldest glibc baseline this component's packages are published for.
     manylinux: str
     #: Whether the component imports ``rpent[planner]``. The environment then
@@ -310,7 +304,6 @@ def _component(
         manifest=path,
         probe=probe,
         python=_optional_string(data, "python", path),
-        platforms=_string_list(data, "platforms", path) or DEFAULT_PLATFORMS,
         manylinux=manylinux,
         planner=planner,
         requires=_string_list(data, "requires", path),

@@ -19,7 +19,6 @@ import pytest
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
     DEFAULT_MANYLINUX,
-    DEFAULT_PLATFORMS,
     SCHEMA,
     load_component,
 )
@@ -34,7 +33,6 @@ def test_component_manifest_reads_declarations(write_toml):
         name = "robot-alpha"
         probe = "robots.alpha.robot_spec"
         python = ">=3.11,<3.12"
-        platforms = ["linux-x86_64"]
         planner = true
         requires = ["model-openpi"]
         imports = ["robot-beta"]
@@ -53,7 +51,6 @@ def test_component_manifest_reads_declarations(write_toml):
     assert component.kind == "robot"
     assert component.path == path.parent
     assert component.python == ">=3.11,<3.12"
-    assert component.platforms == ("linux-x86_64",)
     assert component.planner is True
     assert component.requires == ("model-openpi",)
     assert component.imports == ("robot-beta",)
@@ -66,20 +63,21 @@ def test_component_manifest_reads_declarations(write_toml):
     assert not component.is_infra
 
 
-def test_platforms_default_to_the_supported_target(write_toml):
-    # Every component supports the one platform RPent installs on unless it
-    # says otherwise, so repeating the same list in every manifest adds noise
-    # without adding a decision.
+def test_platforms_is_not_a_manifest_field(write_toml):
+    # RPent supports one platform, so a manifest cannot narrow or widen it.
+    # The rejected field is a typo or a stale manifest, not a decision.
     path = write_toml(
         "robots/alpha/component.toml",
         f"""
         schema = {SCHEMA}
         name = "robot-alpha"
         probe = "robots.alpha"
+        platforms = ["linux-x86_64"]
         """,
     )
 
-    assert load_component(path, "robot").platforms == DEFAULT_PLATFORMS
+    with pytest.raises(InstallConfigError, match="unknown field.*platforms"):
+        load_component(path, "robot")
 
 
 def test_component_name_must_name_kind_and_directory(write_toml):

@@ -68,9 +68,7 @@ def _venv(tmp_path):
 
 
 def _fingerprint(repo, *, targets=("robot-alpha",), python="3.11.9", **extra):
-    resolution = resolve_targets(
-        targets, discover(repo), root=repo, platform="linux-x86_64"
-    )
+    resolution = resolve_targets(targets, discover(repo), root=repo)
     assert resolution.ok, resolution.errors
     fingerprint = {
         FINGERPRINT_SCHEMA_FIELD: FINGERPRINT_SCHEMA,

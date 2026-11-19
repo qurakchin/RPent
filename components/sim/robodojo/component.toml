@@ -6,7 +6,10 @@ python = ">=3.11,<3.12"
 # has to target that baseline instead of the repository default.
 manylinux = "2_35"
 # RoboDojo runs on its own RLinf fork, which robot-robodojo installs,
-# so this component does not require infra-rlinf.
+# so this component does not require infra-rlinf and cannot share an
+# environment with it. The Isaac Sim stack also cannot share one with the
+# MuJoCo-based simulators.
+env_conflicts = ["infra-rlinf", "sim-libero", "sim-robotwin"]
 # Isaac Sim and its Omniverse packages are published on NVIDIA's index,
 # not PyPI.
 extra-index-urls = ["https://pypi.nvidia.com"]

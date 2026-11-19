@@ -3,8 +3,7 @@ Installation
 
 An RPent environment is the set of components you name on the command line,
 plus the closure of their ``requires``. Each component declares its own
-dependencies and Python range in ``component.toml``; it supports
-``linux-x86_64`` unless its manifest lists other platforms.
+dependencies and Python range in ``component.toml``.
 ``rpent-install`` creates the virtual environment, installs that closure with
 the core ``rpent`` package, runs an import probe for every component it
 installs, and writes an installation fingerprint.
@@ -100,15 +99,13 @@ List and check components
    rpent-install check --all
 
 ``check`` reads the manifests, computes each component's ``requires`` closure,
-and reports unknown names, unsupported Python versions, platform mismatches,
-conflicting exact pins, and the conflicts components declare with
-``env_conflicts``. Naming several components checks the environment they form
-together, which is the one ``install`` creates; ``--all`` checks each component
-in an environment of its own. ``check`` downloads nothing. ``--platform``
-(default ``linux-x86_64``) names the platform the environment targets and
-decides which components are supported, whether or not ``--resolve`` is given.
-``--resolve`` additionally uses ``uv pip compile`` to prove the declared
-dependencies have a solution there and discards the compiled file afterwards.
+and reports unknown names, unsupported Python versions, conflicting exact pins,
+and the conflicts components declare with ``env_conflicts``. Naming several
+components checks the environment they form together, which is the one
+``install`` creates; ``--all`` checks each component in an environment of its
+own. ``check`` downloads nothing. ``--resolve`` additionally uses
+``uv pip compile`` to prove the declared dependencies have a solution for the
+Linux ``x86_64`` target and discards the compiled file afterwards.
 
 Install an environment
 ----------------------
@@ -143,16 +140,21 @@ non-editable ``pip install rpent`` provides the CLI; run a specific robot or
 model service from a source checkout, where ``rpent-install`` can find the
 manifests.
 
-An environment contains exactly the components you named and their closure. A
-venv installed for a different component set is refused; install that set under
-a different ``--venv``. A venv that already holds packages but was not created
-by ``rpent-install`` is refused too: its packages belong to whoever installed
-them, and only an empty one (a fresh ``uv venv``) is used as it is. An
-environment left by a failed install keeps the rendered requirements, so
+An environment contains exactly the components you named and their closure.
+What it contains decides whether an existing venv can be reused, so naming a
+component that pulls another in through ``requires`` and naming both describe
+the same environment, and a component whose packages changed describes the same
+environment too. A venv holding a different set of components is refused;
+install that set under a different ``--venv``, or pass ``--force`` to replace
+it. ``--force`` rebuilds the environment at that path, so it never deletes a
+directory that is not a virtualenv. A venv that already holds packages but was
+not created by ``rpent-install`` is refused too: its packages belong to whoever
+installed them, and only an empty one (a fresh ``uv venv``) is used as it is.
+An environment left by a failed install keeps the rendered requirements, so
 rerunning the same command adopts and finishes it. The rendered requirements
 and the installed package versions are written into the environment itself, so
-they never outlive it. Without ``--venv``, a target set
-installs into ``.rpent/venvs/<components joined by +>`` under the checkout;
+they never outlive it. Without ``--venv``, a target set installs into
+``.rpent/venvs/<components joined by +>`` under the checkout;
 ``.rpent/`` is local state and is ignored by git, so later ``install`` and
 ``doctor`` runs find the same environment.
 
@@ -211,7 +213,7 @@ input (each component's manifest hash, its override files, and the repository's
 set with its recorded freeze hash. ``uv`` resolves from the checkout, so the
 compared settings do not depend on the directory the command is invoked from;
 user-level ``uv`` configuration (``~/.config/uv``) is outside the comparison.
-A venv installed for a different component set is reported as needing a
+A venv installed for a different set of components is reported as needing a
 reinstall rather than as drifted. ``--fingerprint`` prints the stored
 fingerprint and its hash instead of running the checks.
 
