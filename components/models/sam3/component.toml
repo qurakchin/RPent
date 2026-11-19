@@ -4,7 +4,7 @@ kind = "model"
 probe = "components.models.sam3.server"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
-placement = ["in-env", "external-env"]
+placement = ["in-env", "remote"]
 docs = "docs/source-en/rst_source/guides/advanced_deployment.rst"
 
 dependencies = [

@@ -47,6 +47,22 @@ from common import (
 LOGGER = logging.getLogger(__name__)
 
 
+def draw_charuco_overlay(image, corners, identifiers) -> None:
+    """Draw the detected ChArUco corners onto ``image``.
+
+    ``detectBoard`` returns ``(N, 2)`` corners in OpenCV 5, while
+    ``drawDetectedCornersCharuco`` compares the corner and identifier totals and
+    therefore still expects the ``(N, 1, 2)`` layout OpenCV 4 produced.
+    """
+    if corners is None or identifiers is None or len(identifiers) == 0:
+        return
+    cv2.aruco.drawDetectedCornersCharuco(
+        image,
+        np.asarray(corners).reshape(-1, 1, 2),
+        np.asarray(identifiers).reshape(-1),
+    )
+
+
 @dataclass(frozen=True)
 class CaptureConfig:
     """Immutable camera, board, and read-only robot reader configuration."""
@@ -254,7 +270,7 @@ class Collector:
         temporary = Path(tempfile.mkdtemp(prefix=".sample_", dir=self.root))
         try:
             (temporary / "color.png").write_bytes(png)
-            cv2.aruco.drawDetectedCornersCharuco(im, cc, ci)
+            draw_charuco_overlay(im, cc, ci)
             cv2.drawFrameAxes(im, K, dist, rv, tv, 0.05)
             if not cv2.imwrite(str(temporary / "annotated.png"), im):
                 raise OSError("Failed to write annotated image")
@@ -311,8 +327,7 @@ class Collector:
         corners, identifiers, _, _ = cv2.aruco.CharucoDetector(self.board).detectBoard(
             image
         )
-        if identifiers is not None:
-            cv2.aruco.drawDetectedCornersCharuco(image, corners, identifiers)
+        draw_charuco_overlay(image, corners, identifiers)
         ok, encoded = cv2.imencode(".jpg", image)
         if not ok:
             raise ValueError("Preview cannot be encoded")

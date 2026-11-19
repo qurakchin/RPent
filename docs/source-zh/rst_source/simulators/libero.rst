@@ -104,16 +104,16 @@ LIBERO
      - 配方
      - 资源下载
    * - ``standard``
-     - ``libero``
+     - ``sim-libero_standard``
      - ``libero-download-assets --skip-existing``
    * - ``pro``
-     - ``libero-pro``
+     - ``robot-libero_pro``
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
-     - ``libero-plus``
+     - ``sim-libero_plus``
      - ``liberoplus-download-assets --skip-existing``
 
-以上各配方均包含 Pi0.5（``rpent-openpi``）、SAM3 和 RLinf 运行时（``rpent-rlinf``）。模型权重需按下文单独下载。
+``sim-libero_*`` 配方包含仿真器和 RLinf 运行时（``rpent-rlinf``），不含模型；``robot-libero_pro`` 额外包含 Pi0.5（``rpent-openpi``）、SAM3 和 flywheel 依赖。standard 或 plus 需要在本机运行 Pi0.5 和 SAM3 时，把对应的 ``model-*`` 配方装到独立环境并传入 endpoint。模型权重需按下文单独下载。
 
 运行时通过 ``--libero-type`` 选择与安装包一致的版本。
 

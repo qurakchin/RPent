@@ -69,11 +69,11 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. code-block:: bash
 
-   rpent-install extras --write
+   python -m tests.tooling.extras --write
 
-该命令默认执行检查，CI 也跑 ``--check``，区块过期会让构建失败；只有 ``--write`` 会修改 ``pyproject.toml``。
+CI 会运行 ``python -m tests.tooling.extras --check``，区块过期会导致构建失败；只有 ``--write`` 会修改 ``pyproject.toml``。新的接入还需要在 ``installs/profiles/`` 下新增配方，并用 ``python -m tests.tooling.lock <配方>`` 生成锁；见 :doc:`../get_started/installation`。
 
-``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的 extra。通过 ``__getattr__`` 暴露工厂：
+``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的环境。通过 ``__getattr__`` 暴露工厂：
 
 .. code-block:: python
 
@@ -161,7 +161,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
        """
        ...
 
-``resolve_dashboard`` 是可选回调；环境不支持 Dashboard 控制时保持为 ``None``。支持时，由回调返回机器人包中定义的配置：其中 ``task`` 描述命令、校验字段、展示模板和输出目录名称；机器人专用的会话设置仍通过普通命令行参数传入；``runtime_components`` 定义界面中的服务列表；``primitives`` 按顺序列出 Dashboard 展示并允许直接执行的 Toolkit 动作。相机标签页根据每步记录的 PNG 图像文件自动生成。任务候选项应直接保存在该配置中，避免导入机器人包时依赖仿真器包。完整结构参考 ``robots/libero/robot_spec.py``（a_5 之后为 ``spec.py``）。
+``resolve_dashboard`` 是可选回调；环境不支持 Dashboard 控制时保持为 ``None``。支持时，由回调返回机器人包中定义的配置：其中 ``task`` 描述命令、校验字段、展示模板和输出目录名称；机器人专用的会话设置仍通过普通命令行参数传入；``runtime_components`` 定义界面中的服务列表；``primitives`` 按顺序列出 Dashboard 展示并允许直接执行的 Toolkit 动作。相机标签页根据每步记录的 PNG 图像文件自动生成。任务候选项应直接保存在该配置中，避免导入机器人包时依赖仿真器包。完整结构参考 ``robots/libero/robot_spec.py`` （a_5 之后为 ``spec.py``）。
 
 ``_resolve_robot(name)`` 通过 ``importlib.import_module(f"robots.{name}")`` 动态加载机器人包。因此，只需将机器人包放在 ``robots/`` 下，无需维护中央注册列表。
 
@@ -447,4 +447,4 @@ JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整�
 
 检查至少执行了一个环境动作、transcript 记录了 ``finish``、``states.json`` 包含无错误的动作记录、生成了预期观测工件，以及自己启动的 daemon 全部退出。这种有界接入测试不要求任务成功。
 
-离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装机器人 extra 并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。
+离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装该机器人的配方并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。

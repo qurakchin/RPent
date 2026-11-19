@@ -1,0 +1,19 @@
+schema = 1
+name = "tool-flywheel"
+python = "3.11"
+platform = "linux-x86_64"
+lock = "installs/locks/tool-flywheel.lock"
+# Flywheel is a core runtime feature with no compatibility extra of its own.
+extra = false
+description = "LeRobot trajectory export and replay without a simulator or policy."
+
+# Flywheel's code lives in core ``rpent/flywheel/``; the packages it needs have
+# no component owner, so this profile owns them. A profile cannot require
+# another profile, so composite profiles that enable flywheel repeat these.
+dependencies = [
+  "lerobot>=0.3.3,<0.4",
+  "av<19",
+  "pyarrow<26",
+]
+
+[components]

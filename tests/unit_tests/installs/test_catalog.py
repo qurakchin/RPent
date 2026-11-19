@@ -44,8 +44,11 @@ def test_every_profile_resolves(catalog):
 
 def test_every_profile_declares_the_lock_it_ships(catalog):
     for name, profile in sorted(catalog.profiles.items()):
-        assert profile.lock == f"installs/locks/{name}.lock"
-        assert (catalog.root / profile.lock).is_file()
+        # An undeclared lock defaults to ``locks/<name>.lock`` beside the
+        # profile directory, so user and test profiles keep the same layout.
+        assert profile.lock_file(catalog.root).is_file(), (
+            f"profile {name!r} needs {profile.lock_display()}"
+        )
 
 
 def test_every_lock_covers_its_profile(catalog):

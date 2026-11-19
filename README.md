@@ -90,6 +90,7 @@ RPent is built for four kinds of users:
             <li>DreamZero</li>
             <li><a href="docs/source-en/rst_source/development/add_action_model.rst">Cosmos Policy</a> (LIBERO / LIBERO-Pro)</li>
             <li><a href="docs/source-en/rst_source/development/add_action_model.rst">Fast-WAM</a> (LIBERO / LIBERO-Pro / RoboTwin)</li>
+            <li><a href="docs/source-en/rst_source/development/add_action_model.rst">UniWAM</a> (RoboTwin)</li>
           </ul>
         </ul>
       </td>
@@ -121,17 +122,17 @@ RPent is built for four kinds of users:
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # Recommended default (LIBERO-PRO):
 uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install libero-pro --venv .venv-libero-pro
-source .venv-libero-pro/bin/activate
+  python -m rpent.cli.install install robot-libero_pro
+source .venvs/robot-libero_pro/bin/activate
 
-# Other profiles use their own virtualenv:
-rpent-install install robocasa-sim --venv .venv-robocasa-sim          # RoboCasa
-rpent-install install robotwin-sim --venv .venv-robotwin-sim          # RoboTwin
-rpent-install install franka-real --venv .venv-franka-real            # Franka
-rpent-install install dual-franka-real --venv .venv-dual-franka-real  # Dual Franka
+# Other profiles install into .venvs/<profile> as well:
+rpent-install install sim-robocasa   # RoboCasa
+rpent-install install sim-robotwin   # RoboTwin
+rpent-install install robot-franka     # Franka
+rpent-install install robot-dual_franka  # Dual Franka
 ```
 
-`libero-pro` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every profile, compatibility extras, and diagnostics.
+`robot-libero_pro` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every profile, compatibility extras, and diagnostics.
 
 For RoboCasa setup, task memory, and the Target50 protocol, see the
 [RoboCasa guide](https://rpent.readthedocs.io/en/latest/rst_source/simulators/robocasa.html).

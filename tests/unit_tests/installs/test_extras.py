@@ -14,9 +14,12 @@
 
 """Compatibility extras in ``pyproject.toml`` mirror the checked-in manifests."""
 
-import tomllib
+try:  # Python 3.11+
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python 3.10
+    import tomli as tomllib
 
-from rpent.install.extras import replace_block, repository_extras
+from tests.tooling.extras import replace_block, repository_extras
 
 
 def test_repository_manifests_declare_the_robotwin_molmo_conflict(catalog):
@@ -38,10 +41,9 @@ def test_repository_extras_keep_only_the_real_molmo_conflict(catalog):
 
 
 def test_repository_pyproject_keeps_the_renamed_extra_name(catalog):
-    project = tomllib.loads(
+    extras = tomllib.loads(
         (catalog.root / "pyproject.toml").read_text(encoding="utf-8")
-    )["project"]
-    extras = project["optional-dependencies"]
+    )["tool"]["rpent"]["extras"]
 
     # `pip install -e ".[robodojo-sim]"` predates the component rename.
     assert "robodojo-sim" in extras
@@ -52,6 +54,6 @@ def test_repository_pyproject_matches_the_generated_block(catalog):
     path = catalog.root / "pyproject.toml"
     current = path.read_text(encoding="utf-8")
 
-    # `rpent-install extras --check` compares the same text, so a stale block
+    # `python -m tests.tooling.extras --check` compares the same text, so a stale block
     # fails here before CI reaches the static job.
     assert replace_block(current, repository_extras(catalog)) == current

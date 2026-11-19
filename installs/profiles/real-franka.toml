@@ -1,0 +1,11 @@
+schema = 1
+name = "real-franka"
+python = "3.11"
+platform = "linux-x86_64"
+
+lock = "installs/locks/real-franka.lock"
+# Compatibility extras are a migration aid; this profile has no legacy extra.
+extra = false
+description = "Single-arm Franka hardware without a policy model."
+
+[components.franka]

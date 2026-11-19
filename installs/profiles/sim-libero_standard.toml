@@ -1,0 +1,11 @@
+schema = 1
+name = "sim-libero_standard"
+python = "3.11"
+platform = "linux-x86_64"
+
+lock = "installs/locks/sim-libero_standard.lock"
+extra = "sim-libero-standard"
+description = "LIBERO simulation for adapter development, e2e, and data collection."
+
+[components.libero]
+variant = "standard"

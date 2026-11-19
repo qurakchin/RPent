@@ -28,7 +28,6 @@ from rpent.install.manifest import (
     load_deps_component,
     load_profile,
 )
-from rpent.utils.config import get_repo_root
 
 #: Every component root and the glob that finds it. Directory kinds read a
 #: ``component.toml``; the ``deps`` kind reads one file per component.
@@ -47,6 +46,20 @@ class Catalog:
     root: Path
     components: dict[str, Component]
     profiles: dict[str, Profile]
+
+
+def repository_root() -> Path:
+    """Return the checkout that owns the manifests.
+
+    Walking up from this module finds the checkout an editable install points
+    at even when the command runs elsewhere. A wheel has no ``installs/``, so
+    the current directory is the only remaining candidate; discovery then
+    reports that it is not a source checkout.
+    """
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "installs" / "profiles").is_dir():
+            return parent
+    return Path.cwd()
 
 
 def _is_metadata_file(path: Path) -> bool:
@@ -79,7 +92,7 @@ def discover_components(root: Path | None = None) -> dict[str, Component]:
         InstallConfigError: a manifest is invalid, duplicated, or has a kind
             that does not match the directory root it lives under.
     """
-    repo_root = (root or get_repo_root()).resolve()
+    repo_root = (root or repository_root()).resolve()
     components: dict[str, Component] = {}
     for manifest, expected_kind in _component_manifests(repo_root):
         if expected_kind == "deps":
@@ -203,38 +216,54 @@ def _close_conflicts(components: dict[str, Component]) -> dict[str, Component]:
     }
 
 
+def profile_roots(root: Path) -> tuple[Path, ...]:
+    """Return the directories profiles are discovered in.
+
+    User profiles live under ``installs/profiles/``; the ones that serve only
+    tests and CI live under ``tests/profiles/``. Both use the same schema, so
+    discovery, resolution, and lock coverage treat them alike.
+    """
+    return (root / "installs" / "profiles", root / "tests" / "profiles")
+
+
 def discover_profiles(root: Path | None = None) -> dict[str, Profile]:
-    """Load every profile under ``installs/profiles/`` in ``root``.
+    """Load every profile under ``installs/profiles/`` and ``tests/profiles/``.
 
     Raises:
         InstallConfigError: ``root`` is not a source checkout with
-            ``installs/profiles/``.
+            ``installs/profiles/``, or two directories declare the same
+            profile name.
     """
-    repo_root = (root or get_repo_root()).resolve()
-    profiles_dir = repo_root / "installs" / "profiles"
-    if not profiles_dir.is_dir():
+    repo_root = (root or repository_root()).resolve()
+    user_profiles, test_profiles = profile_roots(repo_root)
+    if not user_profiles.is_dir():
         raise InstallConfigError(
-            f"{profiles_dir} does not exist; profiles ship with the source "
+            f"{user_profiles} does not exist; profiles ship with the source "
             "checkout, so run rpent-install from the repository root or "
             "reinstall RPent in editable mode (pip install -e .)"
         )
     profiles: dict[str, Profile] = {}
-    for path in sorted(profiles_dir.glob("*.toml")):
-        if _is_metadata_file(path):
+    for directory in (user_profiles, test_profiles):
+        if not directory.is_dir():
             continue
-        profile = load_profile(path)
-        if profile.name in profiles:
-            raise InstallConfigError(
-                f"profile {profile.name!r} is declared twice: "
-                f"{profiles[profile.name].path} and {path}"
-            )
-        profiles[profile.name] = profile
+        for path in sorted(directory.glob("*.toml")):
+            if _is_metadata_file(path):
+                continue
+            profile = load_profile(path)
+            previous = profiles.get(profile.name)
+            if previous is not None:
+                raise InstallConfigError(
+                    f"profile {profile.name!r} is declared twice: "
+                    f"{previous.relative_path} and {profile.relative_path}; "
+                    "test profiles share the user profile namespace"
+                )
+            profiles[profile.name] = profile
     return profiles
 
 
 def discover(root: Path | None = None) -> Catalog:
     """Return all components and profiles in one checkout."""
-    repo_root = (root or get_repo_root()).resolve()
+    repo_root = (root or repository_root()).resolve()
     return Catalog(
         root=repo_root,
         components=discover_components(repo_root),

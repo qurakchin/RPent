@@ -16,9 +16,9 @@ Install
 
 Install RPent on both Linux control nodes with matching code, Python, Ray and
 RLinf versions. Nodes running VLA or SAM3 locally need an NVIDIA GPU.
-Install the ``dual-franka-real`` profile as described in
-:doc:`../get_started/installation`; it includes both Franka arms and local
-SAM 3.0.
+Install the ``robot-dual_franka`` profile as described in
+:doc:`../get_started/installation`; it includes both Franka arms, Pi0.5, and
+local SAM 3.0.
 
 If Python package downloads are slow, set the
 `Tsinghua PyPI mirror <https://mirrors.tuna.tsinghua.edu.cn/help/pypi/>`_
@@ -36,7 +36,7 @@ The calibration state reader also needs libfranka development files; see the
 calibration steps below.
 
 Run subsequent commands from the repository root in this environment. In a new
-terminal, activate ``.venv-dual-franka-real`` and set the required model variables
+terminal, activate ``.venvs/robot-dual_franka`` and set the required model variables
 again.
 
 Download SAM3 weights on the environment node if local segmentation is needed:
@@ -198,7 +198,7 @@ Robot Configuration
 -------------------
 
 If calibration used a separate Python environment, reactivate RPent's
-``.venv-dual-franka-real`` before running the following commands.
+``.venvs/robot-dual_franka`` before running the following commands.
 
 Review and edit the checked-in development defaults before enabling motion:
 
@@ -328,7 +328,7 @@ Before using Codex, configure separate runtime directories and log in by followi
 Start the Two-node Ray Cluster
 ------------------------------
 
-Activate the installed ``.venv-dual-franka-real`` on each node before starting Ray. The default
+Activate the installed ``.venvs/robot-dual_franka`` on each node before starting Ray. The default
 placement in ``robots/dual_franka/runtime_config.py`` is:
 
 * Node ``0`` is the Ray head: it runs RPent, the environment worker, the

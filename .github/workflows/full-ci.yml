@@ -78,9 +78,9 @@ jobs:
             # cover every supported profile on the runner its authored
             # partition assigns it to.
             hosted=$(uv run --no-project --python 3.11 --with packaging -- \
-              python -m rpent.cli.install matrix --runner hosted)
+              python -m tests.tooling.matrix --runner hosted)
             gpu=$(uv run --no-project --python 3.11 --with packaging -- \
-              python -m rpent.cli.install matrix --runner gpu)
+              python -m tests.tooling.matrix --runner gpu)
             e2e='["libero","robocasa","robotwin"]'
             toolkit=true
           fi
@@ -146,4 +146,4 @@ jobs:
       - name: Every lock is up to date
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install lock --all --check
+            python -m tests.tooling.lock --all --check

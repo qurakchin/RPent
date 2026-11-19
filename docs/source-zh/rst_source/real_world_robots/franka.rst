@@ -17,13 +17,13 @@ RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械�
 
 请先按照 `libfranka 官方快速安装指南 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_ 安装 libfranka 0.19.0。
 
-按 :doc:`../get_started/installation` 把 ``franka-real`` 配方安装到独立环境：
+按 :doc:`../get_started/installation` 把 ``robot-franka`` 配方安装到独立环境：
 
 .. code-block:: bash
 
-   rpent-install install franka-real --venv .venv-franka-real
+   rpent-install install robot-franka
 
-该配方包含 RLinf ``release/v0.4``、``rpent-openpi`` 以及 Franka 的相机、夹爪和遥操作依赖。其中的 ``franky-control`` wheel 已包含 libfranka 0.19.0。下文命令直接运行 ``.venv-franka-real/bin/rpent``，因此使用该环境；先激活环境再运行 ``rpent`` 效果相同。
+该配方把 RLinf 钉在 ``release/v0.4`` 的一个 commit 上，并包含 ``rpent-openpi`` 以及 Franka 的相机、夹爪和遥操作依赖。其中的 ``franky-control`` wheel 已包含 libfranka 0.19.0。下文命令直接运行 ``.venvs/robot-franka/bin/rpent``，因此使用该环境；先激活环境再运行 ``rpent`` 效果相同。
 
 标定（Calibration）
 ----------------------
@@ -71,7 +71,7 @@ Ray 在启动时会捕获环境变量，因此必须先设置 node rank 再启�
 .. code-block:: bash
 
    # replace --robot-config with your own config
-   .venv-franka-real/bin/rpent --robot franka --task-id 0 \
+   .venvs/robot-franka/bin/rpent --robot franka --task-id 0 \
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
@@ -84,7 +84,7 @@ RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vl
 
 .. code-block:: bash
 
-   .venv-franka-real/bin/rpent --robot franka --task-id 1 \
+   .venvs/robot-franka/bin/rpent --robot franka --task-id 1 \
      --am-endpoint http://VLA_HOST:PORT \
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml

@@ -12,27 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compile and verify per-profile dependency locks with ``uv pip compile``."""
+"""Compile per-profile dependency locks with ``uv pip compile``.
+
+``python -m tests.tooling.lock`` is the maintainer entry point; the compile
+mechanics live here so the installer, ``check --resolve``, and the lock tool
+share one resolver.
+"""
 
 from __future__ import annotations
 
-import difflib
-import shutil
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-from rpent.install.discovery import Catalog, discover
-from rpent.install.errors import InstallConfigError, InstallError
-from rpent.install.installer import find_uv, index_options, run_command
+from rpent.install.discovery import Catalog
+from rpent.install.errors import InstallError
+from rpent.install.installer import index_options, run_command
 from rpent.install.manifest import Profile
 from rpent.install.requirements import (
     read_core_dependencies,
-    read_requirement_text,
     render_requirements,
 )
 from rpent.install.resolve import resolve
-from rpent.utils.config import get_repo_root
 
 # Pin the manylinux baseline instead of uv's default glibc 2.17 target: current
 # GPU wheels are published for newer baselines (rerun-sdk for manylinux_2_31,
@@ -78,7 +79,7 @@ def new_lock_timestamp() -> str:
 
 def lock_path(root: Path, profile: Profile) -> Path:
     """Return the profile's declared or conventional lock path."""
-    return root / (profile.lock or f"installs/locks/{profile.name}.lock")
+    return profile.lock_file(root)
 
 
 def compile_profile(
@@ -112,7 +113,6 @@ def compile_profile(
     platform_tag = platform_template.format(baseline=profile.manylinux)
     requirements = render_requirements(
         resolution,
-        profile.name,
         core_dependencies=read_core_dependencies(root) if profile.core else (),
     )
     with tempfile.TemporaryDirectory(prefix="rpent-lock-") as directory:
@@ -161,113 +161,10 @@ def resolve_profile(
 ) -> str:
     """Compile ``profile`` into a temporary file and return the uv output.
 
-    ``rpent-install check --resolve`` uses this to prove that the declared
+    ``tests.tooling.check --resolve`` uses this to prove that the declared
     dependencies have a solution; it delegates to :func:`compile_profile` so
     there is only one resolver.
     """
     with tempfile.TemporaryDirectory(prefix="rpent-resolve-") as directory:
         output = Path(directory) / f"{profile.name}.txt"
         return compile_profile(profile, catalog, root=root, uv=uv, output=output)
-
-
-def lock_profiles(
-    targets: list[str],
-    *,
-    root: Path | None = None,
-    check: bool = False,
-) -> int:
-    """Compile or verify locks; return a process exit code."""
-    repo_root = (root or get_repo_root()).resolve()
-    catalog = discover(repo_root)
-    uv = find_uv()
-    names = targets or sorted(
-        name for name, profile in catalog.profiles.items() if profile.lock
-    )
-    has_drift = False
-    for name in names:
-        profile = catalog.profiles.get(name)
-        if profile is None:
-            raise InstallError(f"unknown profile {name!r}")
-        destination = lock_path(repo_root, profile)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            if not check:
-                # Compile into a temporary file: uv reuses an existing output
-                # file as its resolution cache, so writing over the old lock can
-                # resurrect versions the current index no longer selects and
-                # make `--check` disagree with the write.
-                with tempfile.TemporaryDirectory(
-                    prefix="rpent-lock-write-"
-                ) as directory:
-                    candidate = Path(directory) / destination.name
-                    compile_profile(
-                        profile,
-                        catalog,
-                        root=repo_root,
-                        uv=uv,
-                        output=candidate,
-                        exclude_newer=new_lock_timestamp(),
-                    )
-                    shutil.copyfile(candidate, destination)
-                print(f"locked {name}: {destination.relative_to(repo_root)}")
-                continue
-            if not destination.is_file():
-                print(f"missing lock: {destination.relative_to(repo_root)}")
-                has_drift = True
-                continue
-            try:
-                current = read_requirement_text(destination)
-            except InstallConfigError as exc:
-                # A corrupted lock must not hide the state of the other profiles.
-                print(f"lock {name}: FAIL\n  {exc}")
-                has_drift = True
-                continue
-            if current is None:
-                print(
-                    f"cannot read {destination.relative_to(repo_root)}; check that "
-                    "it is a readable file"
-                )
-                has_drift = True
-                continue
-            timestamp = lock_timestamp(current)
-            if timestamp is None:
-                print(
-                    f"lock {name}: FAIL\n  "
-                    f"{destination.relative_to(repo_root)} has no "
-                    f"'{LOCK_TIMESTAMP_PREFIX.strip()}' header; regenerate it "
-                    f"with `rpent-install lock {name}`"
-                )
-                has_drift = True
-                continue
-            with tempfile.TemporaryDirectory(prefix="rpent-lock-check-") as directory:
-                candidate = Path(directory) / destination.name
-                compile_profile(
-                    profile,
-                    catalog,
-                    root=repo_root,
-                    uv=uv,
-                    output=candidate,
-                    exclude_newer=timestamp,
-                )
-                expected = candidate.read_text(encoding="utf-8")
-        except InstallError as exc:
-            # One profile that cannot resolve on this host must not hide the
-            # state of the others; for example a simulator may need CUDA to lock.
-            print(f"lock {name}: FAIL\n  {exc}")
-            has_drift = True
-            continue
-        if current != expected:
-            diff = "".join(
-                difflib.unified_diff(
-                    current.splitlines(keepends=True),
-                    expected.splitlines(keepends=True),
-                    fromfile=str(destination),
-                    tofile=f"{destination} (recompiled)",
-                )
-            )
-            print(diff)
-            print(f"lock is out of date for {name}; run `rpent-install lock {name}`")
-            has_drift = True
-        else:
-            print(f"lock ok: {name}")
-    return 1 if has_drift else 0

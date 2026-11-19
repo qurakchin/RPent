@@ -39,23 +39,26 @@ planner、robot 或 tool 集成，都能帮助项目持续发展。
 ```bash
 # 创建并启用开发环境。
 uv run --no-project --python 3.11 --with packaging -- \
-  python -m rpent.cli.install install dev --venv .venv-dev
-source .venv-dev/bin/activate
+  python -m rpent.cli.install install dev
+source .venvs/dev/bin/activate
 
-# 开发 robot 时，在该配方自己的虚拟环境中加装测试依赖。
-# 不同配方的依赖锁定不同，不能共用同一个虚拟环境。
-rpent-install install libero-pro --venv .venv-libero-pro --dev      # LIBERO
-rpent-install install robocasa-sim --venv .venv-robocasa-sim --dev  # RoboCasa
-rpent-install install robotwin-sim --venv .venv-robotwin-sim --dev  # RoboTwin
+# 开发 robot 时，在该配方自己的环境中安装。不同配方的依赖锁定不同，
+# 不能共用同一个虚拟环境；每个配方都从自己的锁安装。
+rpent-install install robot-libero_pro  # LIBERO
+rpent-install install sim-robocasa    # RoboCasa
+rpent-install install sim-robotwin    # RoboTwin
+
+# 锁不包含测试运行器，需要另外装进该 robot 环境。
+uv pip install --python .venvs/robot-libero_pro/bin/python pytest pytest-timeout
 
 # 安装并启用仓库 hooks。
 uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-以上 robot 命令是不同选择；只安装当前改动涉及的配方，未从 `dev` 配方开始时加
-`--dev`。各环境的具体配置见
-[安装指南](docs/source-zh/rst_source/get_started/installation.rst)。
+以上 robot 命令是不同选择；只安装当前改动涉及的配方。各环境的具体配置见
+[安装指南](docs/source-zh/rst_source/get_started/installation.rst)，各测试套件如何
+选择配方见[测试说明](tests/README.md#test-suite-structure)。
 
 ### 第 3 步：开发
 

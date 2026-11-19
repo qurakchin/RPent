@@ -28,7 +28,7 @@ from rpent.planner import claude_code, codex, gemini_cli
 from rpent.planner.utils import agent_session as interactive
 from rpent.planner.utils.agent_runtime import AgentArtifacts
 from rpent.tools import ToolResult
-from rpent.tools.common import CommonTools
+from rpent.tools.base import tool
 
 
 @pytest.fixture
@@ -234,6 +234,7 @@ def test_queue_interrupt_and_continuation_share_one_session(
         solve = (
             planner._solve_async(
                 "initial",
+                system_prompt="",
                 toolkit=Toolkit(),
                 max_turns=20,
                 input_queue=input_queue if channel == "terminal" else None,
@@ -312,8 +313,18 @@ def test_claude_confirmed_finish_does_not_send_pending_input(
         def state(self):
             raise RuntimeError("toolkit has no environment state")
 
+        @tool(concurrent=True, captures_state=False)
+        def finish(self, status: str, summary: str) -> ToolResult:
+            """Stop the run and report the outcome.
+
+            Args:
+                status: Outcome such as success, failure, or stuck.
+                summary: Short summary of the run.
+            """
+            return ToolResult(data=verdict)
+
         def list_tools(self):
-            return [CommonTools.finish]
+            return [self.finish]
 
         def execute_tool(self, name, args):
             return ToolResult(data=verdict)

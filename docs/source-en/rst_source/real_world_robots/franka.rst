@@ -19,16 +19,16 @@ Install
 Install libfranka 0.19.0 first by following the `official quick-install guide
 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_.
 
-Install the ``franka-real`` profile from :doc:`../get_started/installation` into
+Install the ``robot-franka`` profile from :doc:`../get_started/installation` into
 its own environment:
 
 .. code-block:: bash
 
-   rpent-install install franka-real --venv .venv-franka-real
+   rpent-install install robot-franka
 
-It includes RLinf ``release/v0.4``, ``rpent-openpi``, and the Franka camera,
-gripper, and teleoperation dependencies. The included ``franky-control`` wheel
-bundles libfranka 0.19.0. The commands below run ``.venv-franka-real/bin/rpent``
+It pins RLinf at a ``release/v0.4`` commit and includes ``rpent-openpi`` along
+with the Franka camera, gripper, and teleoperation dependencies. The included ``franky-control`` wheel
+bundles libfranka 0.19.0. The commands below run ``.venvs/robot-franka/bin/rpent``
 so they use that environment; activating it and running ``rpent`` is
 equivalent.
 
@@ -94,7 +94,7 @@ correctly. To run it, launch RPent with task ``0``:
 .. code-block:: bash
 
    # replace --robot-config with your own config
-   .venv-franka-real/bin/rpent --robot franka --task-id 0 \
+   .venvs/robot-franka/bin/rpent --robot franka --task-id 0 \
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
@@ -113,7 +113,7 @@ statistics match the current Franka training configuration:
 
 .. code-block:: bash
 
-   .venv-franka-real/bin/rpent --robot franka --task-id 1 \
+   .venvs/robot-franka/bin/rpent --robot franka --task-id 1 \
      --am-endpoint http://VLA_HOST:PORT \
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml

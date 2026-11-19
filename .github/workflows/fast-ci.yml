@@ -57,13 +57,13 @@ jobs:
             base=$(git rev-parse HEAD~1)
           fi
           scope_json=$(uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install affected --base "$base" --head HEAD)
+            python -m tests.tooling.affected --base "$base" --head HEAD)
           printf '%s' "$scope_json" > "$RUNNER_TEMP/scope.json"
           git diff --name-only --diff-filter=ACMRT "$base" HEAD > "$RUNNER_TEMP/changed.txt"
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install matrix --runner hosted > "$RUNNER_TEMP/hosted.json"
+            python -m tests.tooling.matrix --runner hosted > "$RUNNER_TEMP/hosted.json"
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install matrix --runner gpu > "$RUNNER_TEMP/gpu.json"
+            python -m tests.tooling.matrix --runner gpu > "$RUNNER_TEMP/gpu.json"
           SCOPE="$RUNNER_TEMP/scope.json" \
             CHANGED="$RUNNER_TEMP/changed.txt" \
             HOSTED="$RUNNER_TEMP/hosted.json" \
@@ -94,11 +94,15 @@ jobs:
               e2e = sorted(suites) if set(selected) == set(scope["profiles"]) else []
           else:
               e2e = sorted(suites & set(scope["components"]))
-          # The installer unit and repository contract groups need only the
-          # core and `dev` dependencies. Every other test path may import a
+          # The installer, tooling, and repository contract groups need only
+          # the core and `dev` dependencies. Every other test path may import a
           # model server, so it keeps the CPU Torch profile; an empty selection
           # runs the whole suite and needs that profile too.
-          dev_tests = {"tests/unit_tests/rpent/install", "tests/unit_tests/installs"}
+          dev_tests = {
+              "tests/unit_tests/rpent/install",
+              "tests/unit_tests/tooling",
+              "tests/unit_tests/installs",
+          }
           tests = set(scope["tests"])
           profile = "dev" if tests and tests <= dev_tests else "unit-cpu"
           values = {

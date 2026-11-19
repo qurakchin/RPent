@@ -1,0 +1,10 @@
+schema = 1
+name = "real-yam"
+python = "3.11"
+platform = "linux-x86_64"
+
+lock = "installs/locks/real-yam.lock"
+extra = "yam"
+description = "Dual-arm YAM control dependencies without a policy model."
+
+[components.yam]

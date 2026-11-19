@@ -30,19 +30,19 @@ jobs:
       - name: Check the component layout
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install check-layout
+            python -m tests.tooling.layout
       - name: Check every profile and its lock coverage
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install check --all
+            python -m tests.tooling.check --all
       - name: Check generated extras
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install extras --check
+            python -m tests.tooling.extras --check
       - name: Check the runner partition
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
-            python -m rpent.cli.install matrix --check
+            python -m tests.tooling.matrix --check
 
   unit:
     name: Unit, contract and failure-path tests
@@ -55,17 +55,26 @@ jobs:
         run: uv python install 3.11
       - name: Read the environment cache key
         id: key
-        run: echo "lock=$(sha256sum installs/locks/${{ inputs.profile }}.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+        shell: bash
+        run: |
+          # User and test profiles keep their locks beside their profiles.
+          lock="installs/locks/${{ inputs.profile }}.lock"
+          [[ -f "$lock" ]] || lock="tests/locks/${{ inputs.profile }}.lock"
+          echo "lock=$(sha256sum "$lock" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          # The fingerprint schema names the inputs `rpent-install` hashes, so a
+          # cached environment recorded under another schema fails `doctor`.
+          echo "schema=$(grep -oE 'REQUIREMENTS_SCHEMA = [0-9]+' \
+            rpent/install/requirements.py | grep -oE '[0-9]+')" >> "$GITHUB_OUTPUT"
       # The prebuilt environment is reproducible from the selected profile's
-      # lock, so the cache key is that lock's hash plus the interpreter and
-      # platform. `unit-cpu` supplies CPU Torch for the tests that import model
-      # servers; `dev` alone deliberately has no Torch.
+      # lock, so the cache key is that lock's hash plus the interpreter,
+      # platform, and fingerprint schema. `unit-cpu` supplies CPU Torch for the
+      # tests that import model servers; `dev` alone deliberately has no Torch.
       - name: Restore the prebuilt environment
         id: env
         uses: actions/cache@v4
         with:
           path: .venv
-          key: rpent-${{ inputs.profile }}-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
+          key: rpent-${{ inputs.profile }}-${{ runner.os }}-py311-s${{ steps.key.outputs.schema }}-${{ steps.key.outputs.lock }}
       - name: Build the prebuilt environment from the lock
         if: steps.env.outputs.cache-hit != 'true'
         run: |
@@ -126,13 +135,18 @@ jobs:
         run: uv python install 3.11
       - name: Read the environment cache key
         id: key
-        run: echo "lock=$(sha256sum installs/locks/minimal.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+        shell: bash
+        run: |
+          echo "lock=$(sha256sum installs/locks/minimal.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          # Cached environments are doctored, so the key follows the schema too.
+          echo "schema=$(grep -oE 'REQUIREMENTS_SCHEMA = [0-9]+' \
+            rpent/install/requirements.py | grep -oE '[0-9]+')" >> "$GITHUB_OUTPUT"
       - name: Restore the minimal environment
         id: env
         uses: actions/cache@v4
         with:
           path: .venv-minimal
-          key: rpent-minimal-${{ runner.os }}-py311-${{ steps.key.outputs.lock }}
+          key: rpent-minimal-${{ runner.os }}-py311-s${{ steps.key.outputs.schema }}-${{ steps.key.outputs.lock }}
       - name: Build the minimal environment from the lock
         if: steps.env.outputs.cache-hit != 'true'
         run: |

@@ -4,7 +4,7 @@ kind = "robot"
 probe = "robots.franka"
 python = ">=3.10,<3.13"
 platforms = ["linux-x86_64"]
-requires = ["rlinf", "openpi"]
+requires = ["rlinf"]
 # The flash perception tools branch to the dual-arm implementation when the
 # dual Franka slice is installed; the import is lazy and only runs then.
 imports = ["dual_franka"]
