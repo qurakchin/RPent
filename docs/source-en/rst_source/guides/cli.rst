@@ -249,7 +249,7 @@ The table uses LIBERO as an example. Files depend on the environment, recording,
    * - File or path
      - Purpose
    * - ``run.json``
-     - Run manifest: robot, planner, model, task, and the installation that produced the run, then the closed run's artifact paths, verdict, and error.
+     - Run manifest: robot, planner, model, task, and the installation that produced the run, then the closed run's artifact paths, verdict, agent error, and any artifact failure.
    * - ``transcript.json``
      - Planner conversation, tool calls, completion information, and the run verdict, written once when the run ends.
    * - ``trajectories/<task_id>/``
@@ -295,3 +295,5 @@ A task run exits ``0`` when the run's verdict accepts the task, ``1`` when it fa
      - ``solved``, ``finished``, ``unfinished``, ``planner_error``, ``operator_finished``, or ``operator_aborted``.
    * - ``truth_source``
      - Who established the verdict: ``environment``, ``operator``, or ``null`` when there is none.
+
+The verdict and ``error`` describe the run itself. When the run cannot write its own artifacts — a result finalizer or the corpus publish raises — ``run.json`` records that failure in ``artifact_error`` instead, keeps the verdict it can justify, and the command still exits ``1``.

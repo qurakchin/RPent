@@ -80,8 +80,8 @@ automatically:
 ``sim-robocasa`` and ``model-rldx``; ``robot-robodojo`` requires ``sim-robodojo``, ``model-sam3``,
 ``model-openpi``, ``model-awomo05``, and ``model-vpp2``. Model services no
 robot requires (``model-molmo``, ``model-cosmos3``, ``model-cosmos_policy``,
-``model-fast_wam``, ``model-apxinf``, ``model-uniwam``) install in their own
-environment.
+``model-fast_wam``, ``model-apxinf``, ``model-uniwam``, ``model-xpolicylab``)
+install in their own environment.
 
 A ``robot-`` component is installed in one step: its environment holds the
 planner, the tools, the simulator, and the model servers the robot needs, so

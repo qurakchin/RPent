@@ -149,6 +149,22 @@ def _capture_validated_args(
     return captured["robot_name"], captured["args"]
 
 
+def test_a_core_only_environment_reports_the_missing_planner_layer(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    cli = _cli_module()
+    monkeypatch.setattr(sys, "argv", ["rpent", "--robot", "libero"])
+    monkeypatch.setattr(
+        cli, "_MISSING_PLANNER_LAYER", ModuleNotFoundError("No module named 'yaml'")
+    )
+
+    assert cli.main() == 1
+
+    message = capsys.readouterr().err
+    assert "needs the planner layer" in message
+    assert 'pip install "rpent[planner]"' in message
+
+
 def test_public_cli_help_runs_from_source_checkout_without_a_robot_runtime() -> None:
     result = _run_cli_help("--help")
 
@@ -1053,6 +1069,16 @@ def test_full_cli_calls_robot_result_finalizer_without_robot_special_case(
     )
     assert transcript["stop_reason"] == (
         "planner_error" if planner_error else "finished"
+    )
+
+    # run.json names the same agent error the verdict was derived from, and a
+    # run whose artifacts were written has no artifact failure to report.
+    run = json.loads((tmp_path / "run.json").read_text())
+    assert run["error"] == planner_error
+    assert run["artifact_error"] is None
+    assert run["accepted"] is False
+    assert run["failure_category"] == (
+        "agent_error" if planner_error else "task_failed"
     )
 
     assert len(captured) == 1

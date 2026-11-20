@@ -210,8 +210,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--root",
         type=Path,
-        default=get_repo_root(),
-        help="RPent checkout to read manifests from.",
+        default=None,
+        help="RPent checkout to read manifests from; defaults to this checkout.",
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
@@ -284,6 +284,17 @@ def main(argv: list[str] | None = None) -> int:
     """Run ``rpent-install`` and return a process exit code."""
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.root is None:
+        args.root = get_repo_root()
+        # A wheel install puts this package in site-packages, where none of the
+        # manifests the installer reads exist. Say so instead of failing on a
+        # path the user never named.
+        if not (args.root / "pyproject.toml").is_file():
+            parser.error(
+                f"{args.root} is not an RPent checkout; rpent-install reads "
+                "component manifests from a source checkout. Run it from one or "
+                "pass --root"
+            )
     try:
         return args.handler(args)
     except (InstallError, InstallConfigError) as exc:

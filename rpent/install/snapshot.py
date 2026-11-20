@@ -121,14 +121,19 @@ def finish_run_manifest(
     artifacts: Mapping[str, Path | str | None],
     verdict: Mapping[str, Any],
     error: str | None = None,
+    artifact_error: str | None = None,
 ) -> Path:
-    """Record the closed run's artifacts, verdict, and failure, if any."""
+    """Record the closed run's artifacts, verdict, and failures, if any.
+
+    ``error`` is the failure the verdict explains. ``artifact_error`` is a
+    command-level failure to write the run's own artifacts: the verdict still
+    reports the run, and a reader sees separately why its record is incomplete.
+    """
     destination = Path(output_dir) / RUN_MANIFEST_NAME
     record = json.loads(destination.read_text(encoding="utf-8"))
     record["finished_at"] = _utc_now()
-    record["artifacts"] = {
-        name: str(path) for name, path in artifacts.items() if path
-    }
+    record["artifacts"] = {name: str(path) for name, path in artifacts.items() if path}
     record.update(verdict)
     record["error"] = error
+    record["artifact_error"] = artifact_error
     return write_json_atomic(destination, record)

@@ -402,6 +402,30 @@ def test_unbindable_handler_arguments_never_execute_or_capture_state(
     assert toolkit.capture_calls == []
 
 
+def test_a_handler_that_raises_type_error_is_treated_as_an_executed_failure(
+    tmp_path: Path,
+) -> None:
+    toolkit = _ContractToolkit(tmp_path)
+
+    @tool
+    def move(distance: int) -> ToolResult:
+        """Move by the given distance."""
+        assert distance == 1
+        raise TypeError("unsupported operand type(s) for +: 'NoneType' and 'int'")
+
+    toolkit.add_tool(move)
+
+    result = toolkit.execute_tool("move", {"distance": 1})
+
+    # The arguments bound, so the call reached the handler. Its TypeError is a
+    # handler failure, not a rejected call: the environment may have changed,
+    # and the step has to be recorded.
+    assert not result.call_ok
+    assert not result.no_execution
+    assert "unsupported operand" in result.error
+    assert len(toolkit.capture_calls) == 1
+
+
 def test_stateful_dispatch_captures_state_and_emits_the_record(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

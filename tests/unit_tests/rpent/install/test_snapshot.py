@@ -106,5 +106,25 @@ def test_finish_records_artifacts_and_the_verdict(tmp_path):
     assert record["artifacts"] == {"transcript": str(tmp_path / "transcript.json")}
     assert (record["accepted"], record["truth_source"]) == (True, "environment")
     assert record["error"] is None
+    assert record["artifact_error"] is None
     assert record["started_at"].endswith("Z")
     assert record["finished_at"].endswith("Z")
+
+
+def test_finish_records_an_artifact_failure_apart_from_the_agent_error(tmp_path):
+    start_run_manifest(tmp_path, robot="libero", planner="api", model="m", task={})
+
+    path = finish_run_manifest(
+        tmp_path,
+        artifacts={"transcript": None},
+        verdict={"accepted": True, "truth_source": "environment"},
+        error=None,
+        artifact_error="result finalization failed: OSError: disk full",
+    )
+    record = json.loads(path.read_text(encoding="utf-8"))
+
+    # The verdict and `error` describe the run; the failure to write the run's
+    # own artifacts is reported on its own so neither field contradicts the other.
+    assert record["accepted"] is True
+    assert record["error"] is None
+    assert record["artifact_error"] == "result finalization failed: OSError: disk full"

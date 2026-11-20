@@ -40,12 +40,14 @@ class ToolResult:
     """One tool call's outcome: whether it ran, what it returned, and images.
 
     A call can fail at two layers. ``call_ok`` is false when the framework never
-    delivered the call to the tool — an unknown tool, arguments the schema
-    rejected, a cancellation, or a handler that raised — and ``no_execution``
-    then says the tool never ran, so the environment did not change. A tool
-    that ran but hit a problem of its own returns ``call_ok`` true with that
-    problem in the payload's ``error`` key. ``is_error`` reports either layer
-    to the planner.
+    delivered the call to the tool — an unknown tool, arguments the schema or
+    the handler's signature rejected, or a cancellation — and ``no_execution``
+    then says the tool never ran, so the environment did not change. A handler
+    that raised also returns ``call_ok`` false, but ``no_execution`` stays
+    false because it may have acted before raising. A tool that ran and
+    reported a problem of its own returns ``call_ok`` true with that problem in
+    the payload's ``error`` key. ``is_error`` reports any of these to the
+    planner.
     """
 
     data: dict[str, Any] = field(default_factory=dict)

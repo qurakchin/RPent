@@ -22,24 +22,18 @@ working ``--help`` and reports a missing component instead of failing to load.
 from __future__ import annotations
 
 import sys
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    pass
+from rpent.install.require import MissingComponentError, require
 
 
-def main(argv: list[str] | None = None) -> int:
+def main() -> int:
     """Run the flywheel exporter installed in this environment."""
     try:
-        from components.tools.flywheel import cli
-    except ImportError as exc:
-        print(
-            "rpent-flywheel is the tool-flywheel component; install it with "
-            "`rpent-install install tool-flywheel` in this environment",
-            file=sys.stderr,
-        )
-        raise SystemExit(1) from exc
-    return cli.main(argv)
+        cli = require("tool-flywheel", "components.tools.flywheel.cli")
+    except MissingComponentError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+    return cli.main()
 
 
 if __name__ == "__main__":

@@ -48,7 +48,7 @@
 
    rpent-install list
 
-``robot-libero`` 需要 ``sim-libero``、``model-openpi``、``model-sam3``、``tool-flywheel`` 和 ``tool-rgbd``；``robot-robocasa`` 需要 ``sim-robocasa`` 和 ``model-rldx``；``robot-robodojo`` 需要 ``sim-robodojo``、``model-sam3``、``model-openpi``、``model-awomo05`` 和 ``model-vpp2``。没有机器人需要的模型服务（``model-molmo``、``model-cosmos3``、``model-cosmos_policy``、``model-fast_wam``、``model-apxinf``、``model-uniwam``）装进自己的环境。
+``robot-libero`` 需要 ``sim-libero``、``model-openpi``、``model-sam3``、``tool-flywheel`` 和 ``tool-rgbd``；``robot-robocasa`` 需要 ``sim-robocasa`` 和 ``model-rldx``；``robot-robodojo`` 需要 ``sim-robodojo``、``model-sam3``、``model-openpi``、``model-awomo05`` 和 ``model-vpp2``。没有机器人需要的模型服务（``model-molmo``、``model-cosmos3``、``model-cosmos_policy``、``model-fast_wam``、``model-apxinf``、``model-uniwam``、``model-xpolicylab``）装进自己的环境。
 
 ``robot-`` 组件一次装齐：它的环境里同时有 planner、工具、仿真器和机器人需要的模型服务，所以 ``install robot-libero`` 不需要再为模型或导出器准备第二个环境。其他前缀的组件各自装进独立的环境（同样带核心 ``rpent`` 包），机器人环境通过该组件的 client 访问它，而不是直接导入。``robot-yam`` 是例外：它的切片自带 YAM 运行时，Pi0.5 策略则作为 ``model-openpi`` 单独安装。
 

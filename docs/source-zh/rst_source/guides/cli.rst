@@ -211,7 +211,7 @@ Claude Code 和 Codex 也可复用已有的 CLI 认证。Gemini CLI 使用自身
    * - 文件或路径
      - 用途
    * - ``run.json``
-     - 运行清单：机器人、planner、模型、任务和产出本次运行的环境，随后是运行结束时的产物路径、判定结果和错误。
+     - 运行清单：机器人、planner、模型、任务和产出本次运行的环境，随后是运行结束时的产物路径、判定结果、agent 错误和产物写入失败（若有）。
    * - ``transcript.json``
      - 规划器对话、工具调用、结束信息和本次运行判定，在运行结束时一次性写入。
    * - ``trajectories/<task_id>/``
@@ -257,3 +257,5 @@ Claude Code 和 Codex 也可复用已有的 CLI 认证。Gemini CLI 使用自身
      - ``solved``、``finished``、``unfinished``、``planner_error``、``operator_finished`` 或 ``operator_aborted``。
    * - ``truth_source``
      - 判定由谁给出：``environment``、``operator``，没有判定时为 ``null``。
+
+判定和 ``error`` 描述运行本身。运行无法写出自己的产物时（结果终结器或语料发布抛错），``run.json`` 把该失败记在 ``artifact_error`` 里，保留它能够给出的判定，命令仍然以 ``1`` 退出。

@@ -528,17 +528,13 @@ def _run_dashboard_task(
             state.report_task_warning(warning)
 
     result_path = None
+    artifact_error: str | None = None
     if robot_spec.finalize_run is not None:
         try:
             result_path = robot_spec.finalize_run(context)
         except Exception as exc:
-            finalization_error = (
-                f"result finalization failed: {type(exc).__name__}: {exc}"
-            )
-            if agent_error:
-                logger.warning("%s", finalization_error)
-            else:
-                agent_error = finalization_error
+            artifact_error = f"result finalization failed: {type(exc).__name__}: {exc}"
+            logger.warning("%s", artifact_error)
     try:
         finish_run_manifest(
             output_dir,
@@ -549,11 +545,14 @@ def _run_dashboard_task(
             },
             verdict=verdict_fields(context),
             error=agent_error,
+            artifact_error=artifact_error,
         )
     except Exception as exc:
         manifest_error = f"run manifest update failed: {type(exc).__name__}: {exc}"
-        if agent_error:
-            logger.warning("%s", manifest_error)
-        else:
-            agent_error = manifest_error
-    return agent_error
+        artifact_error = (
+            f"{artifact_error}; {manifest_error}" if artifact_error else manifest_error
+        )
+        logger.warning("%s", manifest_error)
+    # The verdict names the agent-side failure; a run whose artifacts failed is
+    # still a failed task, so the Dashboard reports it that way.
+    return agent_error or artifact_error

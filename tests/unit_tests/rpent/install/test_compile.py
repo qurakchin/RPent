@@ -30,6 +30,19 @@ from rpent.install.requirements import read_core_dependencies
 from rpent.install.resolve import choose_python
 
 
+def test_the_default_root_must_be_a_checkout(tmp_path, monkeypatch, capsys):
+    # A wheel install resolves the package root to site-packages, which holds
+    # no manifests; the CLI has to say that instead of failing on a path the
+    # user never named.
+    monkeypatch.setattr("rpent.cli.install.get_repo_root", lambda: tmp_path)
+
+    with pytest.raises(SystemExit) as excinfo:
+        env_main(["list"])
+
+    assert excinfo.value.code == 2
+    assert "is not an RPent checkout" in capsys.readouterr().err
+
+
 @pytest.fixture
 def repo(tmp_path, write_toml):
     write_toml(

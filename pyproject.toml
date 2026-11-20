@@ -97,7 +97,9 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 # Component manifests are runtime data: discovery reads them from installed
-# packages, so every component package must ship its component.toml. The other
+# packages, so a component that ships code must ship its component.toml with it.
+# Components that only declare dependencies (`components/infra/*`,
+# `sim-libero_plus`) hold no package and exist only in a checkout. The other
 # entries are files the installed package opens by path: the dashboard
 # frontend, and robot defaults and evaluation manifests.
 "*" = ["component.toml"]

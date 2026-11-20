@@ -44,10 +44,6 @@ from collections.abc import Callable
 from dataclasses import asdict
 from pathlib import Path
 
-from rpent.cli.tui import (
-    start_first_prompt_resolver,
-    start_interactive_reader,
-)
 from rpent.dashboard.events import (
     NullDashboardEventSink,
     RunStartedEvent,
@@ -58,7 +54,6 @@ from rpent.evaluation import (
     write_json_atomic,
 )
 from rpent.install.snapshot import finish_run_manifest, start_run_manifest
-from rpent.memory import MemoryManager
 from rpent.planner.base import (
     CODEX_SANDBOX_CHOICES,
     REASONING_EFFORTS,
@@ -67,8 +62,22 @@ from rpent.planner.base import (
 )
 from rpent.planner.check import EXTERNALLY_CONFIGURED_PLANNERS
 from rpent.robots import enumerate_robots, get_robot_spec, get_toolkit
-from rpent.session.planner_capture import end_planner_task, start_planner_task
 from rpent.utils.logging import get_logger, init_output_dir
+
+# The ``rpent`` console script ships with the core wheel, but a session needs
+# the planner layer. Import it here so ``--help`` and argument validation work
+# in an environment that holds only the runtime layer; ``main()`` reports the
+# missing layer before a run touches a robot.
+_MISSING_PLANNER_LAYER: ModuleNotFoundError | None = None
+try:
+    from rpent.cli.tui import (
+        start_first_prompt_resolver,
+        start_interactive_reader,
+    )
+    from rpent.memory import MemoryManager
+    from rpent.session.planner_capture import end_planner_task, start_planner_task
+except ModuleNotFoundError as exc:
+    _MISSING_PLANNER_LAYER = exc
 
 logger = get_logger("agent")
 
@@ -391,6 +400,19 @@ def main() -> int:
     # Two-phase argparse: first grab --robot / --env / --dashboard so we know
     # which robot's flags to add and whether to make its required flags optional.
     early, _ = parser.parse_known_args()
+    help_requested = "-h" in sys.argv or "--help" in sys.argv
+    # A robot's spec is part of the planner layer's client surface, so report
+    # the missing layer before loading it. ``--help`` stays available because
+    # it never needs a robot.
+    if _MISSING_PLANNER_LAYER is not None and not help_requested:
+        print(
+            "the rpent CLI needs the planner layer, which this environment does "
+            f"not provide ({_MISSING_PLANNER_LAYER}); install it with "
+            '`pip install "rpent[planner]"`, or run inside the environment '
+            "rpent-install created for the robot",
+            file=sys.stderr,
+        )
+        return 1
     parser.set_defaults(reasoning_effort="high" if early.planner == "api" else "none")
 
     # --env is a deprecated alias for --robot; resolve it before loading the spec.
@@ -400,7 +422,7 @@ def main() -> int:
         logger.warning("--env is deprecated and will be removed; use --robot instead")
         early.robot_name = early.env_name
     if early.robot_name is None:
-        if "-h" not in sys.argv and "--help" not in sys.argv:
+        if not help_requested:
             parser.error("--robot is required")
     else:
         robot_spec = get_robot_spec(early.robot_name)
@@ -862,8 +884,11 @@ def main() -> int:
     logger.info("transcript: %s", transcript_path)
 
     # Artifact failures leave the verdict unchanged but make the command fail:
-    # the run is not reproducible from what it wrote.
+    # the run is not reproducible from what it wrote. They are recorded in
+    # ``artifact_error`` so ``error`` keeps naming the agent-side failure the
+    # verdict was derived from.
     command_failed = False
+    artifact_error: str | None = None
     result_path: Path | str | None = None
     if robot_spec.finalize_run is not None:
         try:
@@ -871,9 +896,12 @@ def main() -> int:
             if result_path:
                 logger.info("run result: %s", result_path)
         except Exception as exc:
-            agent_error = f"result finalization failed: {type(exc).__name__}: {exc}"
+            message = f"result finalization failed: {type(exc).__name__}: {exc}"
+            artifact_error = (
+                f"{artifact_error}; {message}" if artifact_error else message
+            )
             command_failed = True
-            logger.error("%s", agent_error)
+            logger.error("%s", message)
 
     # Publish exploration artifacts into the corpus after the session loop.
     if (
@@ -892,9 +920,12 @@ def main() -> int:
             if merge_result:
                 logger.info("memory merged: %s", merge_result)
         except Exception as exc:
-            agent_error = f"memory finalization failed: {type(exc).__name__}: {exc}"
+            message = f"memory finalization failed: {type(exc).__name__}: {exc}"
+            artifact_error = (
+                f"{artifact_error}; {message}" if artifact_error else message
+            )
             command_failed = True
-            logger.error("%s", agent_error)
+            logger.error("%s", message)
 
     try:
         finish_run_manifest(
@@ -906,14 +937,16 @@ def main() -> int:
             },
             verdict=verdict_fields(context),
             error=agent_error,
+            artifact_error=artifact_error,
         )
     except Exception as exc:
         command_failed = True
         logger.error("run manifest update failed: %s", exc)
 
     if getattr(args, "explore", False):
-        # Exploration publishes a corpus; its session outcome is not a verdict.
-        return 1 if agent_error else 0
+        # Exploration publishes a corpus; its session outcome is not a verdict,
+        # but a run whose artifacts failed is still a failed command.
+        return 1 if agent_error or command_failed else 0
     if command_failed:
         return 1
     return _exit_code(context.accepted)
