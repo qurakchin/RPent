@@ -95,13 +95,13 @@ LIBERO
 
 首次使用 LIBERO-PRO，请先完成 :doc:`../get_started/quickstart` 的安装、资源下载和模型配置。本页用于选择更多任务与复现实验。
 
-其他 LIBERO 版本请按 :doc:`../get_started/installation` 安装对应目标，再下载资源；standard 和 pro 共用一个目标，LIBERO-plus 与 ``sim-libero`` 冲突，需要单独的环境：
+其他 LIBERO 版本请按 :doc:`../get_started/installation` 安装对应环境，再下载资源；standard 和 pro 共用 ``sim-libero`` 环境，LIBERO-plus 与 ``sim-libero`` 冲突，需要单独的环境：
 
 .. list-table::
    :header-rows: 1
 
    * - 版本
-     - 目标
+     - 环境
      - 资源下载
    * - ``standard``
      - ``sim-libero``
@@ -113,7 +113,7 @@ LIBERO
      - ``sim-libero_plus``
      - ``liberoplus-download-assets --skip-existing``
 
-``sim-libero`` 包含仿真器和 RLinf 运行时（``infra-rlinf``），不含模型，覆盖 standard 和 pro 两套任务；``robot-libero`` 额外包含 Pi0.5（``model-openpi``）、SAM3 和 flywheel 依赖。standard 或 plus 需要在本机运行 Pi0.5 和 SAM3 时，把 ``model-openpi`` 和 ``model-sam3`` 目标装到独立环境并传入 endpoint。模型权重需按下文单独下载。
+``sim-libero`` 包含仿真器和 RLinf 运行时（``infra-rlinf``），不含模型，覆盖 standard 和 pro 两套任务；``robot-libero`` 额外包含 Pi0.5（``model-openpi``）、SAM3 和 flywheel 依赖。standard 或 plus 需要在本机运行 Pi0.5 和 SAM3 时，把 ``model-openpi`` 和 ``model-sam3`` 装到独立环境并传入 endpoint。模型权重需按下文单独下载。
 
 运行时通过 ``--libero-type`` 选择与安装包一致的版本。
 

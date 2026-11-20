@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Compile per-target dependency locks with ``uv pip compile``.
+"""Compile per-environment dependency locks with ``uv pip compile``.
 
 ``python -m tests.tooling.lock`` is the maintainer entry point; the compile
 mechanics live here so ``check --resolve`` and the lock tool share one
@@ -25,11 +25,16 @@ from __future__ import annotations
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterable
 
 from rpent.install.discovery import Catalog
 from rpent.install.errors import InstallError
 from rpent.install.installer import index_options, run_command
-from rpent.install.manifest import DEFAULT_PLATFORMS, PLATFORM_TAGS, Target
+from rpent.install.manifest import (
+    DEFAULT_PLATFORMS,
+    PLATFORM_TAGS,
+    environment_name,
+)
 from rpent.install.requirements import (
     read_core_dependencies,
     render_requirements,
@@ -83,13 +88,13 @@ def new_lock_timestamp() -> str:
     )
 
 
-def lock_path(root: Path, target: Target) -> Path:
-    """Return the target's reproduction lock path under ``tests/locks``."""
-    return target.lock_file(root)
+def lock_path(root: Path, environment: str) -> Path:
+    """Return the reproduction lock path for ``environment`` under ``tests/locks``."""
+    return root / "tests" / "locks" / f"{environment}.lock"
 
 
-def compile_target(
-    target: Target,
+def compile_environment(
+    requested: Iterable[str],
     catalog: Catalog,
     *,
     root: Path,
@@ -99,27 +104,30 @@ def compile_target(
     python: str | None = None,
     platform: str = DEFAULT_PLATFORMS[0],
 ) -> str:
-    """Compile one target's lock into ``output`` and return the lock text.
+    """Compile one environment's lock into ``output`` and return the lock text.
 
     ``exclude_newer`` pins the upstream cutoff. ``lock --check`` reads it from
     the existing lock, so the recompiled body is comparable even after a
     release lands upstream; ``lock`` writes the current instant.
 
-    ``python`` is the minor the existing lock records. Reusing it keeps a
-    target on the interpreter its checked-in lock was verified with until a
-    constraint stops accepting it, instead of silently upgrading every
+    ``python`` is the minor the existing lock records. Reusing it keeps an
+    environment on the interpreter its checked-in lock was verified with until
+    a constraint stops accepting it, instead of silently upgrading every
     environment when a newer minor is supported.
     """
+    selected = tuple(dict.fromkeys(requested))
+    name = environment_name(selected)
+    core = read_core_dependencies(root)
     resolution = resolve(
-        target,
+        selected,
         catalog,
-        core_dependencies=read_core_dependencies(root) if target.core else (),
+        core_dependencies=core,
         platform=platform,
     )
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
     if resolution.python is None:
-        raise InstallError("\n".join(resolution.errors))
+        raise InstallError(f"environment {name!r} resolved no Python minor")
     chosen_python = resolution.python
     if python is not None and python_accepted(resolution, python):
         chosen_python = python
@@ -130,13 +138,9 @@ def compile_target(
     platform_tag = PLATFORM_TAGS[resolution.platform].format(
         baseline=resolution.manylinux
     )
-    requirements = render_requirements(
-        resolution,
-        root=root,
-        core_dependencies=read_core_dependencies(root) if target.core else (),
-    )
+    requirements = render_requirements(resolution, core_dependencies=core)
     with tempfile.TemporaryDirectory(prefix="rpent-lock-") as directory:
-        source = Path(directory) / f"{target.name}.txt"
+        source = Path(directory) / f"{name}.txt"
         source.write_text(requirements, encoding="utf-8")
         command = [
             uv,
@@ -174,22 +178,23 @@ def compile_target(
     return text
 
 
-def resolve_target(
-    target: Target,
+def resolve_environment(
+    requested: Iterable[str],
     catalog: Catalog,
     *,
     root: Path,
     uv: str,
     platform: str = DEFAULT_PLATFORMS[0],
 ) -> str:
-    """Compile ``target`` into a temporary file and return the uv output.
+    """Compile an environment into a temporary file and return the uv output.
 
     ``rpent-install check --resolve`` uses this to prove that the declared
-    dependencies have a solution; it delegates to :func:`compile_target` so
-    there is only one resolver.
+    dependencies have a solution; it delegates to
+    :func:`compile_environment` so there is only one resolver.
     """
+    selected = tuple(dict.fromkeys(requested))
     with tempfile.TemporaryDirectory(prefix="rpent-resolve-") as directory:
-        output = Path(directory) / f"{target.name}.txt"
-        return compile_target(
-            target, catalog, root=root, uv=uv, output=output, platform=platform
+        output = Path(directory) / f"{environment_name(selected)}.txt"
+        return compile_environment(
+            selected, catalog, root=root, uv=uv, output=output, platform=platform
         )

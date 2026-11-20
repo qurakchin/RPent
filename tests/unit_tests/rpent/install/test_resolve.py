@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Targets resolve into environments and actionable configuration errors."""
+"""Requested components resolve into environments and actionable errors."""
 
 from rpent.install.resolve import resolve
 
@@ -22,45 +22,61 @@ def _catalog(make_catalog, *components):
 
 
 def test_requires_closure_adds_components_to_the_environment(
-    make_component, make_target, make_catalog
+    make_component, make_catalog
 ):
     robot = make_component("robot-alpha", requires=["model-sam3"])
     sam3 = make_component("model-sam3")
-    target = make_target("robot-alpha", ["robot-alpha"])
     catalog = _catalog(make_catalog, robot, sam3)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha",), catalog)
 
     assert resolution.ok
     assert sorted(resolution.components) == ["model-sam3", "robot-alpha"]
 
 
-def test_mutual_requires_is_a_symmetric_closure(
-    make_component, make_target, make_catalog
-):
+def test_the_environment_name_is_the_sorted_request(make_component, make_catalog):
+    # `install b a` and `install a b` must name one environment, otherwise the
+    # virtualenv, the fingerprint and the lock disagree on its name.
+    alpha = make_component("robot-alpha")
+    beta = make_component("robot-beta")
+    catalog = _catalog(make_catalog, alpha, beta)
+
+    resolution = resolve(("robot-beta", "robot-alpha"), catalog)
+
+    assert resolution.requested == ("robot-beta", "robot-alpha")
+    assert resolution.name == "robot-alpha+robot-beta"
+
+
+def test_an_empty_request_is_the_minimal_environment(make_catalog):
+    resolution = resolve((), make_catalog())
+
+    assert resolution.ok
+    assert resolution.name == "minimal"
+    assert resolution.components == {}
+
+
+def test_mutual_requires_is_a_symmetric_closure(make_component, make_catalog):
     # `requires` describes co-installation, which is symmetric; a mutual pair
     # must resolve once per component instead of being rejected as a cycle.
     alpha = make_component("robot-alpha", requires=["robot-beta"])
     beta = make_component("robot-beta", requires=["robot-alpha"])
-    target = make_target("robot-alpha", ["robot-alpha"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha",), catalog)
 
     assert resolution.ok
     assert sorted(resolution.components) == ["robot-alpha", "robot-beta"]
 
 
 def test_a_required_component_joins_its_consumers_environment(
-    make_component, make_target, make_catalog
+    make_component, make_catalog
 ):
     robot = make_component("robot-alpha", requires=["infra-rlinf"])
     model = make_component("model-molmo", requires=["infra-rlinf"])
     rlinf = make_component("infra-rlinf")
-    target = make_target("flash", ["robot-alpha", "model-molmo"])
     catalog = _catalog(make_catalog, rlinf, robot, model)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha", "model-molmo"), catalog)
 
     assert resolution.ok
     # Two consumers in one environment pull the shared runtime in once; it is
@@ -72,96 +88,84 @@ def test_a_required_component_joins_its_consumers_environment(
     ]
 
 
-def test_target_can_select_a_component_of_any_kind(
-    make_component, make_target, make_catalog
+def test_an_environment_may_request_a_component_no_robot_requires(
+    make_component, make_catalog
 ):
-    # A target may compose a component that no robot requires, such as a test
-    # tool or a simulator installed on its own.
-    flywheel = make_component(
-        "tool-flywheel", dependencies=("lerobot", "av")
-    )
+    # A tool or a simulator installs on its own when a caller names it, even
+    # though no robot's requires closure names it.
+    flywheel = make_component("tool-flywheel", dependencies=("lerobot", "av"))
     alpha = make_component("robot-alpha")
-    target = make_target("robot-alpha", ["robot-alpha", "tool-flywheel"])
     catalog = _catalog(make_catalog, flywheel, alpha)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha", "tool-flywheel"), catalog)
 
     assert resolution.ok
     assert sorted(resolution.components) == ["robot-alpha", "tool-flywheel"]
     assert resolution.components["tool-flywheel"].dependencies == ("lerobot", "av")
 
 
-def test_unknown_component_is_reported(make_component, make_target, make_catalog):
-    target = make_target("alpha", ["robot-missing"])
+def test_unknown_component_is_reported(make_catalog):
     catalog = _catalog(make_catalog)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-missing",), catalog)
 
     assert not resolution.ok
     assert "references unknown component 'robot-missing'" in resolution.errors[0]
 
 
-def test_unknown_requires_is_reported(make_component, make_target, make_catalog):
+def test_unknown_requires_is_reported(make_component, make_catalog):
     alpha = make_component("robot-alpha", requires=["model-missing"])
-    target = make_target("robot-alpha", ["robot-alpha"])
     catalog = _catalog(make_catalog, alpha)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha",), catalog)
 
     assert not resolution.ok
-    assert "component 'robot-alpha' requires unknown component 'model-missing'" in (
-        resolution.errors[0]
+    assert (
+        "component 'robot-alpha' requires unknown component 'model-missing'"
+        in (resolution.errors[0])
     )
 
 
-def test_newest_supported_minor_is_chosen(
-    make_component, make_target, make_catalog
-):
+def test_newest_supported_minor_is_chosen(make_component, make_catalog):
     robot = make_component("robot-alpha", python=">=3.10,<3.12")
-    target = make_target("robot-alpha", ["robot-alpha"])
     catalog = _catalog(make_catalog, robot)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha",), catalog)
 
     assert resolution.ok
     assert resolution.python == "3.11"
 
 
 def test_unconstrained_components_resolve_to_the_newest_minor(
-    make_component, make_target, make_catalog
+    make_component, make_catalog
 ):
     robot = make_component("robot-alpha")
-    target = make_target("robot-alpha", ["robot-alpha"])
     catalog = _catalog(make_catalog, robot)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha",), catalog)
 
     assert resolution.ok
     assert resolution.python == "3.12"
 
 
-def test_the_newest_minor_every_component_accepts_wins(
-    make_component, make_target, make_catalog
-):
+def test_the_newest_minor_every_component_accepts_wins(make_component, make_catalog):
     robot = make_component("robot-alpha")
     tool = make_component("tool-flywheel", python=">=3.11,<3.12")
-    target = make_target("robot-alpha", ["robot-alpha", "tool-flywheel"])
     catalog = _catalog(make_catalog, robot, tool)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha", "tool-flywheel"), catalog)
 
     assert resolution.ok
     assert resolution.python == "3.11"
 
 
 def test_a_range_the_components_do_not_support_is_reported(
-    make_component, make_target, make_catalog
+    make_component, make_catalog
 ):
     robot = make_component("robot-alpha", python=">=3.13")
-    target = make_target("robot-alpha", ["robot-alpha"])
     catalog = _catalog(make_catalog, robot)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha",), catalog)
 
     assert not resolution.ok
     assert resolution.python is None
@@ -171,15 +175,12 @@ def test_a_range_the_components_do_not_support_is_reported(
     )
 
 
-def test_declared_conflict_in_one_environment_is_reported(
-    make_component, make_target, make_catalog
-):
+def test_declared_conflict_in_one_environment_is_reported(make_component, make_catalog):
     alpha = make_component("robot-alpha", env_conflicts=["robot-beta"])
     beta = make_component("robot-beta", env_conflicts=["robot-alpha"])
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha", "robot-beta"), catalog)
 
     assert not resolution.ok
     assert (
@@ -187,37 +188,33 @@ def test_declared_conflict_in_one_environment_is_reported(
         in resolution.errors[0]
     )
     assert (
-        "split robot-alpha and robot-beta into separate targets and connect "
-        "them by endpoint" in resolution.errors[0]
+        "split robot-alpha and robot-beta into separate environments and "
+        "connect them by endpoint" in resolution.errors[0]
     )
 
 
-def test_a_conflict_declared_on_one_side_is_enough(
-    make_component, make_target, make_catalog
-):
+def test_a_conflict_declared_on_one_side_is_enough(make_component, make_catalog):
     # Components no longer have to mirror every conflict in both manifests; one
     # side declaring it keeps the pair apart.
     alpha = make_component("robot-alpha", env_conflicts=["robot-beta"])
     beta = make_component("robot-beta")
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha", "robot-beta"), catalog)
 
     assert not resolution.ok
     assert "places 'robot-alpha' and 'robot-beta'" in resolution.errors[0]
 
 
 def test_conflict_reaches_components_pulled_in_by_requires(
-    make_component, make_target, make_catalog
+    make_component, make_catalog
 ):
     robot = make_component("robot-alpha", requires=["model-policy"])
     policy = make_component("model-policy", env_conflicts=["model-grounder"])
     grounder = make_component("model-grounder", env_conflicts=["model-policy"])
-    target = make_target("shared", ["robot-alpha", "model-grounder"])
     catalog = _catalog(make_catalog, robot, policy, grounder)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha", "model-grounder"), catalog)
 
     assert not resolution.ok
     assert (
@@ -226,19 +223,19 @@ def test_conflict_reaches_components_pulled_in_by_requires(
     )
 
 
-def test_declared_conflict_is_allowed_across_separate_targets(
-    make_component, make_target, make_catalog
+def test_declared_conflict_is_allowed_across_separate_environments(
+    make_component, make_catalog
 ):
     alpha = make_component("robot-alpha", env_conflicts=["robot-beta"])
     beta = make_component("robot-beta", env_conflicts=["robot-alpha"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    assert resolve(make_target("robot-alpha", ["robot-alpha"]), catalog).ok
-    assert resolve(make_target("robot-beta", ["robot-beta"]), catalog).ok
+    assert resolve(("robot-alpha",), catalog).ok
+    assert resolve(("robot-beta",), catalog).ok
 
 
 def test_two_components_cannot_override_one_package(
-    make_component, make_target, make_catalog, tmp_path
+    make_component, make_catalog, tmp_path
 ):
     left = tmp_path / "left.txt"
     right = tmp_path / "right.txt"
@@ -246,10 +243,9 @@ def test_two_components_cannot_override_one_package(
     right.write_text("numpy<3\n", encoding="utf-8")
     alpha = make_component("robot-alpha", overrides=[left])
     beta = make_component("robot-beta", overrides=[right])
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha", "robot-beta"), catalog)
 
     assert not resolution.ok
     # uv merges the override files, so the winner would depend on file order.
@@ -258,7 +254,7 @@ def test_two_components_cannot_override_one_package(
 
 
 def test_marker_scoped_overrides_leave_the_choice_to_uv(
-    make_component, make_target, make_catalog, tmp_path
+    make_component, make_catalog, tmp_path
 ):
     left = tmp_path / "left.txt"
     right = tmp_path / "right.txt"
@@ -266,144 +262,96 @@ def test_marker_scoped_overrides_leave_the_choice_to_uv(
     right.write_text('numpy<3; sys_platform == "win32"\n', encoding="utf-8")
     alpha = make_component("robot-alpha", overrides=[left])
     beta = make_component("robot-beta", overrides=[right])
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
     # The two lines select different targets, so the resolver decides which
     # one applies instead of the check reporting a duplicate.
-    assert resolve(target, catalog).ok
+    assert resolve(("robot-alpha", "robot-beta"), catalog).ok
 
 
-def test_target_cannot_repeat_a_component_dependency(
-    make_component, make_target, make_catalog
-):
-    alpha = make_component("robot-alpha", dependencies=["numpy>=2"])
-    target = make_target(
-        "shared",
-        ["robot-alpha"],
-        dependencies=["numpy<3"],
-    )
-    catalog = _catalog(make_catalog, alpha)
-
-    resolution = resolve(target, catalog)
-
-    assert not resolution.ok
-    assert "component 'robot-alpha' already requires it" in resolution.errors[0]
-
-
-def test_target_dependencies_outside_the_closure_are_allowed(
-    make_component, make_target, make_catalog
-):
-    alpha = make_component("robot-alpha", dependencies=["numpy>=2"])
-    target = make_target(
-        "shared",
-        ["robot-alpha"],
-        dependencies=["pytest"],
-    )
-    catalog = _catalog(make_catalog, alpha)
-
-    assert resolve(target, catalog).ok
-
-
-def test_incompatible_pins_are_reported(make_component, make_target, make_catalog):
+def test_incompatible_pins_are_reported(make_component, make_catalog):
     alpha = make_component("robot-alpha", dependencies=["torch==2.7.0"])
     beta = make_component("robot-beta", dependencies=["torch==2.8.0"])
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha", "robot-beta"), catalog)
 
     assert any("conflicting pins for 'torch'" in error for error in resolution.errors)
 
 
-def test_overlapping_specifiers_are_compatible(
-    make_component, make_target, make_catalog
-):
+def test_core_dependencies_join_the_pin_check(make_component, make_catalog):
+    alpha = make_component("robot-alpha", dependencies=["torch==2.7.0"])
+    catalog = _catalog(make_catalog, alpha)
+
+    resolution = resolve(("robot-alpha",), catalog, core_dependencies=("torch==2.8.0",))
+
+    assert any("conflicting pins for 'torch'" in error for error in resolution.errors)
+
+
+def test_overlapping_specifiers_are_compatible(make_component, make_catalog):
     alpha = make_component("robot-alpha", dependencies=["huggingface-hub>=0.24,<1"])
     beta = make_component("robot-beta", dependencies=["huggingface-hub>=0.34,<2"])
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    assert resolve(target, catalog).ok
+    assert resolve(("robot-alpha", "robot-beta"), catalog).ok
 
 
-def test_range_pins_are_left_to_uv(make_component, make_target, make_catalog):
+def test_range_pins_are_left_to_uv(make_component, make_catalog):
     # `>1.0` and `<1.0.1` overlap at 1.0.post1; sampling boundaries used to
     # report a false conflict, so ranges are not compared statically.
     alpha = make_component("robot-alpha", dependencies=["pkg>1.0"])
     beta = make_component("robot-beta", dependencies=["pkg<1.0.1"])
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    assert resolve(target, catalog).ok
+    assert resolve(("robot-alpha", "robot-beta"), catalog).ok
 
 
 def test_marker_scoped_pins_select_one_wheel_and_are_ignored(
-    make_component, make_target, make_catalog
+    make_component, make_catalog
 ):
     markers = ' ; python_version == "3.11"'
     alpha = make_component(
-        "robot-alpha", dependencies=[f"franky @ https://example.test/franky.whl{markers}"]
+        "robot-alpha",
+        dependencies=[f"franky @ https://example.test/franky.whl{markers}"],
     )
     beta = make_component(
-        "robot-beta", dependencies=[f"franky @ https://example.test/franky.whl{markers}"]
+        "robot-beta",
+        dependencies=[f"franky @ https://example.test/franky.whl{markers}"],
     )
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    assert resolve(target, catalog).ok
+    assert resolve(("robot-alpha", "robot-beta"), catalog).ok
 
 
-def test_different_url_pins_are_reported(make_component, make_target, make_catalog):
+def test_different_url_pins_are_reported(make_component, make_catalog):
     alpha = make_component("robot-alpha", dependencies=["pkg @ https://a.test/pkg.whl"])
     beta = make_component("robot-beta", dependencies=["pkg @ https://b.test/pkg.whl"])
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
     assert any(
         "conflicting pins for 'pkg'" in error
-        for error in resolve(target, catalog).errors
+        for error in resolve(("robot-alpha", "robot-beta"), catalog).errors
     )
 
 
-def test_component_platforms_are_checked_against_the_host(
-    make_component, make_target, make_catalog
-):
-    robot = make_component("robot-alpha", platforms=("darwin-arm64",))
-    target = make_target("robot-alpha", ["robot-alpha"])
-    catalog = _catalog(make_catalog, robot)
-
-    resolution = resolve(target, catalog, platform="linux-x86_64")
-
-    assert not resolution.ok
-    assert "installs only on darwin-arm64, not linux-x86_64" in resolution.errors[0]
-    assert resolve(target, catalog, platform="darwin-arm64").ok
-
-
-def test_manylinux_is_the_newest_baseline_in_the_closure(
-    make_component, make_target, make_catalog
-):
+def test_manylinux_is_the_newest_baseline_in_the_closure(make_component, make_catalog):
     alpha = make_component("robot-alpha", manylinux="2_35")
     beta = make_component("robot-beta", manylinux="2_31")
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    assert resolve(target, catalog).manylinux == "2_35"
+    assert resolve(("robot-alpha", "robot-beta"), catalog).manylinux == "2_35"
 
 
-def test_component_index_settings_are_inherited(
-    make_component, make_target, make_catalog
-):
+def test_component_index_settings_are_inherited(make_component, make_catalog):
     robot = make_component(
         "robot-alpha",
         index_url="https://index.test/simple",
         extra_index_urls=("https://extra.test/simple",),
         index_strategy="unsafe-best-match",
     )
-    target = make_target("robot-alpha", ["robot-alpha"])
     catalog = _catalog(make_catalog, robot)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha",), catalog)
 
     assert resolution.ok
     assert resolution.index_url == "https://index.test/simple"
@@ -412,32 +360,14 @@ def test_component_index_settings_are_inherited(
 
 
 def test_disagreeing_component_index_settings_are_reported(
-    make_component, make_target, make_catalog
+    make_component, make_catalog
 ):
     alpha = make_component("robot-alpha", index_url="https://a.test/simple")
     beta = make_component("robot-beta", index_url="https://b.test/simple")
-    target = make_target("shared", ["robot-alpha", "robot-beta"])
     catalog = _catalog(make_catalog, alpha, beta)
 
-    resolution = resolve(target, catalog)
+    resolution = resolve(("robot-alpha", "robot-beta"), catalog)
 
     assert not resolution.ok
     assert "components declare different index URLs" in resolution.errors[0]
-
-
-def test_the_target_setting_wins_over_component_settings(
-    make_component, make_target, make_catalog
-):
-    alpha = make_component("robot-alpha", index_url="https://a.test/simple")
-    beta = make_component("robot-beta", index_url="https://b.test/simple")
-    target = make_target(
-        "shared",
-        ["robot-alpha", "robot-beta"],
-        index_url="https://target.test/simple",
-    )
-    catalog = _catalog(make_catalog, alpha, beta)
-
-    resolution = resolve(target, catalog)
-
-    assert resolution.ok
-    assert resolution.index_url == "https://target.test/simple"
+    assert "install these components separately" in resolution.errors[0]

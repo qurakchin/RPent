@@ -11,8 +11,7 @@ Environment smoke tests can run without model checkpoints.
 ```text
 tests/
 ├── README.md
-├── targets/             # test and development install targets
-├── locks/               # optional reproduction locks, one per target
+├── locks/               # optional reproduction locks, one per environment
 ├── tooling/             # maintainer checks and lock generation
 ├── e2e_tests/
 │   ├── common.py         # shared assertions and runtime lifecycle helpers
@@ -32,7 +31,7 @@ tests/
     │   ├── session/
     │   ├── tools/
     │   └── utils/
-    ├── contracts/         # cross-component contracts that need only core and dev
+    ├── contracts/         # cross-component contracts that need only core and infra-dev
     ├── installs/          # contracts over the real checked-in install data
     ├── tooling/           # tests for tests/tooling/
     ├── robots/<name>/     # tests for one robot slice
@@ -55,21 +54,22 @@ them when the first test for that module lands.
 - Place cross-layer tests with the primary contract owner. Registry and config
   contracts belong to `rpent/robots/`; slice toolkit and schema contracts
   belong to `robots/`; installer units belong to `rpent/install/`.
-- Put cross-component contracts that import only core and `dev` dependencies in
-  `tests/unit_tests/contracts/`, so they run in `dev`; a test that needs a
+- Put cross-component contracts that import only core and `infra-dev`
+  dependencies in `tests/unit_tests/contracts/`, so they run in `infra-dev`; a
+  test that needs a
   component's own runtime stays under `tests/unit_tests/components/<kind>/<name>/`.
   The model platform-copy drift test is the current example; a change to either
   side of a covered contract reruns that group.
 - Split installer tests from repository install data. `tests/unit_tests/rpent/install/`
   exercises `rpent/install/` with temporary fixtures and synthetic manifests;
   `tests/unit_tests/installs/` reads the checked-in `component.toml` files,
-  `installs/targets/`, `tests/targets`, `tests/locks`, the authored
-  runner partition, and the workflows that consume them. Do not read the
+  `tests/locks`, the authored runner partition, and the workflows that consume
+  them. Do not read the
   real install data from `tests/unit_tests/rpent/install/`; the test path would
   otherwise hide which layer owns the failure. `installs/` is not a Python
   package, so the test directory mirrors the repository-level data rather than
-  a `rpent/` module. Both groups use only the core and `dev` dependencies, and
-  `fast ci` runs them in the `dev` target.
+  a `rpent/` module. Both groups use only the core and `infra-dev` dependencies,
+  and `fast ci` runs them in the `infra-dev` environment.
 - `tests/tooling/` holds the maintainer entry points that read the real
   repository data: `lock`, `layout`, `matrix`, and `affected`. Their tests live
   in `tests/unit_tests/tooling/`; manifest and closure checks run through
@@ -97,21 +97,21 @@ Run the complete suite with:
 pytest tests/unit_tests -v
 ```
 
-The tests that import model servers need Torch, which the `dev` target
-deliberately omits. CI runs this suite in the `unit-cpu` target, which installs
-CPU Torch from the PyTorch CPU index:
+The tests that import model servers need Torch, which the `infra-dev`
+environment deliberately omits. CI runs this suite in the `infra-unit_cpu`
+environment, which installs CPU Torch from the PyTorch CPU index:
 
 ```bash
-./rpent-install.sh install unit-cpu
-.venvs/unit-cpu/bin/python -m pytest tests/unit_tests -v
+./rpent-install.sh install infra-unit_cpu
+.venvs/infra-unit_cpu/bin/python -m pytest tests/unit_tests -v
 ```
 
-The same tools are a component, so they can join another target's environment
-without editing the target or installing packages by hand:
+The test tools are a component too, so they can join a robot environment
+without editing manifests or installing packages by hand:
 
 ```bash
-./rpent-install.sh install robot-libero --with infra-dev
-.venvs/robot-libero+infra-dev/bin/python -m pytest tests/unit_tests -v
+./rpent-install.sh install robot-libero infra-dev
+.venvs/infra-dev+robot-libero/bin/python -m pytest tests/unit_tests -v
 ```
 
 The fingerprint records that composition, so `rpent-install doctor` accepts the
@@ -123,12 +123,12 @@ RoboCasa separates simulator checks, model component checks and the full call ch
 
 | Tests | Coverage | Requirements |
 | --- | --- | --- |
-| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | `robocasa` target, assets and GPU/EGL; no model weights or planner credentials |
+| `test_environment_smoke.py` | Three scenes, navigation RGB-D/world map and mobile-camera tracking | `robot-robocasa` environment, assets and GPU/EGL; no model weights or planner credentials |
 | `test_components.py` | Environment observations over RPC and RLDX inference | Model checkpoint, assets and GPU/EGL |
 | `test_policy_chain.py` | CLI → tools → RLDX → simulator action → `finish` | Model checkpoint, assets and GPU/EGL; local scripted planner |
 
 To check simulator installation and interfaces independently, install the
-`robocasa` target and assets, then run:
+`robot-robocasa` environment and assets, then run:
 
 ```bash
 RPENT_RUN_ROBOCASA_INTEGRATION=1 \
@@ -153,8 +153,8 @@ for setup and test prerequisites.
 
 ### RoboDojo primitive smoke test
 
-RoboDojo has a separate opt-in environment check; it is not a target of
-`run_gpu_suite.sh` or the GPU CI workflow. Use the RoboDojo environment and
+RoboDojo has a separate opt-in environment check; `run_gpu_suite.sh` and the GPU
+CI workflow do not cover it. Use the RoboDojo environment and
 asset setup from the simulator guide, reserve one GPU, then run:
 
 ```bash
@@ -203,13 +203,13 @@ The component check updates native history after an analytic action, predicts
 one eight-action chunk, and executes one joint target.
 
 This checks integration, not autonomous planning quality or benchmark task success.
-RoboDojo is not yet a target of
+RoboDojo is not yet covered by
 `run_gpu_suite.sh`; run these opt-in tests directly with a fresh output directory.
 
 ### Supported full suites
 
 The runner must expose one GPU and the checkpoint and simulator assets required
-by the selected target. Run one GPU suite with two new output paths:
+by the selected environment. Run one GPU suite with two new output paths:
 
 ```bash
 export CUDA_VISIBLE_DEVICES=<one-physical-GPU-ordinal>

@@ -276,7 +276,7 @@ REQUIRED_ROLE_FILES = {
     "tool": ("__init__.py",),
     "infra": ("__init__.py",),
 }
-#: Components that predate the target skeleton; missing role files warn until
+#: Components that predate the package skeleton; missing role files warn until
 #: their migration lands.
 LEGACY_COMPONENTS = frozenset(
     {

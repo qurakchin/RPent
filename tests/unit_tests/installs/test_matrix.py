@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The authored runner partition covers every checked-in target."""
+"""The authored runner partition covers every checked-in environment."""
 
 from tests.tooling import matrix
 
 
-def test_repository_partition_covers_every_target(catalog):
-    assert matrix.problems(catalog.targets) == []
+def test_repository_partition_covers_every_environment(catalog):
+    assert matrix.problems(catalog.components) == []
 
 
 def test_repository_partition_check_passes(catalog):

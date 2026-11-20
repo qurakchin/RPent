@@ -88,9 +88,11 @@ def test_target50_sources_match_manifest_and_documentation():
         "rldx": "rlinf-rldx",
     }
     project = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    # The simulator packages belong to the sim component and the policy runtime
+    # to the model component; the robot slice installs neither directly.
     manifests = {
-        "robosuite": REPO_ROOT / "robots" / "robocasa" / "component.toml",
-        "robocasa": REPO_ROOT / "robots" / "robocasa" / "component.toml",
+        "robosuite": REPO_ROOT / "components" / "sim" / "robocasa" / "component.toml",
+        "robocasa": REPO_ROOT / "components" / "sim" / "robocasa" / "component.toml",
         "rldx": REPO_ROOT / "components" / "models" / "rldx" / "component.toml",
     }
     for name, package in sources.items():
@@ -103,7 +105,9 @@ def test_target50_sources_match_manifest_and_documentation():
         requirement = f"{package} @ git+{repository}.git@"
         pinned = re.compile(rf"{re.escape(requirement)}[0-9a-f]{{40}}")
         assert pinned.search(manifests[name].read_text(encoding="utf-8"))
-        assert pinned.search(project)
+        # The core wheel stays free of robot dependencies; the component
+        # manifests above are what an install of this robot reads.
+        assert package not in project
         for language in ("en", "zh"):
             guide = (
                 REPO_ROOT

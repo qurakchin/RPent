@@ -2,11 +2,17 @@ schema = 2
 name = "robot-robodojo"
 probe = "robots.robodojo"
 python = ">=3.11,<3.12"
-description = "RoboDojo / Isaac Sim adapter without a policy or segmentation model."
+description = "RoboDojo / Isaac Sim with Pi0.5, SAM 3.0, and VPP2 or Awomo05."
 # The simulator runtime, its Isaac Sim index settings, and the cuRobo override
-# belong to `sim-robodojo`; this component installs the adapter and the tasks it
-# exposes.
-requires = ["sim-robodojo"]
+# belong to `sim-robodojo`; this component installs the adapter, the tasks it
+# exposes, and the polices it runs.
+requires = [
+  "sim-robodojo",
+  "model-openpi",
+  "model-sam3",
+  "model-awomo05",
+  "model-vpp2",
+]
 # RoboDojo pins its own RLinf fork and an Isaac Sim stack that breaks the other
 # simulator runtimes. ``infra-rlinf`` is a package-source conflict: the
 # simulator installs the same distribution from a different revision than the

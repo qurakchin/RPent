@@ -31,19 +31,27 @@ from rpent.install.fingerprint import (
     fingerprint_sha256,
     write_fingerprint,
 )
-from rpent.install.installer import target_resolution
+from rpent.install.installer import resolution_for
 from rpent.install.requirements import INPUT_SCHEMA, requirements_sha256
 
 
-def _target(write_toml, *, core=False, dependencies=()):
+def _component(write_toml, *, dependencies=()):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
+        """,
+    )
     declared = "".join(f'        "{item}",\n' for item in dependencies)
     body = f"dependencies = [\n{declared}        ]\n" if dependencies else ""
     write_toml(
-        "installs/targets/alpha.toml",
+        "robots/alpha/component.toml",
         f"""
         schema = 2
-        name = "alpha"
-        core = {str(core).lower()}
+        name = "robot-alpha"
+        probe = "json"
         {body}
         """,
     )
@@ -66,8 +74,8 @@ def _without_uv(monkeypatch):
     monkeypatch.setattr("rpent.install.doctor.find_uv", _missing_uv)
 
 
-def _inputs_hash(root, name="alpha"):
-    resolution = target_resolution(name, discover(root), root=root)
+def _inputs_hash(root, requested=("robot-alpha",)):
+    resolution = resolution_for(requested, discover(root), root=root)
     return requirements_sha256(resolution, root=root)
 
 
@@ -77,17 +85,18 @@ def test_missing_fingerprint_reports_install_command(tmp_path):
     assert checks[0].status == OK
     assert checks[0].message == f"venv: {tmp_path / 'venv'}"
     assert checks[1].status == FAIL
-    assert "rpent-install install <target>" in checks[1].message
+    assert "rpent-install install <component>" in checks[1].message
 
 
 def test_unchanged_inputs_are_accepted(tmp_path, write_toml, monkeypatch):
-    _target(write_toml)
+    _component(write_toml)
     venv = _venv(tmp_path)
     write_fingerprint(
         venv,
         {
             "schema": INPUT_SCHEMA,
-            "target": "alpha",
+            "environment": "robot-alpha",
+            "requested": ["robot-alpha"],
             "python": "3.11.9",
             "requirements_sha256": _inputs_hash(tmp_path),
         },
@@ -103,35 +112,29 @@ def test_unchanged_inputs_are_accepted(tmp_path, write_toml, monkeypatch):
     assert not any("out of date" in check.message for check in checks)
 
 
-def test_with_components_are_resolved_from_the_fingerprint(
+def test_a_composition_is_resolved_from_the_fingerprint(
     tmp_path, write_toml, monkeypatch
 ):
-    _target(write_toml)
+    _component(write_toml)
     write_toml(
         "components/infra/dev/component.toml",
         """
         schema = 2
         name = "infra-dev"
         probe = "json"
-        platforms = ["linux-x86_64", "darwin-arm64"]
         dependencies = ["pytest"]
         """,
     )
     venv = _venv(tmp_path)
-    resolution = target_resolution(
-        "alpha",
-        discover(tmp_path),
-        root=tmp_path,
-        extra_components=("infra-dev",),
-    )
+    requested = ("robot-alpha", "infra-dev")
     write_fingerprint(
         venv,
         {
             "schema": INPUT_SCHEMA,
-            "target": "alpha",
-            "with": ["infra-dev"],
+            "environment": "infra-dev+robot-alpha",
+            "requested": list(requested),
             "python": "3.11.9",
-            "requirements_sha256": requirements_sha256(resolution, root=tmp_path),
+            "requirements_sha256": _inputs_hash(tmp_path, requested),
         },
     )
     _without_uv(monkeypatch)
@@ -139,7 +142,8 @@ def test_with_components_are_resolved_from_the_fingerprint(
     checks = check_installation(venv, root=tmp_path)
 
     assert any(
-        check.status == OK and check.message == "with: infra-dev" for check in checks
+        check.status == OK and check.message == "requested: robot-alpha, infra-dev"
+        for check in checks
     )
     assert any("probe infra-dev" in check.message for check in checks)
     assert not any("out of date" in check.message for check in checks)
@@ -148,13 +152,14 @@ def test_with_components_are_resolved_from_the_fingerprint(
 def test_stale_fingerprint_fails_before_running_checks(
     tmp_path, write_toml, monkeypatch
 ):
-    _target(write_toml)
+    _component(write_toml)
     venv = _venv(tmp_path)
     write_fingerprint(
         venv,
         {
             "schema": INPUT_SCHEMA,
-            "target": "alpha",
+            "environment": "robot-alpha",
+            "requested": ["robot-alpha"],
             "python": "3.11.9",
             "requirements_sha256": "stale",
         },
@@ -163,8 +168,8 @@ def test_stale_fingerprint_fails_before_running_checks(
 
     checks = check_installation(venv, root=tmp_path)
 
-    assert [check.status for check in checks[:4]] == [OK, OK, OK, FAIL]
-    assert "out of date" in checks[3].message
+    assert [check.status for check in checks[:5]] == [OK, OK, OK, OK, FAIL]
+    assert "out of date" in checks[4].message
     assert any(
         check.status == WARN and "uv missing" in check.message for check in checks
     )
@@ -173,10 +178,11 @@ def test_stale_fingerprint_fails_before_running_checks(
 def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
     tmp_path, write_toml, monkeypatch
 ):
-    _target(write_toml)
+    _component(write_toml)
     venv = _venv(tmp_path)
     recorded = {
-        "target": "alpha",
+        "environment": "robot-alpha",
+        "requested": ["robot-alpha"],
         "python": "3.11.9",
         "requirements_sha256": "written by an older rpent-install",
     }
@@ -203,13 +209,14 @@ def test_fingerprint_from_an_older_input_mode_asks_for_a_reinstall(
 def test_manifest_edited_after_install_makes_the_environment_stale(
     tmp_path, write_toml, monkeypatch
 ):
-    _target(write_toml)
+    _component(write_toml)
     venv = _venv(tmp_path)
     write_fingerprint(
         venv,
         {
             "schema": INPUT_SCHEMA,
-            "target": "alpha",
+            "environment": "robot-alpha",
+            "requested": ["robot-alpha"],
             "python": "3.11.9",
             "requirements_sha256": _inputs_hash(tmp_path),
         },
@@ -222,9 +229,9 @@ def test_manifest_edited_after_install_makes_the_environment_stale(
         for check in checks
     )
 
-    # The target gained a requirement after the install, so the recorded input
-    # hash no longer describes what a reinstall would produce.
-    _target(write_toml, dependencies=("packaging",))
+    # The component gained a requirement after the install, so the recorded
+    # input hash no longer describes what a reinstall would produce.
+    _component(write_toml, dependencies=("packaging",))
     checks = check_installation(venv, root=tmp_path)
 
     assert any(
@@ -232,34 +239,40 @@ def test_manifest_edited_after_install_makes_the_environment_stale(
     )
 
 
-def test_target_name_overrides_the_fingerprint(tmp_path, write_toml, monkeypatch):
-    _target(write_toml)
+def test_a_fingerprint_naming_another_environment_fails(
+    tmp_path, write_toml, monkeypatch
+):
+    _component(write_toml)
     venv = _venv(tmp_path)
     write_fingerprint(
         venv,
         {
             "schema": INPUT_SCHEMA,
-            "target": "alpha",
+            "environment": "robot-alpha",
+            "requested": [],
             "python": "3.11.9",
-            "requirements_sha256": _inputs_hash(tmp_path),
+            "requirements_sha256": _inputs_hash(tmp_path, ()),
         },
     )
     _without_uv(monkeypatch)
 
-    checks = check_installation(venv, target_name="missing", root=tmp_path)
+    checks = check_installation(venv, root=tmp_path)
 
+    # The recorded request resolves to the core-only environment, which cannot
+    # be the environment the fingerprint names.
     assert any(
-        check.status == FAIL and "cannot resolve target 'missing'" in check.message
+        check.status == FAIL and "requested components form 'minimal'" in check.message
         for check in checks
     )
 
 
 def test_fingerprint_identity_is_reported(tmp_path, write_toml, monkeypatch):
-    _target(write_toml)
+    _component(write_toml)
     venv = _venv(tmp_path)
     fingerprint = {
         "schema": INPUT_SCHEMA,
-        "target": "alpha",
+        "environment": "robot-alpha",
+        "requested": ["robot-alpha"],
         "python": "3.11.9",
         "requirements_sha256": _inputs_hash(tmp_path),
     }
@@ -271,32 +284,6 @@ def test_fingerprint_identity_is_reported(tmp_path, write_toml, monkeypatch):
     assert f"fingerprint sha256: {fingerprint_sha256(fingerprint)}" in {
         check.message for check in checks
     }
-
-
-def test_target_override_is_reported(tmp_path, write_toml, monkeypatch):
-    _target(write_toml)
-    venv = _venv(tmp_path)
-    write_fingerprint(
-        venv,
-        {
-            "schema": INPUT_SCHEMA,
-            "target": "alpha",
-            "python": "3.11.9",
-            "requirements_sha256": _inputs_hash(tmp_path),
-        },
-    )
-    _without_uv(monkeypatch)
-
-    checks = check_installation(venv, target_name="alpha", root=tmp_path)
-    assert not any("overrides the target" in check.message for check in checks)
-
-    # Checking a different target keeps working, but a mismatch with what was
-    # installed is worth surfacing rather than silently reinterpreting the venv.
-    checks = check_installation(venv, target_name="missing", root=tmp_path)
-    assert any(
-        check.status == WARN and "overrides the target" in check.message
-        for check in checks
-    )
 
 
 def test_doctor_prefers_the_activated_environment(tmp_path, monkeypatch):

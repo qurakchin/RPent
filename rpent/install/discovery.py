@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Discover component manifests and install targets in a source checkout."""
+"""Discover the component manifests declared by a source checkout.
+
+A checkout has no separate install-target files: every component is installable
+under its own name, and the components a robot runs with are named by its
+``requires``.
+"""
 
 from __future__ import annotations
 
@@ -24,11 +29,10 @@ from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
     COMPONENT_DIRECTORIES,
     KINDS,
+    MINIMAL_ENVIRONMENT,
     Component,
-    Target,
+    environment_name,
     load_component,
-    load_target,
-    target_from_component,
 )
 
 #: Every component root and the glob that finds it, one directory manifest per
@@ -38,7 +42,7 @@ COMPONENT_ROOTS = tuple(
     for kind, directory in COMPONENT_DIRECTORIES.items()
 )
 #: Kinds a component may name in ``requires``. A simulator and a model service
-#: meet only in a robot target, so neither may require the other; tool and
+#: meet only in a robot environment, so neither may require the other; tool and
 #: infra components stay below both. Only a robot composes the rest.
 REQUIRED_KINDS = {
     "robot": frozenset(KINDS),
@@ -51,23 +55,22 @@ REQUIRED_KINDS = {
 
 @dataclass(frozen=True)
 class Catalog:
-    """Components and install targets available in one checkout."""
+    """The components available in one checkout."""
 
     root: Path
     components: dict[str, Component]
-    targets: dict[str, Target]
 
 
 def repository_root() -> Path:
     """Return the checkout that owns the manifests.
 
     Walking up from this module finds the checkout an editable install points
-    at even when the command runs elsewhere. A wheel has no ``installs/``, so
+    at even when the command runs elsewhere. A wheel has no component roots, so
     the current directory is the only remaining candidate; discovery then
     reports that it is not a source checkout.
     """
     for parent in Path(__file__).resolve().parents:
-        if (parent / "installs" / "targets").is_dir():
+        if (parent / "components").is_dir() and (parent / "robots").is_dir():
             return parent
     return Path.cwd()
 
@@ -76,7 +79,7 @@ def _is_metadata_file(path: Path) -> bool:
     """Return whether ``path`` is an AppleDouble or other dot metadata file.
 
     Network filesystems store macOS extended attributes as ``._<name>`` files
-    next to the original, so a synced checkout can gain ``._target.toml``
+    next to the original, so a synced checkout can gain ``._component.toml``
     entries that are not manifests.
     """
     return path.name.startswith(".")
@@ -124,8 +127,8 @@ def _check_requires(components: dict[str, Component]) -> None:
 
     Every required component must exist and belong to a kind the requiring one
     may build on. A simulator and a model service only meet inside a robot
-    target, so one cannot require the other: the robot adapter is what composes
-    them, and its target selects both.
+    environment, so one cannot require the other: the robot adapter is what
+    composes them, and its ``requires`` names both.
     """
     for component in components.values():
         allowed = REQUIRED_KINDS[component.kind]
@@ -200,93 +203,41 @@ def _check_conflicts(components: dict[str, Component]) -> None:
                 )
 
 
-def target_roots(root: Path) -> tuple[Path, ...]:
-    """Return the directories target manifests are discovered in.
+def environment_names(components: dict[str, Component]) -> tuple[str, ...]:
+    """Return every environment the checkout can install by name.
 
-    User targets live under ``installs/targets/``; the ones that serve only
-    tests and CI live under ``tests/targets/``. Every non-robot component
-    directory is also an install target under its own name, so a
-    single-component environment needs no file here; robots always need an
-    explicit target because a robot is never installed on its own by name.
+    ``minimal`` is the core-only environment; every component installs under
+    its own name. A composition of several components is addressed by the
+    sorted join of their names and has no separate entry here.
     """
-    return (root / "installs" / "targets", root / "tests" / "targets")
+    return (MINIMAL_ENVIRONMENT, *sorted(components))
 
 
-def _targets(repo_root: Path, components: dict[str, Component]) -> dict[str, Target]:
-    user_targets, test_targets = target_roots(repo_root)
-    targets: dict[str, Target] = {}
-    for directory in (user_targets, test_targets):
-        if not directory.is_dir():
-            continue
-        for path in sorted(directory.glob("*.toml")):
-            if _is_metadata_file(path):
-                continue
-            target = load_target(path)
-            previous = targets.get(target.name)
-            if previous is not None:
-                raise InstallConfigError(
-                    f"target {target.name!r} is declared twice: "
-                    f"{previous.relative_path(repo_root)} and "
-                    f"{target.relative_path(repo_root)}; "
-                    "test targets share the user target namespace"
-                )
-            _check_override_target(target, components, repo_root)
-            targets[target.name] = target
-    for name, component in sorted(components.items()):
-        if component.kind == "robot":
-            # A robot is an integration, not an install unit: it needs a target
-            # file that names what to install alongside it.
-            continue
-        targets[name] = target_from_component(component)
-    return targets
+def requested_components(
+    name: str, components: dict[str, Component]
+) -> tuple[str, ...]:
+    """Return the components the environment ``name`` requests.
 
-
-def _check_override_target(
-    target: Target, components: dict[str, Component], repo_root: Path
-) -> None:
-    """Reject a target that reuses a component name without being its override.
-
-    A target name must not collide with a component name, because the
-    component already installs under that name. The one exception is a robot
-    component's same-name override target, which exists to bind the robot to a
-    composition; it must install the robot it is named after.
+    ``minimal`` requests none, which is the core-only environment. Every
+    component is an environment of its own, and a composition of several is
+    named by their sorted join, so ``install a b`` and ``check a+b`` address one
+    environment.
     """
-    component = components.get(target.name)
-    if component is None:
-        return
-    if component.kind != "robot":
+    if name == MINIMAL_ENVIRONMENT:
+        return ()
+    names = tuple(part for part in name.split("+") if part)
+    if not names or any(part not in components for part in names):
+        known = ", ".join(environment_names(components))
+        raise InstallConfigError(f"unknown environment {name!r}; known: {known}")
+    canonical = environment_name(names)
+    if canonical != name:
         raise InstallConfigError(
-            f"target {target.name!r} in {target.relative_path(repo_root)} "
-            f"reuses the name of component {component.manifest_path}; "
-            "non-robot components are already installable under their own "
-            "name, so rename the target"
+            f"environment {name!r} is not in canonical order; name it {canonical!r}"
         )
-    if component.name not in target.components:
-        raise InstallConfigError(
-            f"target {target.name!r} in {target.relative_path(repo_root)} "
-            f"overrides robot component {component.manifest_path} but does "
-            f"not select it; add [components.{component.name}] to the target "
-            "or rename it"
-        )
-
-
-def discover_targets(root: Path | None = None) -> dict[str, Target]:
-    """Load every target, including one synthesized per non-robot component.
-
-    A target that reuses a component name without being a robot's override and
-    an override that does not install its own robot are rejected rather than
-    installed under a silently narrowed environment.
-    """
-    repo_root = (root or repository_root()).resolve()
-    return _targets(repo_root, discover_components(repo_root))
+    return names
 
 
 def discover(root: Path | None = None) -> Catalog:
-    """Return all components and targets in one checkout."""
+    """Return all components in one checkout."""
     repo_root = (root or repository_root()).resolve()
-    components = discover_components(repo_root)
-    return Catalog(
-        root=repo_root,
-        components=components,
-        targets=_targets(repo_root, components),
-    )
+    return Catalog(root=repo_root, components=discover_components(repo_root))

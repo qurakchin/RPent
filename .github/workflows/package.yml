@@ -36,7 +36,7 @@ jobs:
           import rpent
 
           root = Path(rpent.__file__).resolve().parent.parent
-          for package in ("robots", "components", "installs"):
+          for package in ("robots", "components"):
               if (root / package).exists():
                   raise SystemExit(f"{package}/ must not be in the core wheel")
           if not (root / "rpent").is_dir():
@@ -61,7 +61,7 @@ jobs:
         run: |
           # `uv pip install .` builds the source-scope wheel, so the component
           # data files must be package data. An editable install must expose
-          # the checkout's robots, components, and targets from any directory.
+          # the checkout's robots and components from any directory.
           # Runtime dependencies are skipped: `find_spec` reads the installed
           # layout without importing pydantic.
           uv venv --python 3.11 "$RUNNER_TEMP/venv-source"

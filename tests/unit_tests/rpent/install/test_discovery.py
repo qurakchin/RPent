@@ -16,7 +16,12 @@
 
 import pytest
 
-from rpent.install.discovery import discover, discover_components, discover_targets
+from rpent.install.discovery import (
+    discover,
+    discover_components,
+    environment_names,
+    requested_components,
+)
 from rpent.install.errors import InstallConfigError
 
 
@@ -48,31 +53,64 @@ def _manifest(
     )
 
 
-def test_discovery_loads_components_and_targets(tmp_path, write_toml):
+def test_discovery_loads_every_component_root(tmp_path, write_toml):
     _manifest(write_toml, "robots", "alpha", "robot", conflicts=["robot-beta"])
     _manifest(write_toml, "robots", "beta", "robot")
     _manifest(write_toml, "components/models", "sam3", "model")
-    write_toml(
-        "installs/targets/robot-alpha.toml",
-        """
-        schema = 2
-        name = "robot-alpha"
-
-        [components.robot-alpha]
-
-        [components.robot-beta]
-        """,
-    )
+    _manifest(write_toml, "components/sim", "libero", "sim")
+    _manifest(write_toml, "components/tools", "flywheel", "tool")
+    _manifest(write_toml, "components/infra", "dev", "infra")
 
     catalog = discover(tmp_path)
 
     assert sorted(catalog.components) == [
+        "infra-dev",
         "model-sam3",
         "robot-alpha",
         "robot-beta",
+        "sim-libero",
+        "tool-flywheel",
     ]
     assert catalog.components["model-sam3"].kind == "model"
-    assert "robot-alpha" in catalog.targets["robot-alpha"].components
+    assert catalog.components["sim-libero"].kind == "sim"
+
+
+def test_every_environment_name_is_minimal_or_a_component(tmp_path, write_toml):
+    _manifest(write_toml, "robots", "alpha", "robot")
+    _manifest(write_toml, "components/models", "sam3", "model")
+
+    components = discover_components(tmp_path)
+
+    assert environment_names(components) == ("minimal", "model-sam3", "robot-alpha")
+
+
+def test_minimal_requests_no_component(tmp_path, write_toml):
+    _manifest(write_toml, "robots", "alpha", "robot")
+    components = discover_components(tmp_path)
+
+    assert requested_components("minimal", components) == ()
+    assert requested_components("robot-alpha", components) == ("robot-alpha",)
+
+
+def test_a_composition_is_named_by_the_sorted_join(tmp_path, write_toml):
+    _manifest(write_toml, "robots", "alpha", "robot")
+    _manifest(write_toml, "components/models", "sam3", "model")
+    components = discover_components(tmp_path)
+
+    assert requested_components("model-sam3+robot-alpha", components) == (
+        "model-sam3",
+        "robot-alpha",
+    )
+    with pytest.raises(InstallConfigError, match="not in canonical order"):
+        requested_components("robot-alpha+model-sam3", components)
+
+
+def test_an_unknown_environment_names_the_known_ones(tmp_path, write_toml):
+    _manifest(write_toml, "robots", "alpha", "robot")
+    components = discover_components(tmp_path)
+
+    with pytest.raises(InstallConfigError, match="unknown environment 'shared'"):
+        requested_components("shared", components)
 
 
 def test_component_name_must_match_its_root_and_directory(tmp_path, write_toml):
@@ -80,27 +118,6 @@ def test_component_name_must_match_its_root_and_directory(tmp_path, write_toml):
 
     with pytest.raises(InstallConfigError, match="must be 'robot-alpha'"):
         discover_components(tmp_path)
-
-
-def test_a_target_declared_twice_is_rejected(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot")
-    write_toml(
-        "installs/targets/shared.toml",
-        """
-        schema = 2
-        name = "shared"
-        """,
-    )
-    write_toml(
-        "tests/targets/shared.toml",
-        """
-        schema = 2
-        name = "shared"
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="declared twice"):
-        discover_targets(tmp_path)
 
 
 def test_conflicts_must_reference_known_components(tmp_path, write_toml):
@@ -127,101 +144,6 @@ def test_conflicts_must_not_name_the_component_itself(tmp_path, write_toml):
 
     with pytest.raises(InstallConfigError, match="names the component itself"):
         discover_components(tmp_path)
-
-
-def test_targets_are_discovered_by_filename(tmp_path, write_toml):
-    write_toml(
-        "installs/targets/alpha.toml",
-        """
-        schema = 2
-        name = "alpha"
-        """,
-    )
-
-    targets = discover_targets(tmp_path)
-
-    assert targets["alpha"].components == ()
-
-
-def test_a_non_robot_component_installs_under_its_own_name(tmp_path, write_toml):
-    _manifest(write_toml, "components/models", "alpha", "model")
-
-    targets = discover_targets(tmp_path)
-
-    assert targets["model-alpha"].components == ("model-alpha",)
-    assert (
-        targets["model-alpha"].relative_path(tmp_path)
-        == "components/models/alpha/component.toml"
-    )
-
-
-def test_a_sim_component_installs_under_its_own_name(tmp_path, write_toml):
-    _manifest(write_toml, "components/sim", "libero", "sim")
-
-    targets = discover_targets(tmp_path)
-
-    assert targets["sim-libero"].components == ("sim-libero",)
-
-
-def test_a_robot_needs_an_explicit_target(tmp_path, write_toml):
-    # Installing a robot means choosing the environment it runs in, which only
-    # a target file can declare.
-    _manifest(write_toml, "robots", "alpha", "robot")
-
-    assert "robot-alpha" not in discover_targets(tmp_path)
-
-
-def test_a_robot_override_target_must_select_the_robot(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot")
-    write_toml(
-        "installs/targets/robot-alpha.toml",
-        """
-        schema = 2
-        name = "robot-alpha"
-
-        [components]
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="does not select it"):
-        discover_targets(tmp_path)
-
-
-def test_a_robot_override_target_installs_the_robot_it_names(tmp_path, write_toml):
-    _manifest(write_toml, "robots", "alpha", "robot")
-    write_toml(
-        "installs/targets/robot-alpha.toml",
-        """
-        schema = 2
-        name = "robot-alpha"
-
-        [components.robot-alpha]
-        """,
-    )
-
-    targets = discover_targets(tmp_path)
-
-    assert targets["robot-alpha"].components == ("robot-alpha",)
-    assert (
-        targets["robot-alpha"].relative_path(tmp_path)
-        == "installs/targets/robot-alpha.toml"
-    )
-
-
-def test_a_target_may_not_reuse_a_non_robot_component_name(tmp_path, write_toml):
-    _manifest(write_toml, "components/models", "sam3", "model")
-    write_toml(
-        "installs/targets/model-sam3.toml",
-        """
-        schema = 2
-        name = "model-sam3"
-
-        [components.model-sam3]
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="already installable under"):
-        discover_targets(tmp_path)
 
 
 def test_imports_must_be_declared_in_requires(tmp_path, write_toml):
@@ -310,25 +232,16 @@ def test_requires_must_name_a_known_component(tmp_path, write_toml):
 
 
 def test_apple_double_metadata_is_ignored(tmp_path, write_toml):
-    write_toml(
-        "installs/targets/gpu.toml",
-        """
-        schema = 2
-        name = "gpu"
-        """,
-    )
-    # A network filesystem stores macOS extended attributes as ._<name> files.
-    (tmp_path / "installs" / "targets" / "._gpu.toml").write_bytes(
-        b"\xa3\na metadata file"
-    )
     _manifest(write_toml, "robots", "alpha", "robot")
+    # A network filesystem stores macOS extended attributes as ._<name> files.
+    (tmp_path / "components" / "models").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "components" / "models" / "._sam3").mkdir()
     (tmp_path / "robots" / "._alpha").write_bytes(b"\xa3 metadata")
 
-    assert list(discover_components(tmp_path)) == ["robot-alpha"]
-    assert sorted(discover_targets(tmp_path)) == ["gpu"]
+    assert sorted(discover_components(tmp_path)) == ["robot-alpha"]
 
 
-def test_a_component_target_keeps_the_component_index_settings(tmp_path, write_toml):
+def test_a_component_keeps_its_index_settings(tmp_path, write_toml):
     _manifest(
         write_toml,
         "components/models",
@@ -341,18 +254,8 @@ def test_a_component_target_keeps_the_component_index_settings(tmp_path, write_t
         """,
     )
 
-    target = discover_targets(tmp_path)["model-alpha"]
+    component = discover_components(tmp_path)["model-alpha"]
 
-    assert target.index_url == "https://example.invalid/simple"
-    assert target.index_strategy == "unsafe-best-match"
-    assert target.extra_index_urls == ("https://example.invalid/extra",)
-
-
-def test_an_infra_component_installs_under_its_own_name(tmp_path, write_toml):
-    _manifest(write_toml, "components/infra", "rlinf", "infra")
-    _manifest(
-        write_toml, "robots", "alpha", "robot", requires=["infra-rlinf"]
-    )
-
-    assert "infra-rlinf" in discover(tmp_path).components
-    assert discover(tmp_path).targets["infra-rlinf"].components == ("infra-rlinf",)
+    assert component.index_url == "https://example.invalid/simple"
+    assert component.index_strategy == "unsafe-best-match"
+    assert component.extra_index_urls == ("https://example.invalid/extra",)

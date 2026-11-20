@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""``rpent-install``: list, install, check, and diagnose target environments.
+"""``rpent-install``: list, install, check, and diagnose component environments.
 
-A target is a non-robot component installed under its own name, or a file in
-``installs/targets/`` or ``tests/targets/`` that composes components or selects
-a robot. ``install --with <component>`` adds a component to one environment
-without editing the target, for example ``infra-dev`` beside a robot. Lock
-generation stays a maintainer tool under ``tests/tooling/``; ``check`` resolves
-targets without installing anything.
+Every component installs under its own name, and a robot's ``requires`` names
+the simulator, models, and tools it runs with, so ``install robot-<name>``
+creates the environment that robot needs. Naming several components composes
+one environment, and naming none installs the core-only ``minimal``
+environment. Lock generation stays a maintainer tool under ``tests/tooling/``;
+``check`` resolves environments without installing anything.
 """
 
 from __future__ import annotations
@@ -40,40 +40,37 @@ from rpent.utils.config import get_repo_root
 
 
 def command_list(args: argparse.Namespace) -> int:
-    """Print components and targets."""
+    """Print every component and the Python its environment resolves to."""
     catalog = discover(args.root)
     print("Components")
     for name, component in sorted(catalog.components.items()):
-        description = component.description or ""
-        print(f"  {name:<24} {component.kind:<8} {description}".rstrip())
-    print("\nTargets")
-    for name, target in sorted(catalog.targets.items()):
-        components = ", ".join(target.components) or "(core only)"
-        resolution = resolve(target, catalog, platform=DEFAULT_PLATFORMS[0])
+        resolution = resolve((name,), catalog, platform=DEFAULT_PLATFORMS[0])
         python = resolution.python or "unresolved"
-        print(f"  {name:<28} python {python:<8} {components}")
+        description = component.description or ""
+        print(
+            f"  {name:<24} {component.kind:<8} python {python:<5} {description}".rstrip()
+        )
     return 0
 
 
 def command_install(args: argparse.Namespace) -> int:
-    """Create or reuse a virtualenv and install one target."""
+    """Create or reuse a virtualenv and install the requested components."""
     install(
-        args.target,
+        *args.components,
         root=args.root,
         venv=args.venv,
         force=args.force,
         verbose=True,
         dry_run=args.dry_run,
-        extra_components=tuple(args.with_components),
     )
     return 0
 
 
 def command_check(args: argparse.Namespace) -> int:
-    """Resolve targets from their manifests and report problems."""
+    """Resolve environments from their manifests and report problems."""
     return run_check(
-        targets=args.targets,
-        all_targets=args.all,
+        components=args.components,
+        all_environments=args.all,
         resolve_deps=args.resolve,
         platform=args.platform,
         inputs_hash_only=args.inputs_hash,
@@ -94,7 +91,7 @@ def _parse_endpoints(values: list[str]) -> dict[str, str]:
 def command_doctor(args: argparse.Namespace) -> int:
     """Check the current or selected virtualenv."""
     # Prefer the environment the user activated: `rpent-install` may be running
-    # from a tool environment while the target environment is activated.
+    # from a tool environment while the component environment is activated.
     venv = args.venv or activated_venv() or current_venv()
     if venv is None:
         print(
@@ -104,7 +101,6 @@ def command_doctor(args: argparse.Namespace) -> int:
         return 2
     checks = check_installation(
         venv,
-        target_name=args.target,
         endpoints=_parse_endpoints(args.endpoint),
         root=args.root,
     )
@@ -117,7 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Return the argument parser for ``rpent-install``."""
     parser = argparse.ArgumentParser(
         prog="rpent-install",
-        description="Install, check, and diagnose RPent target environments.",
+        description="Install, check, and diagnose RPent component environments.",
     )
     parser.add_argument(
         "--root",
@@ -127,44 +123,48 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
-    listing = subcommands.add_parser("list", help="list components and targets")
+    listing = subcommands.add_parser("list", help="list components")
     listing.set_defaults(handler=command_list)
 
     installer = subcommands.add_parser(
-        "install", help="install one named target into a virtualenv"
+        "install",
+        help="install components into one virtualenv; empty installs minimal",
     )
-    installer.add_argument("target")
     installer.add_argument(
-        "--with",
-        dest="with_components",
-        action="append",
-        default=[],
+        "components",
+        nargs="*",
         metavar="COMPONENT",
-        help="also install this component into the same environment; may be "
-        "repeated, for example --with infra-dev",
+        help="components to install together; with none, the core-only minimal "
+        "environment",
     )
     installer.add_argument("--venv", type=Path, help="virtualenv path")
     installer.add_argument(
         "--force",
         action="store_true",
-        help="install into a non-empty virtualenv that records no fingerprint",
+        help="install into a non-empty virtualenv that belongs to another tool",
     )
     installer.add_argument(
         "--dry-run",
         action="store_true",
-        help="print the requirements the target resolves to without installing",
+        help="print the requirements the components resolve to without installing",
     )
     installer.set_defaults(handler=command_install)
 
     checker = subcommands.add_parser(
-        "check", help="resolve targets from their manifests without installing"
+        "check", help="resolve environments from their manifests without installing"
     )
-    checker.add_argument("targets", nargs="*", help="target names to check")
-    checker.add_argument("--all", action="store_true", help="check every target")
+    checker.add_argument(
+        "components",
+        nargs="*",
+        help="component names or the minimal environment; empty checks minimal",
+    )
+    checker.add_argument(
+        "--all", action="store_true", help="check every component and minimal"
+    )
     checker.add_argument(
         "--resolve",
         action="store_true",
-        help="also compile each target with uv to prove it resolves",
+        help="also compile each environment with uv to prove it resolves",
     )
     checker.add_argument(
         "--platform",
@@ -174,13 +174,12 @@ def build_parser() -> argparse.ArgumentParser:
     checker.add_argument(
         "--inputs-hash",
         action="store_true",
-        help="print the installed-inputs hash and Python minor for one target",
+        help="print the installed-inputs hash and Python minor for one environment",
     )
     checker.set_defaults(handler=command_check)
 
     doctor = subcommands.add_parser("doctor", help="diagnose an installed venv")
     doctor.add_argument("--venv", type=Path)
-    doctor.add_argument("--target", help="target name; defaults to fingerprint")
     doctor.add_argument(
         "--endpoint",
         action="append",

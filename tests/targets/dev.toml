@@ -1,5 +1,0 @@
-schema = 2
-name = "dev"
-description = "Test dependencies for local development and CI."
-
-[components.infra-dev]

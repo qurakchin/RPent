@@ -11,10 +11,10 @@ on:
         type: string
         default: ""
       target:
-        description: Install target that supplies the test environment
+        description: Environment that supplies the test environment
         required: false
         type: string
-        default: "unit-cpu"
+        default: "infra-unit_cpu"
 
 permissions:
   contents: read
@@ -31,7 +31,7 @@ jobs:
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m tests.tooling.layout
-      - name: Check every target
+      - name: Check every environment
         run: |
           uv run --no-project --python 3.11 --with packaging -- \
             python -m rpent.cli.install check --all
@@ -51,10 +51,10 @@ jobs:
         id: key
         shell: bash
         run: |
-          # The environment is reproducible from the target's installation
-          # inputs, so the cache key is their hash plus the interpreter the
-          # target resolves to and the platform. A checked-in lock is a
-          # reproduction artifact and plays no part here.
+          # The environment is reproducible from its installation inputs, so the
+          # cache key is their hash plus the interpreter it resolves to and the
+          # platform. A checked-in lock is a reproduction artifact and plays no
+          # part here.
           uv run --no-project --python 3.11 --with packaging -- \
             python -m rpent.cli.install check "${{ inputs.target }}" --inputs-hash \
             > "$RUNNER_TEMP/inputs"
@@ -67,10 +67,10 @@ jobs:
             echo "inputs=$inputs"
             echo "python=$python"
           } >> "$GITHUB_OUTPUT"
-      - name: Pin the target's Python
+      - name: Pin the environment's Python
         run: uv python install "${{ steps.key.outputs.python }}"
-      # `unit-cpu` supplies CPU Torch for the tests that import model servers;
-      # `dev` alone deliberately has no Torch.
+      # `infra-unit_cpu` supplies CPU Torch for the tests that import model
+      # servers; `infra-dev` alone deliberately has no Torch.
       - name: Restore the prebuilt environment
         id: env
         uses: actions/cache@v4
@@ -149,7 +149,7 @@ jobs:
             echo "inputs=$inputs"
             echo "python=$python"
           } >> "$GITHUB_OUTPUT"
-      - name: Pin the target's Python
+      - name: Pin the environment's Python
         run: uv python install "${{ steps.key.outputs.python }}"
       - name: Restore the minimal environment
         id: env

@@ -35,16 +35,16 @@ def installation_snapshot(venv: Path | None = None) -> dict[str, Any]:
     """Return the installation identity recorded in a run manifest.
 
     A run points at the installation that produced it instead of copying the
-    fingerprint: the target name and the fingerprint hash are enough to find
-    that environment again. A checkout that was not installed through
+    fingerprint: the environment name and the fingerprint hash are enough to
+    find that environment again. A checkout that was not installed through
     ``rpent-install`` records ``None`` for both.
     """
     active = Path(venv).resolve() if venv is not None else current_venv()
     fingerprint = read_fingerprint(active) if active is not None else None
     if fingerprint is None:
-        return {"target": None, "install_sha256": None}
+        return {"environment": None, "install_sha256": None}
     return {
-        "target": fingerprint.get("target"),
+        "environment": fingerprint.get("environment"),
         "install_sha256": fingerprint_sha256(fingerprint),
     }
 

@@ -14,10 +14,11 @@
 
 """Fixtures for contracts over the repository's real install data.
 
-This directory mirrors ``installs/`` and the checked-in ``component.toml``
-files, not a Python module. Installer unit tests under
-``tests/unit_tests/rpent/install/`` use temporary, synthetic manifests; keeping
-the real data here makes the owner of a failure visible from its test path.
+This directory checks the checked-in ``component.toml`` manifests, the runner
+partition, and the CI workflows against each other, not a Python module.
+Installer unit tests under ``tests/unit_tests/rpent/install/`` use temporary,
+synthetic manifests; keeping the real data here makes the owner of a failure
+visible from its test path.
 """
 
 from pathlib import Path
@@ -32,5 +33,5 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 @pytest.fixture(scope="module")
 def catalog() -> Catalog:
-    """Load the checked-in components, targets and locks once per module."""
+    """Load the checked-in components once per module."""
     return discover(REPO_ROOT)

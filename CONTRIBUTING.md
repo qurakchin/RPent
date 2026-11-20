@@ -41,18 +41,18 @@ Use a branch name that reflects the change, such as
 
 ```bash
 # Create and activate the development environment. The launcher runs the
-# installer in a throwaway uv environment until `.venvs/dev` exists.
-./rpent-install.sh install dev
-source .venvs/dev/bin/activate
+# installer in a throwaway uv environment until `.venvs/infra-dev` exists.
+./rpent-install.sh install infra-dev
+source .venvs/infra-dev/bin/activate
 
-# For robot work, install that target into its own environment. Targets
-# cannot share a virtualenv because their pins differ, and every target
-# resolves its dependencies from the manifests.
-rpent-install install robot-libero  # LIBERO
-rpent-install install robot-robocasa    # RoboCasa
-rpent-install install robot-robotwin    # RoboTwin
+# For robot work, install that component's environment. Environments cannot
+# share a virtualenv because their pins differ, and every environment resolves
+# its components from the manifests.
+rpent-install install robot-libero   # LIBERO
+rpent-install install robot-robocasa # RoboCasa
+rpent-install install robot-robotwin # RoboTwin
 
-# The target's dependencies omit the test runner; add it to that environment.
+# The robot environment omits the test runner; add it there.
 uv pip install --python .venvs/robot-libero/bin/python pytest pytest-timeout
 
 # Install and enable the repository hooks.
@@ -60,11 +60,11 @@ uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-The robot commands are alternatives: install only the target relevant to the
-change. See the [installation guide](docs/source-en/rst_source/get_started/installation.rst)
+The robot commands are alternatives: install only the environment relevant to
+the change. See the [installation guide](docs/source-en/rst_source/get_started/installation.rst)
 for environment-specific setup and the
 [test guide](tests/README.md#test-suite-structure) for how each suite selects
-its target.
+its environment.
 
 ### Step 3. Develop
 
@@ -79,8 +79,9 @@ Follow these conventions while developing:
   `components/models/<name>/`. Shared tools and runtimes live under
   `components/tools/` and `components/infra/`. Place shared functionality in
   common modules with matching responsibilities.
-  Install targets live under `installs/targets/` and `tests/targets/`; optional
-  reproduction locks live under `tests/locks/`.
+  A component installs as the environment of the same name; its `requires`
+  lists the components it runs with. Optional reproduction locks live under
+  `tests/locks/`.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and
@@ -105,7 +106,7 @@ Follow these conventions while developing:
   update the tests and explain why. Unit tests must run offline on an ordinary
   CPU machine; use fakes when model or service output is needed. Installer
   units use synthetic manifests under `tests/unit_tests/rpent/install/`;
-  contracts over the checked-in components, targets, and locks belong in
+  contracts over the checked-in components and locks belong in
   `tests/unit_tests/installs/`.
 - **Follow the project style.** Pre-commit handles Ruff formatting and linting.
   Public Python APIs should have type hints and Google-style docstrings, and

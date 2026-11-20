@@ -92,11 +92,11 @@ def test_fast_ci_scopes_full_ci_with_the_pull_request_targets():
     assert 'bool(scope["components"] or scope["targets"])' in script
 
 
-def test_fast_ci_runs_dev_test_groups_in_the_dev_target():
+def test_fast_ci_runs_dev_test_groups_in_the_dev_environment():
     workflow = _workflow("fast-ci.yml")
 
-    # These groups need only the core and `dev` dependencies; every other test
-    # path may import a model server, which needs the CPU Torch target.
+    # These groups need only the core and `infra-dev` dependencies; every other
+    # test path may import a model server, which needs `infra-unit_cpu`.
     script = _step(workflow, "changes", "Map changed paths to a scope")["run"]
     block = script.split("dev_tests = {", 1)[1].split("}", 1)[0]
     assert set(re.findall(r'"([^"]+)"', block)) == {
@@ -105,7 +105,10 @@ def test_fast_ci_runs_dev_test_groups_in_the_dev_target():
         "tests/unit_tests/installs",
         "tests/unit_tests/contracts",
     }
-    assert 'target = "dev" if tests and tests <= dev_tests else "unit-cpu"' in script
+    assert (
+        'target = "infra-dev" if tests and tests <= dev_tests else "infra-unit_cpu"'
+        in script
+    )
     assert workflow["jobs"]["unit"]["with"]["target"] == (
         "${{ needs.changes.outputs.target }}"
     )
@@ -137,8 +140,8 @@ def test_full_ci_does_not_gate_on_optional_locks():
     workflow = _workflow("full-ci.yml")
 
     assert "locks" not in workflow["jobs"]
-    assert workflow["jobs"]["unit"]["with"]["target"] == "unit-cpu"
-    called = _step(workflow, "scope", "Select the targets and suites")["run"]
+    assert workflow["jobs"]["unit"]["with"]["target"] == "infra-unit_cpu"
+    called = _step(workflow, "scope", "Select the environments and suites")["run"]
     assert '"$EVENT" == "workflow_call" && "$CALLED_FULL" != "true"' in called
 
 
@@ -182,13 +185,13 @@ def test_package_checks_the_core_wheel_and_the_complete_sdist():
     assert "rpent-install" in source
 
 
-def test_unit_workflow_defaults_to_the_cpu_target():
+def test_unit_workflow_defaults_to_the_cpu_environment():
     workflow = _workflow("unit.yml")
     inputs = _triggers(workflow)["workflow_call"]["inputs"]
 
-    # ``dev`` deliberately has no Torch; the CPU target supplies it so the
-    # full unit suite can import model servers.
-    assert inputs["target"]["default"] == "unit-cpu"
+    # ``infra-dev`` deliberately has no Torch; ``infra-unit_cpu`` supplies it so
+    # the full unit suite can import model servers.
+    assert inputs["target"]["default"] == "infra-unit_cpu"
     cache_key = _step(workflow, "unit", "Restore the prebuilt environment")["with"][
         "key"
     ]

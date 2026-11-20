@@ -1,10 +1,10 @@
 name: Fast CI
 
 # Every pull request and every push to main. The environment is prebuilt and
-# cached from the target's installation inputs, so this level proves the change
-# matches the manifests and breaks no affected contract — not that a clean
-# machine can install RPent. `full ci` proves that, and is called here only for
-# the targets a pull request affects.
+# cached from its installation inputs, so this level proves the change matches
+# the manifests and breaks no affected contract — not that a clean machine can
+# install RPent. `full ci` proves that, and is called here only for the
+# environments a pull request affects.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
@@ -85,8 +85,8 @@ jobs:
           gpu = set(load("GPU"))
           suites = {"libero", "robocasa", "robotwin"}
           # A core change keeps `full` for nightly and release runs, but a PR
-          # installs only the pilot targets. The install-instance paths keep
-          # the full set, so an installer or target change still proves every
+          # installs only the pilot environments. The install-instance paths
+          # keep the full set, so an installer change still proves every
           # environment.
           selected = scope.get("pr_targets", scope["targets"])
           if scope["full"]:
@@ -94,9 +94,9 @@ jobs:
           else:
               e2e = sorted(suites & set(scope["components"]))
           # The installer, tooling, and repository contract groups need only
-          # the core and `dev` dependencies. Every other test path may import a
-          # model server, so it keeps the CPU Torch target; an empty selection
-          # runs the whole suite and needs that target too.
+          # the core and `infra-dev` dependencies. Every other test path may
+          # import a model server, so it keeps `infra-unit_cpu`; an empty
+          # selection runs the whole suite and needs that environment too.
           dev_tests = {
               "tests/unit_tests/rpent/install",
               "tests/unit_tests/tooling",
@@ -104,7 +104,7 @@ jobs:
               "tests/unit_tests/contracts",
           }
           tests = set(scope["tests"])
-          target = "dev" if tests and tests <= dev_tests else "unit-cpu"
+          target = "infra-dev" if tests and tests <= dev_tests else "infra-unit_cpu"
           values = {
               "tests": scope["tests"],
               "target": target,
@@ -113,8 +113,8 @@ jobs:
               "e2e": e2e,
               "docs": scope["docs"],
               # A component change can only be proven by installing its
-              # closure, which `full ci` does. Install data narrows the target
-              # set rather than emptying it.
+              # closure, which `full ci` does. Install data narrows the
+              # environment set rather than emptying it.
               "needs_full": bool(scope["components"] or scope["targets"]),
               "package": any(
                   path in {"pyproject.toml", "setup.py", "MANIFEST.in"}

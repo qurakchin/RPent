@@ -37,18 +37,18 @@ planner、robot 或 tool 集成，都能帮助项目持续发展。
 ### 第 2 步：搭建开发环境
 
 ```bash
-# 创建并启用开发环境。在 .venvs/dev 生成之前，脚本会在一次性的 uv 环境里
+# 创建并启用开发环境。在 .venvs/infra-dev 生成之前，脚本会在一次性的 uv 环境里
 # 运行安装器。
-./rpent-install.sh install dev
-source .venvs/dev/bin/activate
+./rpent-install.sh install infra-dev
+source .venvs/infra-dev/bin/activate
 
-# 开发 robot 时，在该目标自己的环境中安装。不同目标的依赖锁定不同，
-# 不能共用同一个虚拟环境；每个目标都从清单解析自己的依赖。
-rpent-install install robot-libero  # LIBERO
-rpent-install install robot-robocasa    # RoboCasa
-rpent-install install robot-robotwin    # RoboTwin
+# 开发 robot 时，安装该组件自己的环境。不同环境的依赖锁定不同，
+# 不能共用同一个虚拟环境；每个环境都从清单解析自己的组件。
+rpent-install install robot-libero   # LIBERO
+rpent-install install robot-robocasa # RoboCasa
+rpent-install install robot-robotwin # RoboTwin
 
-# 目标的依赖不包含测试运行器，需要另外装进该 robot 环境。
+# robot 环境不包含测试运行器，需要另外装进该环境。
 uv pip install --python .venvs/robot-libero/bin/python pytest pytest-timeout
 
 # 安装并启用仓库 hooks。
@@ -56,9 +56,9 @@ uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-以上 robot 命令是不同选择；只安装当前改动涉及的目标。各环境的具体配置见
+以上 robot 命令是不同选择；只安装当前改动涉及的环境。各环境的具体配置见
 [安装指南](docs/source-zh/rst_source/get_started/installation.rst)，各测试套件如何
-选择目标见[测试说明](tests/README.md#test-suite-structure)。
+选择环境见[测试说明](tests/README.md#test-suite-structure)。
 
 ### 第 3 步：开发
 
@@ -66,7 +66,7 @@ pre-commit install
 
 - **保持改动聚焦。** 新功能、无关重构和全仓库清理通常应该拆成不同的 Pull
   Request。
-- **按模块职责放置代码。** 优先复用现有实现。具体机器人的接入代码放在 `robots/<name>/` 目录中，仿真器服务与观测放在 `components/sim/<name>/`，模型服务放在 `components/models/<name>/`，共享工具和运行时放在 `components/tools/` 与 `components/infra/`；通用能力放在职责相符的公共模块中。安装目标放在 `installs/targets/` 与 `tests/targets/`，可选的复现锁放在 `tests/locks/`。
+- **按模块职责放置代码。** 优先复用现有实现。具体机器人的接入代码放在 `robots/<name>/` 目录中，仿真器服务与观测放在 `components/sim/<name>/`，模型服务放在 `components/models/<name>/`，共享工具和运行时放在 `components/tools/` 与 `components/infra/`；通用能力放在职责相符的公共模块中。组件以自己的名字安装成同名环境，`requires` 列出它运行时需要的组件；可选的复现锁放在 `tests/locks/`。
 - **修改共享模块、类和方法时检查职责与影响。** 确认改动符合原有职责，优先使用合适的现有扩展点，避免将环境专用逻辑或上层依赖放入底层公共组件。检查受影响的调用方、子类和后端，包括不使用新功能的实现；即使接口签名不变，也要核对行为、状态和生命周期是否改变。是否修改公共层应根据共享需求判断，不能只看功能大小。
 - **可选依赖只在使用处导入。** 例如，只在实际使用 RoboCasa 的代码中导入
   `robosuite`，不要在模块加载时导入。这样即使没有安装所有模拟器，
@@ -76,7 +76,7 @@ pre-commit install
   如果行为发生变化，请同步更新测试并说明原因。单测必须能在普通 CPU 机器上离线
   跑通；需要模型或服务输出时使用 fake。安装器单测放在
   `tests/unit_tests/rpent/install/`，使用合成清单；针对仓库内 `component.toml`、
-  目标和锁的跨文件契约放在 `tests/unit_tests/installs/`。
+  组件和锁的跨文件契约放在 `tests/unit_tests/installs/`。
 - **遵循项目代码风格。** pre-commit 负责 Ruff 格式化和 lint。公共 Python API 应有
   类型标注和 Google 风格 docstring，运行时信息应使用项目 logger，而不是 `print`。
 

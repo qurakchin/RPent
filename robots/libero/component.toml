@@ -2,10 +2,9 @@ schema = 2
 name = "robot-libero"
 probe = "robots.libero"
 python = ">=3.10,<3.13"
-# Runtime only: which policy and segmentation model runs with LIBERO is the
-# target's choice, so they are not in `requires`. The simulation packages live
-# in `sim-libero`.
-requires = ["sim-libero"]
+# LIBERO runs with Pi0.5 and SAM 3.0, and exports trajectories with the
+# flywheel tools; the simulation packages live in `sim-libero`.
+requires = ["sim-libero", "model-openpi", "model-sam3", "tool-flywheel"]
 # LIBERO measures task success inside robosuite; the Franka stack pins
 # numpy<2, and RoboTwin's runtime ships incompatible MuJoCo/Torch builds.
 env_conflicts = ["robot-franka", "robot-dual_franka", "sim-robotwin"]

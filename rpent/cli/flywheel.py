@@ -30,14 +30,15 @@ def main() -> int:
     try:
         from components.tools.flywheel.cli import main as run
     except ModuleNotFoundError as exc:
-        if exc.name != "components.tools.flywheel" and not (
-            exc.name or ""
-        ).startswith("components.tools.flywheel."):
+        if exc.name != "components.tools.flywheel" and not (exc.name or "").startswith(
+            "components.tools.flywheel."
+        ):
             raise
         print(
-            "rpent-flywheel needs the tool-flywheel component: install a "
-            "target that selects it, for example `rpent-install install "
-            "unit-cpu`, or add [components.tool-flywheel] to your target.",
+            "rpent-flywheel needs the tool-flywheel component: install an "
+            "environment that includes it, for example `rpent-install install "
+            "infra-unit_cpu`, or install it into your environment with "
+            "`rpent-install install <component> tool-flywheel`.",
             file=sys.stderr,
         )
         return 1

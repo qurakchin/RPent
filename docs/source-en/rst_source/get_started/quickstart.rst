@@ -25,8 +25,8 @@ Create the LIBERO-PRO environment and activate it:
    ./rpent-install.sh install robot-libero
    source .venvs/robot-libero/bin/activate
 
-The target pins Python, the RLinf revision, Pi0.5, SAM 3.0, and the LIBERO
-packages together. See :doc:`installation` for every target, its install
+The environment pins Python, the RLinf revision, Pi0.5, SAM 3.0, and the LIBERO
+packages together. See :doc:`installation` for every environment, its install
 command, separate model environments, and diagnostics.
 
 Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venvs/robot-libero`` and set the checkpoint paths and API key again.

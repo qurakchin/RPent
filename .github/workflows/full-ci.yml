@@ -1,11 +1,11 @@
 name: Full CI
 
-# Proves a clean machine can install and run: every selected target gets a
+# Proves a clean machine can install and run: every selected environment gets a
 # fresh venv installed from its manifests, doctored, and — where a simulator
 # exists — exercised by the GPU suite. `fast ci` calls this workflow with the
-# targets a pull request affects; nightly and manual runs select every target.
-# The publish workflow calls it with `full: true`, which makes this the release
-# gate too: the same run installs and doctors every target.
+# environments a pull request affects; nightly and manual runs select every
+# environment. The publish workflow calls it with `full: true`, which makes this
+# the release gate too: the same run installs and doctors every environment.
 on:
   schedule:
     # Offset from other nightly jobs to spread runner load.
@@ -14,7 +14,7 @@ on:
   workflow_call:
     inputs:
       full:
-        description: Install and doctor every target (release gate)
+        description: Install and doctor every environment (release gate)
         required: false
         type: boolean
         default: false
@@ -24,12 +24,12 @@ on:
         type: boolean
         default: true
       hosted:
-        description: JSON array of targets installed on a hosted runner
+        description: JSON array of environments installed on a hosted runner
         required: false
         type: string
         default: ""
       gpu:
-        description: JSON array of targets installed on the embodied runner
+        description: JSON array of environments installed on the embodied runner
         required: false
         type: string
         default: ""
@@ -44,7 +44,7 @@ permissions:
 
 jobs:
   scope:
-    name: Select targets
+    name: Select environments
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -54,7 +54,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Select the targets and suites
+      - name: Select the environments and suites
         id: select
         shell: bash
         env:
@@ -71,7 +71,7 @@ jobs:
             e2e=$CALLED_E2E
           else
             # Nightly and manual runs, and a release call with `full: true`,
-            # cover every supported target on the runner its authored
+            # cover every supported environment on the runner its authored
             # partition assigns it to.
             hosted=$(uv run --no-project --python 3.11 --with packaging -- \
               python -m tests.tooling.matrix --runner hosted)
@@ -93,7 +93,7 @@ jobs:
     uses: ./.github/workflows/unit.yml
     with:
       tests: "[]"
-      target: unit-cpu
+      target: infra-unit_cpu
 
   env:
     name: Environments

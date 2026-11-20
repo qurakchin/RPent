@@ -22,4 +22,4 @@ class InstallError(RuntimeError):
 
 
 class InstallConfigError(ValueError):
-    """A component manifest or environment target is invalid."""
+    """A component manifest or an environment name is invalid."""

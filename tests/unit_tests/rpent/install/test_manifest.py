@@ -12,14 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Component manifests and install targets parse into install inputs."""
+"""Component manifests parse into install inputs."""
 
 import pytest
 
 from rpent.install.errors import InstallConfigError
 from rpent.install.manifest import (
+    MINIMAL_ENVIRONMENT,
+    environment_name,
     load_component,
-    load_target,
     python_specifier,
 )
 
@@ -50,9 +51,16 @@ def test_component_manifest_reads_declarations(write_toml):
     assert component.imports == ("robot-beta",)
     assert component.env_conflicts == ("sim-robotwin",)
     assert component.overrides == (path.parent / "overrides.txt",)
-    assert component.platforms == ("linux-x86_64",)
     assert component.manylinux == "2_31"
-    assert component.core is True
+
+
+def test_environment_name_sorts_and_deduplicates_the_request():
+    assert environment_name(["b", "a", "b"]) == "a+b"
+    assert environment_name(["robot-libero"]) == "robot-libero"
+
+
+def test_an_empty_request_names_the_minimal_environment():
+    assert environment_name([]) == MINIMAL_ENVIRONMENT == "minimal"
 
 
 def test_component_name_must_match_its_kind_and_directory(write_toml):
@@ -98,8 +106,9 @@ def test_component_kind_must_be_a_known_root(write_toml):
     (
         'kind = "robot"',
         'variant = "standard"',
-        'variant_required = true',
+        "variant_required = true",
         'platforms = ["windows-x86_64"]',
+        "core = false",
         'placement = ["in-env"]',
         'docs = "docs/source-en/index.rst"',
     ),
@@ -115,7 +124,7 @@ def test_a_component_rejects_a_top_level_field_it_does_not_define(write_toml, en
         """,
     )
 
-    with pytest.raises(InstallConfigError, match="unknown component field|unknown platform"):
+    with pytest.raises(InstallConfigError, match="unknown component field"):
         load_component(path, "robot")
 
 
@@ -134,7 +143,22 @@ def test_component_python_request_is_validated(write_toml):
         load_component(path, "robot")
 
 
-def test_component_platforms_default_and_expand(write_toml):
+def test_component_manylinux_is_validated(write_toml):
+    path = write_toml(
+        "robots/alpha/component.toml",
+        """
+        schema = 2
+        name = "robot-alpha"
+        probe = "robots.alpha"
+        manylinux = "manylinux_2_31"
+        """,
+    )
+
+    with pytest.raises(InstallConfigError, match="'manylinux' must name a glibc"):
+        load_component(path, "robot")
+
+
+def test_component_index_strategy_is_optional_and_validated(write_toml):
     default = load_component(
         write_toml(
             "robots/alpha/component.toml",
@@ -153,29 +177,28 @@ def test_component_platforms_default_and_expand(write_toml):
             schema = 2
             name = "robot-beta"
             probe = "robots.beta"
-            platforms = ["darwin-arm64", "linux-x86_64"]
+            index-url = "https://index.test/simple"
+            index-strategy = "unsafe-first-match"
             """,
         ),
         "robot",
     )
-
-    assert default.platforms == ("linux-x86_64",)
-    assert declared.platforms == ("darwin-arm64", "linux-x86_64")
-
-
-def test_component_manylinux_is_validated(write_toml):
-    path = write_toml(
-        "robots/alpha/component.toml",
+    invalid = write_toml(
+        "robots/gamma/component.toml",
         """
         schema = 2
-        name = "robot-alpha"
-        probe = "robots.alpha"
-        manylinux = "manylinux_2_31"
+        name = "robot-gamma"
+        probe = "robots.gamma"
+        index-strategy = "best-match"
         """,
     )
 
-    with pytest.raises(InstallConfigError, match="'manylinux' must name a glibc"):
-        load_component(path, "robot")
+    assert default.index_strategy is None
+    assert default.index_url is None
+    assert declared.index_strategy == "unsafe-first-match"
+    assert declared.index_url == "https://index.test/simple"
+    with pytest.raises(InstallConfigError, match="'index-strategy' must be one of"):
+        load_component(invalid, "robot")
 
 
 def test_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
@@ -215,20 +238,6 @@ def test_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
     assert load_component(tag, "robot").dependencies == (
         "pkg @ git+https://github.com/example/pkg.git@v1.2.3",
     )
-
-
-def test_target_git_dependencies_must_pin_a_commit_or_version_tag(write_toml):
-    path = write_toml(
-        "installs/targets/alpha.toml",
-        """
-        schema = 2
-        name = "alpha"
-        dependencies = ["pkg @ git+https://github.com/example/pkg.git@main"]
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="pins git ref 'main'"):
-        load_target(path)
 
 
 def test_git_dependency_without_a_ref_is_rejected(write_toml):
@@ -277,66 +286,6 @@ def test_component_rejects_missing_override(write_toml):
         load_component(path, "robot")
 
 
-def test_target_reads_components_and_dependencies(write_toml):
-    path = write_toml(
-        "installs/targets/alpha.toml",
-        """
-        schema = 2
-        name = "alpha"
-        description = "test target"
-
-        dependencies = ["pytest"]
-
-        [components.robot-alpha]
-        [components.model-openpi]
-        """,
-    )
-
-    target = load_target(path)
-
-    assert target.components == ("model-openpi", "robot-alpha")
-    assert target.dependencies == ("pytest",)
-    assert target.core is True
-
-
-def test_target_index_strategy_is_optional_and_validated(write_toml):
-    default = load_target(
-        write_toml(
-            "installs/targets/alpha.toml",
-            """
-            schema = 2
-            name = "alpha"
-            """,
-        )
-    )
-    declared = load_target(
-        write_toml(
-            "installs/targets/beta.toml",
-            """
-            schema = 2
-            name = "beta"
-            index-url = "https://index.test/simple"
-            index-strategy = "unsafe-first-match"
-            """,
-        )
-    )
-    invalid = write_toml(
-        "installs/targets/gamma.toml",
-        """
-        schema = 2
-        name = "gamma"
-        index-strategy = "best-match"
-        """,
-    )
-
-    assert default.index_strategy is None
-    assert default.index_url is None
-    assert declared.index_strategy == "unsafe-first-match"
-    assert declared.index_url == "https://index.test/simple"
-    with pytest.raises(InstallConfigError, match="'index-strategy' must be one of"):
-        load_target(invalid)
-
-
 @pytest.mark.parametrize(
     ("python", "expected"),
     [
@@ -361,63 +310,3 @@ def test_component_accepts_a_python_version_or_range_and_normalizes_it(
 
     assert load_component(path, "robot").python == python
     assert python_specifier(python) == SpecifierSet(expected)
-
-
-@pytest.mark.parametrize(
-    "entry",
-    (
-        '[components.robot-alpha]\nplacement = "in-env"',
-        '[components.robot-alpha]\ntarget = "model"',
-        "[components.robot-alpha]\ntypo = true",
-    ),
-)
-def test_target_rejects_an_unknown_component_selection_field(write_toml, entry):
-    path = write_toml(
-        "installs/targets/alpha.toml",
-        f"""
-        schema = 2
-        name = "alpha"
-
-        {entry}
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="must be empty"):
-        load_target(path)
-
-
-@pytest.mark.parametrize(
-    "field",
-    (
-        'python = "3.11"',
-        'manylinux = "2_35"',
-        'placements = ["in-env"]',
-        'lock = "tests/locks/alpha.lock"',
-        'docs = "docs/source-en/index.rst"',
-    ),
-)
-def test_a_target_rejects_a_top_level_field_it_does_not_define(write_toml, field):
-    path = write_toml(
-        "installs/targets/alpha.toml",
-        f"""
-        schema = 2
-        name = "alpha"
-        {field}
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="unknown target field"):
-        load_target(path)
-
-
-def test_target_name_must_match_its_file(write_toml):
-    path = write_toml(
-        "installs/targets/alpha.toml",
-        """
-        schema = 2
-        name = "beta"
-        """,
-    )
-
-    with pytest.raises(InstallConfigError, match="must match its file name"):
-        load_target(path)

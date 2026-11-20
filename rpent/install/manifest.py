@@ -12,25 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Install manifests: code components and the targets users install.
+"""Install manifests: the components an environment is composed of.
 
 Every component owns one directory below a root named after its kind, and its
 name is ``<kind>-<directory>``: ``sim-example`` lives at
 ``components/sim/example``. The kind is a property of the directory, so a
-manifest cannot disagree with where it lives and a target's component list
-names exactly what it installs.
+manifest cannot disagree with where it lives.
 
-A target is a manifest without code: ``installs/targets/<name>.toml`` composes
-components, ``tests/targets/`` serves only tests and CI. Targets may add
-packages that belong to no component but never repeat a component's
-declarations.
+A component is the only install unit: a user installs a component by name, and
+its ``requires`` closure decides what else the environment contains. A robot
+declares the simulator, models, and tools it runs with, so the standard
+composition lives beside the code it binds.
 """
 
 from __future__ import annotations
 
 import hashlib
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterable
 
@@ -56,14 +55,10 @@ COMPONENT_DIRECTORIES = {
     "infra": "components/infra",
 }
 KINDS = tuple(COMPONENT_DIRECTORIES)
-#: Hosts a component can declare. ``linux-x86_64`` is the only default: every
-#: current runtime depends on Linux wheels, and macOS support is per component.
-PLATFORMS = (
-    "linux-x86_64",
-    "linux-aarch64",
-    "darwin-arm64",
-    "darwin-x86_64",
-)
+#: The environment that installs only the RPent core. It is a reserved name
+#: rather than a component, so ``install`` with no components and the minimal
+#: CI job address the same environment.
+MINIMAL_ENVIRONMENT = "minimal"
 DEFAULT_PLATFORMS = ("linux-x86_64",)
 #: ``uv``'s multi-index strategies; see ``--index-strategy`` in ``uv pip compile``.
 INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
@@ -71,8 +66,8 @@ INDEX_STRATEGIES = ("first-index", "unsafe-first-match", "unsafe-best-match")
 #: resolved to the highest minor in this list that every component accepts.
 PYTHON_MINORS = ("3.12", "3.11", "3.10")
 #: The newest glibc baseline a component needs. ``uv`` compiles a lock for the
-#: newest baseline in the target's closure, and a newer baseline admits every
-#: wheel an older one does.
+#: newest baseline in the environment's closure, and a newer baseline admits
+#: every wheel an older one does.
 DEFAULT_MANYLINUX = "2_31"
 #: ``uv --python-platform`` value per host. Only the linux entries depend on the
 #: glibc baseline.
@@ -87,6 +82,19 @@ _MANYLINUX = re.compile(r"^\d+_\d+$")
 #: lock compiled yesterday install different code tomorrow.
 _FULL_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 _VERSION_TAG = re.compile(r"^v?\d+(?:\.\d+)*(?:[-+][0-9A-Za-z.-]+)?$")
+
+
+def environment_name(requested: Iterable[str]) -> str:
+    """Return the environment name for a set of requested components.
+
+    Sorting makes ``install a b`` and ``install b a`` name one environment, so
+    the virtualenv, the fingerprint, and the lock agree regardless of argument
+    order. An empty request is the core-only ``minimal`` environment.
+    """
+    names = sorted(dict.fromkeys(requested))
+    if not names:
+        return MINIMAL_ENVIRONMENT
+    return "+".join(names)
 
 
 def _read_toml(path: Path) -> dict[str, Any]:
@@ -109,53 +117,36 @@ def _schema(data: dict[str, Any], path: Path) -> None:
         )
 
 
-#: Top-level keys each manifest kind may declare. A key outside the set is a
+#: Top-level keys a component manifest may declare. A key outside the set is a
 #: typo or a leftover from an earlier field name; ignoring it would leave the
 #: manifest saying something the installer never reads.
-_ALLOWED_KEYS = {
-    "component": frozenset(
-        {
-            "schema",
-            "name",
-            "probe",
-            "python",
-            "platforms",
-            "manylinux",
-            "requires",
-            "imports",
-            "env_conflicts",
-            "dependencies",
-            "overrides",
-            "core",
-            "description",
-            "index-url",
-            "extra-index-urls",
-            "index-strategy",
-        }
-    ),
-    "target": frozenset(
-        {
-            "schema",
-            "name",
-            "components",
-            "dependencies",
-            "core",
-            "description",
-            "index-url",
-            "extra-index-urls",
-            "index-strategy",
-        }
-    ),
-}
+_ALLOWED_KEYS = frozenset(
+    {
+        "schema",
+        "name",
+        "probe",
+        "python",
+        "manylinux",
+        "requires",
+        "imports",
+        "env_conflicts",
+        "dependencies",
+        "overrides",
+        "description",
+        "index-url",
+        "extra-index-urls",
+        "index-strategy",
+    }
+)
 
 
-def _reject_unknown(data: dict[str, Any], path: Path, kind: str) -> None:
-    """Reject top-level fields the manifest kind does not define."""
-    unknown = sorted(set(data) - _ALLOWED_KEYS[kind])
+def _reject_unknown(data: dict[str, Any], path: Path) -> None:
+    """Reject top-level fields the component manifest does not define."""
+    unknown = sorted(set(data) - _ALLOWED_KEYS)
     if unknown:
         raise InstallConfigError(
-            f"{path}: unknown {kind} field(s): {', '.join(unknown)}; "
-            f"expected one of {', '.join(sorted(_ALLOWED_KEYS[kind]))}"
+            f"{path}: unknown component field(s): {', '.join(unknown)}; "
+            f"expected one of {', '.join(sorted(_ALLOWED_KEYS))}"
         )
 
 
@@ -261,18 +252,6 @@ def _python_spec(data: dict[str, Any], path: Path) -> str | None:
     return value
 
 
-def _platforms(data: dict[str, Any], path: Path) -> tuple[str, ...]:
-    """Read the hosts a component installs on, defaulting to linux-x86_64."""
-    declared = _string_list(data, "platforms", path) or DEFAULT_PLATFORMS
-    unknown = sorted(set(declared) - set(PLATFORMS))
-    if unknown:
-        raise InstallConfigError(
-            f"{path}: unknown platform(s) {', '.join(unknown)}; expected one of "
-            f"{', '.join(PLATFORMS)}"
-        )
-    return tuple(sorted(set(declared)))
-
-
 def _manylinux(data: dict[str, Any], path: Path) -> str:
     value = data.get("manylinux", DEFAULT_MANYLINUX)
     if not isinstance(value, str) or not _MANYLINUX.match(value):
@@ -314,9 +293,7 @@ class Component:
     dependencies: tuple[str, ...]
     overrides: tuple[Path, ...]
     manifest_sha256: str
-    platforms: tuple[str, ...] = DEFAULT_PLATFORMS
     manylinux: str = DEFAULT_MANYLINUX
-    core: bool = True
     description: str | None = None
     index_url: str | None = None
     extra_index_urls: tuple[str, ...] = ()
@@ -326,44 +303,6 @@ class Component:
     def manifest_path(self) -> Path:
         """Return the manifest path."""
         return self.manifest
-
-
-@dataclass(frozen=True)
-class Target:
-    """One install target: a component installed alone, or a composition."""
-
-    name: str
-    path: Path
-    components: tuple[str, ...]
-    dependencies: tuple[str, ...]
-    index_url: str | None
-    extra_index_urls: tuple[str, ...]
-    index_strategy: str | None
-    core: bool
-    description: str | None
-
-    def relative_path(self, root: Path) -> str:
-        """Return the manifest path relative to the checkout, for messages.
-
-        Every target names a file: the target manifest for a composition, and
-        ``component.toml`` for a component installed under its own name. The
-        caller supplies the checkout so a manifest cannot report a path that
-        does not exist.
-        """
-        return self.path.relative_to(root).as_posix()
-
-    def lock_file(self, root: Path) -> Path:
-        """Return this target's optional reproduction lock.
-
-        Locks are not installation inputs. Every checked-in lock lives under
-        ``tests/locks`` so the repository's install data has one home, and the
-        path follows the target name rather than a manifest field.
-        """
-        return root / "tests" / "locks" / f"{self.name}.lock"
-
-    def lock_display(self) -> str:
-        """Return the lock path relative to the repository root, for messages."""
-        return f"tests/locks/{self.name}.lock"
 
 
 def load_component(path: Path, kind: str) -> Component:
@@ -398,7 +337,7 @@ def _component(
     kind: str,
 ) -> Component:
     """Build a component from parsed data, validating shared fields."""
-    _reject_unknown(data, path, "component")
+    _reject_unknown(data, path)
     probe = data.get("probe")
     if not isinstance(probe, str) or not probe:
         raise InstallConfigError(f"{path}: 'probe' must be a non-empty import path")
@@ -413,9 +352,6 @@ def _component(
     for override in overrides:
         if not override.is_file():
             raise InstallConfigError(f"{path}: override file not found: {override}")
-    core = data.get("core", True)
-    if not isinstance(core, bool):
-        raise InstallConfigError(f"{path}: 'core' must be a boolean")
     index_url, extra_index_urls, index_strategy = _index_settings(data, path)
     return Component(
         name=name,
@@ -430,90 +366,9 @@ def _component(
         dependencies=_dependency_list(data, "dependencies", path),
         overrides=overrides,
         manifest_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
-        platforms=_platforms(data, path),
         manylinux=_manylinux(data, path),
-        core=core,
         description=_optional_string(data, "description", path),
         index_url=index_url,
         extra_index_urls=extra_index_urls,
         index_strategy=index_strategy,
-    )
-
-
-def _components(data: dict[str, Any], path: Path) -> tuple[str, ...]:
-    """Return the component names a target selects.
-
-    The table's values must be empty: a component's own manifest decides what
-    it installs, so an option here could only disagree with it.
-    """
-    raw = data.get("components", {})
-    if not isinstance(raw, dict):
-        raise InstallConfigError(f"{path}: 'components' must be a table")
-    for component_name, entry in raw.items():
-        if not isinstance(entry, dict):
-            raise InstallConfigError(
-                f"{path}: components.{component_name} must be a table"
-            )
-        if entry:
-            raise InstallConfigError(
-                f"{path}: components.{component_name} must be empty; "
-                f"unexpected field(s): {', '.join(sorted(entry))}"
-            )
-    return tuple(sorted(raw))
-
-
-def load_target(path: Path) -> Target:
-    """Load and validate one target manifest."""
-    data = _read_toml(path)
-    _schema(data, path)
-    name = _name(data, path)
-    _reject_unknown(data, path, "target")
-    if path.stem != name:
-        raise InstallConfigError(
-            f"{path}: name {name!r} must match its file name {path.stem!r}"
-        )
-    core = data.get("core", True)
-    if not isinstance(core, bool):
-        raise InstallConfigError(f"{path}: 'core' must be a boolean")
-    index_url, extra_index_urls, index_strategy = _index_settings(data, path)
-    return Target(
-        name=name,
-        path=path,
-        components=_components(data, path),
-        dependencies=_dependency_list(data, "dependencies", path),
-        index_url=index_url,
-        extra_index_urls=extra_index_urls,
-        index_strategy=index_strategy,
-        core=core,
-        description=_optional_string(data, "description", path),
-    )
-
-
-def compose_target(target: Target, extra_components: Iterable[str]) -> Target:
-    """Return ``target`` with extra components composed into it.
-
-    ``rpent-install install <target> --with <component>`` uses this to add a
-    component to one environment without editing the checked-in target, for
-    example the test tools of ``infra-dev`` beside a robot. The composed target
-    keeps the target's name, dependencies, and index settings, so the
-    fingerprint and ``doctor`` compare the same inputs on both sides.
-    """
-    selected = tuple(dict.fromkeys((*target.components, *extra_components)))
-    if selected == target.components:
-        return target
-    return replace(target, components=selected)
-
-
-def target_from_component(component: Component) -> Target:
-    """Return the install target a component forms when installed by name."""
-    return Target(
-        name=component.name,
-        path=component.manifest,
-        components=(component.name,),
-        dependencies=(),
-        index_url=component.index_url,
-        extra_index_urls=component.extra_index_urls,
-        index_strategy=component.index_strategy,
-        core=component.core,
-        description=component.description,
     )

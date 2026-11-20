@@ -16,16 +16,16 @@
 set -euo pipefail
 
 # Do not let a runner's interactive shell or previously activated environment
-# affect imports or uv's target environment.
+# affect imports or uv's environment selection.
 unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX
 
 if [[ $# -ne 3 ]]; then
   echo "Usage: $0 <robot-libero|robot-robocasa|robot-robotwin> <output-dir> <venv-root>"
-  echo "Targets are the robot-libero, robot-robocasa, and robot-robotwin targets."
+  echo "Environments are robot-libero, robot-robocasa, and robot-robotwin."
   exit 2
 fi
 
-target=$1
+environment=$1
 output_dir=$2
 venv_root=$3
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -243,19 +243,20 @@ install_test_runner() {
 
 run_in_clean_env() {
   local name=$1
-  local target=$2
+  local environment=$2
   local test_dir=$3
   local suite_output=$4
   local venv_dir="$venv_root/$name"
 
-  # Install the target's dependencies and add only the test runner: proving a
-  # clean machine can install and run the target is what this suite exists for.
+  # Install the environment's dependencies and add only the test runner:
+  # proving a clean machine can install and run the environment is what this
+  # suite exists for.
   #
-  # Torch and torchvision version compatibility come from the target's
+  # Torch and torchvision version compatibility come from the environment's
   # component manifests and their transitive package metadata. The CUDA wheel
   # backend is the separate runner/install-policy input UV_TORCH_BACKEND.
   # Do not hide a dependency-contract failure with a workflow-only version pin.
-  run_rpent_install 3.11 install "$target" --venv "$venv_dir"
+  run_rpent_install 3.11 install "$environment" --venv "$venv_dir"
   install_test_runner "$venv_dir/bin/python"
   (
     cd "$repo_root"
@@ -269,7 +270,7 @@ run_in_clean_env() {
   find "$venv_dir" -depth -delete
 }
 
-case "$target" in
+case "$environment" in
   robot-libero)
     require_dir PI05_CHECKPOINT_PATH
     require_file SAM3_CHECKPOINT_PATH
@@ -321,7 +322,7 @@ case "$target" in
       robotwin robot-robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
     ;;
   *)
-    echo "Unknown target: $target"
+    echo "Unknown environment: $environment"
     exit 2
     ;;
 esac

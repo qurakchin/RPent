@@ -36,10 +36,10 @@ pytest tests/unit_tests -v
 
 Inspect any files changed by hooks and rerun affected checks. The
 [unit workflow](../../../.github/workflows/unit.yml) installs the selected
-target (`dev` for installer and repository checks, `unit-cpu` for the rest)
-from its manifests and runs the same suite; `fast ci` narrows the selection to the
-tests that mirror the changed components. Do not install every robot target for
-an unrelated change.
+environment (`infra-dev` for installer and repository checks,
+`infra-unit_cpu` for the rest) from its manifests and runs the same suite;
+`fast ci` narrows the selection to the tests that mirror the changed
+components. Do not install every robot environment for an unrelated change.
 
 For the supported GPU suites, follow the environment setup in the test guide
 and call [the existing runner](../../../tests/e2e_tests/run_gpu_suite.sh):
@@ -51,7 +51,7 @@ bash tests/e2e_tests/run_gpu_suite.sh \
   /path/to/new-venv-root
 ```
 
-Choose the actual target and fresh paths. Inspect the runner's logs, JUnit
+Choose the actual environment and fresh paths. Inspect the runner's logs, JUnit
 results, and cleanup evidence. Real-robot diagnostics are separate opt-in
 procedures with operator prerequisites; follow their documented scope rather
 than treating them as ordinary automated checks.

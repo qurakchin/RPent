@@ -54,12 +54,12 @@ Molmo runs in its own Python environment because its model stack pins its own
 Torch and Transformers versions. Molmo's model code also needs
 ``transformers>=4.57``, while the RoboTwin stack is pinned to ``4.51.3``; the
 component manifests declare those two mutually exclusive, so
-``rpent-install check`` reports a target that places both in
-one environment as a conflict.
+``rpent-install check`` reports an environment that places both
+in one environment as a conflict.
 
-Install the ``model-molmo`` target into a separate environment with the command
-from :doc:`../get_started/installation`; its lock installs the pinned PyTorch
-and torchvision. If your GPU or driver needs a different CUDA build, reinstall
+Install ``model-molmo`` into its own environment with the command from
+:doc:`../get_started/installation`; the manifest installs PyTorch and
+torchvision. If your GPU or driver needs a different CUDA build, reinstall
 the pair from the PyTorch index afterwards, replacing ``<CUDA_TAG>`` with a
 compatible build such as ``cu126`` or ``cu128`` (see the
 `PyTorch installation guide <https://pytorch.org/get-started/locally/>`_):

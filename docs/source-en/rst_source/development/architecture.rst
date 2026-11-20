@@ -59,7 +59,10 @@ Repository Layout
 Shared execution, contracts, and model bases live under ``rpent/``. Each
 package under ``robots/`` supplies the environment-specific implementation
 described above. Installable components that are not robots live under
-``components/``, and the install recipes and locks live under ``installs/``.
+``components/``. Every component installs as the environment of the same name,
+and its ``requires`` lists the components it runs with, so installing a robot
+also installs its simulator, models, and tools. The optional reproduction locks
+live under ``tests/locks/``.
 
 Imports point downward: a robot slice may import simulators, model services,
 tools, and infra; a model service may import tools and infra but not robots,
@@ -96,10 +99,8 @@ contract instead of importing it.
      models/         # Model services
      tools/          # Out-of-tree tools such as flywheel
      infra/          # Shared runtimes such as RLinf
-   installs/
-     targets/        # Supported install targets
    tests/
-     locks/          # Optional reproduction locks, one per target
+     locks/          # Optional reproduction locks, one per environment
 
 Environment Discovery
 ---------------------

@@ -23,7 +23,7 @@ from rpent.install.snapshot import installation_snapshot, record_run_environment
 def _fingerprint():
     return {
         "schema": 1,
-        "target": "minimal",
+        "environment": "minimal",
         "python": "3.11.14",
         "requirements_sha256": "inputs",
     }
@@ -33,7 +33,10 @@ def test_snapshot_of_a_venv_without_a_fingerprint(tmp_path):
     venv = tmp_path / "venv"
     venv.mkdir()
 
-    assert installation_snapshot(venv) == {"target": None, "install_sha256": None}
+    assert installation_snapshot(venv) == {
+        "environment": None,
+        "install_sha256": None,
+    }
 
 
 def test_snapshot_points_at_the_installation_instead_of_copying_it(tmp_path):
@@ -45,7 +48,7 @@ def test_snapshot_points_at_the_installation_instead_of_copying_it(tmp_path):
     # The run manifest identifies the installation; the fingerprint itself
     # stays in the environment so its fields cannot drift out of sync here.
     assert installation_snapshot(venv) == {
-        "target": "minimal",
+        "environment": "minimal",
         "install_sha256": fingerprint_sha256(fingerprint),
     }
 
@@ -64,7 +67,7 @@ def test_record_merges_into_an_existing_run_manifest(tmp_path):
     record = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
     assert record["task"] == "open the drawer"
     assert record["started_at"] == "then"
-    assert record["environment"]["target"] == "minimal"
+    assert record["environment"]["environment"] == "minimal"
 
 
 def test_record_creates_the_manifest_and_is_idempotent(tmp_path):

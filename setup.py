@@ -18,9 +18,9 @@ A source or editable install includes ``robots/`` and ``components/`` so the
 CLI, robot discovery, and component imports work from the checkout. The wheel
 published to PyPI sets ``RPENT_WHEEL_SCOPE=core`` and contains only ``rpent/``:
 robot and model packages are generic top-level names, and their environments
-come from ``installs/targets/``, which ships with the source checkout. The
-sdist is built from the source scope and carries every package (see
-``MANIFEST.in``), so a source install remains complete.
+come from the checked-in ``component.toml`` manifests, which ship with the
+source checkout. The sdist is built from the source scope and carries every
+package (see ``MANIFEST.in``), so a source install remains complete.
 """
 
 import os

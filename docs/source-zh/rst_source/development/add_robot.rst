@@ -30,7 +30,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 入口与组件清单
 --------------
 
-机器人是一个组件：``robots/`` 下的一个目录，加上一份描述安装方式的 ``component.toml``。目标骨架如下：
+机器人是一个组件：``robots/`` 下的一个目录，加上一份描述安装方式的 ``component.toml``。包骨架如下：
 
 .. code-block:: text
 
@@ -60,11 +60,11 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
    dependencies = ["myrobot-sdk==1.2"]
 
-名字是 ``<kind>-<目录名>``：``robots/`` 下的组件固定叫 ``robot-<目录>``，``components/sim/`` 下的仿真器叫 ``sim-<目录>``。包来自哪个索引由组件自己声明：``index-url``、``extra-index-urls``、``index-strategy`` 写在组件的清单里，组合目标会继承这些设置，并把组件的额外索引并入自己的；同一环境里两个组件要求不同的索引地址或策略时报错。``manylinux`` 由各组件自己声明（默认 ``2_31``），目标按闭包内最高的基线安装。``platforms`` 列出组件支持的主机，默认是 ``["linux-x86_64"]``。
+名字是 ``<kind>-<目录名>``：``robots/`` 下的组件固定叫 ``robot-<目录>``，``components/sim/`` 下的仿真器叫 ``sim-<目录>``。包来自哪个索引由组件自己声明：``index-url``、``extra-index-urls``、``index-strategy`` 写在组件的清单里，环境会继承这些设置，并把各组件的额外索引并入；同一环境里两个组件要求不同的索引地址或策略时报错。``manylinux`` 由各组件自己声明（默认 ``2_31``），环境按闭包内最高的基线安装。环境按 ``install`` 运行所在的主机解析；``check --platform`` 可以在不安装的情况下按其他主机解析。
 
-``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进共享的 ``infra`` 或 ``tool`` 组件，由其他组件在 ``requires`` 中声明。``requires`` 与 import 遵循同一分层：仿真器或模型服务只能声明 ``tool`` 和 ``infra`` 组件，只有机器人能把仿真器与模型服务组合在一起。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。机器人切片与模型服务之间共享契约，不互相 import。
+``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在组件的环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；两个以上组件都需要的包应放进共享的 ``infra`` 或 ``tool`` 组件，由其他组件在 ``requires`` 中声明。``requires`` 与 import 遵循同一分层：仿真器或模型服务只能声明 ``tool`` 和 ``infra`` 组件，只有机器人能把仿真器与模型服务组合在一起。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。机器人切片与模型服务之间共享契约，不互相 import。
 
-机器人不按组件名安装，而是通过目标安装：在 ``installs/targets/robot-<name>.toml`` 中选中 ``[components.robot-<name>]``（以及它运行的模型），再在 ``tests/tooling/matrix.py`` 里把该目标分配给 runner；有机器人没有目标时 ``rpent-install check --all`` 会失败。``tests/locks/`` 下的复现锁是可选的，安装不依赖它。见 :doc:`../get_started/installation`。
+机器人以自己的名字安装成 ``robot-<name>`` 环境。把标准组合写进它的 ``requires``：它运行的仿真器、调用的模型服务以及导出的工具；这样安装机器人就会创建一个包含全部组件的环境。再在 ``tests/tooling/matrix.py`` 里把该环境分配给 runner；有环境没有分配给任何 runner 时 ``python -m tests.tooling.matrix --check`` 会失败。``tests/locks/`` 下的复现锁是可选的，安装不依赖它。见 :doc:`../get_started/installation`。
 
 如果接入同时新增仿真环境，它的 env server、观测和控制代码放在 ``components/sim/<name>/`` 下；机器人在 ``requires`` 中声明并 import 它，仿真器不 import 机器人或模型服务。
 
@@ -398,4 +398,4 @@ JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整�
 
 检查至少执行了一个环境动作、transcript 记录了 ``finish``、``states.json`` 包含无错误的动作记录、生成了预期观测工件，以及自己启动的 daemon 全部退出。这种有界接入测试不要求任务成功。
 
-离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装该机器人的目标并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。
+离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装该机器人的环境并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。

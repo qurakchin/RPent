@@ -31,9 +31,9 @@
 配置 Molmo
 ------------
 
-Molmo 在自己的 Python 环境中运行，因为它的模型栈锁定了独立的 Torch 和 Transformers 版本。Molmo 的模型代码还需要 ``transformers>=4.57``，而 RoboTwin 栈锁定 ``4.51.3``；组件清单声明这两者互斥，因此 ``rpent-install check`` 会把两者放进同一环境的目标报告为冲突。
+Molmo 在自己的 Python 环境中运行，因为它的模型栈锁定了独立的 Torch 和 Transformers 版本。Molmo 的模型代码还需要 ``transformers>=4.57``，而 RoboTwin 栈锁定 ``4.51.3``；组件清单声明这两者互斥，因此 ``rpent-install check`` 会把两者放进同一环境报告为冲突。
 
-按 :doc:`../get_started/installation` 中的命令把 ``model-molmo`` 目标安装到独立环境；它的锁会安装锁定版本的 PyTorch 和 torchvision。若 GPU 或驱动需要其他 CUDA 构建，之后再从 PyTorch 镜像重装这一对包，按 `PyTorch 安装指南 <https://pytorch.org/get-started/locally/>`_ 选择兼容构建并把 ``<CUDA_TAG>`` 替换为 ``cu126`` 或 ``cu128`` 等值（下例使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_）：
+按 :doc:`../get_started/installation` 中的命令把 ``model-molmo`` 安装到独立环境；清单会安装 PyTorch 和 torchvision。若 GPU 或驱动需要其他 CUDA 构建，之后再从 PyTorch 镜像重装这一对包，按 `PyTorch 安装指南 <https://pytorch.org/get-started/locally/>`_ 选择兼容构建并把 ``<CUDA_TAG>`` 替换为 ``cu126`` 或 ``cu128`` 等值（下例使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_）：
 
 .. code-block:: bash
 

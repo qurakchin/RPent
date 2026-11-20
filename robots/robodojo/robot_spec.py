@@ -370,7 +370,7 @@ def _add_cli_args(parser: argparse.ArgumentParser, use_dashboard: bool) -> None:
 
 def _parse_config(args: argparse.Namespace) -> RunConfig:
     am = select_am(args, "robodojo")
-    from robots.robodojo import tasks as robodojo_tasks
+    from components.sim.robodojo import tasks as robodojo_tasks
 
     source_root = getattr(args, "source_root", None)
     err = robodojo_tasks.validate_task(args.task, source_root)

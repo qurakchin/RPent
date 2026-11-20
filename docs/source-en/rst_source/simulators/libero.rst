@@ -98,16 +98,16 @@ Installation and Resources
 
 For a first LIBERO-PRO run, complete the installation, asset downloads, and model setup in :doc:`../get_started/quickstart`. Continue here to select tasks and reproduce experiments.
 
-For another variant, install the matching target from
-:doc:`../get_started/installation` in an isolated environment, then download
-its assets. Standard and pro share one target; install LIBERO-plus in its own
-environment because it conflicts with ``sim-libero``:
+For another variant, install the matching environment from
+:doc:`../get_started/installation` in an isolated virtualenv, then download
+its assets. Standard and pro share the ``sim-libero`` environment; install
+LIBERO-plus in its own environment because it conflicts with ``sim-libero``:
 
 .. list-table::
    :header-rows: 1
 
    * - Variant
-     - Target
+     - Environment
      - Assets
    * - ``standard``
      - ``sim-libero``
@@ -123,7 +123,7 @@ environment because it conflicts with ``sim-libero``:
 (``infra-rlinf``) but no model, and covers the standard and pro suites.
 ``robot-libero`` adds Pi0.5 (``model-openpi``), SAM3, and the flywheel
 dependencies. To run standard or plus with Pi0.5 and SAM3 locally, install the
-``model-openpi`` and ``model-sam3`` targets in their own environments and pass
+``model-openpi`` and ``model-sam3`` environments and pass
 the endpoints. Download model weights
 separately as described below.
 

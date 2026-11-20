@@ -19,7 +19,7 @@ Install
 Install libfranka 0.19.0 first by following the `official quick-install guide
 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_.
 
-Install the ``robot-franka`` target from :doc:`../get_started/installation` into
+Install the ``robot-franka`` environment from :doc:`../get_started/installation` into
 its own environment:
 
 .. code-block:: bash

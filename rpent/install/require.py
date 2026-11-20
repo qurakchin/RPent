@@ -25,6 +25,7 @@ ImportError: ... = None`` fallbacks with one actionable message::
 from __future__ import annotations
 
 import importlib
+from pathlib import Path
 from types import ModuleType
 
 from rpent.install.fingerprint import current_venv, read_fingerprint
@@ -34,74 +35,39 @@ class MissingComponentError(ImportError):
     """An optional module is missing from the environment that should own it."""
 
 
-#: Component -> targets whose resolution closure contains it, or ``None`` until
-#: the checkout is read for the first failure in this process.
-_TARGETS_BY_COMPONENT: dict[str, list[str]] | None = None
-
-
-def _targets_by_component() -> dict[str, list[str]]:
-    """Return the component -> targets index read from the checkout.
-
-    Which targets include a component is a property of the manifests, so read
-    them at the point of failure rather than from the fingerprint: an installed
-    environment predates targets added afterwards, and a stale reverse index
-    would name the wrong repair command. A broken checkout must not mask the
-    missing import that triggered the hint, so failures leave an empty index.
-    """
-    global _TARGETS_BY_COMPONENT
-    if _TARGETS_BY_COMPONENT is not None:
-        return _TARGETS_BY_COMPONENT
-    index: dict[str, list[str]] = {}
-    try:
-        from rpent.install.discovery import discover
-        from rpent.install.resolve import resolve
-        from rpent.utils.config import get_repo_root
-
-        catalog = discover(get_repo_root())
-        included: dict[str, set[str]] = {}
-        for name, target in catalog.targets.items():
-            resolution = resolve(target, catalog)
-            if not resolution.ok:
-                continue
-            for component in resolution.components:
-                included.setdefault(component, set()).add(name)
-        index = {name: sorted(targets) for name, targets in included.items()}
-    except Exception:  # noqa: BLE001 - the hint must not replace the import error
-        index = {}
-    _TARGETS_BY_COMPONENT = index
-    return index
+def _invocation(names: list[str], venv: Path) -> str:
+    command = "rpent-install install"
+    if names:
+        command += f" {' '.join(names)}"
+    return f"{command} --venv {venv}"
 
 
 def _install_hint(component: str) -> str:
+    """Return the command that installs ``component`` in this environment.
+
+    Every component installs under its own name, so the missing module's owner
+    is enough to name the command: no reverse index from components to
+    environments is needed. When the process runs inside an installed
+    environment, the command targets that virtualenv and keeps the components
+    already requested there.
+    """
     venv = current_venv()
     fingerprint = read_fingerprint(venv) if venv is not None else None
     if fingerprint is None:
-        return (
-            f"install the environment that provides component {component!r}: "
-            f"run `rpent-install list` and install a target that includes it"
-        )
-    target = fingerprint.get("target")
-    if not target:
-        # A fingerprint written before targets became the only install unit
-        # records no target; name the component without inventing one.
-        return (
-            f"install the environment that provides component {component!r}: "
-            f"run `rpent-install list` and install a target that includes it"
-        )
-    recorded = fingerprint.get("components", {}).get(component)
-    if recorded is None:
-        targets = _targets_by_component().get(component, [])
-        if targets:
-            return (
-                f"component {component!r} is not part of target {target!r}; "
-                f"install one of the targets that includes it: "
-                f"{', '.join(targets)}"
-            )
-        return (
-            f"component {component!r} is not part of target {target!r}; "
-            "install a target that includes it"
-        )
-    return f"rerun `rpent-install install {target}` to repair the environment"
+        return f"install it with `rpent-install install {component}`"
+    recorded = fingerprint.get("components") or {}
+    requested = [
+        item for item in fingerprint.get("requested") or () if isinstance(item, str)
+    ]
+    if component in recorded:
+        names = requested or [component]
+        return f"rerun `{_invocation(names, venv)}` to repair the environment"
+    environment = fingerprint.get("environment")
+    names = [*requested, component] if requested else [component]
+    return (
+        f"component {component!r} is not part of environment "
+        f"{environment!r}; install it with `{_invocation(names, venv)}`"
+    )
 
 
 def require(component: str, module: str) -> ModuleType:

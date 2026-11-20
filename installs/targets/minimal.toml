@@ -1,5 +1,0 @@
-schema = 2
-name = "minimal"
-description = "Core RPent only: CLI, discovery, and planner imports without robot components."
-
-[components]

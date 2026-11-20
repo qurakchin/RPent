@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The installer resolves one target, installs its requirements, and fingerprints it."""
+"""The installer resolves one environment, installs its requirements, and fingerprints it."""
 
 import os
 import shlex
@@ -27,12 +27,12 @@ from rpent.install.fingerprint import read_fingerprint
 from rpent.install.installer import (
     VENV_DIR,
     default_venv,
-    environment_name,
     find_uv,
     index_options,
     install,
-    target_resolution,
+    resolution_for,
 )
+from rpent.install.manifest import environment_name
 from rpent.install.requirements import (
     INPUT_SCHEMA,
     read_core_dependencies,
@@ -59,81 +59,58 @@ def repo(tmp_path, write_toml):
         name = "model-alpha"
         probe = "json"
         python = "{major}.{minor}"
-        platforms = ["linux-x86_64", "darwin-arm64"]
         dependencies = ["numpy>=2"]
-        """,
-    )
-    write_toml(
-        "installs/targets/beta.toml",
-        """
-        schema = 2
-        name = "beta"
-        core = false
-
-        [components]
         """,
     )
     return tmp_path
 
 
-def test_default_venv_is_per_target(repo):
-    target = discover(repo).targets["model-alpha"]
+def test_default_venv_is_per_environment(repo):
+    component = discover(repo).components["model-alpha"]
 
     assert VENV_DIR == ".venvs"
-    assert default_venv(repo, target.name) == repo / ".venvs" / "model-alpha"
+    assert default_venv(repo, component.name) == repo / ".venvs" / "model-alpha"
 
 
 def test_composition_gets_its_own_environment_name():
-    assert environment_name("robot-libero") == "robot-libero"
-    assert environment_name("robot-libero", ("infra-dev",)) == "robot-libero+infra-dev"
+    assert environment_name(["robot-libero"]) == "robot-libero"
+    # Sorting makes the name independent of the order the components are named.
+    assert environment_name(["robot-libero", "infra-dev"]) == "infra-dev+robot-libero"
+    assert environment_name([]) == "minimal"
 
 
-def test_target_resolution_selects_the_named_target(repo):
+def test_resolution_selects_the_named_components(repo):
     catalog = discover(repo)
 
-    resolution = target_resolution("model-alpha", catalog, root=repo)
+    resolution = resolution_for(("model-alpha",), catalog, root=repo)
 
     assert resolution.ok
-    assert resolution.target.name == "model-alpha"
+    assert resolution.requested == ("model-alpha",)
 
 
-def test_unknown_target_lists_known_targets(repo):
-    with pytest.raises(InstallError, match="known targets: beta, model-alpha"):
-        target_resolution("missing", discover(repo), root=repo)
+def test_unknown_component_lists_known_components(repo):
+    with pytest.raises(InstallError, match="known components: model-alpha"):
+        resolution_for(("missing",), discover(repo), root=repo)
 
 
-def test_with_composes_a_component_into_the_resolution(repo, write_toml):
+def test_several_components_compose_one_environment(repo, write_toml):
     write_toml(
         "components/infra/test_tools/component.toml",
         """
         schema = 2
         name = "infra-test_tools"
         probe = "json"
-        platforms = ["linux-x86_64", "darwin-arm64"]
         dependencies = ["pytest"]
         """,
     )
 
-    resolution = target_resolution(
-        "model-alpha",
-        discover(repo),
-        root=repo,
-        extra_components=("infra-test_tools",),
+    resolution = resolution_for(
+        ("model-alpha", "infra-test_tools"), discover(repo), root=repo
     )
 
     assert resolution.ok
-    assert "infra-test_tools" in resolution.components
-    assert "model-alpha" in resolution.components
-
-
-def test_with_rejects_an_unknown_component(repo):
-    with pytest.raises(InstallError, match="unknown component\\(s\\) for --with"):
-        target_resolution(
-            "model-alpha",
-            discover(repo),
-            root=repo,
-            extra_components=("infra-missing",),
-        )
+    assert set(resolution.components) == {"infra-test_tools", "model-alpha"}
+    assert resolution.name == "infra-test_tools+model-alpha"
 
 
 def test_find_uv_prefers_override(monkeypatch):
@@ -142,14 +119,14 @@ def test_find_uv_prefers_override(monkeypatch):
     assert find_uv() == "/custom/uv"
 
 
-def test_index_options_preserve_order(make_target, make_catalog):
-    target = make_target(
-        "alpha",
+def test_index_options_preserve_order(make_component, make_catalog):
+    component = make_component(
+        "robot-alpha",
         index_url="https://index.test/simple",
         extra_index_urls=("https://extra.test/simple",),
         index_strategy="unsafe-first-match",
     )
-    resolution = resolve(target, make_catalog(components=[]))
+    resolution = resolve(("robot-alpha",), make_catalog(components=[component]))
 
     assert index_options(resolution) == [
         "--index-url",
@@ -206,16 +183,17 @@ def test_install_records_a_fingerprint_with_a_fake_uv(repo, tmp_path, monkeypatc
 
     assert read_fingerprint(venv) == fingerprint
     assert fingerprint["schema"] == INPUT_SCHEMA
-    assert fingerprint["target"] == "model-alpha"
+    assert fingerprint["environment"] == "model-alpha"
+    assert fingerprint["requested"] == ["model-alpha"]
     assert "model-alpha" in fingerprint["components"]
     assert fingerprint["requirements_file"] == "rpent-requirements.txt"
-    assert "component_targets" not in fingerprint
+    assert "with" not in fingerprint
     assert "lock" not in fingerprint
     assert fingerprint["source_commit"] is None
     assert os.path.isfile(venv / "bin" / "python")
 
 
-def test_install_records_with_components_in_the_fingerprint(
+def test_install_records_a_composition_in_the_fingerprint(
     repo, tmp_path, write_toml, monkeypatch
 ):
     write_toml(
@@ -224,7 +202,6 @@ def test_install_records_with_components_in_the_fingerprint(
         schema = 2
         name = "infra-test_tools"
         probe = "json"
-        platforms = ["linux-x86_64", "darwin-arm64"]
         dependencies = ["pytest"]
         """,
     )
@@ -232,13 +209,14 @@ def test_install_records_with_components_in_the_fingerprint(
 
     fingerprint = install(
         "model-alpha",
+        "infra-test_tools",
         root=repo,
         venv=tmp_path / "venv",
         verbose=False,
-        extra_components=("infra-test_tools",),
     )
 
-    assert fingerprint["with"] == ["infra-test_tools"]
+    assert fingerprint["environment"] == "infra-test_tools+model-alpha"
+    assert fingerprint["requested"] == ["model-alpha", "infra-test_tools"]
     assert "infra-test_tools" in fingerprint["components"]
     requirements = (tmp_path / "venv" / "rpent-requirements.txt").read_text(
         encoding="utf-8"
@@ -249,7 +227,9 @@ def test_install_records_with_components_in_the_fingerprint(
 def test_install_installs_from_the_rendered_requirements(repo, tmp_path, monkeypatch):
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
-    fingerprint = install("model-alpha", root=repo, venv=tmp_path / "venv", verbose=False)
+    fingerprint = install(
+        "model-alpha", root=repo, venv=tmp_path / "venv", verbose=False
+    )
 
     requirements = tmp_path / "venv" / "rpent-requirements.txt"
     requirements_arguments = install_arguments()[0]
@@ -258,7 +238,7 @@ def test_install_installs_from_the_rendered_requirements(repo, tmp_path, monkeyp
     )
     text = requirements.read_text(encoding="utf-8")
     assert "numpy>=2" in text
-    resolution = target_resolution("model-alpha", discover(repo), root=repo)
+    resolution = resolution_for(("model-alpha",), discover(repo), root=repo)
     assert fingerprint["requirements_sha256"] == requirements_sha256(
         resolution,
         root=repo,
@@ -296,7 +276,6 @@ def test_install_passes_override_files_by_absolute_path(
         name = "model-alpha"
         probe = "json"
         python = "3.11"
-        platforms = ["linux-x86_64", "darwin-arm64"]
         dependencies = ["numpy>=2"]
         overrides = ["requirements/override.txt"]
         """,
@@ -343,7 +322,6 @@ def test_install_probes_the_deps_components_of_the_environment(
             name = "model-{name}"
             probe = "json"
             python = "{major}.{minor}"
-            platforms = ["linux-x86_64", "darwin-arm64"]
             requires = ["infra-shared"]
             """,
         )
@@ -353,54 +331,89 @@ def test_install_probes_the_deps_components_of_the_environment(
         schema = 2
         name = "infra-shared"
         probe = "json"
-        platforms = ["linux-x86_64", "darwin-arm64"]
         dependencies = ["packaging"]
         """,
     )
     _fake_uv(tmp_path, monkeypatch)
 
-    fingerprint = install("model-alpha", root=tmp_path, venv=tmp_path / "venv", verbose=True)
+    fingerprint = install(
+        "model-alpha", root=tmp_path, venv=tmp_path / "venv", verbose=True
+    )
 
     assert "probe infra-shared: import json" in capsys.readouterr().out
     assert "infra-shared" in fingerprint["components"]
 
 
-def test_install_refuses_a_venv_belonging_to_another_target(
+def test_install_refuses_a_venv_installed_for_another_environment(
     repo, tmp_path, monkeypatch
 ):
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
     venv.mkdir()
-    (venv / "rpent-install.json").write_text('{"target": "beta"}\n', encoding="utf-8")
+    (venv / "rpent-install.json").write_text(
+        '{"environment": "model-beta"}\n', encoding="utf-8"
+    )
 
-    with pytest.raises(InstallError, match="already installed for target 'beta'"):
+    with pytest.raises(
+        InstallError, match="already installed for environment 'model-beta'"
+    ):
         install("model-alpha", root=repo, venv=venv, verbose=False)
 
 
-def test_install_refuses_a_non_empty_venv_without_a_fingerprint(
+def test_install_repairs_a_venv_that_lost_its_fingerprint(repo, tmp_path, monkeypatch):
+    # The rendered requirements are still inside, so this is an environment an
+    # earlier installer wrote; reinstalling repairs it in place.
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "rpent-requirements.txt").write_text("numpy>=2\n", encoding="utf-8")
+
+    fingerprint = install("model-alpha", root=repo, venv=venv, verbose=False)
+
+    assert fingerprint["environment"] == "model-alpha"
+
+
+def test_install_repairs_a_bare_venv_without_a_fingerprint(repo, tmp_path, monkeypatch):
+    # A virtualenv that holds no third-party distribution cannot lose anything a
+    # user installed, so it is repaired without --force.
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    venv.mkdir()
+    (venv / "pyvenv.cfg").write_text("", encoding="utf-8")
+
+    fingerprint = install("model-alpha", root=repo, venv=venv, verbose=False)
+
+    assert fingerprint["environment"] == "model-alpha"
+
+
+def test_install_refuses_a_venv_belonging_to_another_tool(repo, tmp_path, monkeypatch):
+    _fake_uv(tmp_path, monkeypatch)
+    venv = tmp_path / "venv"
+    distributions = venv / "lib" / "python3.12" / "site-packages"
+    distributions.mkdir(parents=True)
+    (distributions / "numpy-2.0.0.dist-info").mkdir()
+
+    with pytest.raises(InstallError, match="belongs to another tool"):
+        install("model-alpha", root=repo, venv=venv, verbose=False)
+
+
+def test_force_installs_into_a_venv_that_belongs_to_another_tool(
     repo, tmp_path, monkeypatch
 ):
     _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
-    venv.mkdir()
-    (venv / "unrelated.txt").write_text("", encoding="utf-8")
+    distributions = venv / "lib" / "python3.12" / "site-packages"
+    distributions.mkdir(parents=True)
+    (distributions / "numpy-2.0.0.dist-info").mkdir()
 
-    with pytest.raises(InstallError, match="records no installation fingerprint"):
-        install("model-alpha", root=repo, venv=venv, verbose=False)
+    fingerprint = install(
+        "model-alpha", root=repo, venv=venv, force=True, verbose=False
+    )
 
-
-def test_force_installs_into_a_non_empty_venv(repo, tmp_path, monkeypatch):
-    _fake_uv(tmp_path, monkeypatch)
-    venv = tmp_path / "venv"
-    venv.mkdir()
-    (venv / "unrelated.txt").write_text("", encoding="utf-8")
-
-    fingerprint = install("model-alpha", root=repo, venv=venv, force=True, verbose=False)
-
-    assert fingerprint["target"] == "model-alpha"
+    assert fingerprint["environment"] == "model-alpha"
 
 
-def test_core_target_installs_the_editable_checkout(repo, tmp_path, monkeypatch):
+def test_every_environment_installs_the_editable_checkout(repo, tmp_path, monkeypatch):
     _, install_arguments = _fake_uv(tmp_path, monkeypatch)
 
     install("model-alpha", root=repo, venv=tmp_path / "venv", verbose=False)
@@ -410,40 +423,19 @@ def test_core_target_installs_the_editable_checkout(repo, tmp_path, monkeypatch)
     assert "--no-deps" in editable
 
 
-def test_core_false_target_skips_the_editable_checkout(
-    tmp_path, write_toml, monkeypatch
-):
-    write_toml(
-        "pyproject.toml",
-        '[project]\nname = "rpent"\ndependencies = []\n',
-    )
-    write_toml(
-        "installs/targets/beta.toml",
-        """
-        schema = 2
-        name = "beta"
-        core = false
-        dependencies = ["packaging"]
-        """,
-    )
-    _, install_arguments = _fake_uv(tmp_path, monkeypatch)
-
-    install("beta", root=tmp_path, venv=tmp_path / "venv", verbose=False)
-
-    assert all("-e" not in arguments for arguments in install_arguments())
-
-
 def test_dry_run_prints_the_requirements_and_creates_nothing(
     repo, tmp_path, monkeypatch, capsys
 ):
-    uv, _ = _fake_uv(tmp_path, monkeypatch)
+    _fake_uv(tmp_path, monkeypatch)
     venv = tmp_path / "venv"
 
-    fingerprint = install("model-alpha", root=repo, venv=venv, verbose=False, dry_run=True)
+    fingerprint = install(
+        "model-alpha", root=repo, venv=venv, verbose=False, dry_run=True
+    )
 
     printed = capsys.readouterr().out
     assert fingerprint == {}
-    assert "# target model-alpha:" in printed
+    assert "# environment model-alpha:" in printed
     assert "numpy>=2" in printed
     assert not venv.exists()
     assert not (venv / "rpent-requirements.txt").exists()

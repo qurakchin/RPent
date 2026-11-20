@@ -18,7 +18,7 @@ set -euo pipefail
 # Run one of the repository tools in ``tests/tooling`` from a bare checkout.
 #
 # The tools read manifests and reproduction locks and add nothing but
-# ``packaging``, so they do not need an installed target. Pass the module and
+# ``packaging``, so they do not need an installed environment. Pass the module and
 # its arguments;
 # ``tests/tooling/run.sh rpent.cli.install check --all`` is the form the
 # installation guide uses in place of the explicit ``uv run`` prefix.

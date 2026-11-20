@@ -29,11 +29,11 @@ with documentation instead of assuming either is correct.
 - `components/models/<name>/`: installable model services.
 - `components/tools/<name>/` and `components/infra/<name>/`: out-of-tree tools
   and shared runtimes.
-- `installs/targets/`: user install targets. A component is named
-  `<kind>-<directory>` and installs under that name unless it is a robot, which
-  installs only through a target. `tests/targets/` holds development and test
-  targets in the same namespace, and `tests/locks/` holds the optional
-  reproduction locks, one per target.
+- `components/`: a component is named `<kind>-<directory>` (`robot`, `sim`,
+  `model`, `tool`, or `infra`), and every component installs as the environment
+  of the same name. `requires` gives each component its standard composition,
+  so installing a robot installs its simulator, models, and tools too.
+  `tests/locks/` holds the optional reproduction locks, one per environment.
 - `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
 

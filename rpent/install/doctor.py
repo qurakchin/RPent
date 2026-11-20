@@ -35,8 +35,8 @@ from rpent.install.fingerprint import (
 from rpent.install.installer import (
     find_uv,
     install_invocation,
-    probe_source,
-    target_resolution,
+    probe_component,
+    resolution_for,
     venv_python,
 )
 from rpent.install.requirements import (
@@ -96,7 +96,6 @@ def _probe_endpoint(endpoint: str) -> str | None:
 def check_installation(
     venv: Path,
     *,
-    target_name: str | None = None,
     endpoints: dict[str, str] | None = None,
     root: Path | None = None,
 ) -> list[Check]:
@@ -112,48 +111,40 @@ def check_installation(
             Check(
                 FAIL,
                 f"no {FINGERPRINT_NAME} in {venv}; "
-                f"install it with `rpent-install install <target> --venv {venv}`",
+                f"install it with `rpent-install install <component>... "
+                f"--venv {venv}`",
             ),
         ]
-    recorded_target = fingerprint.get("target")
-    name = target_name or recorded_target
-    if name is None:
-        return [*checks, Check(FAIL, "fingerprint records no target")]
-    checks.append(Check(OK, f"target: {name}"))
-    if target_name is not None and target_name != recorded_target:
-        recorded_label = "none" if recorded_target is None else repr(recorded_target)
-        checks.append(
-            Check(
-                WARN,
-                f"--target {target_name!r} overrides the target recorded in the "
-                f"fingerprint ({recorded_label})",
-            )
-        )
+    environment = fingerprint.get("environment")
+    if not isinstance(environment, str) or not environment:
+        return [*checks, Check(FAIL, "fingerprint records no environment")]
+    checks.append(Check(OK, f"environment: {environment}"))
     checks.append(Check(OK, f"installed at: {fingerprint.get('installed_at', '?')}"))
-    # ``--with`` components are recorded in the fingerprint, so the same
+    # The requested components are recorded in the fingerprint, so the same
     # composition is resolved here as the installer resolved.
-    extra_components = tuple(
-        item for item in fingerprint.get("with") or () if isinstance(item, str)
-    )
-    if extra_components:
-        checks.append(Check(OK, f"with: {', '.join(extra_components)}"))
-    rerun = install_invocation(str(name), venv=venv, extra_components=extra_components)
+    recorded = fingerprint.get("requested")
+    requested = tuple(item for item in recorded or () if isinstance(item, str))
+    if requested:
+        checks.append(Check(OK, f"requested: {', '.join(requested)}"))
+    rerun = install_invocation(requested, venv=venv)
     catalog = discover(repo_root)
     try:
-        resolution = target_resolution(
-            str(name),
-            catalog,
-            root=repo_root,
-            extra_components=extra_components,
-        )
+        resolution = resolution_for(requested, catalog, root=repo_root)
     except (InstallError, ValueError) as exc:
-        checks.append(Check(FAIL, f"cannot resolve target {name!r}: {exc}"))
+        checks.append(Check(FAIL, f"cannot resolve environment {environment!r}: {exc}"))
         return checks
     if not resolution.ok:
         checks.append(Check(FAIL, "\n".join(resolution.errors)))
         return checks
-    target = resolution.target
-    core = read_core_dependencies(repo_root) if target.core else ()
+    if resolution.name != environment:
+        checks.append(
+            Check(
+                FAIL,
+                f"fingerprint names environment {environment!r}, but its "
+                f"requested components form {resolution.name!r}",
+            )
+        )
+    core = read_core_dependencies(repo_root)
     expected_requirements = requirements_sha256(
         resolution,
         root=repo_root,
@@ -198,8 +189,8 @@ def check_installation(
         checks.append(
             Check(
                 FAIL,
-                f"the components of target {target.name!r} do not accept the "
-                f"installed Python {fingerprint.get('python', '?')}"
+                f"the components of environment {environment!r} do not accept "
+                f"the installed Python {fingerprint.get('python', '?')}"
                 + (f" ({ranges})" if ranges else ""),
             )
         )
@@ -230,26 +221,16 @@ def check_installation(
         else:
             checks.append(Check(OK, "uv pip check"))
 
-    environment = {**os.environ, "PYTHONPATH": str(repo_root)}
     for name, component in sorted(resolution.components.items()):
-        probe = component.probe
-        result = _run(
-            [str(python), "-c", probe_source(probe)],
-            env=environment,
-        )
-        if result.returncode != 0:
-            detail = (
-                result.stderr.strip().splitlines()[-1]
-                if result.stderr.strip()
-                else probe
-            )
+        detail = probe_component(python, component)
+        if detail is not None:
             checks.append(
                 Check(FAIL, f"component {name!r} is not importable: {detail}")
             )
         else:
-            checks.append(Check(OK, f"probe {name}: import {probe}"))
+            checks.append(Check(OK, f"probe {name}: import {component.probe}"))
 
-    # Services deployed as their own target are reached by endpoint. The
+    # Services deployed as their own environment are reached by endpoint. The
     # installation no longer records which components run elsewhere, so probe
     # every endpoint the caller passes and every environment variable that is
     # set for a known component.

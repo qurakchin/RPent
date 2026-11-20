@@ -162,7 +162,12 @@ def test_relative_sibling_model_import_is_reported(tmp_path, write_toml):
 
 def test_declared_extension_allows_a_relative_import(tmp_path, write_toml):
     _component(
-        write_toml, "robots", "alpha", "robot", requires=["robot-beta"], imports=["robot-beta"]
+        write_toml,
+        "robots",
+        "alpha",
+        "robot",
+        requires=["robot-beta"],
+        imports=["robot-beta"],
     )
     _component(write_toml, "robots", "beta", "robot")
     _write(tmp_path / "robots" / "alpha" / "module.py", "from .. import beta\n")
@@ -190,7 +195,12 @@ def test_apple_double_python_files_are_ignored(tmp_path, write_toml):
 
 def test_declared_coinstalled_extension_allows_cross_robot_import(tmp_path, write_toml):
     _component(
-        write_toml, "robots", "alpha", "robot", requires=["robot-beta"], imports=["robot-beta"]
+        write_toml,
+        "robots",
+        "alpha",
+        "robot",
+        requires=["robot-beta"],
+        imports=["robot-beta"],
     )
     _component(write_toml, "robots", "beta", "robot")
     _write(
@@ -344,7 +354,10 @@ def test_backend_table_may_name_robots(tmp_path, write_toml):
     # The backend table names the robots it routes to until slice
     # configuration owns that choice; only the rest of rpent/ is checked.
     _component(write_toml, "robots", "alpha", "robot")
-    _write(tmp_path / "rpent" / "components" / "models" / "backends.py", 'ALPHA_BACKEND = "alpha"\n')
+    _write(
+        tmp_path / "rpent" / "components" / "models" / "backends.py",
+        'ALPHA_BACKEND = "alpha"\n',
+    )
 
     result = _run(tmp_path)
 
@@ -425,7 +438,10 @@ def test_pure_data_module_accepts_numpy_and_core_contracts(tmp_path, write_toml)
 
 def test_core_name_exemption_warns_while_it_applies(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
-    _write(tmp_path / "rpent" / "components" / "models" / "backends.py", 'ALPHA_BACKEND = "alpha"\n')
+    _write(
+        tmp_path / "rpent" / "components" / "models" / "backends.py",
+        'ALPHA_BACKEND = "alpha"\n',
+    )
 
     findings = layout.check_core_robot_names(tmp_path, today=date(2026, 11, 16))
 
@@ -440,7 +456,10 @@ def test_core_name_exemption_warns_while_it_applies(tmp_path, write_toml):
 
 def test_core_name_exemption_fails_once_it_expires(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
-    _write(tmp_path / "rpent" / "components" / "models" / "backends.py", 'ALPHA_BACKEND = "alpha"\n')
+    _write(
+        tmp_path / "rpent" / "components" / "models" / "backends.py",
+        'ALPHA_BACKEND = "alpha"\n',
+    )
 
     findings = layout.check_core_robot_names(tmp_path, today=date(2030, 1, 1))
 

@@ -12,29 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Map changed paths to the components, tests and targets they can affect.
+"""Map changed paths to the components, tests and environments they can affect.
 
 `fast ci` narrows which tests a pull request runs and `full ci` narrows which
-targets it installs from the same answer, so the two levels cannot drift: a
-path under a component directory names that component; the affected targets
-are the ones whose resolution closure contains it, and the affected tests are
-the suites that mirror it.
+environments it installs from the same answer, so the two levels cannot drift: a
+path under a component directory names that component; the affected
+environments are the ones whose resolution closure contains it, and the
+affected tests are the suites that mirror it.
 
-A path outside every component directory belongs to the core, the installer, or
-the target files themselves, so it can change every installation. An unknown
-component name is treated the same way rather than silently ignored. The answer
-then names every component, every target, and the whole unit suite. When no
-path is given there is nothing to narrow the answer with, so the same happens.
+A path outside every component directory belongs to the core or the installer,
+so it can change every installation. An unknown component name is treated the
+same way rather than silently ignored. The answer then names every component,
+every environment, and the whole unit suite. When no path is given there is
+nothing to narrow the answer with, so the same happens.
 
 Changes confined to the repository's install data are narrower: they decide
 which environment can be built rather than how a component behaves, so they
-select the repository contract tests and the targets that read the changed
-files. Unrecognised install data widens back to every target.
+select the repository contract tests and the environments that read the changed
+files. Unrecognised install data widens back to every environment.
 
 Cross-component contracts under ``tests/unit_tests/contracts/`` import only the
-core and ``dev`` dependencies. A change confined to that directory runs the
-group without installing a target, and a change to a component the contracts
-cover reruns the group as well.
+core and ``infra-dev`` dependencies. A change confined to that directory runs
+the group without installing an environment, and a change to a component the
+contracts cover reruns the group as well.
 
 Narrowing is fail-open throughout: a change no test directory covers, or a
 component whose tests do not exist yet, widens the scope instead of reporting a
@@ -49,8 +49,12 @@ import subprocess
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
-from rpent.install.discovery import Catalog, discover
-from rpent.install.errors import InstallConfigError
+from rpent.install.discovery import (
+    Catalog,
+    discover,
+    environment_names,
+    requested_components,
+)
 from rpent.install.resolve import resolve
 from tests.tooling.matrix import MATRICES
 
@@ -75,33 +79,32 @@ ROBOT_SHARED_TESTS = (
 SIM_ROBOT_SLICES = {"libero_plus": "libero"}
 #: Test directories for component kinds whose directory name is not the kind.
 COMPONENT_TEST_DIRS = {"tool": "tools"}
-#: Targets a pull request installs when a change affects the core. They cover
-#: the core-only environment and the CPU test environment without pulling the
-#: full GPU matrix into every core edit; nightly and release runs still install
-#: every target.
-PR_PILOT_TARGETS = ("minimal", "robot-robotwin", "unit-cpu")
+#: Environments a pull request installs when a change affects the core. They
+#: cover the core-only environment and the CPU test environment without pulling
+#: the full GPU matrix into every core edit; nightly and release runs still
+#: install every environment.
+PR_PILOT_TARGETS = ("minimal", "robot-robotwin", "infra-unit_cpu")
 #: Paths whose change can alter every installation, so a PR installs every
-#: target instead of the pilot set. Install data changes narrow their own
-#: target set first; a path here in a mixed change still widens it. Packaging
-#: files outside ``rpent/`` and ``tests/`` already select every target because
-#: no other path rule matches them.
+#: environment instead of the pilot set. Install data changes narrow their own
+#: environment set first; a path here in a mixed change still widens it. Packaging
+#: files outside ``rpent/`` and ``tests/`` already select every environment
+#: because no other path rule matches them.
 PR_ALL_TARGET_PREFIXES = (
     "rpent/install/",
-    "installs/",
     "tests/tooling/",
     ".github/",
 )
-#: The repository's install data: the target files, dependency-only manifests,
-#: locks and packaging settings that decide what each environment contains.
-#: User and test targets share the same discovery and schema, so a change under
-#: either directory narrows to the target that reads it.
-INSTALL_DATA_PREFIXES = ("installs/", "tests/targets/", "tests/locks/")
+#: The repository's install data: the component manifests, locks and packaging
+#: settings that decide what each environment contains. A manifest change
+#: narrows to the environment its component names, and a lock narrows to the
+#: environment it was compiled for.
+INSTALL_DATA_PREFIXES = ("tests/locks/",)
 INSTALL_DATA_ROOT_FILES = ("pyproject.toml",)
 #: Repository contract tests read that data. Installer unit tests live under
 #: ``tests/unit_tests/rpent/install/`` and use synthetic manifests, so the two
 #: groups stay distinguishable by path.
 INSTALL_DATA_TESTS = "tests/unit_tests/installs"
-#: Cross-component contract tests that import only the core and ``dev``
+#: Cross-component contract tests that import only the core and ``infra-dev``
 #: dependencies. They mirror data owned by more than one component, so a change
 #: to either side reruns the group.
 CROSS_COMPONENT_TESTS = "tests/unit_tests/contracts"
@@ -109,16 +112,20 @@ CROSS_COMPONENT_TESTS = "tests/unit_tests/contracts"
 
 @dataclass(frozen=True)
 class Scope:
-    """What a change can affect, in the form CI jobs consume."""
+    """What a change can affect, in the form CI jobs consume.
+
+    ``targets`` keeps its historical name: the workflow reads it as the
+    environments to install, and every entry is an environment name.
+    """
 
     components: tuple[str, ...]
     tests: tuple[str, ...]
     targets: tuple[str, ...]
     #: True when nothing narrowed the answer to part of the repository.
     full: bool
-    #: Targets a pull request installs. For a component change this equals
+    #: Environments a pull request installs. For a component change this equals
     #: ``targets``; for a core change it is the pilot set, while ``targets``
-    #: stays complete for nightly and release runs. Installer and target
+    #: stays complete for nightly and release runs. Installer and manifest
     #: changes keep the full set because they can alter any environment.
     pr_targets: tuple[str, ...] = ()
     #: True when every changed path is prose, so only the docs check applies.
@@ -152,21 +159,22 @@ def _is_install_data(path: str) -> bool:
     """Return whether ``path`` changes the repository's install data."""
     if path in INSTALL_DATA_ROOT_FILES:
         return True
+    if path.endswith("/component.toml") or path == "component.toml":
+        return True
     if path.startswith(INSTALL_DATA_PREFIXES):
         return True
     return path == INSTALL_DATA_TESTS or path.startswith(f"{INSTALL_DATA_TESTS}/")
 
 
-def _targets_for_install_data(
-    paths: list[str], catalog: Catalog, root: Path
-) -> tuple[str, ...]:
-    """Return the targets whose installation reads ``paths``, or all of them.
+def _targets_for_install_data(paths: list[str], catalog: Catalog) -> tuple[str, ...]:
+    """Return the environments whose installation reads ``paths``, or all of them.
 
-    A target file names itself and a lock names the target that declares it.
-    Packaging settings feed every target, and an unrecognised file widens the
-    answer rather than guessing which environments it reaches.
+    A component manifest names the environment its component installs under and
+    a lock names the environment it was compiled for. Packaging settings feed
+    every environment, and an unrecognised file widens the answer rather than
+    guessing which environments it reaches.
     """
-    every = tuple(sorted(catalog.targets))
+    every = environment_names(catalog.components)
     selected: set[str] = set()
     for path in paths:
         if path in INSTALL_DATA_ROOT_FILES:
@@ -174,47 +182,44 @@ def _targets_for_install_data(
         if path == INSTALL_DATA_TESTS or path.startswith(f"{INSTALL_DATA_TESTS}/"):
             # A test-only change installs nothing; the unit job still runs it.
             continue
+        if path.endswith("/component.toml"):
+            name = _component_for(path)
+            if name is None or name not in catalog.components:
+                return every
+            selected.add(name)
+            continue
         parts = path.split("/")
         area = parts[1] if len(parts) > 1 else ""
         stem = parts[2] if len(parts) > 2 else ""
         suffix = Path(stem).suffix
-        if area == "targets" and suffix == ".toml" and len(parts) == 3:
+        if area == "locks" and suffix == ".lock" and len(parts) == 3:
             name = stem[: -len(suffix)]
-            if name not in catalog.targets:
+            if name not in every:
                 return every
             selected.add(name)
-        elif area == "locks" and suffix == ".lock" and len(parts) == 3:
-            lock = (root / path).resolve()
-            declared = [
-                name
-                for name, target in catalog.targets.items()
-                if target.lock_file(root).resolve() == lock
-            ]
-            if not declared:
-                return every
-            selected.update(declared)
         else:
             return every
     return tuple(sorted(selected))
 
 
-def _pr_targets(paths: list[str], targets: dict[str, object]) -> tuple[str, ...]:
-    """Return the targets a pull request should install for ``paths``.
+def _pr_targets(paths: list[str], environments: tuple[str, ...]) -> tuple[str, ...]:
+    """Return the environments a pull request should install for ``paths``.
 
-    A component change never reaches this helper: its target set is already the
-    resolution closure. For a core change, installing every GPU target proves
-    little beyond what nightly proves and costs a self-hosted runner slot, so
-    the PR installs the core-only and CPU test targets. The installer,
-    workflows, packaging, and a mixed change that still names one of them keep
-    the full set; install data on its own narrows before this helper runs.
+    A component change never reaches this helper: its environment set is already
+    the resolution closure. For a core change, installing every GPU environment
+    proves little beyond what nightly proves and costs a self-hosted runner
+    slot, so the PR installs the core-only and CPU test environments. The
+    installer, workflows, packaging, and a mixed change that still names one of
+    them keep the full set; install data on its own narrows before this helper
+    runs.
     """
-    available = tuple(sorted(targets))
+    available = tuple(sorted(environments))
     if not paths:
         return available
     if any(path.startswith(PR_ALL_TARGET_PREFIXES) for path in paths):
         return available
     if all(path.startswith(("rpent/", "tests/")) for path in paths):
-        pilots = tuple(name for name in PR_PILOT_TARGETS if name in targets)
+        pilots = tuple(name for name in PR_PILOT_TARGETS if name in environments)
         return pilots or available
     return available
 
@@ -223,7 +228,7 @@ def affected_components(paths: list[str], catalog: Catalog) -> set[str] | None:
     """Return the components ``paths`` touch, or ``None`` when all can change.
 
     ``None`` means the change is not confined to a known component: the core,
-    the installer, a target, a lock, or an unowned path.
+    the installer, install data, a lock, or an unowned path.
     """
     names: set[str] = set()
     for path in paths:
@@ -278,7 +283,7 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
         # ``tests/unit_tests/installs/`` own the cross-file checks, and the
         # targets that read the changed files are the ones a pull request
         # installs.
-        targets = _targets_for_install_data(paths, catalog, root)
+        targets = _targets_for_install_data(paths, catalog)
         return Scope(
             components=(),
             tests=(INSTALL_DATA_TESTS,),
@@ -287,12 +292,11 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
             pr_targets=targets,
         )
     if paths and all(
-        path == CROSS_COMPONENT_TESTS
-        or path.startswith(f"{CROSS_COMPONENT_TESTS}/")
+        path == CROSS_COMPONENT_TESTS or path.startswith(f"{CROSS_COMPONENT_TESTS}/")
         for path in paths
     ):
         # A test-only change installs nothing; the unit job runs the group in
-        # the `dev` target, which provides everything these contracts import.
+        # the `infra-dev` environment, which provides everything these contracts import.
         return Scope(
             components=(),
             tests=(CROSS_COMPONENT_TESTS,),
@@ -301,26 +305,21 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
         )
     names = affected_components(paths, catalog)
     if names is None or not paths:
+        environments = environment_names(catalog.components)
         return Scope(
             components=tuple(sorted(catalog.components)),
             tests=("tests/unit_tests",),
-            targets=tuple(sorted(catalog.targets)),
+            targets=environments,
             full=True,
-            pr_targets=_pr_targets(paths, catalog.targets),
+            pr_targets=_pr_targets(paths, environments),
         )
     kinds = {name: catalog.components[name].kind for name in sorted(names)}
     tests: set[str] = {path for path in SHARED_TESTS if (root / path).exists()}
     for name, kind in kinds.items():
         tests.update(_tests_for(kind, name, root))
     targets: list[str] = []
-    for name, target in sorted(catalog.targets.items()):
-        try:
-            resolution = resolve(target, catalog)
-        except InstallConfigError:
-            # An invalid target is a configuration error `check` reports;
-            # installing it is the fastest way to surface it, so keep it.
-            targets.append(name)
-            continue
+    for name in environment_names(catalog.components):
+        resolution = resolve(requested_components(name, catalog.components), catalog)
         if names & set(resolution.components):
             targets.append(name)
     if not tests:
@@ -336,7 +335,7 @@ def affected_scope(paths: list[str], catalog: Catalog, root: Path) -> Scope:
 
 
 def affected_targets(paths: list[str], catalog: Catalog, root: Path) -> tuple[str, ...]:
-    """Return the targets whose closure contains what ``paths`` changed."""
+    """Return the environments whose closure contains what ``paths`` changed."""
     return affected_scope(paths, catalog, root).targets
 
 

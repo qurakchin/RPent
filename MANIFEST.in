@@ -5,7 +5,6 @@ include pyproject.toml setup.py
 recursive-include rpent *.py *.toml *.html *.css *.js
 recursive-include robots *.py *.toml *.md *.yaml *.yml *.json *.txt *.cpp *.html
 recursive-include components *.py *.toml *.md *.yaml *.yml *.json *.txt
-recursive-include installs *.toml *.lock
 # The install bootstrap the guide tells a fresh checkout to run; the maintainer
 # launcher ships with ``tests/`` below.
 include rpent-install.sh

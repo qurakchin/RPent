@@ -3,8 +3,9 @@ name = "robot-robocasa"
 probe = "robots.robocasa"
 python = ">=3.10,<3.11"
 description = "RoboCasa adapter with RLinf's RoboCasa365 and RLDX stack."
-# The RoboCasa365 and robosuite packages belong to `sim-robocasa`.
-requires = ["sim-robocasa"]
+# The RoboCasa365 and robosuite packages belong to `sim-robocasa`; the policy
+# runtime belongs to `model-rldx`.
+requires = ["sim-robocasa", "model-rldx"]
 env_conflicts = ["robot-franka", "robot-dual_franka", "sim-robotwin"]
 
 dependencies = []

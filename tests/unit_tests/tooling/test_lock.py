@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The lock tool writes every target's lock and reports drift."""
+"""The lock tool writes every environment's lock and reports drift."""
 
 import os
 import stat
@@ -44,14 +44,12 @@ def repo(tmp_path, write_toml):
         """,
     )
     write_toml(
-        "tests/targets/tool-beta.toml",
+        "components/tools/beta/component.toml",
         """
         schema = 2
         name = "tool-beta"
-        core = false
+        probe = "json"
         dependencies = ["packaging"]
-
-        [components]
         """,
     )
     return tmp_path
@@ -154,17 +152,18 @@ def test_write_resolves_override_files_against_the_checkout(repo, fake_uv, write
     assert os.path.isabs(value)
 
 
-def test_all_writes_every_lock_under_tests(repo, fake_uv):
+def test_all_writes_the_core_and_every_component_lock(repo, fake_uv):
     assert lock.main(["--all"], root=repo) == 0
 
+    assert (repo / "tests/locks/minimal.lock").is_file()
     assert (repo / "tests/locks/model-alpha.lock").is_file()
     assert (repo / "tests/locks/tool-beta.lock").is_file()
 
 
-def test_unknown_target_is_reported(repo, fake_uv, capsys):
+def test_unknown_environment_is_reported(repo, fake_uv, capsys):
     assert lock.main(["missing"], root=repo) == 1
 
-    assert "unknown target 'missing'" in capsys.readouterr().err
+    assert "unknown environment 'missing'" in capsys.readouterr().err
 
 
 def test_check_passes_for_an_unchanged_lock(repo, fake_uv, capsys):
@@ -238,19 +237,10 @@ def test_all_reports_failures_and_continues(repo, fake_uv, write_toml, capsys):
         python = ">=3.13"
         """,
     )
-    write_toml(
-        "installs/targets/gamma-env.toml",
-        """
-        schema = 2
-        name = "gamma-env"
-
-        [components.robot-gamma]
-        """,
-    )
 
     assert lock.main(["--all"], root=repo) == 1
 
     output = capsys.readouterr().out
-    assert "lock gamma-env: FAIL" in output
+    assert "lock robot-gamma: FAIL" in output
     assert "no supported Python version" in output
     assert (repo / "tests/locks/model-alpha.lock").is_file()

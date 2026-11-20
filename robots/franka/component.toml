@@ -2,8 +2,8 @@ schema = 2
 name = "robot-franka"
 probe = "robots.franka"
 python = ">=3.10,<3.13"
-description = "Single-arm Franka hardware without a policy model."
-requires = ["infra-rlinf"]
+description = "Single-arm Franka hardware with Pi0.5."
+requires = ["infra-rlinf", "model-openpi"]
 # The flash perception tools branch to the dual-arm implementation when the
 # dual Franka slice is installed; the import is lazy and only runs then.
 imports = ["robot-dual_franka"]

@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""One resolver compiles target locks, records their cutoff, and resolves."""
+"""One resolver compiles environment locks, records their cutoff, and resolves."""
 
 import os
 import stat
+from pathlib import Path
 
 import pytest
 
@@ -24,12 +25,12 @@ from rpent.install.errors import InstallError
 from rpent.install.lock import (
     LOCK_PYTHON_PREFIX,
     LOCK_TIMESTAMP_PREFIX,
-    compile_target,
+    compile_environment,
     lock_path,
     lock_python,
     lock_timestamp,
     new_lock_timestamp,
-    resolve_target,
+    resolve_environment,
 )
 
 
@@ -99,11 +100,28 @@ def _arguments(fake_uv):
     return (fake_uv.parent / "uv-args").read_text(encoding="utf-8").splitlines()
 
 
-def test_lock_path_follows_the_target_name(make_target, tmp_path):
-    # Locks are optional reproduction artifacts named after their target, so no
-    # manifest can point at a different path for the same target.
-    assert lock_path(tmp_path, make_target("alpha")) == (
-        tmp_path / "tests/locks/alpha.lock"
+def _compile(repo, fake_uv, requested=("model-alpha",), **kwargs):
+    output = lock_path(repo, "model-alpha")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    return compile_environment(
+        requested,
+        discover(repo),
+        root=repo,
+        uv=str(fake_uv),
+        output=output,
+        **kwargs,
+    )
+
+
+def test_lock_path_follows_the_environment_name():
+    # Locks are optional reproduction artifacts named after the environment, so
+    # a composition and its components never share a file.
+    root = Path("/repo")
+    assert lock_path(root, "model-alpha") == (
+        root / "tests" / "locks" / "model-alpha.lock"
+    )
+    assert lock_path(root, "infra-dev+robot-alpha") == (
+        root / "tests" / "locks" / "infra-dev+robot-alpha.lock"
     )
 
 
@@ -121,59 +139,72 @@ def test_lock_timestamp_rejects_a_missing_or_naive_header():
 
 
 def test_compile_writes_the_resolved_requirements(repo, fake_uv):
-    catalog = discover(repo)
-    output = repo / "tests/locks/alpha.lock"
-    output.parent.mkdir(parents=True, exist_ok=True)
     cutoff = new_lock_timestamp()
 
-    text = compile_target(
-        catalog.targets["model-alpha"],
-        catalog,
-        root=repo,
-        uv=str(fake_uv),
-        output=output,
-        exclude_newer=cutoff,
-    )
+    text = _compile(repo, fake_uv, exclude_newer=cutoff)
 
     assert "packaging" in text
     assert "numpy>=2" in text
     assert text.startswith(f"{LOCK_PYTHON_PREFIX}3.11\n")
     assert lock_python(text) == "3.11"
     assert lock_timestamp(text) == cutoff
-    assert output.read_text(encoding="utf-8") == text
+    assert lock_path(repo, "model-alpha").read_text(encoding="utf-8") == text
     arguments = _arguments(fake_uv)
     assert arguments[arguments.index("--exclude-newer") + 1] == cutoff
 
 
 def test_compile_without_a_cutoff_writes_only_the_python_header(repo, fake_uv):
-    catalog = discover(repo)
-    output = repo / "tests/locks/alpha.lock"
-    output.parent.mkdir(parents=True, exist_ok=True)
-
-    text = compile_target(
-        catalog.targets["model-alpha"],
-        catalog,
-        root=repo,
-        uv=str(fake_uv),
-        output=output,
-    )
+    text = _compile(repo, fake_uv)
 
     assert text.startswith(LOCK_PYTHON_PREFIX)
     assert LOCK_TIMESTAMP_PREFIX not in text
     assert "--exclude-newer" not in _arguments(fake_uv)
 
 
+def test_compile_names_a_composition_by_the_sorted_join(repo, fake_uv):
+    text = _compile(repo, fake_uv, requested=("model-beta", "model-alpha"))
+
+    # A composition selects both components' constraints and the newest
+    # baseline, and the name does not depend on the order they were passed in.
+    assert lock_python(text) == "3.11"
+    assert _arguments(fake_uv)[_arguments(fake_uv).index("--python-platform") + 1] == (
+        "x86_64-manylinux_2_35"
+    )
+
+
+def test_compile_keeps_a_recorded_python_minor(repo, fake_uv, write_toml):
+    # Recompiling an existing lock reuses the interpreter it was verified with
+    # instead of silently moving the environment to a newer supported minor.
+    write_toml(
+        "components/models/gamma/component.toml",
+        """
+        schema = 2
+        name = "model-gamma"
+        probe = "json"
+        python = ">=3.10"
+        """,
+    )
+    output = lock_path(repo, "model-gamma")
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    text = compile_environment(
+        ("model-gamma",),
+        discover(repo),
+        root=repo,
+        uv=str(fake_uv),
+        output=output,
+        python="3.10",
+    )
+
+    assert lock_python(text) == "3.10"
+
+
 def test_compile_runs_in_the_checkout(repo, fake_uv, monkeypatch):
     # uv discovers ``[tool.uv]`` from its working directory, so a lock compiled
     # from a subdirectory would record versions the checkout does not select.
     monkeypatch.chdir(repo / "components")
-    catalog = discover(repo)
-    output = repo / "tests/locks/alpha.lock"
-    output.parent.mkdir(parents=True, exist_ok=True)
 
-    compile_target(
-        catalog.targets["model-alpha"], catalog, root=repo, uv=str(fake_uv), output=output
-    )
+    _compile(repo, fake_uv)
 
     assert (repo / "uv-pwd").read_text(encoding="utf-8").splitlines() == [
         str(repo.resolve())
@@ -197,13 +228,8 @@ def test_compile_resolves_override_files_against_the_checkout(
         """,
     )
     write_toml("components/models/alpha/requirements/override.txt", "numpy<3\n")
-    catalog = discover(repo)
-    output = repo / "tests/locks/alpha.lock"
-    output.parent.mkdir(parents=True, exist_ok=True)
 
-    compile_target(
-        catalog.targets["model-alpha"], catalog, root=repo, uv=str(fake_uv), output=output
-    )
+    _compile(repo, fake_uv)
 
     arguments = _arguments(fake_uv)
     value = arguments[arguments.index("--overrides") + 1]
@@ -212,13 +238,7 @@ def test_compile_resolves_override_files_against_the_checkout(
 
 
 def test_compile_uses_the_closure_manylinux_baseline(repo, fake_uv):
-    catalog = discover(repo)
-    output = repo / "tests/locks/beta.lock"
-    output.parent.mkdir(parents=True, exist_ok=True)
-
-    compile_target(
-        catalog.targets["model-beta"], catalog, root=repo, uv=str(fake_uv), output=output
-    )
+    _compile(repo, fake_uv, requested=("model-beta",))
 
     arguments = _arguments(fake_uv)
     assert arguments[arguments.index("--python-platform") + 1] == (
@@ -227,22 +247,33 @@ def test_compile_uses_the_closure_manylinux_baseline(repo, fake_uv):
 
 
 def test_compile_rejects_a_python_request_no_supported_minor_satisfies(
-    tmp_path, make_component, make_target, make_catalog, fake_uv
+    tmp_path, write_toml, make_component, make_catalog, fake_uv
 ):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "rpent"
+        dependencies = []
+        """,
+    )
     component = make_component("robot-alpha", python=">=3.13")
-    target = make_target("alpha", ["robot-alpha"], core=False)
-    catalog = make_catalog([component], {"alpha": target})
+    catalog = make_catalog(components=[component])
 
-    with pytest.raises(InstallError, match="no supported Python version"):
-        compile_target(
-            target, catalog, root=tmp_path, uv=str(fake_uv), output=tmp_path / "x"
+    with pytest.raises(InstallError, match="Python"):
+        compile_environment(
+            ("robot-alpha",),
+            catalog,
+            root=tmp_path,
+            uv=str(fake_uv),
+            output=tmp_path / "x",
         )
 
 
-def test_resolve_target_compiles_without_writing_a_lock(repo, fake_uv):
-    catalog = discover(repo)
-
-    text = resolve_target(catalog.targets["model-alpha"], catalog, root=repo, uv=str(fake_uv))
+def test_resolve_environment_compiles_without_writing_a_lock(repo, fake_uv):
+    text = resolve_environment(
+        ("model-alpha",), discover(repo), root=repo, uv=str(fake_uv)
+    )
 
     assert "numpy>=2" in text
-    assert not (repo / "tests/locks/alpha.lock").exists()
+    assert not (repo / "tests/locks/model-alpha.lock").exists()

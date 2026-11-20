@@ -24,9 +24,7 @@ from rpent.install.discovery import Catalog
 from rpent.install.manifest import (
     COMPONENT_DIRECTORIES,
     DEFAULT_MANYLINUX,
-    DEFAULT_PLATFORMS,
     Component,
-    Target,
 )
 from rpent.utils import logging as run_logging
 from rpent.utils.rpc.http_rpc import HttpRpcClient, HttpRpcServer
@@ -127,9 +125,7 @@ def make_component(tmp_path):
             dependencies=tuple(values.pop("dependencies", ())),
             overrides=tuple(values.pop("overrides", ())),
             manifest_sha256=values.pop("manifest_sha256", name),
-            platforms=tuple(values.pop("platforms", DEFAULT_PLATFORMS)),
             manylinux=values.pop("manylinux", DEFAULT_MANYLINUX),
-            core=values.pop("core", True),
             description=values.pop("description", None),
             index_url=values.pop("index_url", None),
             extra_index_urls=tuple(values.pop("extra_index_urls", ())),
@@ -140,35 +136,11 @@ def make_component(tmp_path):
 
 
 @pytest.fixture
-def make_target(tmp_path):
-    """Build a target without touching the filesystem."""
+def make_catalog(tmp_path, make_component):
+    """Build a catalog from a set of components."""
 
-    def _make(name, components=None, **values):
-        return Target(
-            name=name,
-            path=tmp_path / "installs" / "targets" / f"{name}.toml",
-            components=tuple(components or ()),
-            dependencies=tuple(values.pop("dependencies", ())),
-            index_url=values.pop("index_url", None),
-            extra_index_urls=tuple(values.pop("extra_index_urls", ())),
-            index_strategy=values.pop("index_strategy", None),
-            core=values.pop("core", True),
-            description=values.pop("description", None),
-        )
-
-    return _make
-
-
-@pytest.fixture
-def make_catalog(tmp_path, make_component, make_target):
-    """Build a catalog from component and target mappings."""
-
-    def _make(components=(), targets=None):
+    def _make(components=()):
         component_map = {component.name: component for component in components}
-        return Catalog(
-            root=Path(tmp_path),
-            components=component_map,
-            targets=targets or {},
-        )
+        return Catalog(root=Path(tmp_path), components=component_map)
 
     return _make

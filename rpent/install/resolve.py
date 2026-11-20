@@ -12,18 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Resolve a target into environments, dependencies, and configuration errors."""
+"""Resolve requested components into one environment and its errors."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
 from rpent.install.discovery import Catalog
 from rpent.install.manifest import (
     PYTHON_MINORS,
     Component,
-    Target,
+    environment_name,
     python_specifier,
 )
 
@@ -38,11 +38,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class Resolution:
-    """The components, environment settings, and diagnostics of one target."""
+    """The components, settings, and diagnostics of one environment."""
 
-    target: Target
-    #: Every component the target installs, keyed by name: the selections plus
-    #: their ``requires`` closure.
+    #: Components the caller requested, in the order they were named.
+    requested: tuple[str, ...] = ()
+    #: Every component the environment installs, keyed by name: the requested
+    #: components plus their ``requires`` closure.
     components: dict[str, Component] = field(default_factory=dict)
     #: Concrete Python minor every component accepts, newest supported first.
     python: str | None = None
@@ -54,6 +55,11 @@ class Resolution:
     extra_index_urls: tuple[str, ...] = ()
     index_strategy: str | None = None
     errors: list[str] = field(default_factory=list)
+
+    @property
+    def name(self) -> str:
+        """Return the environment name its requested components form."""
+        return environment_name(self.requested)
 
     @property
     def ok(self) -> bool:
@@ -130,7 +136,7 @@ def _pin_conflicts(
 def _override_packages(component: Component) -> set[str]:
     """Return the packages a component's override files constrain.
 
-    Marker-scoped lines select different constraints per target, so the
+    Marker-scoped lines select different constraints per platform, so the
     resolver decides which one applies and they are not compared, the same rule
     the pin check follows. An unreadable or unparsable file is left to uv,
     which reports it when it applies the override.
@@ -174,41 +180,10 @@ def _override_conflicts(resolution: Resolution) -> list[str]:
             continue
         errors.append(
             f"components {', '.join(repr(name) for name in names)} both override "
-            f"{package!r} in target {resolution.target.name!r}; move the "
+            f"{package!r} in environment {resolution.name!r}; move the "
             "constraint into the component that needs it or merge the override "
             "files"
         )
-    return errors
-
-
-def _target_duplicate_dependencies(resolution: Resolution) -> list[str]:
-    """Return errors for target dependencies a component already declares.
-
-    A target's ``dependencies`` carry only packages no component in its
-    closure owns; repeating a component's requirement hides which component
-    owns the version and breaks the single-owner rule.
-    """
-    target = resolution.target
-    if not target.dependencies:
-        return []
-    declared = {
-        identity[0]
-        for identity in map(_canonical, target.dependencies)
-        if identity is not None
-    }
-    errors: list[str] = []
-    for name, component in sorted(resolution.components.items()):
-        owned = {
-            identity[0]
-            for identity in map(_canonical, component.dependencies)
-            if identity is not None
-        }
-        for package in sorted(declared & owned):
-            errors.append(
-                f"target {target.name!r} lists {package!r} in its own "
-                f"dependencies, but component {name!r} already requires it; "
-                "keep the requirement where its owner declares it"
-            )
     return errors
 
 
@@ -226,7 +201,7 @@ def _format_conflict(
     left: Component,
     right: Component,
     *,
-    target: str,
+    environment: str,
 ) -> str:
     left_deps = _dependency_pins(left)
     right_deps = _dependency_pins(right)
@@ -242,19 +217,20 @@ def _format_conflict(
             " (a transitive version incompatibility)"
         ]
     return (
-        f"target {target!r} places {left.name!r} and {right.name!r} "
+        f"{environment} places {left.name!r} and {right.name!r} "
         "in the same environment, but they conflict\n"
         + "\n".join(details)
-        + f"\n  split {left.name} and {right.name} into separate targets and "
-        "connect them by endpoint"
+        + f"\n  split {left.name} and {right.name} into separate environments "
+        "and connect them by endpoint"
     )
 
 
 def choose_python(components: list[Component], errors: list[str]) -> str | None:
     """Return the newest supported Python minor every component accepts.
 
-    A component that declares no ``python`` accepts every supported minor, so a
-    target whose components are all unconstrained resolves to the newest one.
+    A component that declares no ``python`` accepts every supported minor, so
+    an environment whose components are all unconstrained resolves to the
+    newest one.
     """
     from packaging.specifiers import InvalidSpecifier
 
@@ -270,9 +246,7 @@ def choose_python(components: list[Component], errors: list[str]) -> str | None:
                 f"{component.python!r}: {exc}"
             )
     for minor in PYTHON_MINORS:
-        if all(
-            supported.contains(minor, prereleases=True) for _, supported in ranges
-        ):
+        if all(supported.contains(minor, prereleases=True) for _, supported in ranges):
             return minor
     details = "\n".join(
         f"  {name}: Python {supported}"
@@ -322,12 +296,12 @@ def _inherited(
     display: str,
     errors: list[str],
 ) -> str | None:
-    """Return the value a component group declares when the target leaves it out.
+    """Return the value the component group agrees on, if any.
 
-    A component owns the index its packages come from, so a composition target
-    that leaves ``index-url`` or ``index-strategy`` unset inherits it. A
-    disagreement is an error: one environment cannot resolve against two
-    indexes, and picking one side would silently break the other component.
+    A component owns the index its packages come from, so the environment
+    inherits the single value its closure declares. A disagreement is an error:
+    one environment cannot resolve against two indexes, and picking one side
+    would silently break the other component.
     """
     if not values:
         return None
@@ -335,17 +309,14 @@ def _inherited(
         errors.append(
             f"{display}: components declare different {why}: "
             f"{_describe_settings(values)}; one environment resolves against "
-            "one setting, so declare it on the target"
+            "one setting, so install these components separately"
         )
         return None
     return next(iter(values))
 
 
-def _apply_settings(
-    resolution: Resolution, *, display: str
-) -> None:
+def _apply_settings(resolution: Resolution, *, display: str) -> None:
     """Fill the resolved index settings and glibc baseline."""
-    target = resolution.target
     components = list(resolution.components.values())
     index_urls: dict[str, list[str]] = {}
     strategies: dict[str, list[str]] = {}
@@ -358,55 +329,41 @@ def _apply_settings(
         for url in component.extra_index_urls:
             extra_urls.setdefault(url, []).append(component.name)
 
-    resolution.index_url = target.index_url or _inherited(
+    resolution.index_url = _inherited(
         index_urls,
         why="index URLs",
         display=display,
         errors=resolution.errors,
     )
-    resolution.index_strategy = target.index_strategy or _inherited(
+    resolution.index_strategy = _inherited(
         strategies,
         why="index strategies",
         display=display,
         errors=resolution.errors,
     )
-    resolution.extra_index_urls = tuple(
-        sorted({*target.extra_index_urls, *extra_urls})
-    )
+    resolution.extra_index_urls = tuple(sorted(extra_urls))
     if components:
         resolution.manylinux = max(
             (component.manylinux for component in components), key=_baseline
         )
 
 
-def _check_platform(
-    resolution: Resolution, *, display: str
-) -> None:
-    """Report components that do not install on the resolved host."""
-    for name, component in sorted(resolution.components.items()):
-        if resolution.platform in component.platforms:
-            continue
-        resolution.errors.append(
-            f"{display}: component {name!r} installs only on "
-            f"{', '.join(component.platforms)}, not {resolution.platform}"
-        )
-
-
 def resolve(
-    target: Target,
+    requested: Iterable[str],
     catalog: Catalog,
     *,
     core_dependencies: tuple[str, ...] = (),
     platform: str = "linux-x86_64",
 ) -> Resolution:
-    """Place the target's components, compute closure, and report conflicts."""
-    resolution = Resolution(target=target, platform=platform)
-    display = target.relative_path(catalog.root)
-    pending = list(target.components)
-    for name in target.components:
+    """Place the requested components, compute closure, and report conflicts."""
+    selected = tuple(dict.fromkeys(requested))
+    resolution = Resolution(requested=selected, platform=platform)
+    display = f"environment {resolution.name!r}"
+    pending = list(selected)
+    for name in selected:
         if name not in catalog.components:
             resolution.errors.append(
-                f"target {target.name!r} references unknown component {name!r}; "
+                f"{display} references unknown component {name!r}; "
                 f"known components: {', '.join(sorted(catalog.components))}"
             )
     while pending:
@@ -424,36 +381,30 @@ def resolve(
             pending.append(required)
 
     _apply_settings(resolution, display=display)
-    _check_platform(resolution, display=display)
-    resolution.python = choose_python(list(resolution.components.values()), resolution.errors)
+    resolution.python = choose_python(
+        list(resolution.components.values()), resolution.errors
+    )
 
     installed = sorted(resolution.components)
     for index, left_name in enumerate(installed):
         for right_name in installed[index + 1 :]:
             left = resolution.components[left_name]
             right = resolution.components[right_name]
-            if (
-                right_name in left.env_conflicts
-                or left_name in right.env_conflicts
-            ):
+            if right_name in left.env_conflicts or left_name in right.env_conflicts:
                 resolution.errors.append(
-                    _format_conflict(left, right, target=target.name)
+                    _format_conflict(left, right, environment=display)
                 )
     requirements = [
         (name, requirement)
         for name in installed
         for requirement in resolution.components[name].dependencies
     ]
-    requirements.extend((target.name, requirement) for requirement in core_dependencies)
-    requirements.extend(
-        (target.name, requirement) for requirement in target.dependencies
-    )
+    requirements.extend(("core", requirement) for requirement in core_dependencies)
     for package, pins in _pin_conflicts(requirements).items():
         lines = "\n".join(f"  {owner}: {package} {pin}" for owner, pin in pins)
         resolution.errors.append(
-            f"target {target.name!r} has conflicting pins for {package!r}\n{lines}"
+            f"{display} has conflicting pins for {package!r}\n{lines}"
         )
     resolution.errors.extend(_override_conflicts(resolution))
-    resolution.errors.extend(_target_duplicate_dependencies(resolution))
     resolution.errors = sorted(dict.fromkeys(resolution.errors))
     return resolution

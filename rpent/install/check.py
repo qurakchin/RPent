@@ -12,14 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Validate every manifest and target closure without installing.
+"""Validate component environments without installing.
 
-``rpent-install check`` resolves targets from their manifests and reports what
-the installer would reject. Loading the catalog already rejects an invalid
-manifest, a duplicate component or target name, and a broken
-``requires``/``imports``/``env_conflicts`` reference. This module adds the
-checks that need a target: its closure resolves for a host, and every robot
-component is selected by an explicit target.
+``rpent-install check`` resolves the environment a component forms and reports
+what the installer would reject. Loading the catalog already rejects an invalid
+manifest and a broken ``requires``/``imports``/``env_conflicts`` reference. This
+module adds the checks that need resolution: the closure resolves for a host.
 
 Checked-in locks are optional reproduction artifacts, not installation inputs,
 so this command neither requires nor validates them. ``--resolve`` compiles the
@@ -33,46 +31,58 @@ import argparse
 import sys
 from pathlib import Path
 
-from rpent.install.discovery import Catalog, discover
-from rpent.install.errors import InstallError
+from rpent.install.discovery import (
+    Catalog,
+    discover,
+    environment_names,
+    requested_components,
+)
+from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.installer import find_uv
-from rpent.install.lock import resolve_target
-from rpent.install.manifest import DEFAULT_PLATFORMS
+from rpent.install.lock import resolve_environment
+from rpent.install.manifest import DEFAULT_PLATFORMS, MINIMAL_ENVIRONMENT
 from rpent.install.requirements import (
     read_core_dependencies,
     requirements_sha256,
 )
-from rpent.install.resolve import resolve
+from rpent.install.resolve import Resolution, resolve
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def check_catalog(catalog: Catalog) -> list[str]:
-    """Return problems with the target set as a whole.
+    """Return problems with the names the environment namespace reserves.
 
-    Robot components do not form same-name targets, so a robot that no target
-    selects cannot be installed at all. Installing a robot means choosing the
-    composition it runs in, which only a target file can declare.
+    An environment name joins its requested components with ``+``, so a
+    component must not contain the separator or the name cannot be split back
+    into what was requested.
     """
     problems: list[str] = []
     for name, component in sorted(catalog.components.items()):
-        if component.kind != "robot":
-            continue
-        providers = sorted(
-            target.name
-            for target in catalog.targets.values()
-            if name in target.components
-        )
-        if not providers:
+        if "+" in name:
             problems.append(
-                f"robot component {component.manifest_path} is not selected by "
-                f"any target; add installs/targets/<target>.toml with "
-                f"[components.{name}]"
+                f"component {component.manifest_path} is named {name!r}; a "
+                "component name must not contain '+'"
             )
     return problems
 
 
-def check_target(
+def _resolution(
+    name: str,
+    catalog: Catalog,
+    root: Path,
+    *,
+    platform: str,
+) -> Resolution:
+    return resolve(
+        requested_components(name, catalog.components),
+        catalog,
+        core_dependencies=read_core_dependencies(root),
+        platform=platform,
+    )
+
+
+def check_environment(
     name: str,
     catalog: Catalog,
     root: Path,
@@ -80,18 +90,18 @@ def check_target(
     platform: str = DEFAULT_PLATFORMS[0],
     uv: str | None = None,
 ) -> list[str]:
-    """Return every problem with one target, or an empty list."""
-    target = catalog.targets[name]
-    core = read_core_dependencies(root) if target.core else ()
-    resolution = resolve(
-        target, catalog, core_dependencies=core, platform=platform
-    )
+    """Return every problem with one environment, or an empty list."""
+    try:
+        requested = requested_components(name, catalog.components)
+        resolution = _resolution(name, catalog, root, platform=platform)
+    except (InstallConfigError, InstallError) as exc:
+        return [str(exc)]
     problems = [*resolution.errors]
     if problems or uv is None:
         return problems
     try:
-        lock_text = resolve_target(
-            target, catalog, root=root, uv=uv, platform=platform
+        lock_text = resolve_environment(
+            requested, catalog, root=root, uv=uv, platform=platform
         )
     except InstallError as exc:
         return [str(exc)]
@@ -100,7 +110,7 @@ def check_target(
         for line in lock_text.splitlines()
         if line and not line.startswith((" ", "#", "-"))
     )
-    print(f"target {name}: uv resolved {pinned} requirements for {platform}")
+    print(f"{name}: uv resolved {pinned} requirements for {platform}")
     return []
 
 
@@ -111,29 +121,29 @@ def inputs_hash(
     *,
     platform: str = DEFAULT_PLATFORMS[0],
 ) -> tuple[str, str]:
-    """Return the installed-inputs hash and Python minor for one target.
+    """Return the installed-inputs hash and Python minor for one environment.
 
-    The hash covers the target, its component manifests, overrides, core
-    dependencies, the host, and the checkout's ``[tool.uv]`` settings, so CI can
-    key a prebuilt environment on the manifests instead of a lock.
+    The hash covers the component closure, overrides, core dependencies, the
+    host, and the checkout's ``[tool.uv]`` settings, so CI can key a prebuilt
+    environment on the manifests instead of a lock.
     """
-    target = catalog.targets[name]
-    core = read_core_dependencies(root) if target.core else ()
-    resolution = resolve(
-        target, catalog, core_dependencies=core, platform=platform
-    )
+    resolution = _resolution(name, catalog, root, platform=platform)
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
     if resolution.python is None:
-        raise InstallError(f"target {name!r} resolved no Python minor")
-    digest = requirements_sha256(resolution, root=root, core_dependencies=core)
+        raise InstallError(f"environment {name!r} resolved no Python minor")
+    digest = requirements_sha256(
+        resolution,
+        root=root,
+        core_dependencies=read_core_dependencies(root),
+    )
     return digest, resolution.python
 
 
 def run_check(
     *,
-    targets: list[str],
-    all_targets: bool,
+    components: list[str],
+    all_environments: bool,
     resolve_deps: bool,
     platform: str,
     inputs_hash_only: bool,
@@ -141,23 +151,21 @@ def run_check(
 ) -> int:
     """Print the check report and return a process exit code."""
     catalog = discover(root)
-    names = sorted(catalog.targets) if all_targets else targets
-    if not names:
-        print("pass a target name or --all", file=sys.stderr)
-        return 2
+    if all_environments:
+        selected = list(environment_names(catalog.components))
+    elif components:
+        selected = components
+    else:
+        selected = [MINIMAL_ENVIRONMENT]
     if inputs_hash_only:
-        if len(names) != 1 or all_targets:
-            print("--inputs-hash takes exactly one target", file=sys.stderr)
+        if len(selected) != 1 or all_environments:
+            print("--inputs-hash takes exactly one environment", file=sys.stderr)
             return 2
-        name = names[0]
-        if name not in catalog.targets:
-            known = ", ".join(sorted(catalog.targets))
-            print(f"unknown target {name!r}; known targets: {known}", file=sys.stderr)
-            return 1
+        name = selected[0]
         try:
             digest, python = inputs_hash(name, catalog, root, platform=platform)
-        except InstallError as exc:
-            print(f"target {name}: FAIL\n  {exc}", file=sys.stderr)
+        except (InstallConfigError, InstallError) as exc:
+            print(f"{name}: FAIL\n  {exc}", file=sys.stderr)
             return 1
         print(f"inputs={digest}")
         print(f"python={python}")
@@ -170,44 +178,39 @@ def run_check(
         print("catalog: FAIL")
         for problem in catalog_problems:
             print(f"  {problem}")
-    for name in names:
-        if name not in catalog.targets:
-            known = ", ".join(sorted(catalog.targets))
-            print(f"unknown target {name!r}; known targets: {known}", file=sys.stderr)
-            failed = True
-            continue
-        problems = check_target(
-            name, catalog, root, platform=platform, uv=uv
-        )
+    for name in selected:
+        problems = check_environment(name, catalog, root, platform=platform, uv=uv)
         if problems:
             failed = True
-            print(f"target {name}: FAIL")
+            print(f"{name}: FAIL")
             for problem in problems:
                 print(f"  {problem}")
             continue
-        target = catalog.targets[name]
-        core = read_core_dependencies(root) if target.core else ()
-        resolution = resolve(
-            target, catalog, core_dependencies=core, platform=platform
-        )
-        print(f"target {name}: ok (python {resolution.python})")
+        resolution = _resolution(name, catalog, root, platform=platform)
+        print(f"{name}: ok (python {resolution.python})")
         installed = ", ".join(sorted(resolution.components)) or "(core only)"
         print(f"  installs: {installed}")
     return 1 if failed else 0
 
 
 def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
-    """Check the named targets, or every target with ``--all``."""
+    """Check the named environments, or every component with ``--all``."""
     parser = argparse.ArgumentParser(
         prog="rpent-install check",
-        description="Validate targets without installing.",
+        description="Validate component environments without installing.",
     )
-    parser.add_argument("targets", nargs="*", help="target names to check")
-    parser.add_argument("--all", action="store_true", help="check every target")
+    parser.add_argument(
+        "components",
+        nargs="*",
+        help="component names or the minimal environment; empty checks minimal",
+    )
+    parser.add_argument(
+        "--all", action="store_true", help="check every component and minimal"
+    )
     parser.add_argument(
         "--resolve",
         action="store_true",
-        help="also compile each target with uv to prove it resolves",
+        help="also compile each environment with uv to prove it resolves",
     )
     parser.add_argument(
         "--platform",
@@ -217,12 +220,17 @@ def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
     parser.add_argument(
         "--inputs-hash",
         action="store_true",
-        help="print the installed-inputs hash and Python minor for one target",
+        help="print the installed-inputs hash and Python minor for one environment",
     )
+    parser.set_defaults(handler=_run_args)
     args = parser.parse_args(argv)
+    return args.handler(args, root=root)
+
+
+def _run_args(args: argparse.Namespace, *, root: Path) -> int:
     return run_check(
-        targets=list(args.targets),
-        all_targets=args.all,
+        components=args.components,
+        all_environments=args.all,
         resolve_deps=args.resolve,
         platform=args.platform,
         inputs_hash_only=args.inputs_hash,
@@ -231,4 +239,4 @@ def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(root=Path.cwd()))
+    raise SystemExit(main())

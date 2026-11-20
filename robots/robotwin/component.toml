@@ -3,8 +3,9 @@ name = "robot-robotwin"
 probe = "robots.robotwin"
 python = ">=3.11,<3.12"
 description = "RoboTwin adapter with LingBot-VLA and cuRobo."
-# The simulator runtime and cuRobo belong to `sim-robotwin`.
-requires = ["sim-robotwin"]
+# The simulator runtime and cuRobo belong to `sim-robotwin`; the policy runtime
+# belongs to `model-lingbot`.
+requires = ["sim-robotwin", "model-lingbot"]
 env_conflicts = [
   "robot-franka",
   "robot-dual_franka",

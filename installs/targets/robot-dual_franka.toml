@@ -1,9 +1,0 @@
-schema = 2
-name = "robot-dual_franka"
-description = "Dual-arm Franka with Pi0.5 and SAM 3.0."
-
-[components.robot-dual_franka]
-
-[components.model-openpi]
-
-[components.model-sam3]

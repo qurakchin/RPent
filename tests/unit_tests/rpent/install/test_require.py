@@ -25,6 +25,11 @@ import pytest
 components = importlib.import_module("rpent.install.require")
 
 
+def _inside(fingerprint, monkeypatch):
+    monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
+    monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
+
+
 def test_require_returns_an_importable_module():
     assert components.require("alpha", "json") is json
 
@@ -36,79 +41,78 @@ def test_missing_module_names_component_and_install(monkeypatch):
         components.require("model-sam3", "definitely_missing_rpent_module")
 
     message = str(error.value)
-    assert "component 'model-sam3' requires 'definitely_missing_rpent_module'" in message
-    assert "rpent-install list" in message
+    assert (
+        "component 'model-sam3' requires 'definitely_missing_rpent_module'" in message
+    )
+    assert "rpent-install install model-sam3" in message
 
 
-def test_installed_component_repairs_its_target(monkeypatch):
+def test_installed_component_repairs_its_environment(monkeypatch):
     fingerprint = {
-        "target": "alpha",
+        "environment": "alpha",
+        "requested": ["alpha"],
         "components": {"model-sam3": {"manifest_sha256": "sha"}},
     }
-    monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
-    monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
+    _inside(fingerprint, monkeypatch)
 
     with pytest.raises(components.MissingComponentError) as error:
         components.require("model-sam3", "definitely_missing_rpent_module")
 
-    assert "rerun `rpent-install install alpha`" in str(error.value)
-
-
-def test_component_outside_target_points_to_a_development_install(monkeypatch):
-    fingerprint = {"target": "alpha", "components": {}}
-    monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
-    monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
-
-    with pytest.raises(components.MissingComponentError) as error:
-        components.require("model-sam3", "definitely_missing_rpent_module")
-
-    assert "is not part of target 'alpha'" in str(error.value)
-
-
-def test_missing_component_names_the_targets_that_include_it(monkeypatch):
-    fingerprint = {"target": "minimal", "components": {}}
-    monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
-    monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
-    monkeypatch.setattr(
-        components,
-        "_targets_by_component",
-        lambda: {"model-sam3": ["dev", "model-sam3", "robot-libero"]},
+    assert (
+        "rerun `rpent-install install alpha --venv /venv` to repair the environment"
+        in str(error.value)
     )
 
+
+def test_component_outside_environment_keeps_the_installed_components(monkeypatch):
+    # Adding a component to an installed environment must keep the components
+    # already requested there, or the command would describe a different
+    # environment than the one being repaired.
+    fingerprint = {
+        "environment": "robot-alpha",
+        "requested": ["robot-alpha"],
+        "components": {},
+    }
+    _inside(fingerprint, monkeypatch)
+
     with pytest.raises(components.MissingComponentError) as error:
         components.require("model-sam3", "definitely_missing_rpent_module")
 
     message = str(error.value)
-    assert "is not part of target 'minimal'" in message
-    assert "dev, model-sam3, robot-libero" in message
+    assert "is not part of environment 'robot-alpha'" in message
+    assert "`rpent-install install robot-alpha model-sam3 --venv /venv`" in message
 
 
-def test_target_index_comes_from_the_checkout(monkeypatch):
-    # The repair hint reads the manifests instead of an index stored with the
-    # installation, so a target added after that environment was installed is
-    # still offered.
-    monkeypatch.setattr(components, "_TARGETS_BY_COMPONENT", None)
-
-    index = components._targets_by_component()
-
-    assert "model-sam3" in index["model-sam3"] and "robot-libero" in index["model-sam3"]
-
-
-def test_fingerprint_without_a_target_falls_back_to_the_general_hint(monkeypatch):
-    # A fingerprint written by the removed component install records
-    # ``target: null``; the hint must not tell the user to install target None.
+def test_component_outside_a_composition_extends_it(monkeypatch):
     fingerprint = {
-        "install_kind": "component",
-        "target": None,
-        "component": "model-sam3",
+        "environment": "infra-dev+robot-alpha",
+        "requested": ["infra-dev", "robot-alpha"],
+        "components": {},
+    }
+    _inside(fingerprint, monkeypatch)
+
+    with pytest.raises(components.MissingComponentError) as error:
+        components.require("model-sam3", "definitely_missing_rpent_module")
+
+    assert (
+        "`rpent-install install infra-dev robot-alpha model-sam3 --venv /venv`"
+        in str(error.value)
+    )
+
+
+def test_fingerprint_without_requested_falls_back_to_the_component(monkeypatch):
+    # A fingerprint written before components were recorded has no request to
+    # extend; the hint must name a real install command rather than "None" or
+    # an empty argument.
+    fingerprint = {
+        "environment": "minimal",
         "components": {"model-sam3": {"manifest_sha256": "sha"}},
     }
-    monkeypatch.setattr(components, "current_venv", lambda: Path("/venv"))
-    monkeypatch.setattr(components, "read_fingerprint", lambda venv: fingerprint)
+    _inside(fingerprint, monkeypatch)
 
     with pytest.raises(components.MissingComponentError) as error:
         components.require("model-sam3", "definitely_missing_rpent_module")
 
     message = str(error.value)
-    assert "rpent-install list" in message
+    assert "rerun `rpent-install install model-sam3 --venv /venv`" in message
     assert "None" not in message

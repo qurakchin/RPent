@@ -34,12 +34,12 @@ import sys
 import tempfile
 from pathlib import Path
 
-from rpent.install.discovery import discover
+from rpent.install.discovery import discover, environment_names, requested_components
 from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.installer import find_uv
 from rpent.install.lock import (
     LOCK_TIMESTAMP_PREFIX,
-    compile_target,
+    compile_environment,
     lock_path,
     lock_python,
     lock_timestamp,
@@ -51,7 +51,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def compile_locks(
-    targets: list[str],
+    environments: list[str],
     *,
     root: Path,
     check: bool = False,
@@ -60,15 +60,12 @@ def compile_locks(
     catalog = discover(root)
     uv = find_uv()
     # Locks are optional reproduction artifacts; every checked-in lock lives
-    # under ``tests/locks/<name>.lock`` regardless of where the target is
-    # declared. Installing never reads a lock.
-    names = targets or sorted(catalog.targets)
+    # under ``tests/locks/<environment>.lock``. Installing never reads a lock.
+    names = environments or list(environment_names(catalog.components))
     has_drift = False
     for name in names:
-        target = catalog.targets.get(name)
-        if target is None:
-            raise InstallError(f"unknown target {name!r}")
-        destination = lock_path(root, target)
+        requested = requested_components(name, catalog.components)
+        destination = lock_path(root, name)
         destination.parent.mkdir(parents=True, exist_ok=True)
         # Keep the interpreter the checked-in lock was verified with while its
         # constraints still accept it, so regenerating does not silently move
@@ -92,8 +89,8 @@ def compile_locks(
                     prefix="rpent-lock-write-"
                 ) as directory:
                     candidate = Path(directory) / destination.name
-                    compile_target(
-                        target,
+                    compile_environment(
+                        requested,
                         catalog,
                         root=root,
                         uv=uv,
@@ -111,7 +108,7 @@ def compile_locks(
             try:
                 current = read_requirement_text(destination)
             except InstallConfigError as exc:
-                # A corrupted lock must not hide the state of the other targets.
+                # A corrupted lock must not hide the state of the other environments.
                 print(f"lock {name}: FAIL\n  {exc}")
                 has_drift = True
                 continue
@@ -134,8 +131,8 @@ def compile_locks(
                 continue
             with tempfile.TemporaryDirectory(prefix="rpent-lock-check-") as directory:
                 candidate = Path(directory) / destination.name
-                compile_target(
-                    target,
+                compile_environment(
+                    requested,
                     catalog,
                     root=root,
                     uv=uv,
@@ -144,8 +141,8 @@ def compile_locks(
                     python=previous_python,
                 )
                 expected = candidate.read_text(encoding="utf-8")
-        except InstallError as exc:
-            # One target that cannot resolve on this host must not hide the
+        except (InstallConfigError, InstallError) as exc:
+            # One environment that cannot resolve on this host must not hide the
             # state of the others; for example a simulator may need CUDA to lock.
             print(f"lock {name}: FAIL\n  {exc}")
             has_drift = True
@@ -173,23 +170,23 @@ def main(argv: list[str] | None = None, *, root: Path = REPO_ROOT) -> int:
     """Compile locks, or verify them with ``--check``."""
     parser = argparse.ArgumentParser(
         prog="python -m tests.tooling.lock",
-        description="Compile or verify the checked-in target locks.",
+        description="Compile or verify the checked-in environment locks.",
     )
-    parser.add_argument("targets", nargs="*", help="target names to lock")
+    parser.add_argument("environments", nargs="*", help="environment names to lock")
     parser.add_argument(
         "--all",
         action="store_true",
-        help="lock every target",
+        help="lock every environment",
     )
     parser.add_argument(
         "--check", action="store_true", help="fail when a lock is out of date"
     )
     args = parser.parse_args(argv)
-    if not args.all and not args.targets:
-        parser.error("pass a target name or --all")
+    if not args.all and not args.environments:
+        parser.error("pass an environment name or --all")
     try:
-        return compile_locks(args.targets, root=root, check=args.check)
-    except InstallError as exc:
+        return compile_locks(args.environments, root=root, check=args.check)
+    except (InstallConfigError, InstallError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
 

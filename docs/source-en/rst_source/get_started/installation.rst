@@ -1,83 +1,76 @@
 Installation
 ============
 
-RPent installs a named target. A target selects components; every component
-declares its own dependencies, Python support, and hosts in ``component.toml``.
-``rpent-install`` creates the virtual environment, installs the requirements
-those manifests resolve to, runs an import probe for each installed component,
-and writes an installation fingerprint.
+RPent installs components. Every component declares its own dependencies,
+Python support, and hosts in ``component.toml``. ``rpent-install install``
+creates the virtual environment, installs the requirements those manifests
+resolve to, runs an import probe for each installed component, and writes an
+installation fingerprint.
+
+An environment is one virtual environment holding a set of components. It is
+named by the sorted join of the requested component names, such as
+``infra-dev+robot-libero``; ``install`` without components creates the
+core-only ``minimal`` environment. A component's ``requires`` names the
+components it runs with, so installing a robot also installs its simulator,
+models, and tools.
 
 Requirements
 ------------
 
-- Linux ``x86_64`` and `uv <https://docs.astral.sh/uv/getting-started/installation/>`_,
-  unless every component of the target also declares another host (for example
-  ``darwin-arm64`` for development). The target resolves only on a host its
-  components support.
+- Linux ``x86_64`` and `uv <https://docs.astral.sh/uv/getting-started/installation/>`_.
+  Simulation, model, and robot runtimes target Linux; the installer records the
+  host it resolved for, and development environments also install on
+  ``darwin-arm64``. ``check --platform`` resolves for another host without
+  installing.
 - One of the supported Python minors: 3.12, 3.11, or 3.10. Components declare
-  the ranges they accept; the target resolves to the newest supported minor
+  the ranges they accept; an environment resolves to the newest supported minor
   that satisfies every component in its closure, and ``rpent-install`` asks uv
   to fetch it when the host does not have it.
-- A GPU and driver compatible with the target's PyTorch build for simulator
-  and robot targets.
+- A GPU and driver compatible with the environment's PyTorch build for
+  simulator and robot environments.
 
-List targets
-------------
+List components
+---------------
 
 .. code-block:: bash
 
    rpent-install list
 
-The command prints every component with its name and kind, then every target
-with the Python minor it resolves to and the components it installs.
+The command prints every component with its name, kind, the Python minor its
+own environment resolves to, and a description.
 
 A component is named ``<kind>-<directory>``: ``robot``, ``sim``, ``model``,
-``tool``, or ``infra``. Every non-robot component is installable under its own
-name; for example ``rpent-install install model-sam3`` installs the SAM 3.0
-service and its dependencies, and ``rpent-install install sim-libero`` installs
-the LIBERO simulator without a robot adapter. Robots install only through a
-target, which names the environment the robot runs in.
-
-Targets declared in ``installs/targets/`` or ``tests/targets/`` add the
-compositions a single component cannot express: several components in one
-environment or extra runtime dependencies. The two directories are discovered
-as one namespace, and an explicit target may not reuse a component name; the
-one exception is a robot's same-name override target, which must install that
-robot. Test and development targets (``dev``, ``unit-cpu``) live in
-``tests/targets/``.
-
-Compound targets install one robot with the simulator and models it runs, for
-example ``robot-libero`` (LIBERO with Pi0.5, SAM 3.0, and LeRobot export) and
-``robot-yam`` (YAM with Pi0.5). Targets do not reference each other.
-``install --with <component>`` adds a component to one environment without
-editing the target, and services that stay in separate environments are
-connected at run time with endpoints.
+``tool``, or ``infra``. Every component is an environment under its own name.
+``rpent-install install model-sam3`` installs the SAM 3.0 service,
+``rpent-install install sim-libero`` installs the LIBERO simulator without a
+robot adapter, and ``rpent-install install robot-libero`` installs LIBERO with
+the simulator, models, and tools its ``requires`` names.
 
 ``python`` in a component is either a version (``"3.11"``) or a range
-(``">=3.10,<3.13"``). ``platforms`` lists the hosts a component supports and
-defaults to ``["linux-x86_64"]``. ``install`` resolves both from the manifests,
-and ``doctor`` reports when the manifests now resolve to different inputs than
-the fingerprint recorded.
+(``">=3.10,<3.13"``). ``install`` resolves it from the manifests, and ``doctor``
+reports when the manifests now resolve to different inputs than the fingerprint
+recorded. The host is an installation input too: ``install`` records the host it
+resolved for, and ``doctor`` compares it with the host the environment runs on.
 
-Install a target
-----------------
+Install an environment
+----------------------
 
-From a checkout, install a target and activate its environment:
+From a checkout, install a component environment and activate it:
 
 .. code-block:: bash
 
    rpent-install install robot-libero
    source .venvs/robot-libero/bin/activate
 
-Without ``--venv``, a target installs into ``.venvs/<target>`` under the
-checkout; ``.venvs/`` is gitignored installation output, so later ``install``
-and ``doctor`` runs find the same environment. Pass ``--venv`` to put an
-environment elsewhere. Each target needs its own environment: targets pin
-different simulator, robot, and model runtimes, so the installer refuses to
-install into an environment that another target installed. ``--force``
-allows a non-empty environment that records no fingerprint.
-``--dry-run`` runs the same resolution checks and prints the requirements the
-target would install, without creating or changing an environment.
+Without ``--venv``, an environment installs into ``.venvs/<environment>`` under
+the checkout; ``.venvs/`` is gitignored installation output, so later
+``install`` and ``doctor`` runs find the same environment. Pass ``--venv`` to
+put an environment elsewhere. Each environment needs its own virtualenv:
+environments pin different simulator, robot, and model runtimes, so the
+installer refuses to install into a virtualenv that another environment
+installed. ``--force`` allows a non-empty virtualenv that belongs to another
+tool. ``--dry-run`` runs the same resolution checks and prints the requirements
+the environment would install, without creating or changing a virtualenv.
 
 On a fresh checkout the ``rpent-install`` console script does not exist yet.
 ``./rpent-install.sh`` bootstraps it and passes its arguments to the
@@ -93,93 +86,74 @@ only ``packaging``; it needs ``uv`` on ``PATH`` and nothing else.
 
 ``rpent-install`` runs from a checkout. The wheel published to PyPI contains
 only the core ``rpent`` package; ``robots/``, ``components/`` with their
-``component.toml`` manifests, and ``installs/targets/`` ship only with the
-source checkout and sdist. A non-editable ``pip install rpent`` provides the
-CLI; run a specific robot or model service from a source checkout, where
-``rpent-install`` can find the targets.
+``component.toml`` manifests ship only with the source checkout and sdist. A
+non-editable ``pip install rpent`` provides the CLI; run a specific robot or
+model service from a source checkout, where ``rpent-install`` can find the
+manifests.
 
-``install`` resolves the target from its manifests, so it reads no lock:
+``install`` resolves the environment from its manifests, so it reads no lock:
 changing a manifest changes what the next install creates. The checked-in locks
-under ``tests/locks/<target>.lock`` are optional reproduction artifacts for
+under ``tests/locks/<environment>.lock`` are optional reproduction artifacts for
 rebuilding an environment with exactly the versions a maintainer verified; they
 are not installation inputs, and ``install`` and ``check`` work without them.
-``python -m tests.tooling.lock <target>`` regenerates one.
+``python -m tests.tooling.lock <environment>`` regenerates one.
 
-A target with ``core = false``, such as ``model-molmo``, skips the editable
-RPent install and contains only that service's dependencies; start it with the
-checkout on ``PYTHONPATH`` as shown in :doc:`../guides/flash`. A service that
-serves other environments is installed as its own target on the serving host
-(``model-openpi`` or ``model-sam3``); callers pass its endpoint at run time.
-Re-running ``install`` reuses the environment and repairs a stale installation.
+Every environment installs the editable checkout, so a service started from its
+own environment imports the checkout it was installed from. A service that
+serves other environments is installed as its own environment on the serving
+host (``model-openpi`` or ``model-sam3``); callers pass its endpoint at run
+time, as shown in :doc:`../guides/flash`. Re-running ``install`` reuses the
+virtualenv and repairs a stale installation.
 
 Custom combinations
 -------------------
 
-A combination the repository keeps is a target file, not a list of target names
-on the command line. ``install`` accepts one target because the target is what
-resolution, the fingerprint, and later ``doctor`` runs describe.
-
-To add a component to one environment without editing the checked-in target,
-such as the test tools of ``infra-dev``, pass the repeatable ``--with``:
+Name several components to compose one environment:
 
 .. code-block:: bash
 
-   rpent-install install robot-libero --with infra-dev
-   source .venvs/robot-libero+infra-dev/bin/activate
+   rpent-install install robot-franka model-sam3
+   source .venvs/model-sam3+robot-franka/bin/activate
 
-The environment is named ``<target>+<component>`` and never shares packages with
-the plain target. The fingerprint records the composition and ``doctor``
-resolves the same one, so the added component stays inside the recorded
-installation instead of drifting past it.
+The environment is named by the sorted join of the component names, so the
+order on the command line does not matter. The fingerprint records the
+requested components, and ``doctor`` and ``check`` re-resolve the same
+composition, so a component added here stays inside the recorded installation
+instead of drifting past it. Pass an environment name, including a
+``+``-joined composition, to ``check`` to resolve it without installing.
 
-For the target-file form, create the file under ``installs/targets/`` with the
-name it installs under, then install it:
-
-.. code-block:: toml
-
-   schema = 2
-   name = "my-combo"
-
-   [components.robot-franka]
-
-   [components.model-sam3]
-
-.. code-block:: bash
-
-   ./rpent-install.sh install my-combo
-
-Each ``[components.<name>]`` table must be empty: it selects a component, and
-the component's manifest owns its dependencies and Python range. Resolution
-checks the whole closure against the indexes the components declare, so
-``env_conflicts``, disagreeing indexes, incompatible Python ranges, and hosts a
-component does not support fail before the environment exists;
+Resolution checks the whole closure against the indexes the components declare,
+so ``env_conflicts``, disagreeing indexes, incompatible Python ranges, and
+hosts a component does not support fail before the environment exists;
 ``install --dry-run`` prints the requirements without installing them.
 
-Targets
--------
+Components
+----------
 
 .. list-table::
    :header-rows: 1
    :widths: 34 8 58
 
-   * - Target
+   * - Environment
      - Python
      - Contents
    * - ``minimal``
      - 3.12
      - Core RPent only; verifies the CLI and robot discovery without extra
        components.
-   * - ``dev``
-     - 3.12
-     - Test dependencies for local development and CI.
    * - ``infra-dev``
      - 3.12
-     - The test tools behind ``dev``; compose it with ``--with`` to run the
-       offline suite in another environment.
-   * - ``unit-cpu``
+     - Test dependencies for local development and CI.
+   * - ``infra-unit_cpu``
      - 3.11
      - CPU-only unit tests: core, the ``infra-dev`` test tools, the CPU Torch
        build, and the CPU flywheel stack.
+   * - ``infra-rlinf``
+     - 3.12
+     - The RLinf release runtime shared by simulator and robot environments.
+   * - ``tool-flywheel``
+     - 3.11
+     - LeRobot trajectory export and replay.
    * - ``sim-libero``
      - 3.12
      - LIBERO and LIBERO-PRO simulation for adapter development, e2e, and data
@@ -197,24 +171,39 @@ Targets
    * - ``sim-robotwin``
      - 3.11
      - RoboTwin simulation with cuRobo and the RLinf runtime.
-   * - ``tool-flywheel``
-     - 3.11
-     - LeRobot trajectory export and replay.
-   * - ``infra-rlinf``
+   * - ``model-molmo``
      - 3.12
-     - The RLinf release runtime shared by simulator and robot targets.
+     - Molmo visual grounding in a standalone environment.
+   * - ``model-openpi``
+     - 3.12
+     - The Pi0.5 policy runtime.
+   * - ``model-sam3``
+     - 3.12
+     - The SAM 3.0 segmentation runtime.
+   * - ``model-rldx``
+     - 3.10
+     - The RLDX policy runtime for RoboCasa.
+   * - ``model-lingbot``
+     - 3.11
+     - The LingBot-VLA policy runtime for RoboTwin.
+   * - ``model-awomo05``
+     - 3.11
+     - The Awomo05 native joint policy for RoboDojo.
+   * - ``model-vpp2``
+     - 3.11
+     - The VPP2 video-prediction policy for RoboDojo.
    * - ``robot-libero``
      - 3.11
      - LIBERO with Pi0.5, SAM 3.0, and LeRobot trajectory export and replay.
    * - ``robot-franka``
      - 3.12
-     - Single-arm Franka with Pi0.5.
+     - Single-arm Franka with Pi0.5 and the RLinf runtime.
    * - ``robot-dual_franka``
      - 3.12
      - Dual-arm Franka with Pi0.5 and SAM 3.0.
    * - ``robot-yam``
      - 3.11
-     - Dual-arm YAM with Pi0.5.
+     - Dual-arm YAM with Pi0.5 and the RLinf runtime.
    * - ``robot-robodojo``
      - 3.11
      - RoboDojo with its RLinf fork and Isaac Sim, Pi0.5, SAM 3.0, Awomo05, and
@@ -226,24 +215,25 @@ Targets
      - 3.11
      - RoboTwin with LingBot-VLA and cuRobo.
 
-Every other component installs under its own name, for example
-``model-molmo``, ``model-openpi``, ``model-sam3``, and ``model-rldx``;
-``rpent-install list`` prints the full set. The Python column shows the minor
-the manifests currently resolve to, which can be narrower than the range a
-manifest accepts.
+The remaining components, such as ``model-apxinf``, ``model-cosmos3``, and
+``model-uniwam``, install under their own names; ``rpent-install list`` prints
+the full set. A robot's row includes the components its ``requires`` names, so
+installing it creates one environment with all of them. The Python column shows
+the minor the manifests currently resolve to, which can be narrower than the
+range a manifest accepts.
 
 Install commands
 ----------------
 
-Each target installs with its default environment under ``.venvs/<target>``.
-On a fresh checkout, prefix the command as shown above.
+Each environment installs with its default virtualenv under
+``.venvs/<environment>``. On a fresh checkout, prefix the command as shown
+above.
 
 .. code-block:: bash
 
-   rpent-install install minimal
-   rpent-install install dev
+   rpent-install install
    rpent-install install infra-dev
-   rpent-install install unit-cpu
+   rpent-install install infra-unit_cpu
    rpent-install install sim-libero
    rpent-install install sim-libero_plus
    rpent-install install sim-robocasa
@@ -270,30 +260,27 @@ Diagnose
 
 Without ``--venv``, ``doctor`` inspects the environment activated in the shell,
 falling back to the one running ``rpent-install``; the first line names the
-environment it inspected. ``--target`` overrides the target recorded in the
-fingerprint and reports the mismatch as a warning. ``doctor`` compares the
-stored fingerprint with every installation input (the manifests, the component
-override files, and the repository's ``[tool.uv]`` settings), checks Python and
-platform, runs ``uv pip check`` and the component probes, and prints the
-fingerprint path and its SHA-256. ``doctor`` also probes a service installed in
-another environment when ``--endpoint <name>=host:port`` or
-``RPENT_<NAME>_ENDPOINT`` names its endpoint, and reports an endpoint it cannot
-reach. ``uv`` resolves from the
-checkout, so the
-compared settings do not depend on the directory the command is invoked from;
-user-level ``uv`` configuration (``~/.config/uv``) is outside the comparison.
-The fingerprint records the input mode it was written with, so an environment
-installed by an older ``rpent-install`` is reported as needing a reinstall
-rather than as drifted.
+environment it inspected. ``doctor`` compares the stored fingerprint with every
+installation input (the manifests, the component override files, and the
+repository's ``[tool.uv]`` settings), checks Python and platform, runs
+``uv pip check`` and the component probes, and prints the fingerprint path and
+its SHA-256. ``doctor`` also probes a service installed in another environment
+when ``--endpoint <name>=host:port`` or ``RPENT_<NAME>_ENDPOINT`` names its
+endpoint, and reports an endpoint it cannot reach. ``uv`` resolves from the
+checkout, so the compared settings do not depend on the directory the command is
+invoked from; user-level ``uv`` configuration (``~/.config/uv``) is outside the
+comparison. The fingerprint records the input mode it was written with, so an
+environment installed by an older ``rpent-install`` is reported as needing a
+reinstall rather than as drifted.
 
-Run artifacts record the installed target and the fingerprint hash in
+Run artifacts record the environment name and the fingerprint hash in
 ``run.json``; the fingerprint itself stays in that environment.
 
 Maintainer checks and reproduction locks
 ----------------------------------------
 
-``rpent-install check`` resolves targets from their manifests without installing
-anything:
+``rpent-install check`` resolves environments from their manifests without
+installing anything:
 
 .. code-block:: bash
 
@@ -301,15 +288,17 @@ anything:
    rpent-install check minimal --inputs-hash
    rpent-install check robot-robotwin --resolve --platform linux-x86_64
 
-It computes each target's ``requires`` closure and reports duplicate pins,
-unsupported Python versions, platform mismatches, and repository data that
-disagrees with the manifests. It downloads nothing and needs no lock.
-``--inputs-hash`` prints the hash of one target's installation inputs and the
-Python minor they resolve to; CI uses it as the environment cache key.
-``--resolve`` additionally compiles every target with ``uv pip compile`` to
-prove the declared dependencies have a solution; it uses the same code path as
-``lock`` and reads package metadata from the configured indexes. ``--platform``
-selects the host to resolve for and defaults to ``linux-x86_64``.
+It computes each environment's ``requires`` closure and reports conflicting
+requirements, unknown or conflicting components, unsupported Python versions,
+and platform mismatches. It downloads nothing and needs no lock. Each
+positional argument is an environment name, which may be a ``+``-joined
+composition; with none it checks ``minimal``. ``--inputs-hash`` prints the hash
+of one environment's installation inputs and the Python minor they resolve to;
+CI uses it as the environment cache key. ``--resolve`` additionally compiles
+the selected environments with ``uv pip compile`` to prove the declared
+dependencies have a solution; it uses the same code path as ``lock`` and reads package
+metadata from the configured indexes. ``--platform`` selects the host to
+resolve for and defaults to ``linux-x86_64``.
 
 The remaining maintainer tools under ``tests/tooling/`` are not installed with
 the wheel. Run them from a checkout through ``tests/tooling/run.sh``,
@@ -321,27 +310,27 @@ which passes the module and its arguments to a throwaway ``uv`` environment:
    tests/tooling/run.sh tests.tooling.lock sim-robotwin
    tests/tooling/run.sh tests.tooling.lock --all --check
 
-``lock`` compiles a target's reproduction lock with ``uv pip compile`` and
+``lock`` compiles an environment's reproduction lock with ``uv pip compile`` and
 records the upstream cutoff as an ``# exclude_newer`` header. Locks live under
-``tests/locks/<target>.lock`` and change nothing about what ``install`` does.
-``--check`` recompiles at that recorded instant and fails when the result
+``tests/locks/<environment>.lock`` and change nothing about what ``install``
+does. ``--check`` recompiles at that recorded instant and fails when the result
 differs from the committed lock, so it reports changed manifests or a different
-resolver rather than packages released since. ``lock --all`` reports a target that cannot resolve
-on the current host and continues with the rest; the ``sim-robotwin`` lock
-needs a Linux host with ``CUDA_HOME`` set because cuRobo builds metadata during
-resolution. Linux locks target the ``manylinux_2_31`` baseline by default
-(glibc 2.31, Ubuntu 20.04 or newer), because current GPU wheels are not
-published for older baselines. The closure uses the newest baseline any of its
-components declares; for example ``sim-robodojo`` declares
-``manylinux = "2_35"`` for Isaac Sim 5.1 wheels. Regenerate locks with the
-``uv`` release that generated them (0.13.7): an older release can resolve
-different versions for the same inputs. The release job pins that version;
-bump both together in a relock change.
+resolver rather than packages released since. ``lock --all`` reports an
+environment that cannot resolve on the current host and continues with the
+rest; the ``sim-robotwin`` lock needs a Linux host with ``CUDA_HOME`` set
+because cuRobo builds metadata during resolution. Linux locks target the
+``manylinux_2_31`` baseline by default (glibc 2.31, Ubuntu 20.04 or newer),
+because current GPU wheels are not published for older baselines. The closure
+uses the newest baseline any of its components declares; for example
+``sim-robodojo`` declares ``manylinux = "2_35"`` for Isaac Sim 5.1 wheels.
+Regenerate locks with the ``uv`` release that generated them (0.13.7): an older
+release can resolve different versions for the same inputs. The release job
+pins that version; bump both together in a relock change.
 
 The other maintainer tools cover repository structure and CI selection:
 ``python -m tests.tooling.layout`` checks component boundaries, and
 ``python -m tests.tooling.matrix`` and ``python -m tests.tooling.affected``
-select and partition test environments. CI runs them with the same ``uv run``
+select and partition environments. CI runs them with the same ``uv run``
 bootstrap shown above.
 
 See each simulator or robot page for platform preparation, checkpoints, and

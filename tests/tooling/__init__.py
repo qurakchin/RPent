@@ -16,7 +16,7 @@
 
 Run each tool from the repository root with ``python -m tests.tooling.<tool>``:
 
-- ``lock``: compile or verify the target locks.
+- ``lock``: compile or verify the environment locks.
 - ``layout``: directory structure and import boundaries (K1–K7).
 - ``matrix``: print one runner's targets or check the partition.
 - ``affected``: select the targets and test directories a change affects.

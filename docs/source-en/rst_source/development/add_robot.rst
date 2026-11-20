@@ -49,7 +49,7 @@ Entry Point and Component Manifest
 ----------------------------------
 
 A robot is a component: a directory under ``robots/`` plus a
-``component.toml`` that tells ``rpent-install`` how to install it. The target
+``component.toml`` that tells ``rpent-install`` how to install it. The package
 skeleton is:
 
 .. code-block:: text
@@ -88,15 +88,16 @@ The name is ``<kind>-<directory>``: a component in ``robots/`` is always
 ``robot-<directory>``, and a simulator in ``components/sim/`` is
 ``sim-<directory>``. A component owns the index its packages come from, so
 ``index-url``, ``extra-index-urls``, and ``index-strategy`` belong in its own
-manifest. A composition target inherits them, adds the component's extra index
-URLs to its own, and fails when two components in one environment ask for
+manifest. An environment inherits them from its components, unions their extra
+index URLs, and fails when two components in one environment ask for
 different index URLs or strategies. ``manylinux`` is declared per component
-(default ``2_31``), and the target installs for the newest baseline any
-component in its closure declares. ``platforms`` lists the hosts a component
-supports and defaults to ``["linux-x86_64"]``.
+(default ``2_31``), and the environment installs for the newest baseline any
+component in its closure declares. An environment resolves for the host
+``install`` runs on; ``check --platform`` resolves for another host without
+installing.
 
 ``probe`` names the importable package. ``rpent-install install`` and
-``rpent-install doctor`` import it inside the target environment together with the
+``rpent-install doctor`` import it inside the component's environment together with the
 slice's environment adapter, so a successful probe proves the real
 dependencies are present. Keep only this robot's packages in
 ``dependencies``; a package that two or more components need belongs in a
@@ -109,12 +110,14 @@ the other robot, and make one of the two ``requires`` the other so the install
 closure includes both. A robot slice and a model service share a contract
 instead of importing each other.
 
-A robot is installed through a target rather than its component name, so add
-``installs/targets/robot-<name>.toml`` selecting ``[components.robot-<name>]``
-(plus the models the robot runs) and assign that target to a runner in
-``tests/tooling/matrix.py``; ``rpent-install check --all`` fails while a robot
-has no target. A reproduction lock under ``tests/locks/`` is optional and
-never required for installation. See :doc:`../get_started/installation`.
+A robot installs as the environment named ``robot-<name>``. Put the standard
+composition in its ``requires``: the simulator it runs, the model services it
+calls, and the tools it exports to; installing the robot then creates one
+environment with all of them. Assign the environment to a runner in
+``tests/tooling/matrix.py``; ``python -m tests.tooling.matrix --check`` fails
+while an environment is assigned to no runner. A reproduction lock under
+``tests/locks/`` is optional and never required for installation. See
+:doc:`../get_started/installation`.
 
 If the integration also adds a simulator, its env server, observation, and
 control code belong under ``components/sim/<name>/``; the robot names it in
@@ -614,6 +617,6 @@ errors, expected observation artifacts exist, and owned daemons have exited.
 Task success is not required for this bounded integration check.
 
 Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``. After
-installing the robot's target and preparing its GPU/checkpoint/assets resources,
+installing the robot's environment and preparing its GPU/checkpoint/assets resources,
 run ``pytest tests/e2e_tests/myrobot -v``. See ``tests/README.md`` and
 ``tests/e2e_tests/run_gpu_suite.sh`` for running GPU suites in clean environments.

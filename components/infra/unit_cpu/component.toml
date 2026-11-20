@@ -1,6 +1,12 @@
 schema = 2
-name = "unit-cpu"
+
+name = "infra-unit_cpu"
+probe = "torch"
 description = "CPU-only unit tests: core, test tools, and the CPU flywheel stack."
+
+# The test tools own pytest and the offline suite's imports; the flywheel
+# runtime owns its LeRobot, av, and pyarrow constraints.
+requires = ["infra-dev", "tool-flywheel"]
 
 dependencies = [
   "opencv-python-headless",
@@ -18,8 +24,3 @@ extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
 # fall-through strategy keeps the first index authoritative and only uses the
 # extra index for versions PyPI does not have, like `torch==2.6.0+cpu`.
 index-strategy = "unsafe-first-match"
-
-# The test tools own pytest, coverage, and the packages the offline suite
-# imports; the flywheel runtime owns its LeRobot, av, and pyarrow constraints.
-[components.infra-dev]
-[components.tool-flywheel]

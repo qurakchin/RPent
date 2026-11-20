@@ -124,14 +124,14 @@ git clone https://github.com/RLinf/RPent rpent && cd rpent
 ./rpent-install.sh install robot-libero
 source .venvs/robot-libero/bin/activate
 
-# 其他目标同样安装到 .venvs/<目标>：
+# 其他环境同样安装到 .venvs/<环境名>：
 rpent-install install robot-robocasa    # RoboCasa
 rpent-install install robot-robotwin    # RoboTwin
 rpent-install install robot-franka      # Franka
 rpent-install install robot-dual_franka # 双臂 Franka
 ```
 
-`robot-libero` 是默认推荐目标。全部目标和诊断方法见
+`robot-libero` 是默认推荐环境。全部环境和诊断方法见
 [安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/installation.html)。
 
 RoboCasa 安装、任务 memory 与 Target50 协议参见

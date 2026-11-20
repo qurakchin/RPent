@@ -17,7 +17,8 @@ set -euo pipefail
 
 # Run the installer on a checkout that has no environment yet.
 #
-# The ``rpent-install`` console script exists only after a target is installed,
+# The ``rpent-install`` console script exists only after an environment is
+# installed,
 # so this launcher runs ``rpent.cli.install`` in a throwaway uv environment
 # that adds nothing but the manifest parser dependency. Documentation and CI
 # call it, so the bootstrap interpreter and that dependency are declared once;
