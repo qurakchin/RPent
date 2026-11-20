@@ -54,6 +54,17 @@ the ``infra-`` components are all of this shape, and ``sim-libero_plus``
 installs the LIBERO-plus package whose environment server ships with
 ``sim-libero``.
 
+The core package installs in two layers. Plain ``rpent`` is the runtime layer:
+component and model contracts, RPC, model clients, and the installer, so a
+simulator or model environment can hold it without the planner stack.
+``rpent[planner]`` adds the planner adapters, execution sessions, tools,
+prompts, and the dashboard. A component that imports the planner declares
+``planner = true`` in its ``component.toml``, and every environment holding that
+component installs the planner layer as well; without the flag an environment
+gets the runtime layer only. ``install`` fails with a named component list if a
+component sets the flag and the checkout's ``pyproject.toml`` has no ``planner``
+extra.
+
 The dependency direction is ``rpent`` ← ``components/sim`` ←
 ``components/models`` ← ``robots``; ``components/tools`` depends only on
 ``rpent``. A robot environment therefore pulls in its simulator and model

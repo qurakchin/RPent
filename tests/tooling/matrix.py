@@ -38,6 +38,10 @@ import sys
 from pathlib import Path
 
 from rpent.install.discovery import Catalog, discover
+from rpent.install.requirements import (
+    read_core_dependencies,
+    read_planner_dependencies,
+)
 from rpent.install.resolve import resolve
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -109,7 +113,12 @@ def problems(
                     "tests/tooling/matrix.py"
                 )
                 continue
-            resolution = resolve(entry, catalog)
+            resolution = resolve(
+                entry,
+                catalog,
+                core_dependencies=read_core_dependencies(catalog.root),
+                planner_dependencies=read_planner_dependencies(catalog.root),
+            )
             if not resolution.ok:
                 found.append(
                     f"environment {label!r} cannot be installed: "

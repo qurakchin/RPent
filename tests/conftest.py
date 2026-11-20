@@ -75,6 +75,7 @@ def make_component(tmp_path):
             extra_index_urls=tuple(values.pop("extra_index_urls", ())),
             index_strategy=values.pop("index_strategy", None),
             manylinux=values.pop("manylinux", DEFAULT_MANYLINUX),
+            planner=values.pop("planner", False),
             manifest_sha256=values.pop("manifest_sha256", name),
         )
 

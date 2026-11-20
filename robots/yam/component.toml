@@ -1,6 +1,7 @@
 schema = 2
 name = "robot-yam"
 probe = "robots.yam"
+planner = true
 python = ">=3.11,<3.12"
 # The Pi0.5 policy runs in a separate environment
 # (`rpent-install install model-openpi`); this slice connects to it.

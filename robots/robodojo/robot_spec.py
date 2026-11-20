@@ -33,7 +33,11 @@ from rpent.components.models.backends import (
 )
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
-from rpent.evaluation import RunFinalizationContext, write_json_atomic
+from rpent.evaluation import (
+    RunFinalizationContext,
+    verdict_fields,
+    write_json_atomic,
+)
 from rpent.memory import MemoryManager
 from rpent.robots.prompt_bundle import PromptBundle
 from rpent.robots.robot_spec import RobotSpec, RunConfig
@@ -211,6 +215,7 @@ def finalize_run(context: RunFinalizationContext) -> Path:
         "seed": context.task_desc.get("seed", 0),
         "mode": context.task_desc.get("mode", "dev"),
         "success": context.environment_success,
+        **verdict_fields(context),
         "score": context.environment_metrics.get("score"),
         "score_available": context.environment_metrics.get("score") is not None,
         "environment_result_available": context.environment_success is not None,

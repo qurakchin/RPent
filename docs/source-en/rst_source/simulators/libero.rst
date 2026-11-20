@@ -87,9 +87,18 @@ The table distinguishes planner tools, model inputs, and the environment’s suc
    * - Action
      - The planner calls Pi0.5 tools or motion primitives such as ``move_to`` and ``set_gripper``; these execute environment actions.
    * - Reward / success
-     - Evaluate success using the final state’s top-level ``terminated`` value. A step limit or planner ``finish`` is not a success label.
+     - Evaluate success using the final state’s top-level ``terminated`` value. In evaluation the runner reads it from its own step record; the planner’s observation exposes only ``episode_over``. A step limit or planner ``finish`` is not a success label.
    * - Task prompt
      - The task language comes from the selected suite/task and the current environment.
+
+In an evaluation run the benchmark’s verdict is withheld from the planner.
+``view_env_state`` and every stateful tool expose ``episode_over``, which says
+the episode has ended, and omit ``terminated``, ``truncated``, and any success
+flag, including the copy nested in the step log. ``pi0_pick`` reports
+``grasp_detected`` instead of a success flag. The runner keeps the withheld
+verdict in its own step records, so recipes, metrics, and the run verdict are
+unchanged. Exploration runs keep the verdict in the planner’s view, because a
+hunting session needs to know which episodes it solved.
 
 .. _installation-and-variants:
 
@@ -226,9 +235,9 @@ that call only. Chunk budgets do not specify where to stop inside a chunk.
 View Results
 ------------
 
-The terminal shows server startup, planner conversation, and tool calls. After the run, inspect ``episode.mp4``, ``transcript_*.json``, and ``run.log`` in the output directory; see :ref:`run-output-files` for default paths and step artifacts.
+The terminal shows server startup, planner conversation, and tool calls. After the run, inspect ``episode.mp4``, ``transcript.json``, and ``run.log`` in the output directory; see :ref:`run-output-files` for default paths and step artifacts.
 
-Inspect the final state with ``view_env_state(step=-1)``. Its top-level ``terminated`` value is the native success result; ``finish`` ends planning. See :doc:`../guides/dashboard` for live monitoring.
+Inspect the final state with ``view_env_state(step=-1)``. In evaluation its top-level ``episode_over`` tells the planner the episode has ended while the native ``terminated`` result stays in the runner’s step record; ``finish`` ends planning. See :doc:`../guides/dashboard` for live monitoring.
 
 .. _libero-exploration:
 

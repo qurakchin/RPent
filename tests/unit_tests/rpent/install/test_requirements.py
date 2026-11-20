@@ -21,6 +21,7 @@ from rpent.install.fingerprint import FINGERPRINT_SCHEMA_FIELD
 from rpent.install.requirements import (
     FINGERPRINT_SCHEMA,
     read_core_dependencies,
+    read_planner_dependencies,
     render_requirements,
     requirements_inputs,
     requirements_sha256,
@@ -58,6 +59,33 @@ def test_render_requirements_names_the_targets_and_groups_the_components(resolut
     assert text.index("# component model-sam3") < text.index("# component robot-alpha")
 
 
+def test_render_requirements_adds_the_planner_layer_for_planner_components(
+    make_component, make_catalog
+):
+    runtime = make_component("sim-alpha")
+    planner = make_component("robot-alpha", planner=True)
+    catalog = make_catalog(components=[runtime, planner])
+    layer = ("pydantic>=2", "scipy")
+
+    runtime_text = render_requirements(
+        resolve(["sim-alpha"], catalog),
+        core_dependencies=("numpy",),
+        planner_dependencies=layer,
+    )
+    planner_text = render_requirements(
+        resolve(["robot-alpha"], catalog),
+        core_dependencies=("numpy",),
+        planner_dependencies=layer,
+    )
+
+    # A simulator environment keeps the runtime layer alone.
+    assert "# RPent planner" not in runtime_text
+    assert "# RPent planner (rpent[planner])\npydantic>=2\nscipy" in planner_text
+    assert planner_text.index("# RPent core") < planner_text.index("# RPent planner")
+    # The runtime layer is not repeated in the planner block.
+    assert planner_text.count("numpy") == 1
+
+
 def test_render_requirements_omits_components_without_dependencies(
     make_component, make_catalog
 ):
@@ -78,8 +106,31 @@ def test_requirements_inputs_record_the_targets_and_closure(resolution, tmp_path
     assert inputs["targets"] == ["robot-alpha"]
     assert sorted(inputs["components"]) == ["model-sam3", "robot-alpha"]
     assert inputs["core_dependencies"] == ["packaging"]
+    assert inputs["planner_dependencies"] == []
     assert inputs["index"] == {"url": None, "extra_urls": [], "strategy": None}
     assert inputs["overrides"] == []
+
+
+def test_requirements_inputs_record_the_planner_layer_only_when_installed(
+    make_component, make_catalog, tmp_path
+):
+    runtime = make_component("sim-alpha")
+    planner = make_component("robot-alpha", planner=True)
+    catalog = make_catalog(components=[runtime, planner])
+
+    runtime_inputs = requirements_inputs(
+        resolve(["sim-alpha"], catalog),
+        root=tmp_path,
+        planner_dependencies=("pydantic>=2",),
+    )
+    planner_inputs = requirements_inputs(
+        resolve(["robot-alpha"], catalog),
+        root=tmp_path,
+        planner_dependencies=("pydantic>=2",),
+    )
+
+    assert runtime_inputs["planner_dependencies"] == []
+    assert planner_inputs["planner_dependencies"] == ["pydantic>=2"]
 
 
 def test_requirements_hash_tracks_manifests_and_core_dependencies(resolution, tmp_path):
@@ -239,6 +290,35 @@ def test_read_core_dependencies(write_toml, tmp_path):
     )
 
     assert read_core_dependencies(tmp_path) == ("packaging", "PyYAML")
+
+
+def test_read_planner_dependencies(write_toml, tmp_path):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "alpha"
+        dependencies = ["numpy"]
+
+        [project.optional-dependencies]
+        planner = ["pydantic>=2", "scipy"]
+        """,
+    )
+
+    assert read_planner_dependencies(tmp_path) == ("pydantic>=2", "scipy")
+
+
+def test_read_planner_dependencies_is_empty_without_the_extra(write_toml, tmp_path):
+    write_toml(
+        "pyproject.toml",
+        """
+        [project]
+        name = "alpha"
+        dependencies = ["numpy"]
+        """,
+    )
+
+    assert read_planner_dependencies(tmp_path) == ()
 
 
 @pytest.mark.parametrize(

@@ -215,6 +215,48 @@ def test_core_dependencies_take_part_in_pin_checks(make_component, make_catalog)
     assert any("rpent: numpy ==2.0.0" in error for error in resolution.errors)
 
 
+def test_planner_dependencies_take_part_in_pin_checks(make_component, make_catalog):
+    alpha = make_component(
+        "robot-alpha", planner=True, dependencies=["pydantic==2.9.0"]
+    )
+
+    resolution = resolve(
+        ["robot-alpha"],
+        _catalog(make_catalog, alpha),
+        planner_dependencies=("pydantic==2.8.0",),
+    )
+
+    assert any("conflicting pins for 'pydantic'" in error for error in resolution.errors)
+    assert any("rpent[planner]: pydantic ==2.8.0" in error for error in resolution.errors)
+
+
+def test_planner_pins_do_not_constrain_a_runtime_only_environment(
+    make_component, make_catalog
+):
+    # A simulator environment installs neither layer's planner packages, so a
+    # separate pin there is not a conflict.
+    alpha = make_component("sim-alpha", dependencies=["pydantic==2.9.0"])
+
+    resolution = resolve(
+        ["sim-alpha"],
+        _catalog(make_catalog, alpha),
+        planner_dependencies=("pydantic==2.8.0",),
+    )
+
+    assert resolution.ok, resolution.errors
+
+
+def test_a_planner_component_needs_the_planner_extra(make_component, make_catalog):
+    alpha = make_component("robot-alpha", planner=True)
+
+    resolution = resolve(["robot-alpha"], _catalog(make_catalog, alpha))
+
+    assert any(
+        "[project.optional-dependencies].planner is missing" in error
+        for error in resolution.errors
+    )
+
+
 def test_overlapping_specifiers_are_compatible(make_component, make_catalog):
     alpha = make_component("robot-alpha", dependencies=["huggingface-hub>=0.24,<1"])
     beta = make_component("robot-beta", dependencies=["huggingface-hub>=0.34,<2"])

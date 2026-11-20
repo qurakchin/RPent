@@ -84,6 +84,7 @@ FIELDS = frozenset(
         "python",
         "platforms",
         "manylinux",
+        "planner",
         "requires",
         "imports",
         "env_conflicts",
@@ -228,6 +229,9 @@ class Component:
     platforms: tuple[str, ...]
     #: The oldest glibc baseline this component's packages are published for.
     manylinux: str
+    #: Whether the component imports ``rpent[planner]``. The environment then
+    #: installs the planner layer on top of the ``rpent`` runtime layer.
+    planner: bool
     requires: tuple[str, ...]
     imports: tuple[str, ...]
     env_conflicts: tuple[str, ...]
@@ -296,6 +300,9 @@ def _component(
         raise InstallConfigError(
             f"{path}: 'manylinux' must name a glibc baseline such as '2_31'"
         )
+    planner = data.get("planner", False)
+    if not isinstance(planner, bool):
+        raise InstallConfigError(f"{path}: 'planner' must be true or false")
     return Component(
         name=name,
         kind=kind,
@@ -305,6 +312,7 @@ def _component(
         python=_optional_string(data, "python", path),
         platforms=_string_list(data, "platforms", path) or DEFAULT_PLATFORMS,
         manylinux=manylinux,
+        planner=planner,
         requires=_string_list(data, "requires", path),
         imports=_string_list(data, "imports", path),
         env_conflicts=_string_list(data, "env_conflicts", path),

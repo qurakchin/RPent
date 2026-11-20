@@ -37,18 +37,43 @@ MAX_TOOL_TEXT_BYTES = 60000
 
 @dataclass
 class ToolResult:
-    """Tool payload and PNG images; errors stay in the payload's ``error`` key."""
+    """One tool call's outcome: whether it ran, what it returned, and images.
+
+    A call can fail at two layers. ``call_ok`` is false when the framework never
+    delivered the call to the tool — an unknown tool, arguments the schema
+    rejected, a cancellation, or a handler that raised — and ``no_execution``
+    then says the tool never ran, so the environment did not change. A tool
+    that ran but hit a problem of its own returns ``call_ok`` true with that
+    problem in the payload's ``error`` key. ``is_error`` reports either layer
+    to the planner.
+    """
 
     data: dict[str, Any] = field(default_factory=dict)
     images: list[bytes] = field(default_factory=list)
+    call_ok: bool = True
+    no_execution: bool = False
+
+    @property
+    def error(self) -> Any:
+        """The error payload, if the call or the tool produced one."""
+        return self.data.get("error")
 
     @property
     def is_error(self) -> bool:
-        return self.data.get("error") is not None
+        return not self.call_ok or self.error is not None
 
     def to_dict(self) -> dict[str, Any]:
-        """Return a shallow copy of the public JSON payload."""
-        return dict(self.data)
+        """Return a shallow copy of the public JSON payload.
+
+        The failure layers are recorded only when they apply, so an absent
+        marker means the call ran and only the payload speaks for its outcome.
+        """
+        record = dict(self.data)
+        if not self.call_ok:
+            record["call_ok"] = False
+        if self.no_execution:
+            record["no_execution"] = True
+        return record
 
     def to_text(self) -> str:
         """Encode the original tool payload without truncating internal state."""
@@ -254,7 +279,8 @@ def _declare_tool(
         schema_generator=_ToolJsonSchema,
     ).tool_def
     input_schema = definition.parameters_json_schema
-    input_schema.pop("additionalProperties", None)
+    # Dispatch rejects undeclared arguments, so the published schema says so.
+    input_schema["additionalProperties"] = False
     input_schema.update(json_schema_extra or {})
     fields: dict[str, Any] = {}
     for name, parameter in parameters.items():

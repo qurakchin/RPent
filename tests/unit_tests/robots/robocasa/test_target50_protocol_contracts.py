@@ -26,7 +26,11 @@ import pytest
 from robots.robocasa import robot_spec
 from robots.robocasa.eval.result import build_cell_result, finalize_cell_result
 from robots.robocasa.eval.validate_target50 import validate_results
-from rpent.evaluation import RunFinalizationContext, write_json_atomic
+from rpent.evaluation import (
+    RunFinalizationContext,
+    verdict_fields,
+    write_json_atomic,
+)
 from rpent.tools.common import CommonTools
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -362,30 +366,35 @@ def test_robocasa_registers_and_adapts_shared_result_finalizer(tmp_path, monkeyp
         )
     )
 
-    path = finalize_cell_result(
-        RunFinalizationContext(
-            output_dir=tmp_path,
-            robot_name="robocasa",
-            task_desc={
-                "task_name": "OpenDrawer",
-                "split": "target",
-                "seed": 1,
-            },
-            environment_success=True,
-            agent_error=None,
-            elapsed_s=12.34,
-            planner="codex",
-            model="gpt-5.5",
-            reasoning_effort="xhigh",
-            max_turns=100,
-            planner_timeout_s=1800,
-            finish_result={"status": "failure", "summary": "ignored claim"},
-            stats={"tool_calls": 3},
-        )
+    context = RunFinalizationContext(
+        output_dir=tmp_path,
+        robot_name="robocasa",
+        task_desc={
+            "task_name": "OpenDrawer",
+            "split": "target",
+            "seed": 1,
+        },
+        environment_success=True,
+        agent_error=None,
+        elapsed_s=12.34,
+        planner="codex",
+        model="gpt-5.5",
+        reasoning_effort="xhigh",
+        max_turns=100,
+        planner_timeout_s=1800,
+        finish_result={"status": "failure", "summary": "ignored claim"},
+        stats={"tool_calls": 3},
+        truth_source="environment",
     )
 
+    path = finalize_cell_result(context)
+
     assert path == tmp_path / "result.json"
-    assert json.loads(path.read_text(encoding="utf-8")) == _cell_result(success=True)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    assert record == {**_cell_result(success=True), **verdict_fields(context)}
+    assert record["accepted"] is True
+    assert record["failure_category"] is None
+    assert record["truth_source"] == "environment"
 
 
 def test_robocasa_finalizer_marks_missing_environment_result_invalid(

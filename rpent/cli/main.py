@@ -36,7 +36,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import queue
 import shlex
 import sys
@@ -53,8 +52,12 @@ from rpent.dashboard.events import (
     NullDashboardEventSink,
     RunStartedEvent,
 )
-from rpent.evaluation import RunFinalizationContext
-from rpent.install.snapshot import record_run_environment
+from rpent.evaluation import (
+    RunFinalizationContext,
+    verdict_fields,
+    write_json_atomic,
+)
+from rpent.install.snapshot import finish_run_manifest, start_run_manifest
 from rpent.memory import MemoryManager
 from rpent.planner.base import (
     CODEX_SANDBOX_CHOICES,
@@ -78,8 +81,8 @@ logger = get_logger("agent")
 def _strip_images(value):
     """Return a copy of ``value`` with inline image payloads omitted.
 
-    SDK objects are left untouched; ``json.dump(..., default=str)`` handles
-    them at write time. Only the bulky base64 image blocks are replaced.
+    SDK objects are left untouched; the transcript writer's ``default=str``
+    handles them at write time. Only the bulky base64 image blocks are replaced.
     """
     if isinstance(value, list):
         return [_strip_images(v) for v in value]
@@ -101,6 +104,19 @@ def _serialize_messages(messages: list[dict]) -> list[dict]:
         }
         for m in messages
     ]
+
+
+def _read_solved(toolkit) -> bool | None:
+    """Return the toolkit's environment verdict, or None when it has none."""
+    solved_fn = getattr(toolkit, "solved", None)
+    return bool(solved_fn()) if callable(solved_fn) else None
+
+
+def _exit_code(accepted: bool | None) -> int:
+    """Map a run verdict to the exit status: 0 accepted, 1 rejected, 75 none."""
+    if accepted is None:
+        return 75
+    return 0 if accepted else 1
 
 
 # ---------------------------------------------------------------------------
@@ -499,7 +515,16 @@ def main() -> int:
 
     # mkdir + logging wiring (robot-side already picked the path).
     output_dir = init_output_dir(output_dir, verbose=args.verbose)
-    record_run_environment(output_dir)
+    try:
+        start_run_manifest(
+            output_dir,
+            robot=robot_spec.name,
+            planner=args.planner,
+            model=args.model,
+            task=task_desc,
+        )
+    except FileExistsError as exc:
+        parser.error(str(exc))
     logger.info("physical agent cmd: %s", shlex.join([sys.executable, *sys.argv]))
 
     prepare_run_memory(args, robot_spec, run_config)
@@ -618,6 +643,15 @@ def main() -> int:
     sessions = max(1, int(getattr(args, "explore_sessions", 1) or 1))
     if not getattr(args, "explore", False):
         sessions = 1
+    # The toolkit reports an outcome when the robot judges runs in this mode: a
+    # simulator or operator verdict during exploration, a robot result finalizer
+    # that records the cell, or Flash replay's operator confirmation. A plain
+    # real-robot evaluation is judged outside the harness and has no verdict.
+    collects_verdict = (
+        robot_spec.supports_exploration
+        or robot_spec.finalize_run is not None
+        or args.planner == "flash"
+    )
     recipe_path = ""
     solved = False
     environment_success: bool | None = None
@@ -715,29 +749,27 @@ def main() -> int:
                             "Planner stopped after operator verdict: %s", agent_error
                         )
                         stats["planner_error_at_operator_verdict"] = agent_error
-                solved_fn = getattr(toolkit, "solved", None)
-                if getattr(robot_spec, "supports_exploration", False) and callable(
-                    solved_fn
-                ):
-                    solved = bool(solved_fn())
-                    environment_success = solved
-                    write_recipe = getattr(toolkit, "write_recipe", None)
-                    if solved and callable(write_recipe):
-                        recipe_path = write_recipe(recipe_tag) or recipe_path
             finally:
                 if operator_input is not None and input_queue is not None:
                     operator_input.bind_verdict(None)
                 try:
-                    if robot_spec.finalize_run is not None:
+                    if collects_verdict:
+                        # A tool may still be moving the robot; quiesce before
+                        # reading the verdict and collecting metrics.
                         toolkit.cancel_active_and_wait()
-                        solved_fn = getattr(toolkit, "solved", None)
-                        environment_success = (
-                            bool(solved_fn()) if callable(solved_fn) else None
-                        )
-                        solved = bool(environment_success)
-                        environment_metrics = toolkit.evaluation_metrics(
-                            success=environment_success
-                        )
+                        environment_success = _read_solved(toolkit)
+                        solved = environment_success is True
+                        write_recipe = getattr(toolkit, "write_recipe", None)
+                        if (
+                            robot_spec.supports_exploration
+                            and solved
+                            and callable(write_recipe)
+                        ):
+                            recipe_path = write_recipe(recipe_tag) or recipe_path
+                        if robot_spec.finalize_run is not None:
+                            environment_metrics = toolkit.evaluation_metrics(
+                                success=environment_success
+                            )
                 finally:
                     try:
                         toolkit.close()
@@ -784,19 +816,41 @@ def main() -> int:
 
     elapsed = time.time() - t0
 
-    transcript_path = Path(output_dir) / f"transcript_{recipe_tag}.json"
-    record = {
-        **task_desc,
-        "model": args.model,
-        "elapsed_s": round(elapsed, 1),
-        "finish": finish_result,
-        "error": agent_error,
-        "environment_success": environment_success,
-        "stats": stats,
-        "messages": _serialize_messages(messages),
-    }
-    with open(transcript_path, "a") as f:
-        json.dump(record, f, indent=2, default=str)
+    context = RunFinalizationContext(
+        output_dir=Path(output_dir),
+        robot_name=robot_name,
+        task_desc=dict(task_desc),
+        environment_success=environment_success,
+        environment_metrics=environment_metrics,
+        agent_error=agent_error,
+        elapsed_s=elapsed,
+        planner=args.planner,
+        model=args.model,
+        reasoning_effort=args.reasoning_effort,
+        max_turns=args.max_turns,
+        planner_timeout_s=args.planner_timeout_s,
+        finish_result=dict(finish_result) if finish_result is not None else None,
+        stats=dict(stats),
+        truth_source=robot_spec.truth_source if collects_verdict else None,
+    )
+
+    transcript_path = Path(output_dir) / "transcript.json"
+    write_json_atomic(
+        transcript_path,
+        {
+            "recipe_tag": recipe_tag,
+            **task_desc,
+            "model": args.model,
+            "elapsed_s": round(elapsed, 1),
+            "finish": finish_result,
+            "error": agent_error,
+            "environment_success": environment_success,
+            **verdict_fields(context),
+            "stats": stats,
+            "messages": _serialize_messages(messages),
+        },
+        default=str,
+    )
 
     logger.info("elapsed: %.1fs", elapsed)
     logger.info(
@@ -807,32 +861,18 @@ def main() -> int:
     )
     logger.info("transcript: %s", transcript_path)
 
+    # Artifact failures leave the verdict unchanged but make the command fail:
+    # the run is not reproducible from what it wrote.
+    command_failed = False
+    result_path: Path | str | None = None
     if robot_spec.finalize_run is not None:
         try:
-            result_path = robot_spec.finalize_run(
-                RunFinalizationContext(
-                    output_dir=Path(output_dir),
-                    robot_name=robot_name,
-                    task_desc=dict(task_desc),
-                    environment_success=environment_success,
-                    environment_metrics=environment_metrics,
-                    agent_error=agent_error,
-                    elapsed_s=elapsed,
-                    planner=args.planner,
-                    model=args.model,
-                    reasoning_effort=args.reasoning_effort,
-                    max_turns=args.max_turns,
-                    planner_timeout_s=args.planner_timeout_s,
-                    finish_result=(
-                        dict(finish_result) if finish_result is not None else None
-                    ),
-                    stats=dict(stats),
-                )
-            )
+            result_path = robot_spec.finalize_run(context)
             if result_path:
                 logger.info("run result: %s", result_path)
         except Exception as exc:
             agent_error = f"result finalization failed: {type(exc).__name__}: {exc}"
+            command_failed = True
             logger.error("%s", agent_error)
 
     # Publish exploration artifacts into the corpus after the session loop.
@@ -853,9 +893,30 @@ def main() -> int:
                 logger.info("memory merged: %s", merge_result)
         except Exception as exc:
             agent_error = f"memory finalization failed: {type(exc).__name__}: {exc}"
+            command_failed = True
             logger.error("%s", agent_error)
 
-    return 1 if agent_error else 0
+    try:
+        finish_run_manifest(
+            output_dir,
+            artifacts={
+                "transcript": transcript_path,
+                "result": result_path,
+                "recipe": recipe_path,
+            },
+            verdict=verdict_fields(context),
+            error=agent_error,
+        )
+    except Exception as exc:
+        command_failed = True
+        logger.error("run manifest update failed: %s", exc)
+
+    if getattr(args, "explore", False):
+        # Exploration publishes a corpus; its session outcome is not a verdict.
+        return 1 if agent_error else 0
+    if command_failed:
+        return 1
+    return _exit_code(context.accepted)
 
 
 if __name__ == "__main__":

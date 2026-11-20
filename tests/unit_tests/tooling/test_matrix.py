@@ -20,6 +20,13 @@ from rpent.install.discovery import discover
 from tests.tooling import matrix
 
 
+def _write_project(root):
+    """Write the checkout-level pyproject.toml the resolver reads."""
+    (root / "pyproject.toml").write_text(
+        '[project]\nname = "rpent"\ndependencies = []\n', encoding="utf-8"
+    )
+
+
 def _write_component(root, subject, *, requires=()):
     path = root / "robots" / subject / "component.toml"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -43,6 +50,7 @@ def test_component_without_an_environment_is_reported(tmp_path):
 
 def test_stale_environment_is_reported(tmp_path):
     _write_component(tmp_path, "alpha")
+    _write_project(tmp_path)
 
     problems = matrix.problems(
         discover(tmp_path),
@@ -57,6 +65,7 @@ def test_stale_environment_is_reported(tmp_path):
 
 def test_environment_listed_by_two_runners_is_reported(tmp_path):
     _write_component(tmp_path, "alpha")
+    _write_project(tmp_path)
 
     problems = matrix.problems(
         discover(tmp_path),
@@ -70,6 +79,7 @@ def test_environment_listed_by_two_runners_is_reported(tmp_path):
 
 def test_environment_listed_twice_is_reported(tmp_path):
     _write_component(tmp_path, "alpha")
+    _write_project(tmp_path)
 
     problems = matrix.problems(
         discover(tmp_path),
@@ -94,6 +104,7 @@ def test_a_required_component_needs_no_environment_of_its_own(tmp_path):
         'schema = 2\nname = "model-sam3"\nprobe = "json"\n', encoding="utf-8"
     )
     _write_component(tmp_path, "alpha", requires=("model-sam3",))
+    _write_project(tmp_path)
 
     problems = matrix.problems(
         discover(tmp_path), {"hosted": (), "gpu": (("robot-alpha",),)}
@@ -103,6 +114,7 @@ def test_a_required_component_needs_no_environment_of_its_own(tmp_path):
 
 
 def test_an_environment_that_cannot_resolve_is_reported(tmp_path):
+    _write_project(tmp_path)
     for subject, other in (("alpha", "robot-beta"), ("beta", "robot-alpha")):
         path = tmp_path / f"robots/{subject}/component.toml"
         path.parent.mkdir(parents=True)
@@ -129,6 +141,7 @@ def test_check_reports_drift_and_fails(tmp_path, capsys):
 
 def test_check_passes_when_the_partition_matches(tmp_path, monkeypatch, capsys):
     _write_component(tmp_path, "alpha")
+    _write_project(tmp_path)
     monkeypatch.setattr(matrix, "MATRICES", {"hosted": (("robot-alpha",),), "gpu": ()})
 
     assert matrix.main(["--check"], root=tmp_path) == 0

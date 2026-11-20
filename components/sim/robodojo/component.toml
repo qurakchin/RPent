@@ -13,4 +13,9 @@ extra-index-urls = ["https://pypi.nvidia.com"]
 
 dependencies = [
   "rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@6d76a0c4a49a7a47bf5ee3924de2ccd7ecb8a8b7",
+  # The task recipes and the agent support read YAML and rotate with SciPy;
+  # both are imported inside the call, but this component's own code needs
+  # them, and the runtime layer does not install them.
+  "pyyaml",
+  "scipy",
 ]

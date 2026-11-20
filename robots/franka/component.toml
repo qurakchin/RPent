@@ -1,6 +1,7 @@
 schema = 2
 name = "robot-franka"
 probe = "robots.franka"
+planner = true
 python = ">=3.10,<3.13"
 # Franka pins numpy<2 and gymnasium==0.29.1 for franky-control and the
 # camera stack, so it cannot share an environment with the simulator

@@ -103,6 +103,7 @@ def get_robot_spec() -> RobotSpec:
         is_real_robot=True,
         supports_exploration=True,
         supports_human_interactive_exploration=True,
+        truth_source="operator",
     )
 
 

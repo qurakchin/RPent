@@ -34,19 +34,24 @@
    * - ``tool-``
      - ``components/tools/<name>/``
      - 只依赖核心的工具，例如 flywheel 导出器。
+   * - ``toolkit-``
+     - ``components/toolkits/<name>/``
+     - 由机器人切片适配的工具能力，例如 RGB-D 工具。
    * - ``infra-``
      - ``components/infra/<name>/``
      - 环境需要但不拥有代码的依赖包（RLinf 运行时、测试工具、CPU Torch）。
 
 每个组件都是一个目录，目录里放着它的 ``component.toml``。为不属于自己的代码安装依赖包的组件只贡献这份清单：``infra-`` 组件全部属于这种形态，``sim-libero_plus`` 则是为 ``sim-libero`` 自带的 env server 安装 LIBERO-plus 包。
 
-依赖方向是 ``rpent`` ← ``components/sim`` ← ``components/models`` ← ``robots``；``components/tools`` 只依赖 ``rpent``。因此机器人环境会自动带上它的仿真器和模型服务：
+核心包分两层安装。``rpent`` 是运行时层：组件与模型契约、RPC、模型 client 和安装器，仿真器或模型环境可以只装它而不带 planner 依赖栈。``rpent[planner]`` 在此之上加入 planner 适配器、执行会话、工具、提示词和 Dashboard。导入 planner 的组件在 ``component.toml`` 中声明 ``planner = true``，包含该组件的环境会一并安装 planner 层；没有这个标记的环境只装运行时层。若组件设置了该标记而源码目录的 ``pyproject.toml`` 中没有 ``planner`` extra，``install`` 会报错并列出相关组件。
+
+依赖方向是 ``rpent`` ← ``components/sim`` ← ``components/models`` ← ``robots``；``components/tools`` 只依赖 ``rpent``，``components/toolkits`` 还可以读取模型 client 的结果类型。因此机器人环境会自动带上它的仿真器、模型服务和 toolkit：
 
 .. code-block:: bash
 
    rpent-install list
 
-``robot-libero`` 需要 ``sim-libero``、``model-openpi``、``model-sam3`` 和 ``tool-flywheel``；``robot-robocasa`` 需要 ``sim-robocasa`` 和 ``model-rldx``；``robot-robodojo`` 需要 ``sim-robodojo``、``model-sam3``、``model-openpi``、``model-awomo05`` 和 ``model-vpp2``。没有机器人需要的模型服务（``model-molmo``、``model-cosmos3``、``model-cosmos_policy``、``model-fast_wam``、``model-apxinf``、``model-uniwam``）装进自己的环境。
+``robot-libero`` 需要 ``sim-libero``、``model-openpi``、``model-sam3``、``tool-flywheel`` 和 ``toolkit-rgbd``；``robot-robocasa`` 需要 ``sim-robocasa`` 和 ``model-rldx``；``robot-robodojo`` 需要 ``sim-robodojo``、``model-sam3``、``model-openpi``、``model-awomo05`` 和 ``model-vpp2``。没有机器人需要的模型服务（``model-molmo``、``model-cosmos3``、``model-cosmos_policy``、``model-fast_wam``、``model-apxinf``、``model-uniwam``）装进自己的环境。
 
 ``robot-`` 组件一次装齐：它的环境里同时有 planner、工具、仿真器和机器人需要的模型服务，所以 ``install robot-libero`` 不需要再为模型或导出器准备第二个环境。其他前缀的组件各自装进独立的环境（同样带核心 ``rpent`` 包），机器人环境通过该组件的 client 访问它，而不是直接导入。``robot-yam`` 是例外：它的切片自带 YAM 运行时，Pi0.5 策略则作为 ``model-openpi`` 单独安装。
 

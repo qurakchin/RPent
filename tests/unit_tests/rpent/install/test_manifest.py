@@ -35,6 +35,7 @@ def test_component_manifest_reads_declarations(write_toml):
         probe = "robots.alpha.robot_spec"
         python = ">=3.11,<3.12"
         platforms = ["linux-x86_64"]
+        planner = true
         requires = ["model-openpi"]
         imports = ["robot-beta"]
         env_conflicts = ["robot-beta"]
@@ -53,6 +54,7 @@ def test_component_manifest_reads_declarations(write_toml):
     assert component.path == path.parent
     assert component.python == ">=3.11,<3.12"
     assert component.platforms == ("linux-x86_64",)
+    assert component.planner is True
     assert component.requires == ("model-openpi",)
     assert component.imports == ("robot-beta",)
     assert component.env_conflicts == ("robot-beta",)
@@ -316,6 +318,33 @@ def test_index_strategy_is_optional_and_validated(write_toml):
     assert default.index_strategy is None
     with pytest.raises(InstallConfigError, match="'index-strategy' must be one of"):
         load_component(invalid, "infra")
+
+
+def test_planner_defaults_to_the_runtime_layer_only(write_toml):
+    default = load_component(
+        write_toml(
+            "components/sim/alpha/component.toml",
+            f"""
+            schema = {SCHEMA}
+            name = "sim-alpha"
+            probe = "components.sim.alpha"
+            """,
+        ),
+        "sim",
+    )
+    invalid = write_toml(
+        "components/sim/beta/component.toml",
+        f"""
+        schema = {SCHEMA}
+        name = "sim-beta"
+        probe = "components.sim.beta"
+        planner = "yes"
+        """,
+    )
+
+    assert default.planner is False
+    with pytest.raises(InstallConfigError, match="'planner' must be true or false"):
+        load_component(invalid, "sim")
 
 
 def test_manylinux_defaults_to_the_repository_baseline(write_toml):

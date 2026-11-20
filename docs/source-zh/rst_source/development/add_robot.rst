@@ -55,12 +55,15 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
    schema = 2
    name = "robot-myrobot"
    probe = "robots.myrobot"
+   planner = true
    python = ">=3.10,<3.13"
    requires = ["sim-mysim", "model-mymodel"]
 
    dependencies = ["my-simulator==1.2"]
 
 除非清单列出 ``platforms``，组件默认支持 ``linux-x86_64``；只有需要更窄的平台集合时才写这个字段。
+
+``planner = true`` 声明该切片导入 planner 层，因此它的环境会在运行时层 ``rpent`` 之上再装 ``rpent[planner]``。只提供模型服务或仿真器的组件不写这个标记，也可以在没有 planner 依赖栈的环境中安装。
 
 ``name`` 必须是 ``robot-`` 加上目录名，前缀说明组件类型，也决定代码所在位置。``requires`` 声明这个环境同时安装的组件；机器人环境正是通过它带上仿真器和模型服务。``probe`` 指向可导入的包。``rpent-install install`` 和 ``rpent-install doctor`` 会在目标环境中同时导入该包和切片的环境适配模块，因此 probe 成功说明真实依赖已经装上。``dependencies`` 只放本机器人自己的包；多个组件都需要的包应放进 ``components/infra/`` 下的基础设施组件。``imports`` 只用于复用另一个切片代码的机器人切片：写出对方的名字，并让两者之一在 ``requires`` 中声明对方，确保安装闭包同时包含两者。工具包与模型服务之间共享契约，不互相 import。
 
@@ -301,7 +304,7 @@ toolkit 模块通常包含四部分：
 **``_parse_config(args) -> RunConfig``。** 普通 CLI 模式下，该钩子在 ``parser.parse_args()`` 后调用；Dashboard 模式下，每个 TaskRun 会先把请求字段写入任务参数，再调用该钩子。该钩子校验这些字段并返回
 :class:`~rpent.robots.RunConfig`：
 
-- ``recipe_tag`` —— 单次运行的机器人标签，用于 transcript 文件名和 recipe 路径（LIBERO 使用 ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``）。
+- ``recipe_tag`` —— 单次运行的机器人标签，用于 recipe 路径、planner CLI 输出文件和 transcript 中的 ``recipe_tag`` 字段（LIBERO 使用 ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``）。
 - ``output_dir`` —— 单次运行的临时目录路径。main.py 随后调用 ``init_output_dir`` 创建目录并配置日志。
 - ``prompt_vars`` —— 传给 ``PromptBundle.render`` 的字典，通常包含运行标识和 prompt 引用的其他变量。
 - ``task_desc`` —— 机器人特定的任务标识字典，会原样写入 transcript JSON 记录（LIBERO 使用 ``{"suite": ..., "task": ..., "seed": ...}``）。
@@ -349,7 +352,7 @@ JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整�
 
 .. code-block:: python
 
-   from rpent.evaluation import RunFinalizationContext, write_json_atomic
+   from rpent.evaluation import RunFinalizationContext, verdict_fields, write_json_atomic
 
    def _finalize_run(context: RunFinalizationContext):
        return write_json_atomic(
@@ -358,10 +361,11 @@ JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整�
                "robot": context.robot_name,
                "task": dict(context.task_desc),
                "success": context.environment_success,
+               **verdict_fields(context),
            },
        )
 
-通过 ``RobotSpec(..., finalize_run=_finalize_run)`` 注册回调。该钩子目前只用于普通终端运行，Dashboard 不会调用。benchmark manifest、机器人专用 runtime 字段和聚合逻辑应继续放在机器人目录中，而不是共享 CLI。
+通过 ``RobotSpec(..., finalize_run=_finalize_run)`` 注册回调。终端 runner 和 Dashboard 都会在 toolkit 关闭、判定确定之后各调用一次。``RunFinalizationContext`` 提供运行身份、耗时、planner 设置、统计信息以及 ``truth_source``；由它派生的判定（``accepted``、``retryable``、``failure_category``、``stop_reason``）也是 CLI 退出码的依据。产物中用 ``verdict_fields(context)`` 发布同一组字段，读 ``result.json`` 的人不必自行还原映射。benchmark manifest、机器人专用 runtime 字段和聚合逻辑应继续放在机器人目录中，而不是共享 CLI。
 
 .. _add-robot-testing:
 

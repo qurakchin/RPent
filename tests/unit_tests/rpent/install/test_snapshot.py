@@ -12,12 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Run artifacts record which installation produced them."""
+"""The run manifest records the run and the installation that produced it."""
 
 import json
 
+import pytest
+
 from rpent.install.fingerprint import fingerprint_sha256, write_fingerprint
-from rpent.install.snapshot import installation_snapshot, record_run_environment
+from rpent.install.snapshot import (
+    finish_run_manifest,
+    installation_snapshot,
+    start_run_manifest,
+)
 
 
 def _fingerprint():
@@ -58,33 +64,47 @@ def test_snapshot_identifies_the_installed_targets(tmp_path):
     assert snapshot["source_commit"] == "abc123"
 
 
-def test_record_merges_into_an_existing_run_manifest(tmp_path):
+def test_start_records_the_run_and_claims_the_directory(tmp_path):
     venv = tmp_path / "venv"
     venv.mkdir()
     write_fingerprint(venv, _fingerprint())
-    (tmp_path / "run.json").write_text(
-        json.dumps({"schema": 1, "task": "open the drawer", "started_at": "then"}),
-        encoding="utf-8",
+
+    path = start_run_manifest(
+        tmp_path,
+        robot="libero",
+        planner="api",
+        model=None,
+        task={"suite": "libero_10_task", "task": 0},
+        venv=venv,
     )
+    record = json.loads(path.read_text(encoding="utf-8"))
 
-    record_run_environment(tmp_path, venv=venv)
-
-    record = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
-    assert record["task"] == "open the drawer"
-    assert record["started_at"] == "then"
+    assert record["schema"] == 1
+    assert record["robot"] == "libero"
+    assert record["task"] == {"suite": "libero_10_task", "task": 0}
     assert record["environment"]["targets"] == ["infra-minimal"]
+    assert record["artifacts"] == {}
+
+    # One directory holds one run: a second start must not overwrite it.
+    with pytest.raises(FileExistsError, match="already records a run"):
+        start_run_manifest(
+            tmp_path, robot="libero", planner="api", model=None, task={}, venv=venv
+        )
 
 
-def test_record_creates_the_manifest_and_is_idempotent(tmp_path):
-    venv = tmp_path / "venv"
-    venv.mkdir()
-    write_fingerprint(venv, _fingerprint())
+def test_finish_records_artifacts_and_the_verdict(tmp_path):
+    start_run_manifest(tmp_path, robot="libero", planner="api", model="m", task={})
 
-    record_run_environment(tmp_path, venv=venv)
-    first = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
-    record_run_environment(tmp_path, venv=venv)
-    second = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
+    path = finish_run_manifest(
+        tmp_path,
+        artifacts={"transcript": tmp_path / "transcript.json", "result": None},
+        verdict={"accepted": True, "truth_source": "environment"},
+        error=None,
+    )
+    record = json.loads(path.read_text(encoding="utf-8"))
 
-    assert first["schema"] == 1
-    assert first["environment"] == second["environment"]
-    assert first["started_at"] == second["started_at"]
+    assert record["artifacts"] == {"transcript": str(tmp_path / "transcript.json")}
+    assert (record["accepted"], record["truth_source"]) == (True, "environment")
+    assert record["error"] is None
+    assert record["started_at"].endswith("Z")
+    assert record["finished_at"].endswith("Z")

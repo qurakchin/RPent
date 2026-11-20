@@ -53,6 +53,11 @@ class Resolution:
         """Return whether static checks passed."""
         return not self.errors
 
+    @property
+    def uses_planner(self) -> bool:
+        """Return whether the environment installs ``rpent[planner]``."""
+        return any(component.planner for component in self.components.values())
+
     def dependencies(self) -> tuple[str, ...]:
         """Return every direct dependency in the environment, deduplicated."""
         requirements = [
@@ -328,6 +333,7 @@ def resolve(
     catalog: Catalog,
     *,
     core_dependencies: tuple[str, ...] = (),
+    planner_dependencies: tuple[str, ...] = (),
     python: str | None = None,
     platform: str | None = None,
 ) -> Resolution:
@@ -412,6 +418,19 @@ def resolve(
     ]
     if core_dependencies:
         requirements.extend(("rpent", requirement) for requirement in core_dependencies)
+    if resolution.uses_planner:
+        if not planner_dependencies:
+            requires_planner = [
+                name for name, component in ordered.items() if component.planner
+            ]
+            resolution.errors.append(
+                "[project.optional-dependencies].planner is missing from "
+                "pyproject.toml, but these components declare 'planner = true': "
+                + ", ".join(requires_planner)
+            )
+        requirements.extend(
+            ("rpent[planner]", requirement) for requirement in planner_dependencies
+        )
     for package, pins in _pin_conflicts(requirements).items():
         lines = "\n".join(f"  {owner}: {package} {pin}" for owner, pin in pins)
         resolution.errors.append(f"conflicting pins for {package!r}\n{lines}")

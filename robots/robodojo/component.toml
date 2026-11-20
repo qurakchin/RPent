@@ -1,6 +1,7 @@
 schema = 2
 name = "robot-robodojo"
 probe = "robots.robodojo"
+planner = true
 python = ">=3.11,<3.12"
 # RoboDojo pins its own RLinf fork and an Isaac Sim stack that breaks
 # the other simulator runtimes and the regular RLinf release, so it

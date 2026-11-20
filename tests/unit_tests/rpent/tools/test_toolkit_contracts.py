@@ -281,6 +281,9 @@ def test_toolkit_reports_unknown_tools_and_invalid_arguments(
     assert unknown.data == {"error": "unknown tool: missing"}
     assert "bad arguments for read_text_file" in invalid.data["error"]
     assert unknown.is_error and invalid.is_error
+    # The framework rejected both calls before either tool could run.
+    assert not unknown.call_ok and unknown.no_execution
+    assert not invalid.call_ok and invalid.no_execution
     assert {error["type"] for error in invalid.data["errors"]} == error_types
     assert invalid.data["errors"][0]["loc"] == ("path",)
     assert toolkit.capture_calls == []
@@ -377,6 +380,28 @@ def test_invalid_vectors_never_execute_or_capture_state(tmp_path: Path, value) -
     assert toolkit.capture_calls == []
 
 
+def test_unbindable_handler_arguments_never_execute_or_capture_state(
+    tmp_path: Path,
+) -> None:
+    toolkit = _ContractToolkit(tmp_path)
+
+    @tool
+    def move(distance: int) -> ToolResult:
+        """Move by the given distance."""
+        return ToolResult(data={"moved": distance})
+
+    def narrower() -> ToolResult:
+        return ToolResult(data={"moved": True})
+
+    toolkit.add_tool(move.with_handler(narrower), replace=True)
+
+    result = toolkit.execute_tool("move", {"distance": 1})
+
+    assert not result.call_ok and result.no_execution
+    assert "bad arguments for move" in result.error
+    assert toolkit.capture_calls == []
+
+
 def test_stateful_dispatch_captures_state_and_emits_the_record(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -436,6 +461,8 @@ def test_handler_error_is_retained_when_state_capture_also_fails(
     assert failed.data["error"] == "handler exploded"
     assert failed.data["state_capture_error"] == "capture exploded"
     assert "ValueError: handler exploded" in failed.data["traceback"]
+    # The handler raised, so the environment may have changed.
+    assert not failed.call_ok and not failed.no_execution
     assert toolkit.events.events == []
     assert toolkit.execute_tool("probe", {}).data == {"ready": True}
 

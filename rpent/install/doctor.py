@@ -41,6 +41,7 @@ from rpent.install.installer import (
 from rpent.install.requirements import (
     FINGERPRINT_SCHEMA,
     read_core_dependencies,
+    read_planner_dependencies,
     requirements_sha256,
 )
 from rpent.install.resolve import python_errors
@@ -111,9 +112,11 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
     if not resolution.ok:
         checks.append(Check(FAIL, "\n".join(resolution.errors)))
         return checks
-    core = read_core_dependencies(repo_root)
     expected_requirements = requirements_sha256(
-        resolution, root=repo_root, core_dependencies=core
+        resolution,
+        root=repo_root,
+        core_dependencies=read_core_dependencies(repo_root),
+        planner_dependencies=read_planner_dependencies(repo_root),
     )
     recorded_schema = fingerprint.get(FINGERPRINT_SCHEMA_FIELD)
     if recorded_schema != FINGERPRINT_SCHEMA:

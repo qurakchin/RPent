@@ -87,6 +87,9 @@ def get_robot_spec() -> RobotSpec:
         init_runtime=_init_runtime,
         resolve_dashboard=lambda args: FRANKA_DASHBOARD_SPEC,
         is_real_robot=True,
+        # Flash replay records the operator's confirmation; a plain evaluation
+        # run is judged by the operator outside the harness and has no verdict.
+        truth_source="operator",
         supports_exploration=False,
     )
 

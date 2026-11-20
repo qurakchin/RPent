@@ -12,12 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Expose the installation fingerprint through per-run artifacts."""
+"""The per-run manifest: what ran, in which environment, and what it wrote.
+
+``<output_dir>/run.json`` is the entry point of a run directory. It names the
+run, keeps the installation fingerprint that produced it, lists the artifacts
+written beside it, and carries the run verdict. One directory holds one run, so
+a second start against a used directory is refused instead of silently mixing
+two transcripts.
+"""
 
 from __future__ import annotations
 
 import json
 import platform
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,6 +39,16 @@ from rpent.install.fingerprint import (
 )
 
 RUN_MANIFEST_NAME = "run.json"
+RUN_MANIFEST_SCHEMA = 1
+
+
+def _utc_now() -> str:
+    return (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
 
 
 def installation_snapshot(venv: Path | None = None) -> dict[str, Any]:
@@ -63,30 +81,54 @@ def installation_snapshot(venv: Path | None = None) -> dict[str, Any]:
     }
 
 
-def record_run_environment(
+def start_run_manifest(
     output_dir: Path | str,
     *,
+    robot: str,
+    planner: str,
+    model: str | None,
+    task: Mapping[str, Any],
     venv: Path | None = None,
 ) -> Path:
-    """Merge the environment snapshot into ``<output_dir>/run.json``.
+    """Claim ``output_dir`` for one run and record what the run is.
 
-    Existing keys are preserved so later manifest writers can add fields
-    without this helper dropping them.
+    Raises:
+        FileExistsError: The directory already records a run.
     """
     destination = Path(output_dir) / RUN_MANIFEST_NAME
-    record: dict[str, Any] = {}
-    if destination.is_file():
-        try:
-            record = json.loads(destination.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            record = {}
-    record.setdefault("schema", 1)
-    record.setdefault(
-        "started_at",
-        datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z"),
+    if destination.exists():
+        raise FileExistsError(
+            f"{destination} already records a run; choose an empty output directory"
+        )
+    return write_json_atomic(
+        destination,
+        {
+            "schema": RUN_MANIFEST_SCHEMA,
+            "started_at": _utc_now(),
+            "robot": robot,
+            "planner": planner,
+            "model": model,
+            "task": dict(task),
+            "environment": installation_snapshot(venv),
+            "artifacts": {},
+        },
     )
-    record["environment"] = installation_snapshot(venv)
+
+
+def finish_run_manifest(
+    output_dir: Path | str,
+    *,
+    artifacts: Mapping[str, Path | str | None],
+    verdict: Mapping[str, Any],
+    error: str | None = None,
+) -> Path:
+    """Record the closed run's artifacts, verdict, and failure, if any."""
+    destination = Path(output_dir) / RUN_MANIFEST_NAME
+    record = json.loads(destination.read_text(encoding="utf-8"))
+    record["finished_at"] = _utc_now()
+    record["artifacts"] = {
+        name: str(path) for name, path in artifacts.items() if path
+    }
+    record.update(verdict)
+    record["error"] = error
     return write_json_atomic(destination, record)

@@ -18,7 +18,10 @@ import pytest
 
 from rpent.install.installer import probe_modules
 from rpent.install.manifest import KINDS
-from rpent.install.requirements import read_core_dependencies
+from rpent.install.requirements import (
+    read_core_dependencies,
+    read_planner_dependencies,
+)
 from rpent.install.resolve import SUPPORTED_PYTHONS, resolve
 
 
@@ -39,9 +42,15 @@ def test_every_kind_has_at_least_one_component(catalog):
 
 def test_every_component_resolves_with_its_requires_closure(catalog):
     core = read_core_dependencies(catalog.root)
+    planner = read_planner_dependencies(catalog.root)
 
     for name in sorted(catalog.components):
-        resolution = resolve([name], catalog, core_dependencies=core)
+        resolution = resolve(
+            [name],
+            catalog,
+            core_dependencies=core,
+            planner_dependencies=planner,
+        )
 
         assert resolution.ok, f"component {name!r}: {'; '.join(resolution.errors)}"
         assert name in resolution.components
@@ -79,6 +88,13 @@ def test_every_probe_names_modules_the_install_can_import(catalog, kind):
 
 def test_core_dependencies_are_declared(catalog):
     assert read_core_dependencies(catalog.root)
+    assert read_planner_dependencies(catalog.root)
+    # The runtime layer must not be the whole distribution: a checkout that
+    # declared its planner packages as runtime dependencies would install them
+    # into every simulator and model environment.
+    assert not set(read_core_dependencies(catalog.root)) & set(
+        read_planner_dependencies(catalog.root)
+    )
 
 
 def test_supported_pythons_mirrors_requires_python(catalog):

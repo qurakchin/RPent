@@ -59,6 +59,7 @@ def compile_resolution(
     python: str,
     platform: str,
     core_dependencies: tuple[str, ...] = (),
+    planner_dependencies: tuple[str, ...] = (),
 ) -> str:
     """Compile one component environment into ``output``.
 
@@ -72,7 +73,11 @@ def compile_resolution(
     platform_tag = platform_template.format(
         baseline=manylinux_baseline(resolution.components.values())
     )
-    requirements = render_requirements(resolution, core_dependencies=core_dependencies)
+    requirements = render_requirements(
+        resolution,
+        core_dependencies=core_dependencies,
+        planner_dependencies=planner_dependencies,
+    )
     name = "+".join(resolution.targets)
     with tempfile.TemporaryDirectory(prefix="rpent-requirements-") as directory:
         source = Path(directory) / f"{name}.txt"
@@ -113,6 +118,7 @@ def resolve_resolution(
     python: str,
     platform: str,
     core_dependencies: tuple[str, ...] = (),
+    planner_dependencies: tuple[str, ...] = (),
 ) -> str:
     """Compile ``resolution`` into a temporary file and return the uv output.
 
@@ -130,4 +136,5 @@ def resolve_resolution(
             python=python,
             platform=platform,
             core_dependencies=core_dependencies,
+            planner_dependencies=planner_dependencies,
         )

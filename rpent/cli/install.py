@@ -34,7 +34,10 @@ from rpent.install.doctor import FAIL, check_installation, inspect_installation
 from rpent.install.errors import InstallConfigError, InstallError
 from rpent.install.fingerprint import current_venv
 from rpent.install.installer import find_uv, install, resolve_targets
-from rpent.install.requirements import read_core_dependencies
+from rpent.install.requirements import (
+    read_core_dependencies,
+    read_planner_dependencies,
+)
 from rpent.install.resolve import Resolution, choose_python
 from rpent.utils.config import get_repo_root
 
@@ -96,6 +99,7 @@ def _report_resolution(
             python=python,
             platform=platform,
             core_dependencies=read_core_dependencies(root),
+            planner_dependencies=read_planner_dependencies(root),
         )
     except InstallError as exc:
         print(f"{label}: FAIL")

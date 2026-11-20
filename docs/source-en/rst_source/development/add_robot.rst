@@ -79,6 +79,7 @@ current file for each role until that migration lands.
    schema = 2
    name = "robot-myrobot"
    probe = "robots.myrobot"
+   planner = true
    python = ">=3.10,<3.13"
    requires = ["sim-mysim", "model-mymodel"]
 
@@ -87,6 +88,11 @@ current file for each role until that migration lands.
 Every component supports ``linux-x86_64`` unless its manifest lists
 ``platforms``; declare that field only when the component needs a narrower
 set.
+
+``planner = true`` declares that the slice imports the planner layer, so its
+environment installs ``rpent[planner]`` on top of the runtime ``rpent``. A
+component that only serves models or the simulator leaves the flag out and is
+installable without the planner stack.
 
 ``name`` must be ``robot-`` plus the directory name, because the prefix says
 which kind of component it is and where its code lives. ``requires`` names the
@@ -439,8 +445,9 @@ TaskRun after the requested fields have been copied to the task arguments. It
 validates those fields and returns a
 :class:`~rpent.robots.RunConfig`:
 
-- ``recipe_tag`` — robot's per-run tag, used in transcript filenames / recipe
-  path (LIBERO: ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``).
+- ``recipe_tag`` — robot's per-run tag, used in the recipe path, planner CLI
+  output files, and the transcript's ``recipe_tag`` field (LIBERO:
+  ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``).
 - ``output_dir`` — path to the working directory for this run (main.py then
   calls ``init_output_dir`` to create it and configure logging).
 - ``prompt_vars`` — dict passed to ``PromptBundle.render`` (typically the run
@@ -524,7 +531,7 @@ cannot leave a partial result:
 
 .. code-block:: python
 
-   from rpent.evaluation import RunFinalizationContext, write_json_atomic
+   from rpent.evaluation import RunFinalizationContext, verdict_fields, write_json_atomic
 
    def _finalize_run(context: RunFinalizationContext):
        return write_json_atomic(
@@ -533,13 +540,20 @@ cannot leave a partial result:
                "robot": context.robot_name,
                "task": dict(context.task_desc),
                "success": context.environment_success,
+               **verdict_fields(context),
            },
        )
 
-Register the callback as ``RobotSpec(..., finalize_run=_finalize_run)``. This
-hook is currently limited to normal terminal runs; the Dashboard does not call
-it. Keep benchmark manifests, robot-specific runtime fields, and aggregation
-logic in the robot package rather than the shared CLI.
+Register the callback as ``RobotSpec(..., finalize_run=_finalize_run)``. The
+terminal runner and the Dashboard both call it once, after the toolkit is
+closed and the verdict is settled. ``RunFinalizationContext`` carries the run's
+identity, timings, planner settings, statistics, and ``truth_source``; its
+derived verdict — ``accepted``, ``retryable``, ``failure_category``,
+``stop_reason`` — is what the CLI turns into its exit status. Publish the same
+fields in the result artifact with ``verdict_fields(context)`` so a reader of
+``result.json`` never has to reconstruct the mapping. Keep benchmark manifests,
+robot-specific runtime fields, and aggregation logic in the robot package rather
+than the shared CLI.
 
 .. _add-robot-testing:
 

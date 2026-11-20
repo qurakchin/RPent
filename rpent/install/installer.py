@@ -39,6 +39,7 @@ from rpent.install.fingerprint import (
 from rpent.install.requirements import (
     FINGERPRINT_SCHEMA,
     read_core_dependencies,
+    read_planner_dependencies,
     render_requirements,
     requirements_sha256,
 )
@@ -148,11 +149,11 @@ def resolve_targets(
     platform: str | None = None,
 ) -> Resolution:
     """Resolve component names against the checkout's manifests."""
-    core = read_core_dependencies(root)
     return resolve(
         targets,
         catalog,
-        core_dependencies=core,
+        core_dependencies=read_core_dependencies(root),
+        planner_dependencies=read_planner_dependencies(root),
         platform=platform,
     )
 
@@ -260,7 +261,10 @@ def install(
     if not resolution.ok:
         raise InstallError("\n".join(resolution.errors))
     core = read_core_dependencies(repo_root)
-    requirements = render_requirements(resolution, core_dependencies=core)
+    planner = read_planner_dependencies(repo_root)
+    requirements = render_requirements(
+        resolution, core_dependencies=core, planner_dependencies=planner
+    )
     destination = (venv or default_venv(repo_root, resolution.targets)).resolve()
 
     if dry_run:
@@ -356,6 +360,7 @@ def install(
             resolution,
             root=repo_root,
             core_dependencies=core,
+            planner_dependencies=planner,
         ),
         "freeze_sha256": freeze_sha256(frozen),
         "installed_at": datetime.now(timezone.utc)

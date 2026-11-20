@@ -7,6 +7,8 @@ python = ">=3.10,<3.13"
 env_conflicts = ["robot-robotwin"]
 
 dependencies = [
+  # The grounding agent's result contract.
+  "pydantic>=2",
   "transformers>=4.57",
   "torch",
   "torchvision",
