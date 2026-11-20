@@ -1,0 +1,27 @@
+schema = 2
+
+name = "sim-libero"
+probe = "components.sim.libero"
+python = ">=3.10,<3.13"
+description = "LIBERO and LIBERO-PRO simulation runtime."
+# The environment server imports RLinf; the policy and segmentation models run
+# in their own environments and connect over RPC.
+requires = ["infra-rlinf"]
+# LIBERO-plus pins its own robosuite, and the Franka stack pins numpy<2;
+# neither can share an environment with this runtime.
+env_conflicts = [
+  "sim-libero_plus",
+  "sim-robotwin",
+  "robot-franka",
+  "robot-dual_franka",
+]
+
+dependencies = [
+  # PRO only adds task definitions on top of the standard package, so one
+  # component installs both instead of separate standard and PRO variants.
+  "rpent-libero @ git+https://github.com/RLinf/LIBERO.git@a8323074d93a09e32bd898630a70531b1f51bc77",
+  "rpent-liberopro @ git+https://github.com/RLinf/LIBERO-PRO.git@d1e11fb181b8544487d27742c0caa3a4d46452ad",
+  # MuJoCo 3.4+ changes LIBERO settling, misplacing objects and reducing task
+  # success; see https://github.com/RLinf/RLinf/issues/1460.
+  "mujoco==3.3.0",
+]

@@ -40,27 +40,31 @@ Use a branch name that reflects the change, such as
 ### Step 2. Set up the development environment
 
 ```bash
-# Create and activate an isolated environment.
-uv venv --python 3.11
-source .venv/bin/activate
+# Create and activate the development environment. The launcher runs the
+# installer in a throwaway uv environment until `.venvs/infra-dev` exists.
+./rpent-install.sh install infra-dev
+source .venvs/infra-dev/bin/activate
 
-# Install the source checkout and the lightweight test dependencies.
-uv pip install -e ".[test]"
+# For robot work, install that component's environment. Environments cannot
+# share a virtualenv because their pins differ, and every environment resolves
+# its components from the manifests.
+rpent-install install robot-libero   # LIBERO
+rpent-install install robot-robocasa # RoboCasa
+rpent-install install robot-robotwin # RoboTwin
 
-# For robot work, choose the matching test environment instead.
-uv pip install -e ".[test,libero-pro]"  # LIBERO
-uv pip install -e ".[test,robocasa]"    # RoboCasa
-uv pip install -e ".[test,robotwin]"    # RoboTwin
+# The robot environment omits the test runner; add it there.
+uv pip install --python .venvs/robot-libero/bin/python pytest pytest-timeout
 
 # Install and enable the repository hooks.
 uv pip install pre-commit==4.6.2
 pre-commit install
 ```
 
-The commands above are alternatives: install only the robot extra relevant to
-the change. See the
-[installation guide](docs/source-en/rst_source/get_started/quickstart.rst) for
-environment-specific setup.
+The robot commands are alternatives: install only the environment relevant to
+the change. See the [installation guide](docs/source-en/rst_source/get_started/installation.rst)
+for environment-specific setup and the
+[test guide](tests/README.md#test-suite-structure) for how each suite selects
+its environment.
 
 ### Step 3. Develop
 
@@ -69,9 +73,15 @@ Follow these conventions while developing:
 - **Keep the change focused.** A feature, an unrelated refactor, and
   repository-wide cleanup should normally be separate pull requests.
 - **Keep code in the appropriate module.** Reuse existing implementations
-  where possible. Put integration code for a specific robot or simulation
-  environment in its `robots/<name>/` directory. Place shared functionality
-  in common modules with matching responsibilities.
+  where possible. Put integration code for a specific robot in
+  `robots/<name>/`, simulator servers and observations in
+  `components/sim/<name>/`, and model services in
+  `components/models/<name>/`. Shared tools and runtimes live under
+  `components/tools/` and `components/infra/`. Place shared functionality in
+  common modules with matching responsibilities.
+  A component installs as the environment of the same name; its `requires`
+  lists the components it runs with. Optional reproduction locks live under
+  `tests/locks/`.
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and
@@ -83,8 +93,8 @@ Follow these conventions while developing:
 - **Import optional dependencies only where they are used.** For example,
   import `robosuite` inside the RoboCasa code that needs it, not at module
   import time. This keeps `import rpent`, robot discovery, and CLI help usable
-  without every simulator installed. Put integration-only dependencies in an
-  optional extra.
+  without every simulator installed. Put integration-only dependencies in the
+  manifest of the component that uses them.
 - **Keep existing interfaces and behavior compatible.** When changing APIs,
   CLI options, configuration, or stored data formats, check that existing
   callers and data still work. Check changes to parameter meanings, defaults,
@@ -94,7 +104,10 @@ Follow these conventions while developing:
 - **Write tests with the change.** New behavior and bug fixes should include
   tests. Refactors should keep existing tests passing; if behavior changes,
   update the tests and explain why. Unit tests must run offline on an ordinary
-  CPU machine; use fakes when model or service output is needed.
+  CPU machine; use fakes when model or service output is needed. Installer
+  units use synthetic manifests under `tests/unit_tests/rpent/install/`;
+  contracts over the checked-in components and locks belong in
+  `tests/unit_tests/installs/`.
 - **Follow the project style.** Pre-commit handles Ruff formatting and linting.
   Public Python APIs should have type hints and Google-style docstrings, and
   runtime messages should use the project logger rather than `print`.

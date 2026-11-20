@@ -1,0 +1,17 @@
+schema = 2
+name = "robot-yam"
+probe = "robots.yam"
+python = ">=3.11,<3.12"
+description = "Dual-arm YAM hardware with Pi0.5."
+# The RLinf runtime is imported lazily by the environment server, and the
+# policy runtime belongs to `model-openpi`.
+requires = ["infra-rlinf", "model-openpi"]
+
+dependencies = [
+  # i2rt 1.1.2 requires click<8.2; huggingface-hub 2.x requires click>=8.4.
+  "huggingface_hub>=0.24,<1",
+  "omegaconf>=2.3,<3",
+  "mujoco>=3.2,<4",
+  "pyrealsense2>=2.55,<3",
+  "imageio-ffmpeg",
+]

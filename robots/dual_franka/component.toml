@@ -1,0 +1,19 @@
+schema = 2
+name = "robot-dual_franka"
+probe = "robots.dual_franka"
+python = ">=3.10,<3.13"
+description = "Dual-arm Franka hardware with Pi0.5 and SAM 3.0."
+# Dual Franka extends the single-arm integration instead of duplicating its
+# camera, gripper, and teleoperation stack.
+requires = ["robot-franka", "model-openpi", "model-sam3"]
+# Imports robots.franka directly; check_layout allows exactly these imports.
+imports = ["robot-franka"]
+env_conflicts = [
+  "sim-libero",
+  "sim-libero_plus",
+  "sim-robocasa",
+  "sim-robotwin",
+  "sim-robodojo",
+]
+
+dependencies = []

@@ -1,0 +1,28 @@
+schema = 2
+
+name = "sim-robodojo"
+probe = "components.sim.robodojo"
+python = ">=3.11,<3.12"
+# Isaac Sim 5.1 wheels are published for glibc 2.35 and newer.
+manylinux = "2_35"
+extra-index-urls = ["https://pypi.nvidia.com"]
+# cuRobo's Torch extension build environment resolves `torch==2.8.0`, whose
+# `nvidia-cuda-nvrtc-cu12==12.8.93` pin only PyPI publishes. The default
+# strategy stops at the first index that has a package, so the NVIDIA index
+# hides that version and the build environment fails to resolve.
+index-strategy = "unsafe-best-match"
+description = "RoboDojo / Isaac Sim without a policy or segmentation model."
+# RoboDojo pins its own RLinf fork and an Isaac Sim stack that breaks the other
+# simulator runtimes. ``infra-rlinf`` is a package-source conflict: the
+# dependency below installs the same distribution from a different revision
+# than the release runtime, so the two cannot resolve together.
+env_conflicts = ["robot-franka", "robot-dual_franka", "sim-robotwin", "infra-rlinf"]
+overrides = ["requirements/robodojo-override.txt"]
+
+dependencies = [
+  "rlinf @ git+https://github.com/littleZ05/RLinf.git@91e0c6e361eff9371e2423a4183602481ae95ee5",
+  "rlinf-robodojo-runtime @ git+https://github.com/RLinf/RoboDojo.git@6d76a0c4a49a7a47bf5ee3924de2ccd7ecb8a8b7",
+  # datasets 5 requires PyArrow >=21; PyArrow 26 needs NumPy >=2,
+  # incompatible with RoboDojo's NumPy 1 simulator stack.
+  "pyarrow>=21.0.0,<26.0.0",
+]

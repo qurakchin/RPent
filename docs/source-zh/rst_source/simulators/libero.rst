@@ -95,25 +95,25 @@ LIBERO
 
 首次使用 LIBERO-PRO，请先完成 :doc:`../get_started/quickstart` 的安装、资源下载和模型配置。本页用于选择更多任务与复现实验。
 
-其他 LIBERO 版本请在独立环境中安装对应 extra，再下载资源；每个 Python 环境只安装一种 LIBERO 版本：
+其他 LIBERO 版本请按 :doc:`../get_started/installation` 安装对应环境，再下载资源；standard 和 pro 共用 ``sim-libero`` 环境，LIBERO-plus 与 ``sim-libero`` 冲突，需要单独的环境：
 
 .. list-table::
    :header-rows: 1
 
    * - 版本
-     - 安装命令
+     - 环境
      - 资源下载
    * - ``standard``
-     - ``uv pip install -e ".[libero]"``
+     - ``sim-libero``
      - ``libero-download-assets --skip-existing``
    * - ``pro``
-     - ``uv pip install -e ".[libero-pro]"``
+     - ``robot-libero``（只跑仿真时用 ``sim-libero``）
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
-     - ``uv pip install -e ".[libero-plus]"``
+     - ``sim-libero_plus``
      - ``liberoplus-download-assets --skip-existing``
 
-以上各组依赖均包含 Pi0.5（``rpent-openpi``）、SAM3 和 RLinf 运行时（``rpent-rlinf``）。模型权重需按下文单独下载。
+``sim-libero`` 包含仿真器和 RLinf 运行时（``infra-rlinf``），不含模型，覆盖 standard 和 pro 两套任务；``robot-libero`` 额外包含 Pi0.5（``model-openpi``）、SAM3 和 flywheel 依赖。standard 或 plus 需要在本机运行 Pi0.5 和 SAM3 时，把 ``model-openpi`` 和 ``model-sam3`` 装到独立环境并传入 endpoint。模型权重需按下文单独下载。
 
 运行时通过 ``--libero-type`` 选择与安装包一致的版本。
 
@@ -248,9 +248,9 @@ Long 结果使用 `reproduce/libero <https://github.com/RLinf/RPent/tree/reprodu
 
 LIBERO 将仿真和模型推理分别放在独立服务器中运行，工具集通过对应客户端执行规划器的请求。
 
-- **env_server** （``robots/libero/env_server.py``）—— 负责运行 LIBERO 的 MuJoCo 环境并通过 EGL 渲染。它通过 RPC 传输（默认使用 HTTP；添加 ``--transport socket`` 后使用 pickle-framed socket）对外暴露 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 等接口。
-- **vla_server** （``rpent/robots/components/pi05_vla_server.py``）—— 持有 Pi0.5 权重，通过同一套 RPC 传输（HTTP 或 socket）暴露 ``predict``。
-- **sam3_server** （``rpent/robots/components/sam3_server.py``）—— 加载 SAM 3.0，根据文字描述或目标物体上的一个像素点，分割出目标区域。如果模型给出多个候选结果，只保留评分最高的一个，并通过同一套 RPC 传输（HTTP 或 socket）返回压缩 PNG 格式的分割掩码（mask）。
+- **env_server** （``components/sim/libero/env_server.py``）—— 负责运行 LIBERO 的 MuJoCo 环境并通过 EGL 渲染。它通过 RPC 传输（默认使用 HTTP；添加 ``--transport socket`` 后使用 pickle-framed socket）对外暴露 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 等接口。
+- **vla_server** （``components/models/openpi/server.py``）—— 持有 Pi0.5 权重，通过同一套 RPC 传输（HTTP 或 socket）暴露 ``predict``。
+- **sam3_server** （``components/models/sam3/server.py``）—— 加载 SAM 3.0，根据文字描述或目标物体上的一个像素点，分割出目标区域。如果模型给出多个候选结果，只保留评分最高的一个，并通过同一套 RPC 传输（HTTP 或 socket）返回压缩 PNG 格式的分割掩码（mask）。
 - **toolkit（工具集）** （``robots/libero/toolkit.py``）—— 定义 LLM 能调用的工具：``pi0_pick`` （交给 Pi0.5）、``move_to``、``rotate_wrist``、 ``back_project``、``view_env_state``、``finish``…
 
 规划器可调用的工具

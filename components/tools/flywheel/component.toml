@@ -1,0 +1,12 @@
+schema = 2
+
+name = "tool-flywheel"
+probe = "components.tools.flywheel"
+python = ">=3.11,<3.12"
+description = "LeRobot trajectory export and replay."
+
+dependencies = [
+  "lerobot>=0.3.3,<0.4",
+  "av<19",
+  "pyarrow<26",
+]

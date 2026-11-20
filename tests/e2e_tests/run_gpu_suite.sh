@@ -16,15 +16,16 @@
 set -euo pipefail
 
 # Do not let a runner's interactive shell or previously activated environment
-# affect imports or uv's target environment.
+# affect imports or uv's environment selection.
 unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX
 
 if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <libero-pro|robocasa|robotwin> <output-dir> <venv-root>"
+  echo "Usage: $0 <robot-libero|robot-robocasa|robot-robotwin> <output-dir> <venv-root>"
+  echo "Environments are robot-libero, robot-robocasa, and robot-robotwin."
   exit 2
 fi
 
-target=$1
+environment=$1
 output_dir=$2
 venv_root=$3
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -220,25 +221,43 @@ run_gpu_pytest() {
   return "$cleanup_status"
 }
 
+# rpent-install is the only supported install entry point. A fresh checkout has no
+# installed CLI yet, so bootstrap it in a throwaway environment that adds only
+# the manifest parser dependency.
+run_rpent_install() {
+  local python_version=$1
+  shift
+  (
+    cd "$repo_root"
+    timeout --foreground --kill-after=2m "$install_timeout" \
+      uv run --no-project --python "$python_version" --with packaging -- \
+      python -m rpent.cli.install "$@"
+  )
+}
+
+install_test_runner() {
+  local python=$1
+  timeout --foreground --kill-after=2m "$install_timeout" \
+    uv pip install --python "$python" pytest pytest-timeout
+}
+
 run_in_clean_env() {
   local name=$1
-  local python_version=$2
-  local extra=$3
-  local test_dir=$4
-  local suite_output=$5
+  local environment=$2
+  local test_dir=$3
+  local suite_output=$4
   local venv_dir="$venv_root/$name"
 
-  timeout --foreground --kill-after=2m "$install_timeout" \
-    uv venv "$venv_dir" --python "$python_version"
-  # Torch and torchvision version compatibility must come from the selected
-  # public RPent extra and its transitive package metadata. The CUDA wheel
+  # Install the environment's dependencies and add only the test runner:
+  # proving a clean machine can install and run the environment is what this
+  # suite exists for.
+  #
+  # Torch and torchvision version compatibility come from the environment's
+  # component manifests and their transitive package metadata. The CUDA wheel
   # backend is the separate runner/install-policy input UV_TORCH_BACKEND.
   # Do not hide a dependency-contract failure with a workflow-only version pin.
-  timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
-    --python "$venv_dir/bin/python" \
-    --editable "${repo_root}[$extra,test]"
-  timeout --foreground --kill-after=2m "$install_timeout" \
-    uv pip check --python "$venv_dir/bin/python"
+  run_rpent_install 3.11 install "$environment" --venv "$venv_dir"
+  install_test_runner "$venv_dir/bin/python"
   (
     cd "$repo_root"
     run_gpu_pytest \
@@ -251,20 +270,17 @@ run_in_clean_env() {
   find "$venv_dir" -depth -delete
 }
 
-case "$target" in
-  libero-pro)
+case "$environment" in
+  robot-libero)
     require_dir PI05_CHECKPOINT_PATH
     require_file SAM3_CHECKPOINT_PATH
     require_dir LIBERO_PRO_ASSET_PATH
     # Keep package imports and child daemons off the runner's shared config.
     export LIBERO_CONFIG_PATH="$(cd "$output_dir" && pwd)/libero-config"
     mkdir -p "$LIBERO_CONFIG_PATH"
-    venv_dir="$venv_root/libero-pro"
-    timeout --foreground --kill-after=2m "$install_timeout" \
-      uv venv "$venv_dir" --python 3.11
-    timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
-      --python "$venv_dir/bin/python" \
-      --editable "${repo_root}[libero-pro,test]"
+    venv_dir="$venv_root/robot-libero"
+    run_rpent_install 3.11 install robot-libero --venv "$venv_dir"
+    install_test_runner "$venv_dir/bin/python"
     # Keep realpath(__file__) beside this venv's assets, preserving the Git revision.
     liberopro_requirement=$(uv pip freeze --python "$venv_dir/bin/python" \
       | awk '$1 == "rpent-liberopro" {print}')
@@ -280,22 +296,22 @@ case "$target" in
       cd "$repo_root"
       export RPENT_LIBERO_VARIANT=pro
       run_gpu_pytest \
-        libero-pro \
+        robot-libero \
         "$venv_dir/bin/python" \
         tests/e2e_tests/libero \
         "$output_dir/pro" \
-        "$output_dir/libero-pro-junit.xml"
+        "$output_dir/robot-libero-junit.xml"
     )
     find "$venv_dir" -depth -delete
     ;;
-  robocasa)
+  robot-robocasa)
     require_dir RLDX_MODEL_PATH
     require_dir ROBOCASA_ASSETS_PATH
     export RPENT_RUN_ROBOCASA_INTEGRATION=1
     run_in_clean_env \
-      robocasa 3.10 robocasa tests/e2e_tests/robocasa "$output_dir/robocasa"
+      robocasa robot-robocasa tests/e2e_tests/robocasa "$output_dir/robocasa"
     ;;
-  robotwin)
+  robot-robotwin)
     require_dir LINGBOT_MODEL_PATH
     require_dir ROBOTWIN_ASSETS_PATH
     if [[ ! -d "$LINGBOT_MODEL_PATH/qwen_base" ]]; then
@@ -303,10 +319,10 @@ case "$target" in
       exit 1
     fi
     run_in_clean_env \
-      robotwin 3.11 robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
+      robotwin robot-robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
     ;;
   *)
-    echo "Unknown target: $target"
+    echo "Unknown environment: $environment"
     exit 2
     ;;
 esac

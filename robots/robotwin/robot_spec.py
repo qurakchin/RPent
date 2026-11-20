@@ -21,23 +21,29 @@ import os
 import socket
 import sys
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
+from components.sim.robotwin.contracts import (
+    MODEL_SPEC,
+    ROBOTWIN_CAMERA_NAMES,
+    ROBOTWIN_TASK_CONFIGS,
+    RoboTwinActionType,
+    env_runtime_contract,
+    vla_runtime_contract,
+)
 from robots.robotwin.memory import prepare_memory, validate_options
-from robots.robotwin.observation import ROBOTWIN_CAMERAS
 from robots.robotwin.prompt_bundle import system_prompt, user_prompt
-from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
-from rpent.dashboard.spec import DashboardSpec
-from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
+from rpent.components.models.backends import (
     WAM_BACKENDS,
     add_am_args,
     select_am,
     start_wam_service,
 )
+from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
+from rpent.dashboard.spec import DashboardSpec
+from rpent.memory import MemoryManager
 from rpent.robots.prompt_bundle import PromptBundle
 from rpent.robots.robot_spec import RobotSpec, RunConfig
 from rpent.robots.runtime import (
@@ -55,20 +61,6 @@ from rpent.utils.config import (
 if TYPE_CHECKING:
     from rpent.utils.daemon import ProcessDaemon
 
-# Native RoboTwin task YAMLs exposed to the dashboard, the CLI, and the env
-# server -- defined once so every consumer shows the same choices.
-ROBOTWIN_TASK_CONFIGS = (
-    "demo_clean",
-    "demo_randomized",
-)
-
-#: Env-side camera names exposed by the RoboTwin EnvServer, in fixed order.
-#: Shared across the env client, primitives, and toolkit.
-ROBOTWIN_CAMERA_NAMES = ROBOTWIN_CAMERAS
-
-#: Supported native action representations for the RoboTwin agent runtime.
-RoboTwinActionType = Literal["qpos", "ee"]
-
 #: Episode-status keys the RoboTwin env client requires in every status mapping.
 ROBOTWIN_STATUS_KEYS = (
     "eval_success",
@@ -82,32 +74,6 @@ ROBOTWIN_READ_TIMEOUT_S = 120.0
 
 #: Per-call RPC timeout (seconds) for env calls that mutate episode state.
 ROBOTWIN_STATE_CHANGE_TIMEOUT_S = 600.0
-
-
-@dataclass(frozen=True)
-class RoboTwinModelSpec:
-    """Values required by the LingBot EEF runtime."""
-
-    policy_name: str
-    robot_config_relpath: str
-    norm_stats: str
-    qwen_base: str
-    camera_order: tuple[str, ...]
-    state_layout: str
-    action_layout: str
-    use_length: int
-
-
-MODEL_SPEC = RoboTwinModelSpec(
-    policy_name="robotwin_eef",
-    robot_config_relpath="configs/robot_configs/robotwin_eef.yaml",
-    norm_stats="norm_stats/robotwin_eef.json",
-    qwen_base="qwen_base",
-    camera_order=("cam_high", "cam_left_wrist", "cam_right_wrist"),
-    state_layout="eef16",
-    action_layout="eef16",
-    use_length=50,
-)
 
 
 def env_runtime_contract(
@@ -143,23 +109,6 @@ def env_runtime_contract(
             "get_task_language": True,
             "plan_arm_path": True,
         },
-    }
-
-
-def vla_runtime_contract() -> dict[str, object]:
-    """Return the identity required from a LingBot RoboTwin server.
-
-    Only the hard contract fields that break inference input/output when
-    mismatched are kept; descriptive behaviour fields live with the
-    implementation (facade/transport), not in the runtime-equality check.
-    """
-    return {
-        "runtime": "lingbotvla",
-        "policy_name": MODEL_SPEC.policy_name,
-        "camera_order": list(MODEL_SPEC.camera_order),
-        "state_layout": MODEL_SPEC.state_layout,
-        "action_layout": MODEL_SPEC.action_layout,
-        "use_length": MODEL_SPEC.use_length,
     }
 
 
@@ -367,7 +316,7 @@ def _parse_config(args: argparse.Namespace) -> RunConfig:
         raise ValueError("--task-name is required")
     am = select_am(args, "robotwin")
     wam = am if am.is_wam else None
-    if wam is not None:
+    if wam is not None and am.backend != "uniwam":
         if getattr(args, "explore", False) or getattr(args, "planner", None) == "flash":
             raise ValueError("WAM supports evaluation without Flash Mode only")
         if getattr(args, "memory_profile", None) == "hf":
@@ -385,7 +334,7 @@ def _parse_config(args: argparse.Namespace) -> RunConfig:
     output_dir = Path(output_dir)
     initial_seed = int(args.seed)
     default_memory_dir = get_memory_dir("robotwin")
-    if wam is not None:
+    if wam is not None and am.backend != "uniwam":
         default_memory_dir /= wam.backend
     memory_dir = (
         Path(args.memory_dir).expanduser().resolve()
@@ -641,7 +590,7 @@ def _init_runtime(
         daemon, rpc = wam_pending
 
         def connect_wam():
-            from robots.robotwin.wam_client import RoboTwinWAMClient
+            from components.sim.robotwin.wam_client import RoboTwinWAMClient
 
             try:
                 client = RoboTwinWAMClient(rpc)
@@ -649,7 +598,7 @@ def _init_runtime(
             except Exception:
                 rpc.close()
                 raise
-            return {"model": client, "policy_kind": "wam"}
+            return {"model": client, "policy_kind": "wam", "policy_backend": am.backend}
 
         runtime_kwargs.update(
             try_wait_server(
@@ -745,7 +694,8 @@ def _spawn_vla_server(
     qwen_path = model_path / MODEL_SPEC.qwen_base
     daemon = am.spawn_worker(
         [
-            str(get_repo_root() / "robots" / "robotwin" / "vla_server.py"),
+            "-m",
+            "components.models.lingbot.server",
             "--model-path",
             str(model_path),
             "--use-length",
@@ -791,7 +741,7 @@ def _build_env_runtime_kwargs(
 
 
 def _build_vla_runtime_kwargs(endpoint: tuple[str, int]) -> dict[str, Any]:
-    from robots.robotwin.vla_client import LingBotVLAClient
+    from components.models.lingbot.client import LingBotVLAClient
 
     host, port = endpoint
     model = LingBotVLAClient(host=host, port=port)

@@ -1,0 +1,179 @@
+name: Unit checks
+
+# Reusable verification jobs. Nothing here decides *which* paths matter; the
+# orchestrators pass a scope in, so a manual run equals a full run.
+on:
+  workflow_call:
+    inputs:
+      tests:
+        description: JSON array of test paths; empty runs the whole unit suite
+        required: false
+        type: string
+        default: ""
+      target:
+        description: Environment that supplies the test environment
+        required: false
+        type: string
+        default: "infra-unit_cpu"
+
+permissions:
+  contents: read
+
+jobs:
+  static:
+    name: Static structure checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Check the component layout
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m tests.tooling.layout
+      - name: Check every environment
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.install check --all
+      - name: Check the runner partition
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m tests.tooling.matrix --check
+
+  unit:
+    name: Unit, contract and failure-path tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Read the environment cache key
+        id: key
+        shell: bash
+        run: |
+          # The environment is reproducible from its installation inputs, so the
+          # cache key is their hash plus the interpreter it resolves to and the
+          # platform. A checked-in lock is a reproduction artifact and plays no
+          # part here.
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.install check "${{ inputs.target }}" --inputs-hash \
+            > "$RUNNER_TEMP/inputs"
+          cat "$RUNNER_TEMP/inputs"
+          inputs=$(sed -n 's/^inputs=//p' "$RUNNER_TEMP/inputs")
+          python=$(sed -n 's/^python=//p' "$RUNNER_TEMP/inputs")
+          test -n "$inputs"
+          test -n "$python"
+          {
+            echo "inputs=$inputs"
+            echo "python=$python"
+          } >> "$GITHUB_OUTPUT"
+      - name: Pin the environment's Python
+        run: uv python install "${{ steps.key.outputs.python }}"
+      # `infra-unit_cpu` supplies CPU Torch for the tests that import model
+      # servers; `infra-dev` alone deliberately has no Torch.
+      - name: Restore the prebuilt environment
+        id: env
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: rpent-${{ inputs.target }}-${{ runner.os }}-py${{ steps.key.outputs.python }}-${{ steps.key.outputs.inputs }}
+      - name: Build the prebuilt environment
+        if: steps.env.outputs.cache-hit != 'true'
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.install install "${{ inputs.target }}" --venv .venv
+      - name: Run the selected tests
+        shell: bash
+        env:
+          TESTS: ${{ inputs.tests }}
+        run: |
+          mapfile -t paths < <(
+            python3 -c 'import json, os; print("\n".join(json.loads(os.environ["TESTS"] or "[]")))'
+          )
+          if [[ ${#paths[@]} -eq 0 ]]; then
+            paths=(tests/unit_tests)
+          fi
+          .venv/bin/python -m pytest "${paths[@]}" -v \
+            --junitxml="$RUNNER_TEMP/junit.xml"
+      - name: Report skipped tests
+        if: always()
+        shell: bash
+        env:
+          JUNIT: ${{ runner.temp }}/junit.xml
+        run: |
+          if [[ ! -f "$JUNIT" ]]; then
+            echo "::warning::pytest did not write a JUnit report; skipping counters"
+            exit 0
+          fi
+          python3 - <<'PY'
+          import os
+          import xml.etree.ElementTree as ET
+
+          suite = ET.parse(os.environ["JUNIT"]).getroot()
+          suites = [suite] if suite.tag == "testsuite" else list(suite.iter("testsuite"))
+          totals = {"tests": 0, "skipped": 0, "failures": 0, "errors": 0}
+          for item in suites:
+              for key in totals:
+                  totals[key] += int(item.attrib.get(key, 0))
+          line = (
+              f"tests={totals['tests']} skipped={totals['skipped']} "
+              f"failures={totals['failures']} errors={totals['errors']}"
+          )
+          print(line)
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              with open(summary, "a", encoding="utf-8") as handle:
+                  handle.write(f"### Unit tests\n\n`{line}`\n")
+          PY
+
+  minimal-imports:
+    name: Minimal environment imports
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      - name: Read the environment cache key
+        id: key
+        shell: bash
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.install check minimal --inputs-hash \
+            > "$RUNNER_TEMP/inputs"
+          cat "$RUNNER_TEMP/inputs"
+          inputs=$(sed -n 's/^inputs=//p' "$RUNNER_TEMP/inputs")
+          python=$(sed -n 's/^python=//p' "$RUNNER_TEMP/inputs")
+          test -n "$inputs"
+          test -n "$python"
+          {
+            echo "inputs=$inputs"
+            echo "python=$python"
+          } >> "$GITHUB_OUTPUT"
+      - name: Pin the environment's Python
+        run: uv python install "${{ steps.key.outputs.python }}"
+      - name: Restore the minimal environment
+        id: env
+        uses: actions/cache@v4
+        with:
+          path: .venv-minimal
+          key: rpent-minimal-${{ runner.os }}-py${{ steps.key.outputs.python }}-${{ steps.key.outputs.inputs }}
+      - name: Build the minimal environment
+        if: steps.env.outputs.cache-hit != 'true'
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.install install minimal --venv .venv-minimal
+      - name: Check CLI and robot discovery without robot environments
+        run: |
+          .venv-minimal/bin/python -c "
+          import rpent
+          from rpent.robots import enumerate_robots
+          robots = enumerate_robots()
+          assert robots, 'robot discovery returned no entries'
+          print(rpent.__version__, sorted(robots))
+          "
+          .venv-minimal/bin/rpent --help >/dev/null
+          .venv-minimal/bin/rpent-install list >/dev/null
+      - name: Doctor the minimal environment
+        run: |
+          uv run --no-project --python 3.11 --with packaging -- \
+            python -m rpent.cli.install doctor --venv .venv-minimal

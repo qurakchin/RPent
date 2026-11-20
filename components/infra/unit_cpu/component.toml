@@ -1,0 +1,26 @@
+schema = 2
+
+name = "infra-unit_cpu"
+probe = "torch"
+description = "CPU-only unit tests: core, test tools, and the CPU flywheel stack."
+
+# The test tools own pytest and the offline suite's imports; the flywheel
+# runtime owns its LeRobot, av, and pyarrow constraints.
+requires = ["infra-dev", "tool-flywheel"]
+
+dependencies = [
+  "opencv-python-headless",
+  # A model server imports Torch at module scope, and many unit tests import
+  # those modules. The local version selects the CPU wheel from the extra
+  # index, which keeps the hosted runner small and avoids a CUDA dependency
+  # the tests never exercise.
+  "torch==2.6.0+cpu",
+]
+
+extra-index-urls = ["https://download.pytorch.org/whl/cpu"]
+# The PyTorch index mirrors Torch's dependencies but publishes no upload times.
+# With uv's default strategy those shadows hide packages such as sympy from
+# `--exclude-newer`, so resolution fails even though PyPI lists them. The
+# fall-through strategy keeps the first index authoritative and only uses the
+# extra index for versions PyPI does not have, like `torch==2.6.0+cpu`.
+index-strategy = "unsafe-first-match"

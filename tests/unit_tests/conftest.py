@@ -12,13 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Shared logging isolation and loopback RPC fixtures."""
+"""Shared logging isolation, RPC, and synthetic manifest fixtures."""
 
 import threading
 from contextlib import contextmanager
+from pathlib import Path
 
 import pytest
 
+from rpent.install.discovery import Catalog
+from rpent.install.manifest import (
+    COMPONENT_DIRECTORIES,
+    DEFAULT_MANYLINUX,
+    Component,
+)
 from rpent.utils import logging as run_logging
 from rpent.utils.rpc.http_rpc import HttpRpcClient, HttpRpcServer
 from rpent.utils.rpc.socket_rpc import SocketRpcClient, SocketRpcServer
@@ -79,3 +86,61 @@ def make_server_and_client():
             thread.join(timeout=2)
 
     return _ctx
+
+
+@pytest.fixture
+def write_toml(tmp_path):
+    """Write a TOML file and return its path."""
+
+    def _write(relative, text):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text.strip() + "\n", encoding="utf-8")
+        return path
+
+    return _write
+
+
+@pytest.fixture
+def make_component(tmp_path):
+    """Build a component without touching the filesystem.
+
+    ``name`` is the full component name, ``<kind>-<directory>``; the component
+    lives in the directory its kind owns, like a discovered one.
+    """
+
+    def _make(name, **values):
+        kind, _, directory = name.partition("-")
+        path = tmp_path / COMPONENT_DIRECTORIES[kind] / directory
+        return Component(
+            name=name,
+            kind=kind,
+            path=path,
+            manifest=path / "component.toml",
+            probe=values.pop("probe", name.replace("-", ".")),
+            python=values.pop("python", None),
+            requires=tuple(values.pop("requires", ())),
+            imports=tuple(values.pop("imports", ())),
+            env_conflicts=tuple(values.pop("env_conflicts", ())),
+            dependencies=tuple(values.pop("dependencies", ())),
+            overrides=tuple(values.pop("overrides", ())),
+            manifest_sha256=values.pop("manifest_sha256", name),
+            manylinux=values.pop("manylinux", DEFAULT_MANYLINUX),
+            description=values.pop("description", None),
+            index_url=values.pop("index_url", None),
+            extra_index_urls=tuple(values.pop("extra_index_urls", ())),
+            index_strategy=values.pop("index_strategy", None),
+        )
+
+    return _make
+
+
+@pytest.fixture
+def make_catalog(tmp_path, make_component):
+    """Build a catalog from a set of components."""
+
+    def _make(components=()):
+        component_map = {component.name: component for component in components}
+        return Catalog(root=Path(tmp_path), components=component_map)
+
+    return _make

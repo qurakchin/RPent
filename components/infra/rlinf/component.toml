@@ -1,0 +1,11 @@
+schema = 2
+
+name = "infra-rlinf"
+probe = "rlinf"
+python = ">=3.10,<3.13"
+description = "RLinf release runtime shared by the simulator and robot integrations."
+# The runtime has no service of its own; it installs into whichever environment
+# declares it in ``requires``.
+dependencies = [
+  "rlinf @ git+https://github.com/RLinf/RLinf.git@2348ece3df113874671478be1360ae3115b346e3",
+]

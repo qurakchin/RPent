@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -79,7 +80,7 @@ def test_target50_manifest_identity_and_dependencies():
     }
 
 
-def test_target50_source_branches_match_extra_and_documentation():
+def test_target50_sources_match_manifest_and_documentation():
     dependencies = _manifest()["dependencies"]
     sources = {
         "robosuite": "robosuite",
@@ -87,12 +88,26 @@ def test_target50_source_branches_match_extra_and_documentation():
         "rldx": "rlinf-rldx",
     }
     project = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    # The simulator packages belong to the sim component and the policy runtime
+    # to the model component; the robot slice installs neither directly.
+    manifests = {
+        "robosuite": REPO_ROOT / "components" / "sim" / "robocasa" / "component.toml",
+        "robocasa": REPO_ROOT / "components" / "sim" / "robocasa" / "component.toml",
+        "rldx": REPO_ROOT / "components" / "models" / "rldx" / "component.toml",
+    }
     for name, package in sources.items():
+        # The public manifest records the upstream branch the protocol was
+        # evaluated against; the install pins a commit on that branch so a
+        # relock cannot silently change the simulator.
         assert dependencies[name]["branch"] == "rpent"
         assert "commit" not in dependencies[name]
         repository = dependencies[name]["repository"]
-        requirement = f"{package} @ git+{repository}.git@rpent"
-        assert requirement in project
+        requirement = f"{package} @ git+{repository}.git@"
+        pinned = re.compile(rf"{re.escape(requirement)}[0-9a-f]{{40}}")
+        assert pinned.search(manifests[name].read_text(encoding="utf-8"))
+        # The core wheel stays free of robot dependencies; the component
+        # manifests above are what an install of this robot reads.
+        assert package not in project
         for language in ("en", "zh"):
             guide = (
                 REPO_ROOT
@@ -102,7 +117,8 @@ def test_target50_source_branches_match_extra_and_documentation():
                 / "simulators"
                 / "robocasa.rst"
             ).read_text(encoding="utf-8")
-            assert '".[robocasa]"' in guide
+            assert "rpent-install install robot-robocasa" in guide
+            assert '".[robocasa]"' not in guide
             assert "``rpent``" in guide
             assert "uv pip check" in guide
             assert "uv pip freeze" in guide

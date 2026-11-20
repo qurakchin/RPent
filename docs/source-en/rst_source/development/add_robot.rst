@@ -29,8 +29,8 @@ extension points required to add a robot. Complete them in the following
 order:
 
 1. Register the ``RobotSpec`` and toolkit factory in the
-   :ref:`entry point <add-robot-entry>`.
-2. Implement :ref:`env_client and env_server <add-robot-env-rpc>`. To
+   :ref:`entry point <add-robot-entry>` and declare ``component.toml``.
+2. Implement :ref:`the environment adapter <add-robot-env-rpc>`. To
    integrate a VLA service and model client, see :ref:`Add a VLA (or other
    model-based primitive) <add-primitive-model-based>`.
 3. :ref:`Define the prompts <add-robot-prompts>`.
@@ -45,39 +45,121 @@ order:
 
 .. _add-robot-entry:
 
-Entry Point
------------
+Entry Point and Component Manifest
+----------------------------------
 
-For a new robot named ``myrobot``, use the following directory layout:
+A robot is a component: a directory under ``robots/`` plus a
+``component.toml`` that tells ``rpent-install`` how to install it. The package
+skeleton is:
 
 .. code-block:: text
 
    robots/myrobot/
-       __init__.py            # package entry point; re-exports the factories
-       robot_spec.py          # RobotSpec, factories, Dashboard spec, runtime hooks
-       env_client.py          # MyEnvClient — agent-side RPC stub (§1)
-       prompt_bundle.py       # system()/user() prompt factories         (§2)
-       toolkit.py             # MyRobotToolkit + primitives + tool definitions (§3)
-       env_server.py          # server-side facade + RPC server (§1)
-       vla_server.py          # (optional) VLA model server
+       component.toml          # probe, requires, dependencies, docs
+       __init__.py             # lazy package entry point
+       spec.py                 # RobotSpec, factories, Dashboard spec, runtime hooks
+       config.py               # CLI flags, RunConfig, task selection
+       adapter.py              # env client/facade and native env adapter
+       prompts/__init__.py
+       prompts/domain.py       # system_prompt()/user_prompt() factories
+       prompts/tools.py        # robot-only tool descriptions (transitional)
+       native_tools.py         # toolkit, primitives, tool definitions
+       evaluation/             # optional benchmark manifests and scoring
 
-``__init__.py`` is the robot package's entry point. Keep it small and
-re-export the factories implemented in ``robot_spec.py``. The registry in
-``rpent/robots/base.py`` lazily imports ``robots.<name>`` on demand and calls
-these two functions:
+The slices in this checkout still use their pre-migration names
+(``robot_spec.py``, ``prompt_bundle.py``, ``toolkit.py``, ``env_client.py``,
+``env_server.py``, ``tools.py``); the a_5 migration maps them to the roles
+above. Write new slices against the target names; the sections below name the
+current file for each role until that migration lands.
+
+``component.toml`` declares what ``rpent-install`` reads:
+
+.. code-block:: toml
+
+   schema = 2
+   name = "robot-myrobot"
+   probe = "robots.myrobot"
+   python = ">=3.10,<3.13"
+   requires = ["sim-myrobot"]
+
+   dependencies = ["myrobot-sdk==1.2"]
+
+The name is ``<kind>-<directory>``: a component in ``robots/`` is always
+``robot-<directory>``, and a simulator in ``components/sim/`` is
+``sim-<directory>``. A component owns the index its packages come from, so
+``index-url``, ``extra-index-urls``, and ``index-strategy`` belong in its own
+manifest. An environment inherits them from its components, unions their extra
+index URLs, and fails when two components in one environment ask for
+different index URLs or strategies. ``manylinux`` is declared per component
+(default ``2_31``), and the environment installs for the newest baseline any
+component in its closure declares. An environment resolves for the host
+``install`` runs on; ``check --platform`` resolves for another host without
+installing.
+
+``probe`` names the importable package. ``rpent-install install`` and
+``rpent-install doctor`` import it inside the component's environment together with the
+slice's environment adapter, so a successful probe proves the real
+dependencies are present. Keep only this robot's packages in
+``dependencies``; a package that two or more components need belongs in a
+shared ``infra`` or ``tool`` component that the others name in ``requires``.
+``requires`` follows the same layering as imports: a simulator or a model
+service may require ``tool`` and ``infra`` components, and only a robot
+combines a simulator with a model service.
+``imports`` is only for a robot slice that reuses another slice's code: name
+the other robot, and make one of the two ``requires`` the other so the install
+closure includes both. A robot slice and a model service share a contract
+instead of importing each other.
+
+A robot installs as the environment named ``robot-<name>``. Put the standard
+composition in its ``requires``: the simulator it runs, the model services it
+calls, and the tools it exports to; installing the robot then creates one
+environment with all of them. Assign the environment to a runner in
+``tests/tooling/matrix.py``; ``python -m tests.tooling.matrix --check`` fails
+while an environment is assigned to no runner. A reproduction lock under
+``tests/locks/`` is optional and never required for installation. See
+:doc:`../get_started/installation`.
+
+If the integration also adds a simulator, its env server, observation, and
+control code belong under ``components/sim/<name>/``; the robot names it in
+``requires`` and imports it, while simulators import neither robots nor model
+services.
+
+``__init__.py`` is the package entry point and must stay lazy. Robot discovery
+imports every package before the user selects one, so an eager import of a
+simulator or model package makes the whole CLI depend on every robot's
+environment.
+Export the factories through ``__getattr__``:
 
 .. code-block:: python
 
    # robots/myrobot/__init__.py
-   from robots.myrobot.robot_spec import get_robot_spec, get_toolkit
+   from typing import TYPE_CHECKING, Any
 
-   # robots/myrobot/robot_spec.py
+   if TYPE_CHECKING:
+       from robots.myrobot.spec import get_robot_spec, get_toolkit
+
+   __all__ = ["get_robot_spec", "get_toolkit"]
+
+
+   def __getattr__(name: str) -> Any:
+       if name in __all__:
+           from robots.myrobot import spec
+
+           return getattr(spec, name)
+       raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+The registry in ``rpent/robots/base.py`` imports ``robots.<name>`` on demand
+and calls these two functions:
+
+.. code-block:: python
+
+   # robots/myrobot/spec.py (robot_spec.py until the a_5 rename)
    from rpent.dashboard.events import DashboardEventSink
    from rpent.memory import MemoryManager
    from rpent.robots.robot_spec import RobotSpec, RunConfig
    from rpent.robots.prompt_bundle import PromptBundle
    from rpent.utils.config import get_memory_dir
-   from robots.myrobot.prompt_bundle import system_prompt, user_prompt
+   from robots.myrobot.prompts.domain import system_prompt, user_prompt
 
    MYROBOT_DASHBOARD_SPEC = {...}
 
@@ -97,7 +179,7 @@ these two functions:
        dashboard_events: DashboardEventSink,
        config: RunConfig,
    ):
-       from robots.myrobot.toolkit import MyRobotToolkit
+       from robots.myrobot.native_tools import MyRobotToolkit
        return MyRobotToolkit(
            runtime_kwargs=runtime_kwargs,
            dashboard_events=dashboard_events,
@@ -135,7 +217,8 @@ and ``primitives`` is the ordered allowlist of Toolkit actions displayed and
 executable as Dashboard controls. Camera tabs are discovered from the PNG
 artifacts in each recorded step. Keep task suggestions in the spec so
 importing the robot does not require simulator packages. See
-``robots/libero/robot_spec.py`` for the reference shape.
+``robots/libero/robot_spec.py`` (``spec.py`` after a_5) for the reference
+shape.
 
 The callback receives the parsed session arguments, so it can select components
 based on options such as ``--am-backend``. For a fixed layout, return the static
@@ -152,16 +235,18 @@ in §5.
 
 .. _add-robot-env-rpc:
 
-1. ``env_client.py`` + ``env_server.py``
------------------------------------------
+1. Environment Adapter
+----------------------
 
-These files connect the agent process to ``env_server``. The client converts
-method calls into RPC requests, and ``env_server`` handles those requests.
+The adapter exposes the environment to the agent over RPC. Its target name is
+``adapter.py``; this checkout still splits it into ``env_client.py`` and
+``env_server.py``, and a_5 merges them. The client converts method calls into
+RPC requests, and the server-side facade handles those requests.
 
 1.1 Env Client (agent Side)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Subclass :class:`rpent.robots.components.env_client_base.BaseEnvClient`. It already
+Subclass :class:`rpent.components.env.client.BaseEnvClient`. It already
 validates ``env.get_env_meta`` at startup, performs the initial reset, caches
 ``last_obs``, and implements the common ``reset``, ``step``, ``chunk_step``,
 ``render_camera``, ``get_camera_meta``, and ``get_task_language`` RPCs.
@@ -171,7 +256,7 @@ facade registers each name explicitly.
 
 .. code-block:: python
 
-   from rpent.robots.components.env_client_base import BaseEnvClient
+   from rpent.components.env.client import BaseEnvClient
 
    class MyEnvClient(BaseEnvClient):
        _TIMEOUT_S = {
@@ -193,7 +278,7 @@ facade registers each name explicitly.
 
 Mirror the client's API in a facade class on the server side (e.g.
 ``MyEnvFacade``). Subclass
-:class:`rpent.robots.components.env_facade_base.BaseEnvFacade`; it provides the common RPC
+:class:`rpent.components.env.facade.BaseEnvFacade`; it provides the common RPC
 routes and read/write dispatch locking. Implement the common environment
 methods and extend ``_register_rpc`` for environment-specific routes. Methods
 take the same positional / keyword arguments the client sends and return
@@ -202,7 +287,7 @@ import torch).
 
 .. code-block:: python
 
-   from rpent.robots.components.env_facade_base import BaseEnvFacade
+   from rpent.components.env.facade import BaseEnvFacade
 
    class MyEnvFacade(BaseEnvFacade):
        def __init__(self, env, meta):
@@ -238,12 +323,13 @@ teardown.
 
 .. _add-robot-prompts:
 
-2. ``prompt_bundle.py``
------------------------
+2. Prompts
+----------
 
-Define two prompt factories, ``system_prompt()`` and ``user_prompt()``, and
+Prompt factories belong in ``prompts/domain.py`` (``prompt_bundle.py`` until
+a_5). Define two factories, ``system_prompt()`` and ``user_prompt()``, and
 build a ``PromptBundle(system=system_prompt, user=user_prompt)`` in the
-robot's ``robot_spec.py`` (see the entry point above). Each factory returns an ordered
+robot's ``spec.py`` (``robot_spec.py`` today; see the entry point above). Each factory returns an ordered
 ``dict[str, PromptNode]`` of titled sections; ``PromptBundle.render`` assembles
 and fills them. One prompt serves every planner (API loop, Claude Code, Codex):
 refer to tools by their bare names (``move_to``, ...) and note once that the
@@ -252,7 +338,7 @@ maintain separate prompt copies for CLI and API planners.
 
 .. code-block:: python
 
-   # robots/myrobot/prompt_bundle.py
+   # robots/myrobot/prompts/domain.py
    from robots.myrobot.prompts import system as system_parts
    from robots.myrobot.prompts import user as user_parts
    from rpent.prompt.utils import PromptNode
@@ -281,13 +367,13 @@ render time.
 
 .. _add-robot-toolkit:
 
-3. ``toolkit.py``
-------------------
+3. Native Tools and Toolkit
+---------------------------
 
-This module owns the tool schemas, primitives, per-step state records, and
-the list of tools available through MCP. LIBERO splits these between
-``tools.py`` and ``toolkit.py``; a new robot may keep them in one
-``toolkit.py`` module.
+This role is ``native_tools.py`` after a_5; the existing slices split it into
+``toolkit.py`` and ``tools.py``. It owns the tool schemas, primitives, per-step
+state records, and the list of tools available through MCP. LIBERO keeps the
+two pieces separate; a new robot may start with one module.
 
 A toolkit module typically contains four pieces:
 
@@ -353,7 +439,7 @@ Conventions Worth Keeping
 Robot-specific CLI arguments enter ``rpent/cli/main.py`` through two
 hooks and participate in the final argparse pass:
 
-**``_add_cli_args(parser, use_dashboard) -> None``.** Register the
+``_add_cli_args(parser, use_dashboard) -> None`` registers the
 robot's arguments on the shared parser created by main.py.
 ``use_dashboard`` determines whether normally required arguments remain
 optional. For each Dashboard TaskRun, the robot's Dashboard task command
@@ -361,7 +447,7 @@ supplies the fields declared by its spec before ``parse_config`` runs. main.py
 calls this hook before ``parser.parse_args()``, so argparse's usage and error
 output includes the robot arguments.
 
-**``_parse_config(args) -> RunConfig``.** In normal CLI mode, this is called
+``_parse_config(args) -> RunConfig`` is called in normal CLI mode
 after ``parser.parse_args()``. In Dashboard mode, it is called for each
 TaskRun after the requested fields have been copied to the task arguments. It
 validates those fields and returns a
@@ -531,6 +617,6 @@ errors, expected observation artifacts exist, and owned daemons have exited.
 Task success is not required for this bounded integration check.
 
 Run offline tests with ``pytest tests/unit_tests/robots/myrobot -v``. After
-installing the robot extra and preparing its GPU/checkpoint/assets resources,
+installing the robot's environment and preparing its GPU/checkpoint/assets resources,
 run ``pytest tests/e2e_tests/myrobot -v``. See ``tests/README.md`` and
 ``tests/e2e_tests/run_gpu_suite.sh`` for running GPU suites in clean environments.

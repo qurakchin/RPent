@@ -90,6 +90,7 @@ RPent 面向以下四类用户：
             <li>DreamZero</li>
             <li><a href="docs/source-zh/rst_source/development/add_action_model.rst">Cosmos Policy</a>（LIBERO / LIBERO-Pro）</li>
             <li><a href="docs/source-zh/rst_source/development/add_action_model.rst">Fast-WAM</a>（LIBERO / LIBERO-Pro / RoboTwin）</li>
+            <li><a href="docs/source-zh/rst_source/development/add_action_model.rst">UniWAM</a>（RoboTwin）</li>
           </ul>
         </ul>
       </td>
@@ -120,16 +121,18 @@ RPent 面向以下四类用户：
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # 默认推荐（LIBERO-PRO）：
-pip install -e ".[libero-pro]"
+./rpent-install.sh install robot-libero
+source .venvs/robot-libero/bin/activate
 
-# 其他环境配置：
-pip install -e ".[robocasa]"    # RoboCasa
-pip install -e ".[robotwin]"    # RoboTwin
-pip install -e ".[franka]"      # Franka / 双臂 Franka
+# 其他环境同样安装到 .venvs/<环境名>：
+rpent-install install robot-robocasa    # RoboCasa
+rpent-install install robot-robotwin    # RoboTwin
+rpent-install install robot-franka      # Franka
+rpent-install install robot-dual_franka # 双臂 Franka
 ```
 
-`.[libero-pro]` 是默认推荐配置。其他环境见
-[安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/quickstart.html)。
+`robot-libero` 是默认推荐环境。全部环境和诊断方法见
+[安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/installation.html)。
 
 RoboCasa 安装、任务 memory 与 Target50 协议参见
 [RoboCasa 指南](https://rpent.readthedocs.io/zh-cn/latest/rst_source/simulators/robocasa.html)。

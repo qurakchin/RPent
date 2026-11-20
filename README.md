@@ -90,6 +90,7 @@ RPent is built for four kinds of users:
             <li>DreamZero</li>
             <li><a href="docs/source-en/rst_source/development/add_action_model.rst">Cosmos Policy</a> (LIBERO / LIBERO-Pro)</li>
             <li><a href="docs/source-en/rst_source/development/add_action_model.rst">Fast-WAM</a> (LIBERO / LIBERO-Pro / RoboTwin)</li>
+            <li><a href="docs/source-en/rst_source/development/add_action_model.rst">UniWAM</a> (RoboTwin)</li>
           </ul>
         </ul>
       </td>
@@ -119,15 +120,18 @@ RPent is built for four kinds of users:
 
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
-pip install -e ".[libero-pro]"  # Recommended default (LIBERO-PRO)
+# Recommended default (LIBERO-PRO):
+./rpent-install.sh install robot-libero
+source .venvs/robot-libero/bin/activate
 
-# Other environment configurations:
-pip install -e ".[robocasa]"    # RoboCasa
-pip install -e ".[robotwin]"    # RoboTwin
-pip install -e ".[franka]"      # Franka and dual Franka
+# Other environments install into .venvs/<environment> as well:
+rpent-install install robot-robocasa    # RoboCasa
+rpent-install install robot-robotwin    # RoboTwin
+rpent-install install robot-franka      # Franka
+rpent-install install robot-dual_franka # Dual Franka
 ```
 
-`.[libero-pro]` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/quickstart.html) for other environments.
+`robot-libero` is the recommended default. See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/get_started/installation.html) for every environment and diagnostics.
 
 For RoboCasa setup, task memory, and the Target50 protocol, see the
 [RoboCasa guide](https://rpent.readthedocs.io/en/latest/rst_source/simulators/robocasa.html).

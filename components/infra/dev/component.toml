@@ -1,0 +1,17 @@
+schema = 2
+
+name = "infra-dev"
+probe = "pytest"
+description = "Test and development tools for the offline suite and repository checks."
+
+# The offline suite imports these directly; anything only one runtime needs
+# stays with that component.
+dependencies = [
+  "av",
+  "coverage",
+  "gymnasium",
+  "imageio_ffmpeg",
+  "omegaconf",
+  "pytest",
+  "pytest-timeout",
+]

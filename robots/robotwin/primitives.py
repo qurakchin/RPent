@@ -23,10 +23,11 @@ from typing import Annotated, Any, Literal
 import numpy as np
 from pydantic import Field
 
+from components.models.lingbot.client import LingBotVLAClient
 from robots.robotwin.env_client import RoboTwinEnvClient
+from components.sim.robotwin.observation import physical_observation
 from robots.robotwin.robot_spec import MODEL_SPEC, ROBOTWIN_CAMERA_NAMES
-from robots.robotwin.vla_client import LingBotVLAClient
-from robots.robotwin.wam_client import RoboTwinWAMClient
+from components.sim.robotwin.wam_client import RoboTwinWAMClient
 from rpent.session.env_capture import CapturingEnvClient
 from rpent.tools import ToolResult, tool
 
@@ -57,12 +58,14 @@ class RoboTwinPrimitives:
         check_cancelled: Callable[[], None],
         seed_mode: str = "exact",
         policy_kind: str = "vla",
+        policy_backend: str = "lingbot",
     ):
         if seed_mode != "exact":
             raise ValueError("standard RoboTwin integration requires seed_mode='exact'")
         self.env = env
         self.model = model
         self.policy_kind = policy_kind
+        self.policy_backend = policy_backend
         self.seed = int(seed)
         self._check_cancelled = check_cancelled
         self.policy_actions = 0
@@ -301,6 +304,8 @@ class RoboTwinPrimitives:
             if status.get("eval_success") is True or budget_exhausted:
                 break
             observation = self._build_lingbot_observation()
+            if self.policy_kind == "wam" and self.model.history_length:
+                observation["qpos_history"] = self.env.qpos_history
             if override_prompt and prompt is not None:
                 observation["task_language"] = prompt
             native_prompt = observation["task_language"]
@@ -313,7 +318,7 @@ class RoboTwinPrimitives:
                 actions = (
                     self.model.predict(observation)
                     if self.policy_kind == "wam"
-                    else self.model.infer(observation)
+                    else self.model.infer(physical_observation(observation))
                 )
                 if use_length is not None:
                     actions = actions[:use_length]

@@ -1,0 +1,10 @@
+schema = 2
+name = "model-vpp2"
+probe = "components.models.vpp2.server"
+python = ">=3.11,<3.12"
+description = "VPP2 video-prediction policy for RoboDojo."
+
+dependencies = [
+  "numpy",
+  "torch",
+]

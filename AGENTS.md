@@ -7,15 +7,42 @@ with documentation instead of assuming either is correct.
 
 ## Repository map
 
+- `rpent/`: core contracts and scheduling. `rpent/components/env/` and
+  `rpent/components/models/` hold the shared environment and model-side
+  contracts, clients, facades, backends, and platform helpers that every slice
+  uses; they are core modules, not installable components.
 - `rpent/planner/`, `rpent/session/`, and `rpent/prompt/`: planner adapters,
   execution sessions, and shared prompt construction.
 - `rpent/tools/` and `rpent/memory/`: tool execution, observations, and memory.
-- `rpent/robots/`: robot discovery, descriptors, shared runtime, and Env/VLA
-  components. `robots/<robot>/` owns each concrete integration.
+- `rpent/robots/`: robot discovery, descriptors, and shared runtime.
 - `rpent/cli/`, `rpent/dashboard/`, and `rpent/evaluation/`: entry points,
   interactive execution, and run results.
+- `rpent/install/`: component manifests, resolution, lock compilation,
+  fingerprints, and the installer behind `rpent-install`.
+- `tests/tooling/`: maintainer checks and lock generation, run as
+  `python -m tests.tooling.<tool>`; it depends on `rpent/install/` and is not
+  part of the wheel.
+- `robots/<name>/`: each robot slice, owning native translation and its
+  differentiated features.
+- `components/sim/<name>/`: simulator servers, observations, controls, and
+  suites that robots and model services share.
+- `components/models/<name>/`: installable model services.
+- `components/tools/<name>/` and `components/infra/<name>/`: out-of-tree tools
+  and shared runtimes.
+- `components/`: a component is named `<kind>-<directory>` (`robot`, `sim`,
+  `model`, `tool`, or `infra`), and every component installs as the environment
+  of the same name. `requires` gives each component its standard composition,
+  so installing a robot installs its simulator, models, and tools too.
+  `tests/locks/` holds the optional reproduction locks, one per environment.
 - `tests/`: offline tests and integration checks; see [tests/README.md](tests/README.md).
 - `docs/source-en/` and `docs/source-zh/`: paired user and developer documentation.
+
+Component imports and `requires` edges only point downward: a robot slice may
+import model services, simulators, tools, and infra; a model service may import
+tools and infra but not robots, simulators, or sibling models; a simulator may
+import tools and infra but not robots or model services. Only a robot combines
+a simulator with a model service. The core discovers components by name and
+never imports them statically.
 
 ## Development principles
 

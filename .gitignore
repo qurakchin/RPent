@@ -22,8 +22,11 @@ uv.lock
 docs/build/
 
 build/
+.coverage
 .claude/settings.json
 .venv/
+# Default virtualenvs created by `rpent-install install`.
+.venvs/
 /.codex-rpent-live/
 
 # Standalone calibration environment.

@@ -79,32 +79,27 @@ Installation and Resources
 For NVIDIA driver recommendations, see the `Isaac Sim 5.1 system requirements
 <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html>`_.
 The host also needs the CUDA toolkit/NVCC and a compiler toolchain to build
-cuRobo. From the RPent root, create an environment and install the dependencies:
-
-.. code-block:: bash
-
-   uv venv --python 3.11 .venv-robodojo
-   source .venv-robodojo/bin/activate
-   uv pip install -e ".[robodojo-sim,sam3]" --extra-index-url https://pypi.nvidia.com \
-     --override requirements/robodojo-override.txt
+cuRobo. Install the ``robot-robodojo`` environment as described in
+:doc:`../get_started/installation`. It installs the RoboDojo runtime,
+SAM 3.0, and Pi0.5; its component manifest supplies the NVIDIA package index
+and the RoboDojo requirements override.
 
 .. note::
 
    Blackwell GPUs need the CUDA 12.8 build of PyTorch. The pinned PyTorch 2.7.0
    also has a CUDA 12.6 build, but that build does not support Blackwell. On
-   these GPUs, use the following command for both initial installation and
-   reinstallation; ``--torch-backend=cu128`` selects the CUDA 12.8 build:
+   these GPUs, export ``UV_TORCH_BACKEND=cu128`` before both the initial
+   installation and any reinstallation.
+
+   If ``torch==2.7.0+cu126`` is already installed, uv considers it compatible
+   with the version requirement and keeps it. In that case, replace it in the
+   environment explicitly:
 
    .. code-block:: bash
 
-      uv pip install -e ".[robodojo-sim,sam3]" --extra-index-url https://pypi.nvidia.com \
-        --override requirements/robodojo-override.txt \
-        --torch-backend=cu128
-
-   If ``torch==2.7.0+cu126`` is already installed, uv considers it compatible
-   with the version requirement and keeps it. Append
-   ``--reinstall-package torch --reinstall-package torchvision`` to the command
-   above to replace it with the CUDA 12.8 build.
+      uv pip install --python .venvs/robot-robodojo/bin/python \
+        --reinstall-package torch --reinstall-package torchvision \
+        torch torchvision
 
 The pinned IsaacLab revision needs an editable installation to locate its
 extension configuration. Clone it into a writable directory and install it
@@ -208,8 +203,8 @@ links to existing resources:
 Install the model dependencies using the pinned project's
 `inference environment instructions
 <https://github.com/roboterax/video-prediction-policy-2/blob/72c17acf022494ff63617be86079bb92e92f5bf8/docs/robodojo.md#policy-environment>`_.
-These dependencies are separate from ``.[robodojo-sim]``. When they are
-compatible with the RPent environment, ``VPP2_MODEL_PATH`` enables automatic
+These dependencies are separate from the ``robot-robodojo`` environment. When they
+are compatible with the RPent environment, ``VPP2_MODEL_PATH`` enables automatic
 local startup; ``--am-checkpoint`` overrides it. The local server loads the
 full model on one GPU. It defaults to RPent's Python interpreter; use
 ``--am-python`` to select a separate model environment.
@@ -219,7 +214,7 @@ core package there, then start the service:
 
 .. code-block:: bash
 
-   python -m robots.robodojo.vpp2_server --model-path /path/to/vpp2 \
+   python -m components.models.vpp2.server --model-path /path/to/vpp2 \
      --host 127.0.0.1 --port 9201
 
 Add ``--am-endpoint socket://127.0.0.1:9201`` to the task command in the
@@ -263,8 +258,8 @@ links to existing resources:
 
 Install the model dependencies using the pinned project's
 `inference environment instructions <https://github.com/XPolicyLab/XPolicyLab/blob/562c14cf08b9e6e411e7d76f192740afced77160/policy/Awomo05/README.md>`__.
-These dependencies are separate from ``.[robodojo-sim]``. When the model
-dependencies are compatible with the RPent environment,
+These dependencies are separate from the ``robot-robodojo`` environment. When the
+model dependencies are compatible with the RPent environment,
 ``AWOMO05_MODEL_PATH`` enables automatic local startup; ``--am-checkpoint``
 overrides it. The local server loads the full model on one GPU. It defaults
 to RPent's Python interpreter; use ``--am-python`` to select a separate model
@@ -275,7 +270,7 @@ core package there, then start the service:
 
 .. code-block:: bash
 
-   python -m robots.robodojo.awomo05_server --model-path /path/to/awomo05 \
+   python -m components.models.awomo05.server --model-path /path/to/awomo05 \
      --host 127.0.0.1 --port 9205
 
 Add ``--am-endpoint socket://127.0.0.1:9205`` to the task command in the
