@@ -12,4 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Installable tools that run outside a robot or model environment."""
+"""Installable tools and tool capabilities.
+
+Each subdirectory is one installable component declared by its
+``component.toml``. A tool is either a process that runs outside a robot or
+model environment, such as the flywheel exporter, or a capability library a
+robot slice registers and adapts, such as the RGB-D tools.
+"""

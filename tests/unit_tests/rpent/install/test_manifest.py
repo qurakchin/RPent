@@ -205,7 +205,7 @@ def test_unknown_fields_and_old_schema_are_rejected(write_toml):
         load_component(typo, "robot")
 
 
-def test_git_dependencies_must_pin_a_full_commit(write_toml):
+def test_git_dependencies_accept_a_commit_or_a_version_tag(write_toml):
     branch = write_toml(
         "robots/alpha/component.toml",
         f"""
@@ -238,10 +238,11 @@ def test_git_dependencies_must_pin_a_full_commit(write_toml):
 
     with pytest.raises(InstallConfigError, match="pins git ref 'main'"):
         load_component(branch, "robot")
-    # A tag names code today and different code after someone moves it, so it
-    # cannot record what an environment contains.
-    with pytest.raises(InstallConfigError, match="pins git ref 'v1.2.3'"):
-        load_component(tag, "robot")
+    # A version tag is how upstreams name releases; a branch names code that
+    # changes from one day to the next.
+    assert load_component(tag, "robot").dependencies == (
+        "pkg @ git+https://github.com/example/pkg.git@v1.2.3",
+    )
     assert load_component(commit, "robot").dependencies[0].endswith("01234567")
 
 

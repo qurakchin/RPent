@@ -29,7 +29,9 @@ Rules:
   it and never a sibling; a robot slice may import another robot only when its
   manifest declares it in ``imports`` and one of the two ``requires`` the
   other. ``components/tools`` is outside the layers and depends only on
-  ``rpent``. Core ``rpent/**`` must not import a component or a concrete
+  ``rpent`` and, for a capability library, the model clients' result types;
+  it never imports robots, simulators, or another tool. Core ``rpent/**``
+  must not import a component or a concrete
   ``robots.<name>``; importing the ``robots`` package itself for discovery is
   allowed.
 - K5: core ``rpent/**`` must not name a robot or benchmark (R8).
@@ -102,18 +104,23 @@ GROUP_PACKAGES = (
 #: Component directory name under ``components/`` -> the kind it holds, and the
 #: order those directories import in: simulators below models, models below
 #: robots.
-COMPONENT_MODULE_KINDS = {"sim": "sim", "models": "model", "tools": "tool"}
+COMPONENT_MODULE_KINDS = {
+    "sim": "sim",
+    "models": "model",
+    "tools": "tool",
+}
 #: Core modules that dispatch to a tool. The console script has to exist in a
 #: core-only wheel, so its entry point names the tool and imports it inside the
 #: function; every other core module stays free of tools.
 CORE_TOOL_ENTRY_POINTS = frozenset({"rpent/cli/flywheel.py"})
 #: Files that carry wire data rather than behavior. They may use the standard
-#: library, NumPy, core contracts, and their own group's modules; anything else
-#: belongs in the adapter or server.
+#: library, NumPy and PIL for raster data, pydantic (a core dependency, like
+#: NumPy), core contracts, and their own group's modules; anything else belongs
+#: in the adapter or server.
 PURE_DATA_FILES = frozenset(
     {"control.py", "observation.py", "contracts.py", "platforms.py"}
 )
-PURE_DATA_ALLOWED_ROOTS = frozenset({"numpy", "typing_extensions"})
+PURE_DATA_ALLOWED_ROOTS = frozenset({"numpy", "PIL", "pydantic", "typing_extensions"})
 #: Line-count limits from K7; exceeded counts are warnings until the slice
 #: split lands.
 LINE_LIMITS = {"spec.py": 80, "adapter.py": 400, "native_tools.py": 100}
@@ -575,18 +582,24 @@ def check_imports(root: Path) -> list[Finding]:
                             "tools depend only on rpent",
                         )
                     )
+            elif kind == "tool":
+                if target_kind != "model":
+                    findings.append(
+                        Finding(
+                            path,
+                            line,
+                            f"tool {name!r} must not import {target_kind} "
+                            f"{target_name!r}; a tool reads core contracts and, "
+                            "when it is a capability library, model clients only",
+                        )
+                    )
             else:
                 findings.append(
                     Finding(
                         path,
                         line,
                         f"{kind} {name!r} must not import {target_kind} "
-                        f"{target_name!r}; "
-                        + (
-                            "simulators sit below models and robots"
-                            if kind == "sim"
-                            else "tools depend only on rpent"
-                        ),
+                        f"{target_name!r}; simulators sit below models and robots",
                     )
                 )
     return findings
@@ -703,8 +716,8 @@ def check_pure_data_imports(root: Path) -> list[Finding]:
     Wire contracts, control/observation adapters, and model platform tables
     must stay importable without a simulator or model runtime. NumPy and core
     contracts are data dependencies; everything else belongs in an adapter,
-    server, or toolkit implementation. A model or toolkit package entry point
-    follows the same rule: importing the package must not load its runtime.
+    server, or tool implementation. A model package entry point follows the
+    same rule: importing the package must not load its runtime.
     """
     findings: list[Finding] = []
     stdlib = sys.stdlib_module_names
@@ -732,7 +745,7 @@ def check_pure_data_imports(root: Path) -> list[Finding]:
                 message = (
                     f"package entry point imports third-party {top!r}; keep "
                     "the package importable without a runtime and move "
-                    "behavior into the server or toolkit implementation"
+                    "behavior into the server or tool implementation"
                 )
             else:
                 message = (

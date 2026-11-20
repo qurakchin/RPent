@@ -199,7 +199,9 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
 
     for name, component in resolution.components.items():
         probe = component.probe
-        result = _run(probe_command(python, probe, component.kind))
+        result = _run(
+            probe_command(python, probe, component.kind, source=component.path)
+        )
         if result.returncode != 0:
             checks.append(
                 Check(

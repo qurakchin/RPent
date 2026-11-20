@@ -90,10 +90,11 @@ FIELDS = frozenset(
         "index-strategy",
     }
 )
-#: A git dependency must name an immutable ref. Branches move, and tags can be
-#: moved too, which makes a dependency declaration install different code
-#: tomorrow.
+#: A git dependency names a commit or a version tag. A branch moves, so it would
+#: install different code tomorrow; a tag can move too, but a version tag is how
+#: upstreams name releases and the manifest accepts that trade.
 _FULL_COMMIT = re.compile(r"^[0-9a-f]{40}$")
+_VERSION_TAG = re.compile(r"^v?\d[\w.+-]*$")
 _MANYLINUX = re.compile(r"^\d+_\d+$")
 
 
@@ -181,21 +182,21 @@ def _git_ref(requirement: str) -> str | None:
 
 
 def _check_git_dependency(requirement: str, path: Path) -> None:
-    """Reject a mutable git ref; only a 40-character commit is reproducible."""
+    """Reject a branch ref; a commit or a version tag names installable code."""
     if "git+" not in requirement:
         return
     ref = _git_ref(requirement)
     if ref is None:
         raise InstallConfigError(
             f"{path}: dependency {requirement!r} has no git ref; pin the "
-            "40-character commit to install"
+            "40-character commit or a version tag such as 'v1.2.3' to install"
         )
-    if _FULL_COMMIT.fullmatch(ref):
+    if _FULL_COMMIT.fullmatch(ref) or _VERSION_TAG.fullmatch(ref):
         return
     raise InstallConfigError(
         f"{path}: dependency {requirement!r} pins git ref {ref!r}; use the "
-        "40-character commit instead. Branches move, and tags can be moved too, "
-        "so neither names the code an installation contains"
+        "40-character commit or a version tag such as 'v1.2.3' instead. A "
+        "branch moves, so it does not name the code an installation contains"
     )
 
 

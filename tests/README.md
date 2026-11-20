@@ -50,7 +50,7 @@ tests/
     │   └── yam/
     └── components/
         ├── models/        # model services
-        └── tools/         # tools such as the flywheel exporter
+        └── tools/         # tools such as the flywheel exporter and the RGB-D capability
 ```
 
 Directories that do not yet have tests do not need empty placeholders. Add

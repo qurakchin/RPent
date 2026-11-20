@@ -525,6 +525,34 @@ def test_sim_must_not_import_a_model(tmp_path, write_toml):
     assert "sim 'alpha' must not import model 'sam3'" in result.stdout
 
 
+def test_tool_capability_must_not_import_a_robot(tmp_path, write_toml):
+    _component(write_toml, "robots", "alpha", "robot")
+    _component(write_toml, "components/tools", "rgbd", "tool")
+    _write(
+        tmp_path / "components" / "tools" / "rgbd" / "segment.py",
+        "from robots.alpha import spec\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 1
+    assert "tool 'rgbd' must not import robot 'alpha'" in result.stdout
+
+
+def test_tool_capability_may_read_a_model_client(tmp_path, write_toml):
+    _component(write_toml, "components/models", "sam3", "model")
+    _component(write_toml, "components/tools", "rgbd", "tool")
+    _write(
+        tmp_path / "components" / "tools" / "rgbd" / "segment.py",
+        "from components.models.sam3 import client\n",
+    )
+
+    result = _run(tmp_path)
+
+    assert result.returncode == 0
+    assert "layout ok" in result.stdout
+
+
 def test_tool_skeleton_needs_only_its_package(tmp_path, write_toml):
     _component(write_toml, "components/tools", "exporter", "tool")
 

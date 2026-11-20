@@ -496,6 +496,25 @@ def test_probe_checks_the_role_modules_of_each_kind():
     assert probe_source("openpi", "model") == "import openpi\n"
 
 
+def test_probe_checks_only_the_roles_the_component_ships(tmp_path):
+    # A tool is either a process with a CLI or a capability library a robot
+    # slice registers; probing a module the component does not ship would fail
+    # an installation that is complete.
+    library = tmp_path / "rgbd"
+    library.mkdir()
+    (library / "segment.py").touch()
+    executable = tmp_path / "flywheel"
+    executable.mkdir()
+    (executable / "cli.py").touch()
+
+    assert probe_source("components.tools.rgbd", "tool", source=library) == (
+        "import components.tools.rgbd\n"
+    )
+    assert 'importlib.import_module("components.tools.flywheel.cli")' in probe_source(
+        "components.tools.flywheel", "tool", source=executable
+    )
+
+
 def test_an_upstream_probe_imports_only_the_distribution():
     # `json` owns no role modules, so a probe that names it must not append
     # one: the upstream package the component installs is not named after the

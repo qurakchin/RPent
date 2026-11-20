@@ -448,12 +448,14 @@ def _python_version(python: Path) -> str:
         return "unknown"
 
 
-#: Role modules a component of each kind must import, relative to its ``probe``
+#: Role modules a component of each kind may import, relative to its ``probe``
 #: package. Importing the package alone is a weak check: a slice's entry point
 #: stays lazy so a missing optional dependency does not break discovery, and a
 #: package that contains nothing would pass. A probe outside the checkout names
 #: the upstream distribution the component installs and has no roles; ``infra``
-#: components are always of that kind.
+#: components are always of that kind. A tool is either a process with a
+#: ``cli`` or a capability library that a robot slice registers, so only the
+#: roles the component ships are probed.
 ROLE_MODULES = {
     "robot": ("robot_spec", "env_client"),
     "sim": ("env_server",),
@@ -468,22 +470,36 @@ ROLE_MODULES = {
 CHECKOUT_PROBES = frozenset({"robots", "components"})
 
 
-def probe_modules(probe: str, kind: str) -> tuple[str, ...]:
-    """Return the modules an install probe imports, in order."""
+def _ships(source: Path, role: str) -> bool:
+    """Return whether the component's directory holds ``role``'s module."""
+    return (source / f"{role}.py").is_file() or (source / role).is_dir()
+
+
+def probe_modules(
+    probe: str, kind: str, *, source: Path | None = None
+) -> tuple[str, ...]:
+    """Return the modules an install probe imports, in order.
+
+    ``source`` is the component's directory; with it, only the roles the
+    component ships are imported, because a tool exposes either a CLI or a
+    library of tool modules and no module exists that every tool owns.
+    """
     if probe.split(".")[0] not in CHECKOUT_PROBES:
         return (probe,)
     roles = ROLE_MODULES.get(kind, ())
+    if source is not None:
+        roles = tuple(role for role in roles if _ships(source, role))
     return (probe, *(f"{probe}.{role}" for role in roles))
 
 
-def probe_source(probe: str, kind: str) -> str:
+def probe_source(probe: str, kind: str, *, source: Path | None = None) -> str:
     """Return the source an install probe runs for a component of ``kind``.
 
     The probe imports the component's package and the role modules its kind
     owns, so an environment that installed the package without the component's
     own code fails here rather than the first time the component is used.
     """
-    modules = probe_modules(probe, kind)
+    modules = probe_modules(probe, kind, source=source)
     lines = [f"import {modules[0]}"]
     if len(modules) > 1:
         lines.insert(0, "import importlib")
@@ -491,7 +507,9 @@ def probe_source(probe: str, kind: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def probe_command(python: Path, probe: str, kind: str) -> list[str]:
+def probe_command(
+    python: Path, probe: str, kind: str, *, source: Path | None = None
+) -> list[str]:
     """Return the command that runs an install probe inside ``python``.
 
     ``-I`` keeps the caller's environment and working directory out of
@@ -499,7 +517,7 @@ def probe_command(python: Path, probe: str, kind: str) -> list[str]:
     editable install of the checkout, not the source tree the command happens
     to be running in.
     """
-    return [str(python), "-I", "-c", probe_source(probe, kind)]
+    return [str(python), "-I", "-c", probe_source(probe, kind, source=source)]
 
 
 def repair_command(resolution: Resolution) -> str:
@@ -518,7 +536,10 @@ def _probe_components(
         if verbose:
             print(f"probe {name}: import {probe}")
         try:
-            run_command(probe_command(python, probe, component.kind), capture=True)
+            run_command(
+                probe_command(python, probe, component.kind, source=component.path),
+                capture=True,
+            )
         except InstallError as exc:
             raise InstallError(
                 f"component {name!r} is not importable in {python.parent.parent}\n"

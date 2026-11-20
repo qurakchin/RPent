@@ -62,12 +62,14 @@ def test_every_probe_names_modules_the_install_can_import(catalog, kind):
     # directory, and every module the probe derives for its kind must be one:
     # the install appends the role modules to whatever the manifest names, so a
     # probe that already ends in a role module produces a path that cannot
-    # import. Probes such as `openpi` name the installed upstream distribution
-    # and are checked by the install itself.
+    # import. Only the roles the component ships are probed, because a tool is
+    # either a process with a CLI or a capability library. Probes such as
+    # `openpi` name the installed upstream distribution and are checked by the
+    # install itself.
     for component in catalog.components.values():
         if component.kind != kind:
             continue
-        modules = probe_modules(component.probe, component.kind)
+        modules = probe_modules(component.probe, component.kind, source=component.path)
         if component.probe.split(".")[0] not in {"robots", "components"}:
             assert modules == (component.probe,), (
                 f"{component.name}: probe {component.probe!r} names an upstream "

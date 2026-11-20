@@ -22,7 +22,9 @@ with documentation instead of assuming either is correct.
   differentiated features.
 - `components/sim/<name>/`: installable simulator services.
 - `components/models/<name>/`: installable model services.
-- `components/tools/<name>/`: installable tools such as the flywheel exporter.
+- `components/tools/<name>/`: installable tools such as the flywheel exporter,
+  or capability libraries a robot slice adapts, such as the RGB-D tools
+  (`back_project`, `segment`, experimental `geometry`).
 - `components/infra/<name>/`: infrastructure components that install packages
   for an environment without owning code; the directory holds only the manifest.
 - `rpent-install.sh`: the checkout-level bootstrap for the installer; a fresh
@@ -34,8 +36,9 @@ with documentation instead of assuming either is correct.
 
 The dependency direction is `rpent` ← `components/sim` ← `components/models` ←
 `robots`: the core discovers components by name and never imports them
-statically, tools depend only on `rpent`, and model services do not import each
-other.
+statically, tools depend only on `rpent` (a capability library may also read the
+model clients' result types) but never on `robots`, and model services do not
+import each other.
 
 ## Development principles
 

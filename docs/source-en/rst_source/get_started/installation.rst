@@ -41,7 +41,8 @@ The name prefix says what a component is and where its code lives:
      - A model service: VLA, grounding, or action-model backend.
    * - ``tool-``
      - ``components/tools/<name>/``
-     - A tool that depends only on the core, such as the flywheel exporter.
+     - A tool that depends only on the core, such as the flywheel exporter, or
+       a capability library a robot slice adapts, such as the RGB-D tools.
    * - ``infra-``
      - ``components/infra/<name>/``
      - Packages an environment needs without owning code (RLinf runtime, test
@@ -66,16 +67,17 @@ extra.
 
 The dependency direction is ``rpent`` ← ``components/sim`` ←
 ``components/models`` ← ``robots``; ``components/tools`` depends only on
-``rpent``. A robot environment therefore pulls in its simulator and model
-services automatically:
+``rpent`` and, for a capability library, the model clients' result types. A
+robot environment therefore pulls in its simulator, model services, and tools
+automatically:
 
 .. code-block:: bash
 
    rpent-install list
 
 ``robot-libero`` requires ``sim-libero``, ``model-openpi``, ``model-sam3``,
-and ``tool-flywheel``; ``robot-robocasa`` requires ``sim-robocasa`` and
-``model-rldx``; ``robot-robodojo`` requires ``sim-robodojo``, ``model-sam3``,
+``tool-flywheel``, and ``tool-rgbd``; ``robot-robocasa`` requires
+``sim-robocasa`` and ``model-rldx``; ``robot-robodojo`` requires ``sim-robodojo``, ``model-sam3``,
 ``model-openpi``, ``model-awomo05``, and ``model-vpp2``. Model services no
 robot requires (``model-molmo``, ``model-cosmos3``, ``model-cosmos_policy``,
 ``model-fast_wam``, ``model-apxinf``, ``model-uniwam``) install in their own
