@@ -168,20 +168,55 @@ def test_run_forwards_the_configured_codex_sandbox(tmp_path, monkeypatch):
     assert command[command.index("--codex-sandbox") + 1] == "full-access"
 
 
+def _run_failing_trial(agent, monkeypatch):
+    execute = AsyncMock(side_effect=RuntimeError("CLI exited with status 1"))
+    monkeypatch.setattr(agent, "exec_as_agent", execute)
+    asyncio.run(agent.run("Task", UploadEnvironment(), AgentContext()))
+    return execute
+
+
 def test_known_planner_budget_stop_does_not_fail_the_harbor_trial(
     tmp_path, monkeypatch
 ):
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
-    execute = AsyncMock(side_effect=RuntimeError("CLI exited with status 1"))
-    monkeypatch.setattr(agent, "exec_as_agent", execute)
-    monkeypatch.setattr(agent, "_transcript_reports_budget_stop", lambda _: True)
+    output_dir = tmp_path / "rpent"
+    output_dir.mkdir()
+    (output_dir / "transcript.json").write_text(
+        json.dumps({"error": "Codex SDK timed out after 12s"}), encoding="utf-8"
+    )
 
-    asyncio.run(agent.run("Task", UploadEnvironment(), AgentContext()))
+    execute = _run_failing_trial(agent, monkeypatch)
 
     execute.assert_awaited_once()
 
 
-def test_transcript_budget_stop_detection_is_narrow(tmp_path):
+def test_a_rejected_verdict_does_not_fail_the_harbor_trial(tmp_path, monkeypatch):
+    agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
+    output_dir = tmp_path / "rpent"
+    output_dir.mkdir()
+    # The CLI exits 1 for a rejected verdict; Harbor grades the final state.
+    (output_dir / "transcript.json").write_text(
+        json.dumps({"accepted": False, "error": None}), encoding="utf-8"
+    )
+
+    execute = _run_failing_trial(agent, monkeypatch)
+
+    execute.assert_awaited_once()
+
+
+def test_a_run_without_a_verdict_still_fails_the_harbor_trial(tmp_path, monkeypatch):
+    agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
+    output_dir = tmp_path / "rpent"
+    output_dir.mkdir()
+    (output_dir / "transcript.json").write_text(
+        json.dumps({"accepted": None, "error": None}), encoding="utf-8"
+    )
+
+    with pytest.raises(RuntimeError, match="status 1"):
+        _run_failing_trial(agent, monkeypatch)
+
+
+def test_graded_outcome_detection_is_narrow(tmp_path):
     output_dir = tmp_path / "rpent"
     output_dir.mkdir()
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
@@ -189,12 +224,18 @@ def test_transcript_budget_stop_detection_is_narrow(tmp_path):
     transcript.write_text(
         json.dumps({"error": "Codex SDK timed out after 12s"}), encoding="utf-8"
     )
-    assert agent._transcript_reports_budget_stop(output_dir)
+    assert agent._graded_outcome(output_dir) == "an exhausted planner budget"
     transcript.write_text(
         json.dumps({"error": "ConnectionError: Request timed out after 12s"}),
         encoding="utf-8",
     )
-    assert not agent._transcript_reports_budget_stop(output_dir)
+    assert agent._graded_outcome(output_dir) is None
+    # A run that recorded a verdict is graded whatever its exit status was.
+    transcript.write_text(
+        json.dumps({"accepted": True, "error": "agent error"}),
+        encoding="utf-8",
+    )
+    assert agent._graded_outcome(output_dir) == "a recorded verdict"
 
 
 def test_unknown_codex_sandbox_is_rejected(tmp_path):
@@ -250,7 +291,7 @@ def test_install_uploads_one_wheel_and_records_its_hash(tmp_path, monkeypatch):
     assert "python3 -m venv" in install
     assert "--no-cache-dir" in install
     assert "--disable-pip-version-check" in install
-    assert "/opt/rpent-efe/rpent-0.1.0-py3-none-any.whl" in install
+    assert "/opt/rpent-efe/rpent-0.1.0-py3-none-any.whl[planner]" in install
     assert "pip freeze --all" in commands[-1]
     assert (tmp_path / "logs/setup/pip-freeze.txt").read_text() == "rpent==0.1.0\n"
     wheel_record = json.loads((tmp_path / "logs/rpent-wheel.json").read_text())

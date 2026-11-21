@@ -240,7 +240,10 @@ class RPentEfeAgent(BaseInstalledAgent):
                 "python3 -m venv /opt/rpent-efe/venv && "
                 "/opt/rpent-efe/venv/bin/python -m pip install --no-cache-dir "
                 "--disable-pip-version-check "
-                f"/opt/rpent-efe/{shlex.quote(wheel_path.name)}"
+                # The wheel carries only the runtime layer; the adapter runs the
+                # CLI with a planner, so the container environment installs the
+                # planner extra as well.
+                f"{shlex.quote(f'/opt/rpent-efe/{wheel_path.name}[planner]')}"
             ),
             timeout_sec=900,
         )
@@ -428,22 +431,34 @@ class RPentEfeAgent(BaseInstalledAgent):
                 timeout_sec=self.exec_timeout_s,
             )
         except Exception:
-            if self._transcript_reports_budget_stop(self.logs_dir / "rpent"):
+            outcome = self._graded_outcome(self.logs_dir / "rpent")
+            if outcome is not None:
                 self.logger.info(
-                    "EFE planner used its time budget; Harbor will grade the episode."
+                    "RPent ended with %s; Harbor will grade the episode.", outcome
                 )
                 return
             raise
 
     @staticmethod
-    def _transcript_reports_budget_stop(output_dir: Path) -> bool:
-        """Whether the generic CLI transcript records an intentional timeout."""
+    def _graded_outcome(output_dir: Path) -> str | None:
+        """Return why a failed CLI exit still leaves a gradeable episode.
+
+        The CLI exits non-zero for an exhausted planner budget and for a verdict
+        that rejects the task. Harbor grades the final state either way, so only
+        a run that left no transcript or no verdict is an agent failure.
+        """
         transcript_path = output_dir / "transcript.json"
         try:
             transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            return False
-        return isinstance(transcript, dict) and is_budget_stop(transcript.get("error"))
+            return None
+        if not isinstance(transcript, dict):
+            return None
+        if is_budget_stop(transcript.get("error")):
+            return "an exhausted planner budget"
+        if isinstance(transcript.get("accepted"), bool):
+            return "a recorded verdict"
+        return None
 
     @staticmethod
     def _recover_usage(output_dir: Path) -> tuple[dict[str, int], str] | None:

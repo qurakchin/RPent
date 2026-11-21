@@ -28,6 +28,7 @@ from rpent.memory import MemoryManager
 from rpent.memory import manager as memory_module
 from rpent.session import EnvState
 from rpent.tools import Toolkit, ToolResult, common, iter_tools, tool
+from rpent.tools.toolkit import ToolCancelled
 
 
 class _RecordingEventSink:
@@ -400,6 +401,46 @@ def test_unbindable_handler_arguments_never_execute_or_capture_state(
     assert not result.call_ok and result.no_execution
     assert "bad arguments for move" in result.error
     assert toolkit.capture_calls == []
+
+    # The rejected call must not hold a scheduler operation, so the next call
+    # and the close still complete.
+    @tool
+    def halt() -> ToolResult:
+        """Stop the robot."""
+        return ToolResult(data={"stopped": True})
+
+    toolkit.add_tool(halt)
+    assert toolkit.execute_tool("halt", {}).call_ok
+    toolkit.close()
+
+
+def test_a_call_cancelled_before_dispatch_is_not_recorded_as_a_step(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    toolkit = _ContractToolkit(tmp_path)
+
+    @tool
+    def move(distance: int) -> ToolResult:
+        """Move by the given distance."""
+        return ToolResult(data={"moved": distance})
+
+    toolkit.add_tool(move)
+
+    def cancelled() -> None:
+        raise ToolCancelled("tool operation interrupted")
+
+    monkeypatch.setattr(toolkit, "raise_if_cancelled", cancelled)
+
+    result = toolkit.execute_tool("move", {"distance": 1})
+
+    # The boundary runs before the handler, so nothing acted: no step, no
+    # capture, and the scheduler operation is released for the next call.
+    assert not result.call_ok and result.no_execution
+    assert result.data["code"] == "tool_cancelled"
+    assert toolkit.capture_calls == []
+    assert toolkit.events.events == []
+    toolkit.close()
 
 
 def test_a_handler_that_raises_type_error_is_treated_as_an_executed_failure(
