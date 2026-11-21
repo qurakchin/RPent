@@ -118,7 +118,7 @@ def _serialize_messages(messages: list[dict]) -> list[dict]:
 def _read_solved(toolkit) -> bool | None:
     """Return the toolkit's environment verdict, or None when it has none."""
     solved_fn = getattr(toolkit, "solved", None)
-    return bool(solved_fn()) if callable(solved_fn) else None
+    return solved_fn() if callable(solved_fn) else None
 
 
 def _exit_code(accepted: bool | None) -> int:
@@ -853,26 +853,47 @@ def main() -> int:
         planner_timeout_s=args.planner_timeout_s,
         finish_result=dict(finish_result) if finish_result is not None else None,
         stats=dict(stats),
-        truth_source=robot_spec.truth_source if collects_verdict else None,
+        # The provenance exists only when a verdict exists; a run nobody judged
+        # (including a crashed planner) records no truth source.
+        truth_source=(
+            robot_spec.truth_source
+            if collects_verdict and environment_success is not None
+            else None
+        ),
     )
 
     transcript_path = Path(output_dir) / "transcript.json"
-    write_json_atomic(
-        transcript_path,
-        {
-            "recipe_tag": recipe_tag,
-            **task_desc,
-            "model": args.model,
-            "elapsed_s": round(elapsed, 1),
-            "finish": finish_result,
-            "error": agent_error,
-            "environment_success": environment_success,
-            **verdict_fields(context),
-            "stats": stats,
-            "messages": _serialize_messages(messages),
-        },
-        default=str,
-    )
+    # Artifact failures leave the verdict unchanged but make the command fail:
+    # the run is not reproducible from what it wrote. They are recorded in
+    # ``artifact_error`` so ``error`` keeps naming the agent-side failure the
+    # verdict was derived from. The transcript is one of those artifacts, so
+    # its write failure must not skip the finalizers or the manifest.
+    command_failed = False
+    artifact_error: str | None = None
+    transcript_written = True
+    try:
+        write_json_atomic(
+            transcript_path,
+            {
+                "recipe_tag": recipe_tag,
+                **task_desc,
+                "model": args.model,
+                "elapsed_s": round(elapsed, 1),
+                "finish": finish_result,
+                "error": agent_error,
+                "environment_success": environment_success,
+                **verdict_fields(context),
+                "stats": stats,
+                "messages": _serialize_messages(messages),
+            },
+            default=str,
+        )
+    except Exception as exc:
+        message = f"transcript write failed: {type(exc).__name__}: {exc}"
+        artifact_error = message
+        command_failed = True
+        transcript_written = False
+        logger.error("%s", message)
 
     logger.info("elapsed: %.1fs", elapsed)
     logger.info(
@@ -881,14 +902,9 @@ def main() -> int:
         stats.get("total_output_tokens", "?"),
         stats.get("tool_calls", "?"),
     )
-    logger.info("transcript: %s", transcript_path)
+    if transcript_written:
+        logger.info("transcript: %s", transcript_path)
 
-    # Artifact failures leave the verdict unchanged but make the command fail:
-    # the run is not reproducible from what it wrote. They are recorded in
-    # ``artifact_error`` so ``error`` keeps naming the agent-side failure the
-    # verdict was derived from.
-    command_failed = False
-    artifact_error: str | None = None
     result_path: Path | str | None = None
     if robot_spec.finalize_run is not None:
         try:
@@ -931,7 +947,7 @@ def main() -> int:
         finish_run_manifest(
             output_dir,
             artifacts={
-                "transcript": transcript_path,
+                "transcript": transcript_path if transcript_written else None,
                 "result": result_path,
                 "recipe": recipe_path,
             },
@@ -948,6 +964,10 @@ def main() -> int:
         # but a run whose artifacts failed is still a failed command.
         return 1 if agent_error or command_failed else 0
     if command_failed:
+        return 1
+    # A planner failure without a verdict is a failed run, not an unjudged one:
+    # reserve 75 for a run that ended cleanly but has no judge.
+    if agent_error is not None and context.accepted is None:
         return 1
     return _exit_code(context.accepted)
 

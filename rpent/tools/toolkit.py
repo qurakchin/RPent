@@ -131,6 +131,15 @@ class ToolCancelled(Exception):
     """Raised when an environment reaches a safe cancellation boundary."""
 
 
+def _cancelled_result(exc: ToolCancelled, *, no_execution: bool) -> ToolResult:
+    """Return the result of a call stopped at a cancellation boundary."""
+    return ToolResult(
+        data={"error": str(exc), "code": "tool_cancelled", "interrupted": True},
+        call_ok=False,
+        no_execution=no_execution,
+    )
+
+
 class Toolkit:
     """Base toolkit: registers common tools and dispatches tool calls.
 
@@ -244,21 +253,14 @@ class Toolkit:
             field: getattr(parameters, field) for field in type(parameters).model_fields
         }
 
-        try:
-            operation = self._scheduler.acquire(readonly=tool.readonly)
-        except ToolCancelled as exc:
-            return ToolResult(
-                data={"error": str(exc), "code": "tool_cancelled", "interrupted": True},
-                call_ok=False,
-                no_execution=True,
-            )
-
         # The schema validated the input, but the handler may have been swapped
         # for one that no longer accepts these parameters. Only that binding
         # failure means the tool never ran; a TypeError raised inside a handler
         # is an ordinary handler error that may already have acted. A callable
         # whose signature cannot be read keeps the handler's own TypeError,
-        # which never claims the environment is unchanged.
+        # which never claims the environment is unchanged. The check runs
+        # before the scheduler is acquired, so a rejected call holds no
+        # operation and cannot block later calls or `close()`.
         try:
             signature = inspect.signature(tool.handler)
         except (TypeError, ValueError):
@@ -277,23 +279,26 @@ class Toolkit:
                 )
 
         try:
+            operation = self._scheduler.acquire(readonly=tool.readonly)
+        except ToolCancelled as exc:
+            return _cancelled_result(exc, no_execution=True)
+
+        try:
             started = time.perf_counter()
             capture = current_tool_call.get()
             try:
                 self.raise_if_cancelled()
+            except ToolCancelled as exc:
+                # Cancelled before dispatch: the handler never ran, so this is
+                # not a step and there is no capture to finish.
+                return _cancelled_result(exc, no_execution=True)
+            try:
                 if capture is not None:
                     capture.start(action_source=tool.action_source)
                 native = tool(**kwargs)
             except ToolCancelled as exc:
                 # The tool stopped at a safe boundary; it may have acted already.
-                native = ToolResult(
-                    data={
-                        "error": str(exc),
-                        "code": "tool_cancelled",
-                        "interrupted": True,
-                    },
-                    call_ok=False,
-                )
+                native = _cancelled_result(exc, no_execution=False)
             except Exception as exc:
                 logger.exception("Tool %s failed", name)
                 native = ToolResult(
