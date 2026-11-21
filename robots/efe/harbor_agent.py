@@ -438,16 +438,14 @@ class RPentEfeAgent(BaseInstalledAgent):
     @staticmethod
     def _transcript_reports_budget_stop(output_dir: Path) -> bool:
         """Whether the generic CLI transcript records an intentional timeout."""
-        for transcript_path in sorted(output_dir.glob("transcript_*.json")):
-            try:
-                transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            if not isinstance(transcript, dict):
-                continue
-            if is_budget_stop(transcript.get("error")):
-                return True
-        return False
+        transcript_path = output_dir / "transcript.json"
+        try:
+            transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(transcript, dict):
+            return False
+        return is_budget_stop(transcript.get("error"))
 
     @staticmethod
     def _recover_usage(output_dir: Path) -> tuple[dict[str, int], str] | None:

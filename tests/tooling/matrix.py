@@ -52,6 +52,8 @@ HOSTED = (
     ("infra-dev",),
     ("infra-minimal",),
     ("infra-unit_cpu",),
+    # EFE runs an existing service over the network and needs no CUDA package.
+    ("robot-efe",),
 )
 
 #: Environments that resolve CUDA packages; they need the embodied GPU runner.

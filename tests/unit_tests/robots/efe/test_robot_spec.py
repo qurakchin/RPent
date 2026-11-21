@@ -368,7 +368,9 @@ def test_generic_cli_renders_the_tools_the_session_registers(
         ],
     )
 
-    assert cli.main() == 0
+    # The scripted planner never reports success, so the run verdict is a
+    # rejection; the tool set it rendered is what this case checks.
+    assert cli.main() == 1
 
     tools = captured["tools"]
     prompt = captured["system_prompt"]

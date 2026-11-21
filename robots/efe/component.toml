@@ -1,0 +1,7 @@
+schema = 2
+name = "robot-efe"
+probe = "robots.efe"
+planner = true
+python = ">=3.10,<3.13"
+
+dependencies = []

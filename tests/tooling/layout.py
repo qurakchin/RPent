@@ -159,6 +159,15 @@ LEGACY_SLICES = {
             "tools.py",
         }
     ),
+    "efe": frozenset(
+        {
+            "env_client.py",
+            "prompt_bundle.py",
+            "robot_spec.py",
+            "toolkit.py",
+            "tools.py",
+        }
+    ),
     "franka": frozenset(
         {
             "env_client.py",
@@ -261,6 +270,7 @@ REQUIRED_ROLE_FILES = {
 LEGACY_COMPONENTS = frozenset(
     {
         ("robot", "dual_franka"),
+        ("robot", "efe"),
         ("robot", "franka"),
         ("robot", "libero"),
         ("robot", "robocasa"),

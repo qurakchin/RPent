@@ -1,8 +1,7 @@
 name: Package
 
 # Reusable packaging checks: the wheel carries only the core package, the sdist
-# carries the source checkout including robots/ and components/, and both
-# expose the CLI from a fresh environment.
+# carries the source checkout including robots/ and components/, and both expose the CLI from a fresh environment.
 on:
   workflow_call:
 
