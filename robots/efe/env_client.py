@@ -48,6 +48,8 @@ from typing import Any
 
 import numpy as np
 
+from rpent.tools.toolkit import ToolRejected
+
 # The protocol fixes the longest interpolation step per row; the service spec
 # carries no field for it.
 _MAX_DT_S = 0.5
@@ -240,13 +242,19 @@ class EfeEnvClient:
             video: ``"none"``, ``"mp4"``, or ``"frames"``. Rendering costs CPU,
                 so the default returns no images.
         """
-        self._raise_if_done("submit")
-        cameras = self._validated_cameras(cameras)
-        action_spec = self._action_spec(action_type)
-        rows = self._validate_actions(action_type, action_spec, actions)
-        resolved_dt = (
-            None if action_type == _DONE_ACTION else self._resolve_dt(dt, len(rows))
-        )
+        try:
+            self._raise_if_done("submit")
+            cameras = self._validated_cameras(cameras)
+            action_spec = self._action_spec(action_type)
+            rows = self._validate_actions(action_type, action_spec, actions)
+            resolved_dt = (
+                None if action_type == _DONE_ACTION else self._resolve_dt(dt, len(rows))
+            )
+        except (ValueError, RuntimeError) as exc:
+            # Every check above runs before the service sees the chunk, so the
+            # chunk did not execute. Report it as a rejected call so the run
+            # does not record an action the robot never received.
+            raise ToolRejected(str(exc)) from exc
         result = self._bounded_call(
             self._robot.submit,
             action_type,
@@ -296,14 +304,20 @@ class EfeEnvClient:
         service refuses it after success, agent finish, or when the budget is
         spent. Only the last episode is graded.
         """
-        if self.reset_budget <= 0:
-            raise ValueError("This task declares no reset budget")
-        if self._done and not self._reset_allowed_after_end():
-            raise RuntimeError(
-                f"Cannot reset: the episode ended "
-                f"({self.done_reason or 'no reason reported'})"
-            )
-        cameras = self._validated_cameras(cameras)
+        try:
+            if self.reset_budget <= 0:
+                raise ValueError("This task declares no reset budget")
+            if self._done and not self._reset_allowed_after_end():
+                raise RuntimeError(
+                    f"Cannot reset: the episode ended "
+                    f"({self.done_reason or 'no reason reported'})"
+                )
+            cameras = self._validated_cameras(cameras)
+        except (ValueError, RuntimeError) as exc:
+            # Every check runs before the service sees the reset, so no new
+            # episode started. Report it as a rejected call rather than an
+            # action the robot received.
+            raise ToolRejected(str(exc)) from exc
         meta: dict[str, Any] = {"video": "none"}
         if cameras is not None:
             meta["cameras"] = list(cameras)
@@ -325,15 +339,19 @@ class EfeEnvClient:
         grades the state the episode ended in; ending before the goal is a
         failure.
         """
-        if not self.success_hidden:
-            raise ValueError("This task does not use agent-ended episodes")
-        if self._done:
-            raise RuntimeError(
-                f"Cannot finish: the episode ended "
-                f"({self.done_reason or 'no reason reported'})"
-            )
-        if self._base_url is None:
-            raise RuntimeError("The service client has no base URL")
+        try:
+            if not self.success_hidden:
+                raise ValueError("This task does not use agent-ended episodes")
+            if self._done:
+                raise RuntimeError(
+                    f"Cannot finish: the episode ended "
+                    f"({self.done_reason or 'no reason reported'})"
+                )
+            if self._base_url is None:
+                raise RuntimeError("The service client has no base URL")
+        except (ValueError, RuntimeError) as exc:
+            # The episode is unchanged: the checks run before the service call.
+            raise ToolRejected(str(exc)) from exc
         remaining = self.remaining_s
         timeout_s = 60.0 if remaining is None else min(60.0, remaining)
         status = self._bounded_call(

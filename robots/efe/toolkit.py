@@ -164,11 +164,14 @@ class EfeToolkit(Toolkit):
         return ToolResult(data={"_finish": True, "status": status, "summary": summary})
 
     def execute_tool(self, name: str, input_dict: dict[str, Any]) -> ToolResult:
-        """Count calls and failures for the comparison record."""
+        """Count dispatched calls and failures for the comparison record."""
         result = super().execute_tool(name, input_dict)
-        self._call_counts[name] += 1
-        if result.is_error:
-            self._failed_counts[name] += 1
+        # A refused call never reached the tool, so counting it would report an
+        # execution that did not happen; such a call also has no step record.
+        if not result.no_execution:
+            self._call_counts[name] += 1
+            if result.is_error:
+                self._failed_counts[name] += 1
         return result
 
     def get_env_state(

@@ -24,6 +24,7 @@ import numpy as np
 import pytest
 
 from robots.efe.env_client import EfeEnvClient
+from rpent.tools.toolkit import ToolRejected
 
 _LAYOUT = ["waist", "shoulder", "elbow", "forearm_roll", "wrist_angle"]
 _LIMITS = {name: [-3.0, 3.0] for name in _LAYOUT} | {"gripper": [0.002, 0.037]}
@@ -149,13 +150,13 @@ def test_submit_forwards_a_valid_chunk(client, robot):
     ],
 )
 def test_submit_rejects_bad_shapes(client, robot, action_type, actions, match):
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(ToolRejected, match=match):
         client.submit(action_type, actions)
     assert robot.submit_calls == []
 
 
 def test_submit_rejects_non_action_spec_entries(client, robot):
-    with pytest.raises(ValueError, match="Unknown action type") as excinfo:
+    with pytest.raises(ToolRejected, match="Unknown action type") as excinfo:
         client.submit("not_yet", [])
 
     assert "Available: ['done', 'joint_position']" in str(excinfo.value)
@@ -165,7 +166,7 @@ def test_submit_rejects_non_action_spec_entries(client, robot):
 def test_submit_rejects_non_finite_values(client, robot):
     actions = _actions(2)
     actions[1, 2] = np.nan
-    with pytest.raises(ValueError, match="elbow"):
+    with pytest.raises(ToolRejected, match="elbow"):
         client.submit("joint_position", actions)
     assert robot.submit_calls == []
 
@@ -173,7 +174,7 @@ def test_submit_rejects_non_finite_values(client, robot):
 def test_submit_rejects_values_outside_the_spec_limits(client, robot):
     actions = _actions(2)
     actions[0, 5] = 0.5
-    with pytest.raises(ValueError, match="gripper outside"):
+    with pytest.raises(ToolRejected, match="gripper outside"):
         client.submit("joint_position", actions)
     assert robot.submit_calls == []
 
@@ -188,13 +189,13 @@ def test_submit_rejects_values_outside_the_spec_limits(client, robot):
     ],
 )
 def test_submit_rejects_bad_timing(client, robot, dt, rows, match):
-    with pytest.raises(ValueError, match=match):
+    with pytest.raises(ToolRejected, match=match):
         client.submit("joint_position", _actions(rows), dt=dt)
     assert robot.submit_calls == []
 
 
 def test_default_timing_respects_the_chunk_limit(client, robot):
-    with pytest.raises(ValueError, match="max_chunk_s"):
+    with pytest.raises(ToolRejected, match="max_chunk_s"):
         client.submit("joint_position", _actions(5001))
     assert robot.submit_calls == []
 
@@ -212,7 +213,7 @@ def test_a_done_result_blocks_later_commands(client, robot):
     client.submit("joint_position", _actions(1))
     assert client.done is True
     assert client.done_reason == "success"
-    with pytest.raises(RuntimeError, match="episode ended"):
+    with pytest.raises(ToolRejected, match="episode ended"):
         client.submit("joint_position", _actions(1))
     with pytest.raises(RuntimeError, match="episode ended"):
         client.observe()
@@ -354,7 +355,7 @@ def test_a_one_sided_joint_limit_still_checks_the_declared_bound(client, robot):
     actions = _actions(1)
     actions[0, 0] = 0.7
 
-    with pytest.raises(ValueError, match="waist outside"):
+    with pytest.raises(ToolRejected, match="waist outside"):
         client.submit("joint_position", actions)
 
     assert robot.submit_calls == []
@@ -387,7 +388,7 @@ def test_reset_revalidates_cameras(robot):
     client = EfeEnvClient(robot=FakeRobot(spec))
     robot = client._robot
 
-    with pytest.raises(ValueError, match="Unknown cameras"):
+    with pytest.raises(ToolRejected, match="Unknown cameras"):
         client.reset(cameras=["ceiling_cam"])
 
     assert robot.post_calls == []
@@ -411,7 +412,7 @@ def test_reset_is_refused_after_the_trial_succeeded(robot):
     client = EfeEnvClient(robot=FakeRobot(spec))
     client._record_state({"done": True, "reason": "success"})
 
-    with pytest.raises(RuntimeError, match="Cannot reset"):
+    with pytest.raises(ToolRejected, match="Cannot reset"):
         client.reset()
 
 
@@ -420,12 +421,12 @@ def test_reset_is_refused_after_the_agent_finished_the_episode(robot):
     client = EfeEnvClient(robot=FakeRobot(spec))
     client._record_state({"done": True, "reason": "finished"})
 
-    with pytest.raises(RuntimeError, match="Cannot reset"):
+    with pytest.raises(ToolRejected, match="Cannot reset"):
         client.reset()
 
 
 def test_reset_needs_a_declared_budget(client):
-    with pytest.raises(ValueError, match="no reset budget"):
+    with pytest.raises(ToolRejected, match="no reset budget"):
         client.reset()
 
 
@@ -471,7 +472,7 @@ def test_wrapped_rcb_post_accepts_keyword_timeout(robot):
 
 
 def test_finish_needs_agent_ended_episodes(client):
-    with pytest.raises(ValueError, match="agent-ended"):
+    with pytest.raises(ToolRejected, match="agent-ended"):
         client.finish()
 
 
@@ -525,12 +526,12 @@ def test_finish_reports_a_client_without_a_base_url():
 
     client = EfeEnvClient(robot=NoBaseRobot({**_SPEC, "success_signal": "hidden"}))
 
-    with pytest.raises(RuntimeError, match="no base URL"):
+    with pytest.raises(ToolRejected, match="no base URL"):
         client.finish()
 
 
 def test_submit_rejects_unknown_camera(client, robot):
-    with pytest.raises(ValueError, match="Unknown cameras"):
+    with pytest.raises(ToolRejected, match="Unknown cameras"):
         client.submit("joint_position", _actions(1), cameras=["ceiling_cam"])
 
     assert robot.submit_calls == []

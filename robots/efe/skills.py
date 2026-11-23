@@ -33,6 +33,7 @@ from pydantic import Field
 from robots.efe.env_client import EfeEnvClient
 from robots.efe.tools import proprio_map
 from rpent.tools import ToolResult, tool
+from rpent.tools.toolkit import ToolRejected
 
 _JOINT_ACTION = "joint_position"
 _GRIPPER = "gripper"
@@ -325,14 +326,19 @@ class EfeSkills:
             gripper: Finger opening in metres. Default: keep the current command.
             max_iterations: Bounded correction steps.
         """
-        target_orientation = (
-            None
-            if orientation_wxyz is None
-            else _unit_quaternion(orientation_wxyz, name="Target orientation")
-        )
-        target = np.asarray([x, y, z], dtype=np.float64)
-        if not np.isfinite(target).all():
-            raise ValueError(f"Target must be finite, got {target.tolist()}")
+        try:
+            target_orientation = (
+                None
+                if orientation_wxyz is None
+                else _unit_quaternion(orientation_wxyz, name="Target orientation")
+            )
+            target = np.asarray([x, y, z], dtype=np.float64)
+            if not np.isfinite(target).all():
+                raise ValueError(f"Target must be finite, got {target.tolist()}")
+        except ValueError as exc:
+            # The target checks run before any chunk is submitted, so the arm
+            # did not move. Report it as a rejected call.
+            raise ToolRejected(str(exc)) from exc
         submit_calls = 0
         control_steps = 0
         position = None
@@ -545,7 +551,8 @@ class EfeSkills:
         self._check_cancelled()
         opening = float(opening)
         if not math.isfinite(opening):
-            raise ValueError(f"Gripper opening must be finite, got {opening}")
+            # Refused before the chunk is built: the fingers did not move.
+            raise ToolRejected(f"Gripper opening must be finite, got {opening}")
         if self.client.done:
             return ToolResult(
                 data={

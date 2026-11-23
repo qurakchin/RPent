@@ -21,6 +21,7 @@ through :meth:`Toolkit.list_tools` and dispatch through :meth:`Toolkit.execute_t
 
 from __future__ import annotations
 
+import inspect
 import json
 import threading
 import time
@@ -130,6 +131,26 @@ class ToolCancelled(Exception):
     """Raised when an environment reaches a safe cancellation boundary."""
 
 
+class ToolRejected(Exception):
+    """Raised by a tool that refused a call before acting on it.
+
+    A tool raises this after validating its input and declining to run, for
+    example an action layout the environment does not accept or a command
+    sent after the episode ended. :meth:`Toolkit.execute_tool` reports it as
+    ``call_ok`` false with ``no_execution`` true, so the call reaches the
+    planner as an error and is not recorded as a step.
+    """
+
+
+def _cancelled_result(exc: ToolCancelled, *, no_execution: bool) -> ToolResult:
+    """Return the result of a call stopped at a cancellation boundary."""
+    return ToolResult(
+        data={"error": str(exc), "code": "tool_cancelled", "interrupted": True},
+        call_ok=False,
+        no_execution=no_execution,
+    )
+
+
 class Toolkit:
     """Base toolkit: registers common tools and dispatches tool calls.
 
@@ -219,7 +240,11 @@ class Toolkit:
         """Validate one call, execute it, and capture state for advancing tools."""
         tool = self._tools.get(name)
         if tool is None:
-            return ToolResult(data={"error": f"unknown tool: {name}"})
+            return ToolResult(
+                data={"error": f"unknown tool: {name}"},
+                call_ok=False,
+                no_execution=True,
+            )
         try:
             parameters = tool.args_schema.model_validate(input_dict, strict=True)
         except ValidationError as exc:
@@ -231,59 +256,92 @@ class Toolkit:
                         include_context=False,
                         include_input=False,
                     ),
-                }
+                },
+                call_ok=False,
+                no_execution=True,
             )
         kwargs = {
             field: getattr(parameters, field) for field in type(parameters).model_fields
         }
 
+        # The schema validated the input, but the handler may have been swapped
+        # for one that no longer accepts these parameters. Only that binding
+        # failure means the tool never ran; a TypeError raised inside a handler
+        # is an ordinary handler error that may already have acted. A callable
+        # whose signature cannot be read keeps the handler's own TypeError,
+        # which never claims the environment is unchanged. The check runs
+        # before the scheduler is acquired, so a rejected call holds no
+        # operation and cannot block later calls or `close()`.
+        try:
+            signature = inspect.signature(tool.handler)
+        except (TypeError, ValueError):
+            signature = None
+        if signature is not None:
+            try:
+                signature.bind(**kwargs)
+            except TypeError as exc:
+                return ToolResult(
+                    data={
+                        "error": f"bad arguments for {name}: {exc}",
+                        "got": input_dict,
+                    },
+                    call_ok=False,
+                    no_execution=True,
+                )
+
         try:
             operation = self._scheduler.acquire(readonly=tool.readonly)
         except ToolCancelled as exc:
-            return ToolResult(
-                data={"error": str(exc), "code": "tool_cancelled", "interrupted": True}
-            )
+            return _cancelled_result(exc, no_execution=True)
 
         try:
             started = time.perf_counter()
             capture = current_tool_call.get()
             try:
                 self.raise_if_cancelled()
+            except ToolCancelled as exc:
+                # Cancelled before dispatch: the handler never ran, so this is
+                # not a step and there is no capture to finish.
+                return _cancelled_result(exc, no_execution=True)
+            rejection: ToolRejected | None = None
+            try:
                 if capture is not None:
                     capture.start(action_source=tool.action_source)
                 native = tool(**kwargs)
-            except TypeError as exc:
-                native = ToolResult(
-                    data={
-                        "error": f"bad arguments for {name}: {exc}",
-                        "got": input_dict,
-                    }
-                )
             except ToolCancelled as exc:
+                # The tool stopped at a safe boundary; it may have acted already.
+                native = _cancelled_result(exc, no_execution=False)
+            except ToolRejected as exc:
+                # The tool refused the call before acting, so nothing ran.
+                logger.info("Tool %s rejected the call: %s", name, exc)
+                rejection = exc
                 native = ToolResult(
-                    data={
-                        "error": str(exc),
-                        "code": "tool_cancelled",
-                        "interrupted": True,
-                    }
+                    data={"error": str(exc)}, call_ok=False, no_execution=True
                 )
             except Exception as exc:
                 logger.exception("Tool %s failed", name)
                 native = ToolResult(
-                    data={"error": str(exc), "traceback": traceback.format_exc()}
+                    data={"error": str(exc), "traceback": traceback.format_exc()},
+                    call_ok=False,
                 )
 
-            if capture is not None and capture.started:
-                capture.result(
-                    Payload(
-                        format="rpent.tool_result",
-                        format_version="1",
-                        data={"data": native.data, "images": native.images},
-                        completeness="complete",
-                    )
+            if capture is not None:
+                payload = Payload(
+                    format="rpent.tool_result",
+                    format_version="1",
+                    data={"data": native.data, "images": native.images},
+                    completeness="complete",
                 )
+                if rejection is not None:
+                    # ``start()`` ran before the handler, but a rejection is not
+                    # an execution: keep the result the planner saw and drop the
+                    # admission timestamp along with the status.
+                    capture.reject(payload)
+                elif capture.started:
+                    capture.result(payload)
 
-            if not tool.readonly:
+            # A rejected call changed no environment state, so it is not a step.
+            if not tool.readonly and not native.no_execution:
                 elapsed_s = round(time.perf_counter() - started, 2)
                 result_dict = native.to_dict()
                 command = {"action": name, **input_dict}
@@ -311,6 +369,7 @@ class Toolkit:
                     native = ToolResult(
                         data=observed.data,
                         images=native.images + observed.images,
+                        call_ok=native.call_ok,
                     )
                 if record is not None:
                     self._publish_step(record)
@@ -321,8 +380,9 @@ class Toolkit:
                 native = ToolResult(
                     data={"error": f"Tool result serialization failed: {exc}"},
                     images=native.images,
+                    call_ok=False,
                 )
-            if capture is not None:
+            if capture is not None and not capture.finished:
                 capture.finish(
                     "cancelled"
                     if native.data.get("code") == "tool_cancelled"

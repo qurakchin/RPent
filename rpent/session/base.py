@@ -478,11 +478,14 @@ class EnvState:
         after_observation_id: str | None = None,
         source_ids: dict[str, str] | None = None,
         missing: dict[str, MissingInfo | None] | None = None,
+        clear: tuple[str, ...] = (),
     ) -> None:
         """Update a tool call while its task is running.
 
         A new link appends to the response unless a tool-list index is supplied.
         A corrected trace can explicitly unlink a call and its VLA predictions.
+        ``None`` leaves an optional field unchanged; ``clear`` resets the named
+        fields instead, for a correction that has to undo an earlier value.
         """
         with self._records_lock:
             self._running_task()
@@ -526,6 +529,7 @@ class EnvState:
                 },
                 source_ids=source_ids,
                 missing=missing,
+                clear=clear,
             )
             if unlink_planner and record.planner_id is not None:
                 self._planners[record.planner_id].tool_calls.remove(record)
@@ -551,8 +555,12 @@ class EnvState:
         values: dict[str, Any],
         source_ids: dict[str, str] | None,
         missing: dict[str, MissingInfo | None] | None,
+        clear: tuple[str, ...] = (),
     ) -> None:
         """Apply a call update in place while holding the records lock."""
+        unknown = set(clear) - set(values)
+        if unknown:
+            raise ValueError(f"cannot clear unknown fields: {sorted(unknown)}")
         values = {name: value for name, value in values.items() if value is not None}
         for name in ("response", "model_config", "raw_result", "feedback"):
             if name in values and getattr(record, name) is not None:
@@ -560,6 +568,8 @@ class EnvState:
         values, source_ids, missing = copy.deepcopy(
             (values, source_ids or {}, missing or {})
         )
+        for name in clear:
+            setattr(record, name, None)
         for name, value in values.items():
             setattr(record, name, value)
         record.source_ids.update(source_ids)

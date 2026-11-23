@@ -65,6 +65,24 @@ class ToolCallCapture:
         )
         self._result_captured = True
 
+    def reject(self, payload: Payload) -> None:
+        """Record a call the tool refused before acting.
+
+        The call was admitted, so ``start()`` already wrote a start time, but no
+        handler action ran. Keep the raw result the planner received and clear
+        the execution timestamps so the record matches ``not_executed``.
+        """
+        self.state.update_tool_call(
+            self.tool_call_id,
+            status="not_executed",
+            raw_result=payload,
+            missing={"raw_result": None},
+            clear=("started_at", "ended_at"),
+        )
+        self._result_captured = True
+        self.started = False
+        self.finished = True
+
     def finish(
         self, status: Literal["completed", "failed", "cancelled"], detail: str = ""
     ) -> None:

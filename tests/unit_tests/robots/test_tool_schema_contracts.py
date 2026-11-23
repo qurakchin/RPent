@@ -81,6 +81,10 @@ def test_tool_declarations_match_pre_refactor_contracts(group: str) -> None:
             "type": "number",
             "description": "Positive finite yaw tolerance, rad (default 0.02)",
         }
+    # Dispatch rejects undeclared arguments, and the published schema now says
+    # so at the root; the fixtures snapshot the pre-refactor contracts.
+    for item in expected.values():
+        item["input_schema"]["additionalProperties"] = False
     declarations = TOOL_DECLARATIONS[group]
     actual = {
         item.name: {
@@ -104,6 +108,8 @@ def test_robot_tool_schemas_have_valid_object_inputs(robot_name: str) -> None:
 
         input_schema = spec.input_schema
         assert input_schema["type"] == "object"
+        # The planner sees the same rule dispatch applies.
+        assert input_schema.get("additionalProperties") is False
         properties = input_schema.get("properties", {})
         required = input_schema.get("required", [])
         assert isinstance(properties, dict)

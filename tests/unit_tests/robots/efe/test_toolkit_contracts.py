@@ -19,7 +19,9 @@ from __future__ import annotations
 from robots.efe.toolkit import EfeToolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory.manager import MemoryManager
+from rpent.tools.toolkit import ToolRejected
 from rpent.utils.logging import init_output_dir
+from tests.unit_tests.robots.efe.efe_support import SPEC, FakeEfeClient
 
 READ_ONLY_EFE_TOOLS = [
     "efe_spec",
@@ -170,6 +172,41 @@ def test_metrics_count_session_calls_and_service_progress(tmp_path, efe_client):
     assert metrics["efe_control_steps"] == 1
     assert metrics["skills_enabled"] is True
     assert metrics["skills_error"] is None
+
+
+class _RefusingClient(FakeEfeClient):
+    """A service that refuses to change the episode after it ended."""
+
+    def reset(self, *, cameras=None):
+        raise ToolRejected("Cannot reset: the episode ended (success)")
+
+    def finish(self):
+        raise ToolRejected("Cannot finish: the episode ended (timeout)")
+
+
+def test_a_refused_reset_is_not_recorded_as_a_step(tmp_path):
+    spec = {**SPEC, "budget": {"reset": 2}}
+    toolkit = _toolkit(tmp_path, _RefusingClient(spec), skills=False)
+
+    result = toolkit.execute_tool("efe_reset", {})
+
+    # The client refused before the service saw the reset, so neither the
+    # step store nor the call counters report an execution.
+    assert result.is_error and result.no_execution
+    assert toolkit.state.records() == []
+    assert toolkit.metrics()["tool_calls"] == 0
+    assert toolkit.metrics()["failed_calls"] == 0
+
+
+def test_a_refused_episode_end_is_not_recorded_as_a_step(tmp_path):
+    spec = {**SPEC, "success_signal": "hidden"}
+    toolkit = _toolkit(tmp_path, _RefusingClient(spec), skills=False)
+
+    result = toolkit.execute_tool("efe_end_episode", {})
+
+    assert result.is_error and result.no_execution
+    assert toolkit.state.records() == []
+    assert toolkit.metrics()["tool_calls"] == 0
 
 
 def test_finish_contract_rejects_unsupported_status(tmp_path, efe_client):

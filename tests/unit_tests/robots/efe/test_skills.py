@@ -20,6 +20,7 @@ import numpy as np
 import pytest
 
 from robots.efe.skills import EfeSkills, joint_layout
+from rpent.tools.toolkit import ToolRejected
 from tests.unit_tests.robots.efe.efe_support import FakeEfeClient, proprio
 
 
@@ -76,6 +77,33 @@ class MovingClient(FakeEfeClient):
 def skills():
     client = MovingClient()
     return EfeSkills(client=client, check_cancelled=lambda: None), client
+
+
+def test_move_to_pose_refuses_a_non_finite_target_before_moving(skills):
+    service, client = skills
+
+    with pytest.raises(ToolRejected, match="Target must be finite"):
+        service.move_to_pose(float("nan"), 0.0, 0.3)
+
+    assert client.submit_calls == 0
+
+
+def test_move_to_pose_refuses_a_degenerate_orientation_before_moving(skills):
+    service, client = skills
+
+    with pytest.raises(ToolRejected, match="Target orientation"):
+        service.move_to_pose(0.0, 0.0, 0.3, orientation_wxyz=[0.0, 0.0, 0.0, 0.0])
+
+    assert client.submit_calls == 0
+
+
+def test_set_gripper_refuses_a_non_finite_opening_before_moving(skills):
+    service, client = skills
+
+    with pytest.raises(ToolRejected, match="Gripper opening must be finite"):
+        service.set_gripper(float("inf"))
+
+    assert client.submit_calls == 0
 
 
 def test_joint_layout_rejects_a_mismatched_task():
