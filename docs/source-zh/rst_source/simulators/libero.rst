@@ -86,9 +86,11 @@ LIBERO
    * - 动作
      - 规划器调用 Pi0.5 工具，或 ``move_to``、``set_gripper`` 等动作原语，由工具执行环境动作。
    * - 奖励与成功判定
-     - 任务成功以最终状态的顶层 ``terminated`` 为准。达到步数上限或规划器调用 ``finish`` 均不代表成功。
+     - 任务成功以最终状态的顶层 ``terminated`` 为准。评测模式下 runner 从自己的步骤记录读取该值，规划器的观测只暴露 ``episode_over``。达到步数上限或规划器调用 ``finish`` 均不代表成功。
    * - 任务指令
      - 任务指令来自所选套件、任务及当前环境。
+
+评测运行不会把 benchmark 的判定交给规划器。``view_env_state`` 和有状态的工具只暴露 ``episode_over``，用来说明本回合已经结束，同时去掉 ``terminated``、``truncated`` 以及任何成功标记，包括步骤日志中嵌套的那一份。``pi0_pick`` 报告的是 ``grasp_detected``，而不是成功标记。runner 在自己的步骤记录中保留被隐藏的判定，因此动作序列、指标和本次运行的判定都不受影响。探索模式仍在规划器视角中保留判定，因为搜寻过程需要知道哪些回合已经成功。
 
 安装与资源准备
 --------------
@@ -210,7 +212,7 @@ Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-Pro 需�
 
 终端会显示服务器启动、规划器对话和工具调用。结束后查看输出目录中的 ``episode.mp4``、``transcript_*.json`` 和 ``run.log``；默认目录与逐步观测文件见 :ref:`run-output-files`。
 
-通过 ``view_env_state(step=-1)`` 查看最终状态，顶层 ``terminated`` 表示环境是否判定成功。规划器调用 ``finish`` 只表示结束规划。实时观察方法见 :doc:`../guides/dashboard`。
+通过 ``view_env_state(step=-1)`` 查看最终状态。评测模式下顶层 ``episode_over`` 告诉规划器本回合已结束，原生 ``terminated`` 判定保留在 runner 的步骤记录中。规划器调用 ``finish`` 只表示结束规划。实时观察方法见 :doc:`../guides/dashboard`。
 
 .. _libero-exploration:
 
