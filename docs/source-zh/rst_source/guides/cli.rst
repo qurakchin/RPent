@@ -210,8 +210,10 @@ Claude Code 和 Codex 也可复用已有的 CLI 认证。Gemini CLI 使用自身
 
    * - 文件或路径
      - 用途
-   * - ``transcript_*.json``
-     - 规划器对话、工具调用及结束信息。
+   * - ``run.json``
+     - 运行清单：机器人、planner、模型、任务和产出本次运行的环境，随后是运行结束时的产物路径、判定结果、agent 错误和产物写入失败（若有）。
+   * - ``transcript.json``
+     - 规划器对话、工具调用、结束信息和本次运行判定，在运行结束时一次性写入。
    * - ``trajectories/<task_id>/``
      - ``--record-trajectory`` 保存的任务记录及附件。探索模式的记录位于各 ``sessions/session_*/`` 目录下。详见 :doc:`flywheel`。
    * - ``episode.mp4``
@@ -228,3 +230,44 @@ Claude Code 和 Codex 也可复用已有的 CLI 认证。Gemini CLI 使用自身
      - 逐步保存的观测示例：目录名是逻辑文件名，目录内按步数编号，如 ``00.npz``、``01.npz``。
 
 整次运行的文件保存在输出目录根部，逐步观测保存在各自的子目录中。成功判定以各环境页的原生判定为准；动作序列、录像和规划器总结本身都不能替代该判定。
+
+每个目录只记录一次运行：``run.json`` 在启动时写入并占用该目录，指向已有运行的目录会在连接机器人之前停止，所以每次运行使用独立的 ``--output-dir``。默认路径本身就是新目录，Dashboard 的编号任务目录也一样。占用目录后如果启动失败（组件缺失、机器人连不上），记录会带着错误收尾并把该运行标为未判定，文件里因此说明了运行为何停下。
+
+.. _run-exit-status:
+
+退出码与判定
+-------------
+
+.. list-table::
+   :header-rows: 1
+
+   * - 退出码
+     - 含义
+   * - ``0``
+     - 判定接受该任务的任务运行，或正常结束的探索会话。
+   * - ``1``
+     - 运行失败、判定拒绝该任务、出现规划器错误，或探索会话记录了错误。
+   * - ``75``
+     - 正常结束但既没有判定也没有规划器错误，例如没有人评判的真机运行。
+
+.. dropdown:: 判定字段
+
+   ``run.json`` 以及机器人发布的收尾结果（通常是 ``result.json``，EFE 为 ``efe-result.json``）记录同一份判定：
+
+   .. list-table::
+      :header-rows: 1
+
+      * - 字段
+        - 含义
+      * - ``accepted``
+        - 判定成功为 ``true``，未成功为 ``false``，没有产出判定为 ``null``。
+      * - ``retryable``
+        - 重跑是否仍可能产出判定；仅当 ``accepted`` 为 ``null`` 时为 ``true``。
+      * - ``failure_category``
+        - ``agent_error``、``task_failed``、``no_verdict``，判定成功时为 ``null``。
+      * - ``stop_reason``
+        - ``solved``、``finished``、``unfinished``、``planner_error``、``operator_finished`` 或 ``operator_aborted``。
+      * - ``truth_source``
+        - 判定由谁给出：``environment``、``operator``，没有判定时为 ``null``。
+
+   判定和 ``error`` 描述运行本身。运行无法写出自己的产物时（运行收尾或语料发布抛错），``run.json`` 把该失败记在 ``artifact_error`` 里，保留它能够给出的判定，命令仍然以 ``1`` 退出。

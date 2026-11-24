@@ -165,7 +165,7 @@ Linux 宿主机前置要求：
        ├── agent/
        │   ├── setup/           # 容器内 Agent 安装日志
        │   └── rpent/           # 对应容器内 /logs/agent/rpent/
-       │       ├── transcript_*.json # CLI 对话与规划器统计
+       │       ├── transcript.json   # CLI 对话与规划器统计
        │       ├── efe-result.json   # EFE 指标与收尾结果
        │       ├── codex_*.txt       # 规划器对话记录
        │       ├── codex-home/       # 本次 Trial 独立的 CODEX_HOME
@@ -176,15 +176,15 @@ Linux 宿主机前置要求：
        ├── lock.json
        └── trial.log
 
-若 Trial 中途失败导致缺少 ``result.json`` 或 ``transcript_*.json``，请先排查 \
+若 Trial 中途失败导致缺少 ``result.json`` 或 ``transcript.json``，请先排查 \
 ``trial.log`` 与 ``agent/rpent/run.log``。
 
 成功判定
 ~~~~~~~~
 
 - **任务成功指标**：以 ``<trial_name>/result.json`` 中的 ``verifier_result.rewards.success`` 为准（源自 ``verifier/reward.json``）。支持重试的任务还会记录首次尝试的 ``first_success``，最终得分取最后一次尝试。
-- 规划器调用 ``finish(status="completed")`` 不代表任务成功；CLI 退出码同样不是任务成功的判据：``0`` 表示 RPent 自身的判定接受该次运行，``1`` 表示拒绝，``75`` 表示未记录判定。任务成功仍以上面的原生评分为准。
-- 规划器用完时间预算时，Trial 仍会评分：适配器把预算耗尽当作正常结束，评分程序照常检查最后一次尝试的最终状态。
+- 规划器调用 ``finish(status="completed")`` 不代表任务成功；CLI 退出码也不是任务成功的判据，它反映 RPent 自身的判定（见 :ref:`run-exit-status`）。任务成功仍以上面的原生评分为准。
+- 正常结束的运行都会评分：时间预算耗尽、判定拒绝任务、以及未记录判定的正常结束都算正常收尾，评分程序照常检查最后一次尝试结束时的状态。``success_signal: hidden`` 的任务中服务从不报告成功，由 agent 调用 ``finish`` 结束 episode，该次运行同样不记录判定。
 
 批量运行 benchmark
 ------------------

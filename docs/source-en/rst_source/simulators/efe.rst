@@ -169,7 +169,7 @@ Each ``harbor run`` creates a timestamped job directory under ``--jobs-dir``:
        ├── agent/
        │   ├── setup/           # Container agent install log
        │   └── rpent/           # Mounted from /logs/agent/rpent/ in container
-       │       ├── transcript_*.json # CLI transcript and planner stats
+       │       ├── transcript.json   # CLI transcript and planner stats
        │       ├── efe-result.json   # EFE metrics and finalization data
        │       ├── codex_*.txt       # Planner transcript
        │       ├── codex-home/       # Isolated CODEX_HOME for this trial
@@ -180,17 +180,21 @@ Each ``harbor run`` creates a timestamped job directory under ``--jobs-dir``:
        ├── lock.json
        └── trial.log
 
-If a trial aborts before writing ``result.json`` or ``transcript_*.json``,
+If a trial aborts before writing ``result.json`` or ``transcript.json``,
 inspect ``trial.log`` and ``agent/rpent/run.log`` first.
 
 Success Criterion
 ~~~~~~~~~~~~~~~~~
 
 - **Native evaluation score**: read ``verifier_result.rewards.success`` in ``<trial_name>/result.json`` (copied from ``verifier/reward.json``). Tasks with retries also log ``first_success`` for the first attempt, while ``success`` reflects the final attempt.
-- ``finish(status="completed")`` is not a task-success signal, and neither is the CLI exit code: ``0`` means RPent's own verdict accepted the run, ``1`` that it rejected it, and ``75`` that no verdict was recorded. Task success still comes from the native score above.
-- A trial whose planner exhausts its time budget is still graded: the adapter
-  treats budget exhaustion as a normal stop, so the verifier checks the final
-  state of the last attempt as usual.
+- ``finish(status="completed")`` is not a task-success signal, and neither is the
+  CLI exit status, which reports RPent's own verdict (see
+  :ref:`run-exit-status`). Task success still comes from the native score above.
+- Every run that ends normally is graded: budget exhaustion, a verdict that
+  rejects the task, and a clean run with no verdict all count as normal stops,
+  so the verifier checks the state the last attempt ended in. On
+  ``success_signal: hidden`` tasks the service never reports success, so the
+  agent ends the episode with ``finish``, and that run records no verdict either.
 
 Run a Benchmark
 ---------------

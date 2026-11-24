@@ -515,21 +515,27 @@ Optional Run-result Finalizer
 -----------------------------
 
 ``RobotSpec.finalize_run`` is a universal, robot-agnostic end-of-run hook.
-RoboCasa is its current consumer and uses it to record per-cell evaluation
-results for later statistics and aggregation. Any robot that publishes
-machine-readable evaluation artifacts may register the hook. The default is
-``None`` and leaves the runner unchanged. When the hook is present, the normal
-terminal runner captures ``toolkit.solved()`` before closing the toolkit, then
-passes a structured ``RunFinalizationContext`` to the hook after runtime
-cleanup. The hook owns the artifact schema and filename; RPent only defines the
-lifecycle boundary.
+RoboCasa, EFE, RoboDojo, RoboLab, and YAM use it to publish their evaluation
+results for later statistics and aggregation. Any robot that publishes machine-readable
+evaluation artifacts may register the hook. The default is ``None`` and leaves
+the runner unchanged. When the hook is present, the runner captures
+``toolkit.solved()`` before closing the toolkit, then passes a structured
+``RunFinalizationContext`` to the hook after runtime cleanup. Both normal
+terminal runs and Dashboard task runs call it, and ``run.json`` records the
+path it returns. The hook owns the artifact schema and filename; RPent only
+defines the lifecycle boundary.
 
 Use ``write_json_atomic`` when the artifact is JSON so an interrupted write
-cannot leave a partial result:
+cannot leave a partial result. Include ``verdict_fields`` so the artifact
+carries the same verdict as ``run.json``:
 
 .. code-block:: python
 
-   from rpent.evaluation import RunFinalizationContext, write_json_atomic
+   from rpent.evaluation import (
+       RunFinalizationContext,
+       verdict_fields,
+       write_json_atomic,
+   )
 
    def _finalize_run(context: RunFinalizationContext):
        return write_json_atomic(
@@ -537,14 +543,22 @@ cannot leave a partial result:
            {
                "robot": context.robot_name,
                "task": dict(context.task_desc),
-               "success": context.environment_success,
+               "environment_success": context.environment_success,
+               **verdict_fields(context),
            },
        )
 
-Register the callback as ``RobotSpec(..., finalize_run=_finalize_run)``. This
-hook is currently limited to normal terminal runs; the Dashboard does not call
-it. Keep benchmark manifests, robot-specific runtime fields, and aggregation
-logic in the robot package rather than the shared CLI.
+Register the callback as ``RobotSpec(..., finalize_run=_finalize_run)``.
+``environment_success`` is the raw verdict and is ``None`` when the run
+produced none, for example a real robot nobody judged; ``verdict_fields``
+then records ``accepted: null`` and ``retryable: true`` instead of inventing a
+failure.
+
+Separately, ``RobotSpec(truth_source=...)`` declares who judges the run:
+``environment`` (the default) for a simulator that reports success, or
+``operator`` for a robot a person ends. It applies whether or not the robot
+registers ``finalize_run``. Keep benchmark manifests, robot-specific runtime
+fields, and aggregation logic in the robot package rather than the shared CLI.
 
 .. _add-robot-testing:
 
