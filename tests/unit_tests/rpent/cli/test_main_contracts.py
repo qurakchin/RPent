@@ -971,7 +971,7 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
     assert calls["get_toolkit"][1]["runtime_kwargs"] == {"runtime": "simulated"}
     assert calls["get_toolkit"][1]["mode"] == "exploration"
     assert calls["get_toolkit"][1]["attempts_per_session"] == 2
-    transcript = json.loads((tmp_path / "transcript_libero_s0.json").read_text())
+    transcript = json.loads((tmp_path / "transcript.json").read_text())
     if outcome == "request_budget":
         assert calls["planner_count"] == 2
         assert len(toolkit.calls) == 8
@@ -982,6 +982,8 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
             "solved": False,
         }
         assert transcript["finish"] is None
+        assert transcript["accepted"] is False
+        assert transcript["failure_category"] == "task_failed"
         assert transcript["stats"]["turns_used"] == 4
         assert len([m for m in transcript["messages"] if m["role"] == "tool"]) == 8
         return
@@ -993,6 +995,11 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
         "solved": True,
     }
     assert transcript["error"] is None
+    assert transcript["accepted"] is True
+    assert transcript["retryable"] is False
+    assert transcript["failure_category"] is None
+    assert transcript["stop_reason"] == "solved"
+    assert transcript["truth_source"] == "environment"
     if outcome == "response_truncated":
         assert calls["planner_count"] == 2
         assert model_requests == 2
@@ -1184,9 +1191,28 @@ def test_full_cli_calls_robot_result_finalizer_without_robot_special_case(
         ],
     )
 
-    assert cli.main() == (1 if planner_error else 0)
-    transcript = json.loads((tmp_path / "transcript_OpenDrawer_s1.json").read_text())
+    # The environment rejected this cell, so the evaluation exits non-zero
+    # whether or not the planner also errored.
+    assert cli.main() == 1
+    transcript = json.loads((tmp_path / "transcript.json").read_text())
     assert transcript["error"] == planner_error
+    assert transcript["accepted"] is False
+    assert transcript["failure_category"] == (
+        "agent_error" if planner_error else "task_failed"
+    )
+    assert transcript["stop_reason"] == (
+        "planner_error" if planner_error else "finished"
+    )
+
+    # run.json names the same agent error the verdict was derived from, and a
+    # run whose artifacts were written has no artifact failure to report.
+    run = json.loads((tmp_path / "run.json").read_text())
+    assert run["error"] == planner_error
+    assert run["artifact_error"] is None
+    assert run["accepted"] is False
+    assert run["failure_category"] == (
+        "agent_error" if planner_error else "task_failed"
+    )
 
     assert len(captured) == 1
     context = captured[0]
@@ -1211,7 +1237,115 @@ def test_full_cli_calls_robot_result_finalizer_without_robot_special_case(
     assert daemon.stopped is True
 
 
-def test_prompt_hook_failure_stops_the_started_runtime(
+def test_full_cli_records_an_unjudged_run_and_exits_75(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A plain real-robot evaluation has no harness verdict and stays retryable."""
+    cli = _cli_module()
+    from rpent.planner.base import PlannerResult
+    from rpent.robots import PromptBundle, RobotSpec, RunConfig
+
+    class FakeDaemon:
+        stopped = False
+
+        def stop(self) -> None:
+            self.stopped = True
+
+    class FakeToolkit:
+        closed = False
+        memory = SimpleNamespace()
+        verdict_read = False
+
+        def solved(self) -> bool:
+            self.verdict_read = True
+            return True
+
+        def cancel_active_and_wait(self) -> None:
+            pytest.fail("an unjudged robot must not be read for a verdict")
+
+        def close(self) -> None:
+            self.closed = True
+
+    class FakePlanner:
+        def solve(self, **kwargs: Any) -> PlannerResult:
+            del kwargs
+            return PlannerResult(
+                finish_result={"status": "completed", "summary": "planner done"},
+                messages=[],
+                stats={"tool_calls": 0},
+            )
+
+    def add_cli_args(parser: Any, use_dashboard: bool) -> None:
+        del use_dashboard
+        parser.add_argument("--task-name", required=True)
+
+    def parse_config(args: Any) -> RunConfig:
+        return RunConfig(
+            recipe_tag=args.task_name,
+            output_dir=Path(args.output_dir),
+            prompt_vars={"memory_dir": args.memory_dir},
+            task_desc={"task_name": args.task_name},
+        )
+
+    daemon = FakeDaemon()
+    toolkit = FakeToolkit()
+    robot_spec = RobotSpec(
+        name="testrobot",
+        prompts=PromptBundle(
+            system=lambda variables: "system",
+            user=lambda variables: "task",
+        ),
+        add_cli_args=add_cli_args,
+        parse_config=parse_config,
+        init_runtime=lambda *args: ([daemon], {"runtime": "simulated"}),
+    )
+
+    monkeypatch.setattr(cli, "enumerate_robots", lambda: ("testrobot",))
+    monkeypatch.setattr(cli, "get_robot_spec", lambda name: robot_spec)
+    monkeypatch.setattr(cli, "build_planner", lambda *args, **kwargs: FakePlanner())
+    monkeypatch.setattr(cli, "get_toolkit", lambda *args, **kwargs: toolkit)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "rpent",
+            "--robot",
+            "testrobot",
+            "--task-name",
+            "OpenDrawer",
+            "--planner",
+            "api",
+            "--model",
+            "gpt-5.5",
+            "--memory-profile",
+            "local",
+            "--output-dir",
+            str(tmp_path),
+        ],
+    )
+
+    assert cli.main() == 75
+    assert toolkit.verdict_read is False
+    transcript = json.loads((tmp_path / "transcript.json").read_text())
+    assert transcript["error"] is None
+    assert transcript["environment_success"] is None
+    assert transcript["accepted"] is None
+    assert transcript["retryable"] is True
+    assert transcript["failure_category"] == "no_verdict"
+    assert transcript["stop_reason"] == "finished"
+    assert transcript["truth_source"] is None
+    run = json.loads((tmp_path / "run.json").read_text())
+    assert run["accepted"] is None
+    assert run["retryable"] is True
+    assert run["failure_category"] == "no_verdict"
+    assert run["truth_source"] is None
+    assert run["error"] is None
+    assert run["artifact_error"] is None
+    assert toolkit.closed is True
+    assert daemon.stopped is True
+
+
+def test_startup_failure_stops_the_runtime_and_closes_the_run_record(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The hook runs after ``init_runtime`` and before the agent-loop cleanup."""
@@ -1275,6 +1409,15 @@ def test_prompt_hook_failure_stops_the_started_runtime(
         cli.main()
 
     assert daemon.stopped is True
+    # The directory was claimed before setup, so the record must say that the
+    # run never started rather than keep ``started_at`` and nothing else.
+    run = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
+    assert run["accepted"] is None and run["retryable"] is True
+    assert run["failure_category"] == "no_verdict"
+    assert run["stop_reason"] == "unfinished"
+    assert run["truth_source"] is None
+    assert run["error"] == "RuntimeError: capability probe failed"
+    assert run["artifacts"] == {} and run["finished_at"].endswith("Z")
 
 
 @pytest.mark.parametrize("dashboard", [False, True])

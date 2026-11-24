@@ -288,7 +288,8 @@ def test_generic_cli_loads_efe_memory_and_tools_through_the_real_mcp_transport(
         memory_dir=memory_dir,
     )
 
-    assert exit_code == 0
+    # The scripted episode never ends, so the service reports no verdict.
+    assert exit_code == 75
     backend = local_backend[0]
     assert backend.thread.local_turn.tools == [
         "read_text_file",
@@ -324,8 +325,9 @@ def test_generic_cli_preserves_child_output_and_accounts_mcp_finish(
         instruction=instruction,
     )
 
-    assert exit_code == 0
-    transcript_path = next(output_dir.glob("transcript_*.json"))
+    # The scripted episode never ends, so the service reports no verdict.
+    assert exit_code == 75
+    transcript_path = output_dir / "transcript.json"
     transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
     result = json.loads((output_dir / "efe-result.json").read_text(encoding="utf-8"))
     assert transcript["error"] is None
@@ -334,6 +336,11 @@ def test_generic_cli_preserves_child_output_and_accounts_mcp_finish(
         "status": "completed",
         "summary": "The Python child wrote control-result.txt.",
     }
+    assert transcript["accepted"] is None
+    assert transcript["retryable"] is True
+    assert transcript["failure_category"] == "no_verdict"
+    assert transcript["truth_source"] is None
+    assert result["accepted"] is None
     assert "reward" not in result
     assert (
         transcript["stats"].items()
@@ -409,7 +416,7 @@ def test_generic_cli_records_a_planner_timeout_as_a_budget_stop(
     )
 
     transcript = json.loads(
-        next(output_dir.glob("transcript_*.json")).read_text(encoding="utf-8")
+        (output_dir / "transcript.json").read_text(encoding="utf-8")
     )
     result = json.loads((output_dir / "efe-result.json").read_text(encoding="utf-8"))
     assert exit_code == 1

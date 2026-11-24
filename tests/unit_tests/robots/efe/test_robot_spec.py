@@ -368,7 +368,8 @@ def test_generic_cli_renders_the_tools_the_session_registers(
         ],
     )
 
-    assert cli.main() == 0
+    # The scripted episode never ends, so the service reports no verdict.
+    assert cli.main() == 75
 
     tools = captured["tools"]
     prompt = captured["system_prompt"]

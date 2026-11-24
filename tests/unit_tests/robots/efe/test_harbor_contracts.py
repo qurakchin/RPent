@@ -168,33 +168,101 @@ def test_run_forwards_the_configured_codex_sandbox(tmp_path, monkeypatch):
     assert command[command.index("--codex-sandbox") + 1] == "full-access"
 
 
+def _run_failing_trial(agent, monkeypatch):
+    execute = AsyncMock(side_effect=RuntimeError("CLI exited with status 1"))
+    monkeypatch.setattr(agent, "exec_as_agent", execute)
+    asyncio.run(agent.run("Task", UploadEnvironment(), AgentContext()))
+    return execute
+
+
 def test_known_planner_budget_stop_does_not_fail_the_harbor_trial(
     tmp_path, monkeypatch
 ):
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
-    execute = AsyncMock(side_effect=RuntimeError("CLI exited with status 1"))
-    monkeypatch.setattr(agent, "exec_as_agent", execute)
-    monkeypatch.setattr(agent, "_transcript_reports_budget_stop", lambda _: True)
+    output_dir = tmp_path / "rpent"
+    output_dir.mkdir()
+    (output_dir / "transcript.json").write_text(
+        json.dumps({"error": "Codex SDK timed out after 12s"}), encoding="utf-8"
+    )
 
-    asyncio.run(agent.run("Task", UploadEnvironment(), AgentContext()))
+    execute = _run_failing_trial(agent, monkeypatch)
 
     execute.assert_awaited_once()
 
 
-def test_transcript_budget_stop_detection_is_narrow(tmp_path):
+def test_a_rejected_verdict_does_not_fail_the_harbor_trial(tmp_path, monkeypatch):
+    agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
+    output_dir = tmp_path / "rpent"
+    output_dir.mkdir()
+    # The CLI exits 1 for a rejected verdict; Harbor grades the final state.
+    (output_dir / "transcript.json").write_text(
+        json.dumps({"accepted": False, "error": None}), encoding="utf-8"
+    )
+
+    execute = _run_failing_trial(agent, monkeypatch)
+
+    execute.assert_awaited_once()
+
+
+def test_a_clean_run_without_a_verdict_is_still_graded(tmp_path, monkeypatch):
+    agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
+    output_dir = tmp_path / "rpent"
+    output_dir.mkdir()
+    # The CLI exits 75 for a clean run whose truth source reported no verdict;
+    # the Verifier grades the state the episode ended in.
+    (output_dir / "transcript.json").write_text(
+        json.dumps({"accepted": None, "error": None}), encoding="utf-8"
+    )
+
+    execute = _run_failing_trial(agent, monkeypatch)
+
+    execute.assert_awaited_once()
+
+
+def test_an_agent_error_without_a_verdict_fails_the_harbor_trial(tmp_path, monkeypatch):
+    agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
+    output_dir = tmp_path / "rpent"
+    output_dir.mkdir()
+    (output_dir / "transcript.json").write_text(
+        json.dumps({"accepted": None, "error": "RuntimeError: grasp lost"}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="status 1"):
+        _run_failing_trial(agent, monkeypatch)
+
+
+def test_graded_outcome_detection_is_narrow(tmp_path):
     output_dir = tmp_path / "rpent"
     output_dir.mkdir()
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
-    transcript = output_dir / "transcript_task.json"
+    transcript = output_dir / "transcript.json"
     transcript.write_text(
         json.dumps({"error": "Codex SDK timed out after 12s"}), encoding="utf-8"
     )
-    assert agent._transcript_reports_budget_stop(output_dir)
+    assert agent._graded_outcome(output_dir) == "an exhausted planner budget"
     transcript.write_text(
         json.dumps({"error": "ConnectionError: Request timed out after 12s"}),
         encoding="utf-8",
     )
-    assert not agent._transcript_reports_budget_stop(output_dir)
+    assert agent._graded_outcome(output_dir) is None
+    transcript.write_text(
+        json.dumps({"accepted": None, "error": "RuntimeError: grasp lost"}),
+        encoding="utf-8",
+    )
+    assert agent._graded_outcome(output_dir) is None
+    # A run that recorded a verdict is graded whatever its exit status was.
+    transcript.write_text(
+        json.dumps({"accepted": True, "error": "agent error"}),
+        encoding="utf-8",
+    )
+    assert agent._graded_outcome(output_dir) == "a recorded verdict"
+    # A clean run without one left a gradeable state.
+    transcript.write_text(
+        json.dumps({"accepted": None, "error": None}),
+        encoding="utf-8",
+    )
+    assert agent._graded_outcome(output_dir) == "an episode the Verifier grades"
 
 
 def test_unknown_codex_sandbox_is_rejected(tmp_path):
@@ -268,7 +336,7 @@ def test_default_source_root_is_the_repository_root(tmp_path):
 def test_post_run_usage_keeps_cached_tokens_inside_input(tmp_path):
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test")
     (tmp_path / "rpent").mkdir()
-    (tmp_path / "rpent/transcript_task.json").write_text(
+    (tmp_path / "rpent/transcript.json").write_text(
         json.dumps(
             {
                 "stats": {
@@ -337,7 +405,7 @@ def test_malformed_usage_events_are_skipped(tmp_path):
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test")
     output_dir = tmp_path / "rpent"
     output_dir.mkdir()
-    (output_dir / "transcript_task.json").write_text(
+    (output_dir / "transcript.json").write_text(
         json.dumps({"stats": {"usage_observed": False}})
     )
     events = [
@@ -372,7 +440,7 @@ def test_zero_usage_trace_is_not_recovered_as_measured(tmp_path):
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test")
     output_dir = tmp_path / "rpent"
     output_dir.mkdir()
-    (output_dir / "transcript_task.json").write_text(
+    (output_dir / "transcript.json").write_text(
         json.dumps({"stats": {"usage_observed": False}})
     )
     event = {
@@ -430,7 +498,7 @@ def test_trial_codex_home_isolated_from_host_codex_home(tmp_path, monkeypatch):
 def test_failed_start_does_not_invent_usage(tmp_path):
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test")
     (tmp_path / "rpent").mkdir()
-    (tmp_path / "rpent/transcript_task.json").write_text(
+    (tmp_path / "rpent/transcript.json").write_text(
         '{"stats": {}, "error": "startup failed"}'
     )
     context = AgentContext()
@@ -446,7 +514,7 @@ def test_failed_start_does_not_invent_usage(tmp_path):
 def test_zeroed_stats_without_observed_usage_stay_unknown(tmp_path):
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test")
     (tmp_path / "rpent").mkdir()
-    (tmp_path / "rpent/transcript_task.json").write_text(
+    (tmp_path / "rpent/transcript.json").write_text(
         json.dumps(
             {
                 "stats": {
@@ -477,7 +545,7 @@ def test_hard_timeout_recovers_observed_usage_from_partial_stream(
     output_dir = tmp_path / "rpent"
     output_dir.mkdir()
     if partial_report is not None:
-        (output_dir / "transcript_task.json").write_text(partial_report)
+        (output_dir / "transcript.json").write_text(partial_report)
     event = {
         "method": "thread/tokenUsage/updated",
         "payload": {
@@ -602,7 +670,7 @@ def test_the_task_config_supplies_the_timeout_without_an_override(tmp_path):
 
 def test_a_transcript_without_a_stats_object_falls_back_to_recovery(tmp_path):
     agent = RPentEfeAgent(logs_dir=tmp_path, model_name="openai/test-model")
-    report = agent.logs_dir / "rpent" / "transcript_task.json"
+    report = agent.logs_dir / "rpent" / "transcript.json"
     report.parent.mkdir(parents=True)
     report.write_text(json.dumps({"error": None, "stats": []}), encoding="utf-8")
     stream = report.parent / "codex.txt.stream.jsonl"

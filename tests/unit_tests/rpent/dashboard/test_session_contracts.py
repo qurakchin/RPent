@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -24,7 +23,7 @@ import pytest
 from rpent.dashboard.session import DashboardSessionController
 from rpent.dashboard.state import ClaimedTask
 from rpent.planner.base import PlannerResult
-from rpent.robots import PromptBundle, RunConfig
+from rpent.robots import PromptBundle, RobotSpec, RunConfig
 
 
 class ScriptedState:
@@ -291,14 +290,12 @@ def test_dashboard_exploration_finalizes_memory_and_reports_merge_failures(
         prompt_vars={},
         task_desc={"robot": "libero"},
     )
-    robot_spec = SimpleNamespace(
+    robot_spec = RobotSpec(
         name="custom_exploration_env",
         finalize_run=finalized.append if collect_metrics else None,
-        prepare_memory=None,
-        prepare_prompt_vars=None,
         supports_exploration=True,
-        is_real_robot=False,
         parse_config=lambda args: run_config,
+        add_cli_args=lambda *args: None,
         init_runtime=lambda *args: ([], {}),
         prompts=PromptBundle(
             system=lambda variables: "system",
@@ -343,7 +340,13 @@ def test_dashboard_exploration_finalizes_memory_and_reports_merge_failures(
     if collect_metrics:
         assert len(finalized) == 1
         assert finalized[0].environment_metrics == {"score": 10 * sessions}
-    assert error is None
+    # A memory artifact the run could not write makes the task fail, the same
+    # way the plain runner reports it; the run itself still finishes.
+    if merge_fails:
+        assert error is not None
+        assert "memory finalization failed: RuntimeError: merge exploded" in error
+    else:
+        assert error is None
     assert state.toolkit_lifecycle == ["bound", "unbound"] * sessions
     assert len(stores) == sessions
     if record_trajectory:

@@ -99,6 +99,12 @@ def test_an_unknown_truth_source_is_rejected():
         _context(truth_source="simulator")
 
 
+def test_the_exit_status_reports_no_verdict_separately(tmp_path: Path) -> None:
+    from rpent.cli.main import _exit_code
+
+    assert [_exit_code(accepted) for accepted in (True, False, None)] == [0, 1, 75]
+
+
 def test_write_json_atomic_replaces_complete_record(tmp_path: Path) -> None:
     destination = tmp_path / "result.json"
     destination.write_text('{"status": "old"}\n', encoding="utf-8")
