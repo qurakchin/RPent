@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Any
 
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
-from rpent.evaluation import RunFinalizer
+from rpent.evaluation import RunFinalizer, TruthSource
 from rpent.robots.prompt_bundle import PromptBundle
 
 if TYPE_CHECKING:
@@ -88,6 +88,11 @@ class RobotSpec:
     #: request_direct_verdict/finalize_direct_verdict/direct_verdict_requested.
     #: Operator success gates automatic memory publication for this capability.
     supports_human_interactive_exploration: bool = False
+    #: Who establishes the outcome the run is judged by, recorded in the run
+    #: verdict. A simulator grades in the harness (``environment``); a real
+    #: robot declares ``operator`` because the onsite operator's confirmation
+    #: is its verdict. The runner records it only when a verdict exists.
+    truth_source: TruthSource = "environment"
     memory_repo_id: str = "RLinf/RPent-memory"
     #: Validate robot arguments without I/O before CLI or Dashboard services start.
     validate_args: Callable[[argparse.Namespace], None] | None = None
@@ -106,3 +111,17 @@ class RobotSpec:
     #: Fields are ordered, with key paths relative to payload data. raw_dtype applies
     #: to native values; dtype_from selects an earlier field's dtype by index.
     flywheel: dict[str, Any] | None = None
+
+    def collects_verdict(self) -> bool:
+        """Whether a run of this robot records a robot-side verdict.
+
+        A robot judged during exploration or by a result finalizer reports an
+        outcome, and a robot whose operator establishes the verdict reports one
+        whenever the operator judges the run. A plain real-robot evaluation
+        nobody judged has no verdict to read.
+        """
+        return (
+            self.supports_exploration
+            or self.finalize_run is not None
+            or self.truth_source == "operator"
+        )

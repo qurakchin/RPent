@@ -72,12 +72,25 @@ def test_finalize_run_writes_environment_result(tmp_path, success, metrics, mode
     record = json.loads(path.read_text())
     if "score_error" in metrics:
         assert record.pop("score_error") == metrics["score_error"]
+    # The artifact carries the run verdict beside the environment result.
+    expected_verdict = {
+        "accepted": success,
+        "retryable": success is None,
+        "failure_category": None if success else "agent_error",
+        "stop_reason": "solved" if success else "planner_error",
+        "truth_source": None,
+    }
     assert record == {
         "task": task_desc["task"],
         "layout": 2,
         "seed": 0,
         "mode": mode,
         "success": success,
+        "accepted": success,
+        "retryable": success is None,
+        "failure_category": None if success is True else "agent_error",
+        "stop_reason": "solved" if success is True else "planner_error",
+        "truth_source": None,
         "score": metrics.get("score"),
         "score_available": metrics.get("score") is not None,
         "environment_result_available": success is not None,
@@ -90,6 +103,7 @@ def test_finalize_run_writes_environment_result(tmp_path, success, metrics, mode
             "max_turns": 20,
         },
         "planner_timeout_s": 60,
+        **expected_verdict,
     }
     assert not (tmp_path / ".result.json.tmp").exists()
 

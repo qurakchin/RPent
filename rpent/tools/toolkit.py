@@ -381,10 +381,13 @@ class Toolkit:
         """Return a rule-checked continuation at an idle planner boundary."""
         return None
 
-    def solved(self) -> bool:
-        """Whether the env has reported the task complete.
+    def solved(self) -> bool | None:
+        """Return the run's verdict from the environment, or None without one.
 
-        Ground truth for the session loop: an agent may call ``finish`` with
+        ``True`` and ``False`` are outcomes the truth source reported; ``None``
+        means no verdict exists in this run, for example an episode still in
+        progress or a service that grades after the record is written. Ground
+        truth for the session loop: an agent may call ``finish`` with
         ``status="success"`` on a cell it did not actually finish, so the
         handoff decision reads the environment, not the agent.
         """

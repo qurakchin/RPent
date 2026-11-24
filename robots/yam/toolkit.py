@@ -536,8 +536,12 @@ class YamToolkit(Toolkit):
                 fps=MODEL_SPEC.control_hz,
             )
 
-    def solved(self) -> bool:
-        return self.status().data.get("eval_success") is True
+    def solved(self) -> bool | None:
+        status = self.status().data
+        if status.get("eval_success_source") == "operator_unset":
+            # The onsite operator establishes this robot's verdict.
+            return None
+        return status.get("eval_success") is True
 
     def write_recipe(self, recipe_tag: str) -> str:
         if not self.solved():

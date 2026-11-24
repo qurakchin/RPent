@@ -286,6 +286,32 @@ def test_generate_from_reviewed_recording(scene, tmp_path, monkeypatch):
         )
 
 
+@pytest.mark.parametrize("name", ["transcript.json", "transcript_OpenDrawer_s1.json"])
+def test_generation_rejects_a_failed_attempt_recording(
+    scene, tmp_path, monkeypatch, name
+):
+    """Both the fixed transcript name and pre-change per-attempt names count."""
+    from robots.franka.flash.generate import generate
+
+    module = importlib.import_module("robots.franka.flash.generate")
+    monkeypatch.setattr(module, "fingerprint", lambda: {})
+    state = scene.state.get().state
+    (tmp_path / "recording_fingerprint.json").write_text("{}")
+    (tmp_path / "states.json").write_text(
+        json.dumps({"steps": [{"step_idx": 0, "state": state}]})
+    )
+    (tmp_path / name).write_text(json.dumps({"finish": {"status": "failure"}}))
+    with pytest.raises(ValueError, match="agent reported failure"):
+        generate(
+            tmp_path,
+            {},
+            robot=scene.robot,
+            task=scene.card["task"],
+            molmo=scene.grounder,
+            human_verdict="success",
+        )
+
+
 @pytest.mark.parametrize("failure_kind", ["depth", "rpc", "missing"])
 def test_agent_fallback_is_shared_by_both_robots(scene, monkeypatch, failure_kind):
     from robots.franka.flash.grounding import localize_with_fallback

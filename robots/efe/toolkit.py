@@ -36,6 +36,10 @@ if TYPE_CHECKING:
 
 logger = get_logger("efe")
 
+#: End reasons of an episode the agent ended on a hidden-success task. The
+#: service withholds the outcome there, so the Verifier grades it later.
+_AGENT_ENDED_REASONS = frozenset({"finished", "agent_finished"})
+
 # The shared tools describe robot artifacts. EFE sessions work on one live
 # episode, so their descriptions must not point the model at recipes or audits.
 _EFE_TOOL_DESCRIPTIONS = {
@@ -90,7 +94,6 @@ class EfeToolkit(Toolkit):
         enable_skills: bool = True,
     ) -> None:
         self._client = client
-        self._solved = False
         self._call_counts: Counter[str] = Counter()
         self._failed_counts: Counter[str] = Counter()
         self._start_submits = client.submit_calls
@@ -191,14 +194,22 @@ class EfeToolkit(Toolkit):
             out.data.update(result)
         return out
 
-    def solved(self) -> bool:
-        """Whether the service itself reported success.
+    def solved(self) -> bool | None:
+        """Return the service's verdict, or None while it has none.
 
-        A ``finish`` call is not a score. Only the service's own end reason is
-        trusted, and the Verifier still grades the episode.
+        A ``finish`` call is not a score. The service reports success on tasks
+        that show it; on hidden-success tasks the agent ends the episode and
+        the Verifier grades the state afterwards, so this record holds no
+        verdict.
         """
-        self._solved |= self._client.done and self._client.done_reason == "success"
-        return self._solved
+        if not self._client.done:
+            return None
+        reason = (self._client.done_reason or "").strip().lower()
+        if reason == "success":
+            return True
+        if not reason or reason in _AGENT_ENDED_REASONS:
+            return None
+        return False
 
     def metrics(self) -> dict[str, Any]:
         """Return this session's counters for the comparison record.

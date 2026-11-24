@@ -134,10 +134,26 @@ def test_state_records_keep_the_frames_of_their_episode(tmp_path, efe_client):
 def test_solved_reads_the_service_verdict_not_finish(tmp_path, efe_client):
     toolkit = _toolkit(tmp_path, efe_client)
 
-    assert toolkit.solved() is False
+    assert toolkit.solved() is None
     efe_client.done = True
     efe_client.done_reason = "success"
     assert toolkit.solved() is True
+    efe_client.done_reason = "timeout"
+    assert toolkit.solved() is False
+
+
+def test_solved_has_no_verdict_after_the_agent_ended_a_hidden_episode(
+    tmp_path, efe_client
+):
+    efe_client.spec["success_signal"] = "hidden"
+    toolkit = _toolkit(tmp_path, efe_client)
+
+    toolkit.execute_tool("efe_end_episode", {})
+    assert efe_client.done and efe_client.done_reason == "finished"
+
+    # The agent ends the episode itself; the Verifier grades the state
+    # afterwards, so this record holds no verdict.
+    assert toolkit.solved() is None
 
 
 def test_metrics_count_session_calls_and_service_progress(tmp_path, efe_client):

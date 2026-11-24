@@ -28,6 +28,7 @@ from robots.robocasa.eval.result import build_cell_result, finalize_cell_result
 from robots.robocasa.eval.validate_target50 import validate_results
 from rpent.evaluation import (
     RunFinalizationContext,
+    verdict_fields,
     write_json_atomic,
 )
 from rpent.tools.common import CommonTools
@@ -383,12 +384,17 @@ def test_robocasa_registers_and_adapts_shared_result_finalizer(tmp_path, monkeyp
         planner_timeout_s=1800,
         finish_result={"status": "failure", "summary": "ignored claim"},
         stats={"tool_calls": 3},
+        truth_source="environment",
     )
 
     path = finalize_cell_result(context)
 
     assert path == tmp_path / "result.json"
-    assert json.loads(path.read_text(encoding="utf-8")) == _cell_result(success=True)
+    record = json.loads(path.read_text(encoding="utf-8"))
+    assert record == {**_cell_result(success=True), **verdict_fields(context)}
+    assert record["accepted"] is True
+    assert record["failure_category"] is None
+    assert record["truth_source"] == "environment"
 
 
 def test_robocasa_finalizer_marks_missing_environment_result_invalid(

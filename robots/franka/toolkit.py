@@ -49,7 +49,8 @@ class FrankaToolkit(Toolkit):
     ) -> None:
         runtime_kwargs = dict(runtime_kwargs)
         self.flash_options = runtime_kwargs.pop("flash_options", None)
-        self._flash_solved = False
+        #: None until a Flash replay's operator confirms or rejects the run.
+        self._flash_solved: bool | None = None
         recording_fingerprint = fingerprint()
         state = EnvState(Path(state_output_dir or get_output_dir()))
         super().__init__(
@@ -80,8 +81,12 @@ class FrankaToolkit(Toolkit):
                 definition.with_handler(partial(definition, state=self._state))
             )
 
-    def solved(self) -> bool:
-        """Return the operator-confirmed Flash replay outcome."""
+    def solved(self) -> bool | None:
+        """Return the operator-confirmed Flash replay outcome, or None without one.
+
+        A run the operator has not judged yet has no verdict; it must not read
+        as a rejected task.
+        """
         return self._flash_solved
 
     def refresh_flash_state(self) -> None:
