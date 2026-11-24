@@ -112,12 +112,12 @@ Prerequisites on the Linux host:
       export RPENT_ROOT=/absolute/path/to/RPent
       export EFE_ROOT=/absolute/path/to/embodied-first-exam
       uv sync --project "$EFE_ROOT" --python 3.12
-      uv pip install --python "$EFE_ROOT/.venv/bin/python" -e "$RPENT_ROOT"
+      uv pip install --python "$EFE_ROOT/.venv/bin/python" -e "$RPENT_ROOT[planner]"
       docker info
       uv run --project "$EFE_ROOT" harbor --version
       test -f "$RPENT_ROOT/robots/efe/harbor_agent.py"
 
-   - ``uv pip install ... -e "$RPENT_ROOT"`` is only needed for manual host runs (``rpent --robot efe``); Harbor trials build and install RPent inside the task container automatically.
+   - ``uv pip install ... -e "$RPENT_ROOT[planner]"`` is only needed for manual host runs (``rpent --robot efe``); Harbor trials build and install RPent inside the task container automatically, including the planner extra.
    - Verify that ``docker info`` succeeds, ``harbor --version`` reports ``0.23.0``, and ``test -f`` exits with ``0``.
 
 3. Select the example AutoBio centrifuge task and configure model credentials:
@@ -187,7 +187,7 @@ Success Criterion
 ~~~~~~~~~~~~~~~~~
 
 - **Native evaluation score**: read ``verifier_result.rewards.success`` in ``<trial_name>/result.json`` (copied from ``verifier/reward.json``). Tasks with retries also log ``first_success`` for the first attempt, while ``success`` reflects the final attempt.
-- Neither ``finish(status="completed")`` nor a ``0`` CLI exit code indicates task success.
+- ``finish(status="completed")`` is not a task-success signal, and neither is the CLI exit code: ``0`` means RPent's own verdict accepted the run, ``1`` that it rejected it, and ``75`` that no verdict was recorded. Task success still comes from the native score above.
 - A trial whose planner exhausts its time budget is still graded: the adapter
   treats budget exhaustion as a normal stop, so the verifier checks the final
   state of the last attempt as usual.

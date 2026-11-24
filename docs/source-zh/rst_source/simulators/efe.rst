@@ -108,12 +108,12 @@ Linux 宿主机前置要求：
       export RPENT_ROOT=/absolute/path/to/RPent
       export EFE_ROOT=/absolute/path/to/embodied-first-exam
       uv sync --project "$EFE_ROOT" --python 3.12
-      uv pip install --python "$EFE_ROOT/.venv/bin/python" -e "$RPENT_ROOT"
+      uv pip install --python "$EFE_ROOT/.venv/bin/python" -e "$RPENT_ROOT[planner]"
       docker info
       uv run --project "$EFE_ROOT" harbor --version
       test -f "$RPENT_ROOT/robots/efe/harbor_agent.py"
 
-   - ``uv pip install ... -e "$RPENT_ROOT"`` 仅供宿主机手动调试（``rpent --robot efe``）使用；Harbor Trial 会在任务容器内自动打包并安装 RPent。
+   - ``uv pip install ... -e "$RPENT_ROOT[planner]"`` 仅供宿主机手动调试（``rpent --robot efe``）使用；Harbor Trial 会在任务容器内自动打包并安装 RPent，并同时安装 ``planner`` 可选依赖。
    - 确认 ``docker info`` 正常输出、``harbor --version`` 显示 ``0.23.0``，且 ``test -f`` 返回 ``0``。
 
 3. 选择 AutoBio 离心机示例任务并配置模型 API：
@@ -183,7 +183,7 @@ Linux 宿主机前置要求：
 ~~~~~~~~
 
 - **任务成功指标**：以 ``<trial_name>/result.json`` 中的 ``verifier_result.rewards.success`` 为准（源自 ``verifier/reward.json``）。支持重试的任务还会记录首次尝试的 ``first_success``，最终得分取最后一次尝试。
-- 规划器调用 ``finish(status="completed")`` 或 CLI 退出码为 ``0`` 仅代表进程正常结束，不代表任务成功。
+- 规划器调用 ``finish(status="completed")`` 不代表任务成功；CLI 退出码同样不是任务成功的判据：``0`` 表示 RPent 自身的判定接受该次运行，``1`` 表示拒绝，``75`` 表示未记录判定。任务成功仍以上面的原生评分为准。
 - 规划器用完时间预算时，Trial 仍会评分：适配器把预算耗尽当作正常结束，评分程序照常检查最后一次尝试的最终状态。
 
 批量运行 benchmark

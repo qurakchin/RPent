@@ -59,6 +59,7 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
 
    Introduction to RPent <rst_source/get_started/overview>
    Quick Start <rst_source/get_started/quickstart>
+   Installation <rst_source/get_started/installation>
 
 .. toctree::
    :maxdepth: 2
@@ -107,6 +108,7 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    RoboCasa365 <rst_source/simulators/robocasa>
    RoboTwin <rst_source/simulators/robotwin>
    RoboDojo <rst_source/simulators/robodojo>
+   RoboLab <rst_source/simulators/robolab>
    Embodied First Exam <rst_source/simulators/efe>
 
 .. toctree::
