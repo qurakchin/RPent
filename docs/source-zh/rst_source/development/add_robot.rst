@@ -16,8 +16,8 @@
 
 RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 <architecture>`。接入机器人或仿真环境时，按以下顺序实现扩展点：
 
-1. 在 :ref:`入口 <add-robot-entry>` 中注册 ``RobotSpec`` 和 toolkit 工厂。
-2. 实现 :ref:`env_client 和 env_server <add-robot-env-rpc>`。如需接入 VLA 服务和 model client，参见
+1. 在 :ref:`入口 <add-robot-entry>` 中注册 ``RobotSpec`` 和 toolkit 工厂，并声明 ``component.toml``。
+2. 实现 :ref:`环境适配 <add-robot-env-rpc>`。如需接入 VLA 服务和 model client，参见
    :ref:`添加一个 VLA（或其他基于模型的原语）<add-primitive-model-based>`。
 3. :ref:`定义 prompt <add-robot-prompts>`。
 4. :ref:`实现 toolkit 和 primitives <add-robot-toolkit>`。
@@ -27,28 +27,79 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-entry:
 
-入口
-----
+入口与组件清单
+--------------
 
-新增名为 ``myrobot`` 的机器人时，目录结构如下：
+机器人是一个组件：``robots/`` 下的一个目录，加上一份描述安装方式的 ``component.toml``。以新机器人 ``myrobot`` 为例，目录结构如下：
 
 .. code-block:: text
 
    robots/myrobot/
-       __init__.py            # 包入口，仅重导出两个工厂
-       robot_spec.py          # RobotSpec、工厂、Dashboard 描述和 runtime 钩子
-       env_client.py          # MyEnvClient —— agent 侧 RPC client (§1)
-       prompt_bundle.py       # system()/user() prompt 工厂              (§2)
-       toolkit.py             # MyRobotToolkit + primitives + 工具定义     (§3)
-       env_server.py          # 环境侧 facade + RPC 服务                 (§1)
-       vla_server.py          # （可选）VLA 模型服务
+       component.toml          # name、probe、python、requires、dependencies
+       __init__.py             # 惰性包入口
+       robot_spec.py           # RobotSpec、工厂、Dashboard 描述和 runtime 钩子
+       env_client.py           # MyEnvClient —— agent 侧 RPC 客户端（第 1 节）
+       prompt_bundle.py        # system_prompt()/user_prompt() prompt 工厂（第 2 节）
+       toolkit.py              # MyRobotToolkit、primitives 与工具定义（第 3 节）
+       env_server.py           # 服务端 facade 与 RPC 服务（第 1 节）
 
-``__init__.py`` 是机器人包入口，应保持精简，仅重导出 ``robot_spec.py`` 中实现的工厂。``rpent/robots/base.py`` 中的注册表会按需导入 ``robots.<name>``，并调用这两个函数：
+``component.toml`` 声明 ``rpent-install`` 读取的清单字段：
+
+.. code-block:: toml
+
+   schema = 2
+   name = "robot-myrobot"
+   probe = "robots.myrobot"
+   planner = true
+   python = ">=3.10,<3.13"
+   requires = ["sim-mysim", "model-mymodel"]
+
+   dependencies = ["my-simulator==1.2"]
+
+每个环境的目标都是 Linux ``x86_64``；清单不声明平台字段。
+
+.. list-table::
+   :header-rows: 1
+   :widths: 18 82
+
+   * - 字段
+     - 说明
+   * - ``name``
+     - 必须为 ``robot-<目录名>``，前缀决定组件类型与代码位置。
+   * - ``probe``
+     - 可导入的包路径。``rpent-install install`` 与 ``doctor`` 会导入该包及其包含的入口模块（``robot_spec``、``env_client``），确认真实依赖已就绪。
+   * - ``planner``
+     - 设为 ``true`` 时，在运行时层 ``rpent`` 之上额外安装 ``rpent[planner]``；仅提供模型服务或仿真器的组件可省略此字段。
+   * - ``requires``
+     - 需安装到同一环境中的其他组件（通常是对应的仿真器、模型服务和工具）。
+   * - ``dependencies``
+     - 仅限本机器人独有的 Python 依赖；多个组件共用的依赖应放到 ``components/infra/`` 下的基础设施组件中。
+   * - ``imports``
+     - 仅当本机器人直接复用另一个机器人的代码时填写对方名称，且两者之一须在 ``requires`` 中声明对方以确保一同安装。工具包与模型服务通过契约解耦，不互相 import。
+
+``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的依赖包。通过 ``__getattr__`` 暴露工厂：
 
 .. code-block:: python
 
    # robots/myrobot/__init__.py
-   from robots.myrobot.robot_spec import get_robot_spec, get_toolkit
+   from typing import TYPE_CHECKING, Any
+
+   if TYPE_CHECKING:
+       from robots.myrobot.robot_spec import get_robot_spec, get_toolkit
+
+   __all__ = ["get_robot_spec", "get_toolkit"]
+
+
+   def __getattr__(name: str) -> Any:
+       if name in __all__:
+           from robots.myrobot import robot_spec
+
+           return getattr(robot_spec, name)
+       raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+``rpent/robots/base.py`` 中的注册表会按需导入 ``robots.<name>``，并调用这两个函数：
+
+.. code-block:: python
 
    # robots/myrobot/robot_spec.py
    from rpent.dashboard.events import DashboardEventSink
@@ -117,19 +168,19 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-env-rpc:
 
-1. ``env_client.py`` + ``env_server.py``
------------------------------------------
+1. 环境适配（adapter）
+----------------------
 
-这两个文件连接 agent 进程与 ``env_server``。client 在 agent 进程内将方法调用转换成 RPC 请求，``env_server`` 负责处理这些请求。
+适配层通过 ``env_client.py`` 和 ``env_server.py`` 经 RPC 将环境暴露给 agent。client 在 agent 进程内将方法调用转换成 RPC 请求，服务端 facade 负责处理这些请求。
 
 1.1 Env client（agent 侧）
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-继承 :class:`rpent.robots.components.env_client_base.BaseEnvClient`。它已经负责启动时校验 ``env.get_env_meta``、执行首次 reset、缓存 ``last_obs``，并实现公共的 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 和 ``get_task_language`` RPC。子类只需增加环境专用方法；扩展方法需要独立超时时，再扩展超时表。RPC 名称需要保持稳定，因为服务端 facade 会显式注册每个名称。
+继承 :class:`rpent.components.env.client.BaseEnvClient`。它已经负责启动时校验 ``env.get_env_meta``、执行首次 reset、缓存 ``last_obs``，并实现公共的 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 和 ``get_task_language`` RPC。子类只需增加环境专用方法；扩展方法需要独立超时时，再扩展超时表。RPC 名称需要保持稳定，因为服务端 facade 会显式注册每个名称。
 
 .. code-block:: python
 
-   from rpent.robots.components.env_client_base import BaseEnvClient
+   from rpent.components.env.client import BaseEnvClient
 
    class MyEnvClient(BaseEnvClient):
        _TIMEOUT_S = {
@@ -150,12 +201,12 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 在 ``env_server`` 中定义与 client API 对应的 facade 类，例如 ``MyEnvFacade``。该类继承
-:class:`rpent.robots.components.env_facade_base.BaseEnvFacade`；基类已提供公共 RPC 路由和
+:class:`rpent.components.env.facade.BaseEnvFacade`；基类已提供公共 RPC 路由和
 读写分派锁。子类实现公共环境方法，并通过 ``_register_rpc`` 增加环境专用路由。方法接收与 client 一致的位置参数和关键字参数，返回传输层支持的 Python / NumPy 值（不要返回 torch；agent 进程不导入 torch）。
 
 .. code-block:: python
 
-   from rpent.robots.components.env_facade_base import BaseEnvFacade
+   from rpent.components.env.facade import BaseEnvFacade
 
    class MyEnvFacade(BaseEnvFacade):
        def __init__(self, env, meta):
@@ -186,10 +237,10 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-prompts:
 
-2. ``prompt_bundle.py``
------------------------
+2. Prompt
+---------
 
-定义 ``system_prompt()`` 和 ``user_prompt()`` 两个 prompt 工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle(system=system_prompt, user=user_prompt)`` （见上面的“入口”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节； ``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等 planner 共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
+prompt 工厂位于 ``prompt_bundle.py``。定义 ``system_prompt()`` 和 ``user_prompt()`` 两个工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle(system=system_prompt, user=user_prompt)``（见上面的“入口与组件清单”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节；``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等规划器共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
 
 .. code-block:: python
 
@@ -218,10 +269,10 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 
 .. _add-robot-toolkit:
 
-3. ``toolkit.py``
-------------------
+3. 原生工具与 toolkit
+---------------------
 
-该模块负责工具定义、动作原语、每步状态记录，以及允许通过 MCP 调用的工具列表。LIBERO 将这些内容分布在 ``tools.py`` 和 ``toolkit.py`` 中；新增机器人时，也可以将它们放在同一个 ``toolkit.py`` 中。
+``toolkit.py``（也可与 ``tools.py`` 拆分）负责工具定义、动作原语、每步状态记录，以及允许通过 MCP 调用的工具列表。LIBERO 将这些内容分开存放；新增机器人可以从单个模块开始。
 
 toolkit 模块通常包含四部分：
 
@@ -288,7 +339,7 @@ toolkit 模块通常包含四部分：
 **``_parse_config(args) -> RunConfig``。** 普通 CLI 模式下，该钩子在 ``parser.parse_args()`` 后调用；Dashboard 模式下，每个 TaskRun 会先把请求字段写入任务参数，再调用该钩子。该钩子校验这些字段并返回
 :class:`~rpent.robots.RunConfig`：
 
-- ``recipe_tag`` —— 单次运行的机器人标签，用于 transcript 文件名和 recipe 路径（LIBERO 使用 ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``）。
+- ``recipe_tag`` —— 单次运行的机器人标签，用于 recipe 路径、planner CLI 输出文件和 transcript 中的 ``recipe_tag`` 字段（LIBERO 使用 ``f"{suite.replace('libero_', '')}_t{task}_s{seed}"``）。
 - ``output_dir`` —— 单次运行的临时目录路径。main.py 随后调用 ``init_output_dir`` 创建目录并配置日志。
 - ``prompt_vars`` —— 传给 ``PromptBundle.render`` 的字典，通常包含运行标识和 prompt 引用的其他变量。
 - ``task_desc`` —— 机器人特定的任务标识字典，会原样写入 transcript JSON 记录（LIBERO 使用 ``{"suite": ..., "task": ..., "seed": ...}``）。
@@ -384,4 +435,4 @@ JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整�
 
 检查至少执行了一个环境动作、transcript 记录了 ``finish``、``states.json`` 包含无错误的动作记录、生成了预期观测工件，以及自己启动的 daemon 全部退出。这种有界接入测试不要求任务成功。
 
-离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装机器人 extra 并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。
+离线测试使用 ``pytest tests/unit_tests/robots/myrobot -v`` 运行。安装该机器人的组件并准备好所需 GPU、checkpoint 和资产后，使用 ``pytest tests/e2e_tests/myrobot -v`` 运行真实组件和调用链测试。干净环境下的 GPU 套件运行方式见 ``tests/README.md`` 和 ``tests/e2e_tests/run_gpu_suite.sh``。
