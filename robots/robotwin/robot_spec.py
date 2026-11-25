@@ -27,12 +27,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from robots.robotwin.memory import prepare_memory, validate_options
-from robots.robotwin.observation import ROBOTWIN_CAMERAS
+from components.sim.robotwin.observation import ROBOTWIN_CAMERAS
 from robots.robotwin.prompt_bundle import system_prompt, user_prompt
 from rpent.dashboard.events import DashboardEventSink, RuntimeStatusEvent
 from rpent.dashboard.spec import DashboardSpec
 from rpent.memory import MemoryManager
-from rpent.robots.components.am_runtime import (
+from rpent.components.models.backends import (
     WAM_BACKENDS,
     add_am_args,
     select_am,
@@ -641,7 +641,7 @@ def _init_runtime(
         daemon, rpc = wam_pending
 
         def connect_wam():
-            from robots.robotwin.wam_client import RoboTwinWAMClient
+            from components.sim.robotwin.wam_client import RoboTwinWAMClient
 
             try:
                 client = RoboTwinWAMClient(rpc)
@@ -791,7 +791,7 @@ def _build_env_runtime_kwargs(
 
 
 def _build_vla_runtime_kwargs(endpoint: tuple[str, int]) -> dict[str, Any]:
-    from robots.robotwin.vla_client import LingBotVLAClient
+    from components.models.lingbot.client import LingBotVLAClient
 
     host, port = endpoint
     model = LingBotVLAClient(host=host, port=port)

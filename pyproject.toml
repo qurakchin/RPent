@@ -65,7 +65,7 @@ dependencies = [
 rpent = "rpent.cli.main:main"
 rpent-memory = "rpent.cli.memory:main"
 rpent-check-llm = "rpent.cli.check_llm:main"
-rpent-flywheel = "rpent.flywheel.cli:main"
+rpent-flywheel = "components.tools.flywheel.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/RLinf/RPent"
@@ -301,7 +301,7 @@ where = ["."]
 # leave the CLI unable to import any backend. The globs also cover every
 # per-robot subpackage (robots.yam.*, robots.robodojo.*, ...), as well as the
 # shared RGB-D tools.
-include = ["rpent*", "robots", "robots.*", "toolkits", "toolkits.*"]
+include = ["rpent*", "robots", "robots.*", "components", "components.*"]
 exclude = ["tests*", "docs*", "examples*", "docker*"]
 
 [tool.setuptools.package-data]
