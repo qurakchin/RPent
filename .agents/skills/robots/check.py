@@ -159,9 +159,16 @@ def _exported_names(tree: ast.Module) -> set[str]:
 def check_exports(robot_dir: str, root: Path | None = None) -> list[route.Finding]:
     """Check that robots/<name>/__init__.py exposes get_robot_spec and get_toolkit."""
     base = root or route.REPO_ROOT
+    robot_path = base / robot_dir
     init_rel = f"{robot_dir}/__init__.py"
     init_path = base / init_rel
     if not init_path.is_file():
+        # Manifest-only robot components (e.g. robots/libero_plus) declare
+        # dependencies without owning a Python package.
+        if (robot_path / "component.toml").is_file() and not any(
+            robot_path.glob("*.py")
+        ):
+            return []
         return [
             route.Finding(
                 "major",
@@ -263,24 +270,22 @@ def check_packaging(root: Path | None = None) -> list[route.Finding]:
                     )
                 )
 
-    includes = set(
-        data.get("tool", {})
-        .get("setuptools", {})
-        .get("packages", {})
-        .get("find", {})
-        .get("include", [])
+    find_section = (
+        data.get("tool", {}).get("setuptools", {}).get("packages", {}).get("find")
     )
-    for required in ("rpent*", "robots", "robots.*"):
-        if required not in includes:
-            findings.append(
-                route.Finding(
-                    "major",
-                    PYPROJECT,
-                    None,
-                    "robots/packaging",
-                    f"[tool.setuptools.packages.find] include is missing {required!r}",
+    if find_section is not None or not (base / "setup.py").is_file():
+        includes = set((find_section or {}).get("include", []))
+        for required in ("rpent*", "robots", "robots.*"):
+            if required not in includes:
+                findings.append(
+                    route.Finding(
+                        "major",
+                        PYPROJECT,
+                        None,
+                        "robots/packaging",
+                        f"[tool.setuptools.packages.find] include is missing {required!r}",
+                    )
                 )
-            )
     return findings
 
 

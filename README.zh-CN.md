@@ -129,17 +129,18 @@ RPent 面向以下四类用户：
 ```bash
 git clone https://github.com/RLinf/RPent rpent && cd rpent
 # 默认推荐（LIBERO-PRO）：
-pip install -e ".[libero-pro]"
+./rpent-install.sh install robot-libero --venv .venv-libero
+source .venv-libero/bin/activate
 
-# 其他环境配置：
-pip install -e ".[robocasa]"    # RoboCasa
-pip install -e ".[robotwin]"    # RoboTwin
-pip install -e ".[robolab]"     # RoboLab 策略环境
-pip install -e ".[franka]"      # Franka / 双臂 Franka
+# 其他机器人用同样的方式安装到各自的环境。
+./rpent-install.sh install robot-robocasa --venv .venv-robocasa
+./rpent-install.sh install robot-robotwin --venv .venv-robotwin
+./rpent-install.sh install robot-robolab --venv .venv-robolab-policy
+./rpent-install.sh install robot-franka --venv .venv-franka-real
 ```
 
-`.[libero-pro]` 是默认推荐配置。其他环境见
-[安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/quickstart.html)。
+`robot-libero` 是默认推荐。全部组件和诊断方法见
+[安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/installation.html)。
 
 RoboLab 仿真环境安装、模型权重与单任务运行示例参见
 [RoboLab 指南](https://rpent.readthedocs.io/zh-cn/latest/rst_source/simulators/robolab.html)。
@@ -163,7 +164,7 @@ liberopro-download-assets --skip-existing
 
 > 💡 访问 Hugging Face 较慢时，可走镜像加速：`HF_ENDPOINT=https://hf-mirror.com liberopro-download-assets --skip-existing`。
 
-其他仿真器见[安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/quickstart.html)。
+其他仿真器见[安装文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/installation.html)。
 
 **3. 配置密钥与 checkpoint，然后运行。**
 
@@ -181,10 +182,10 @@ export PI05_CHECKPOINT_PATH=$PWD/checkpoints/RLinf-Pi05-LIBERO-130-fullshot-SFT
 
 # SAM 3.0 checkpoint —— 从以下地址下载：
 # https://modelscope.cn/models/facebook/sam3
-pip install -U modelscope
+uv pip install -U modelscope
 
-modelscope download facebook/sam3 \
-  --local-dir ./checkpoints/sam3
+modelscope download --model facebook/sam3 sam3.pt \
+  --local_dir ./checkpoints/sam3
 
 export SAM3_CHECKPOINT_PATH=$PWD/checkpoints/sam3/sam3.pt
 export LIBERO_TYPE=pro

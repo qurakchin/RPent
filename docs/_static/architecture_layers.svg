@@ -1,0 +1,271 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="584" viewBox="0 0 1200 584" role="img" aria-labelledby="arch-title arch-desc">
+  <title id="arch-title">RPent Component Layering and Packaging Architecture</title>
+  <desc id="arch-desc">Four import-boundary layers enforced by tests/tooling/layout.py: robots/ imports components/models/, components/tools/, components/sim/, and rpent/; components/models/ imports components/sim/ and rpent/; components/tools/ imports components/models/ clients and rpent/; components/sim/ imports rpent/ only; core rpent/ never statically imports slices or components except rpent/cli/flywheel.py. The PyPI wheel (RPENT_WHEEL_SCOPE=core) ships only rpent/ (core runtime and optional rpent[planner]), while a source checkout installs robots/ and components/ (including manifest-only components/infra/) into isolated uv virtual environments via component.toml and rpent-install.</desc>
+
+  <defs>
+    <linearGradient id="arrow-gray" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8C95A4"/>
+      <stop offset="100%" stop-color="#5B6370"/>
+    </linearGradient>
+    <linearGradient id="arrow-blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3B96ED"/>
+      <stop offset="100%" stop-color="#1976D2"/>
+    </linearGradient>
+    <style>
+      text { font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif; }
+      .hdr { fill: #ffffff; font-size: 16.5px; font-weight: 600; text-anchor: middle; }
+      .card-title { font-size: 13.5px; font-weight: 600; text-anchor: middle; }
+      .pill-text { fill: #ffffff; font-size: 12px; font-weight: 500; text-anchor: middle; }
+      .pill-text-sm { fill: #ffffff; font-size: 11.5px; font-weight: 500; text-anchor: middle; }
+      .note-title { font-size: 11.5px; font-weight: 600; text-anchor: middle; }
+      .note-body { font-size: 11px; text-anchor: middle; }
+      .rule-text { fill: #334155; font-size: 11.8px; font-weight: 500; text-anchor: middle; }
+      .band-title { font-size: 12.5px; font-weight: 600; }
+      .band-sub { font-size: 11.2px; }
+    </style>
+  </defs>
+
+  <!-- Crisp canvas matching README framework diagram -->
+  <rect width="1200" height="584" rx="12" fill="#ffffff"/>
+
+  <!-- ==================== COLUMN 1: robots/ (Green) ==================== -->
+  <g id="layer-robots">
+    <rect x="16" y="16" width="250" height="42" rx="7" fill="#6BA023"/>
+    <text x="141" y="43" class="hdr">robots/</text>
+
+    <rect x="16" y="66" width="250" height="330" rx="8" fill="#F7FBF1" stroke="#6BA023" stroke-width="1.8"/>
+
+    <!-- Robot slices card -->
+    <rect x="28" y="78" width="226" height="242" rx="7" fill="#E3F0D0"/>
+    <text x="141" y="101" class="card-title" fill="#4D7C0F">Robot Slices</text>
+
+    <!-- 2x5 pills -->
+    <rect x="38" y="114" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="87" y="131" class="pill-text">libero</text>
+    <rect x="146" y="114" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="195" y="131" class="pill-text">robocasa</text>
+
+    <rect x="38" y="147" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="87" y="164" class="pill-text">robotwin</text>
+    <rect x="146" y="147" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="195" y="164" class="pill-text">robolab</text>
+
+    <rect x="38" y="180" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="87" y="197" class="pill-text">robodojo</text>
+    <rect x="146" y="180" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="195" y="197" class="pill-text">franka</text>
+
+    <rect x="38" y="213" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="87" y="230" class="pill-text">dual_franka</text>
+    <rect x="146" y="213" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="195" y="230" class="pill-text">yam</text>
+
+    <rect x="38" y="246" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="87" y="263" class="pill-text">efe</text>
+    <rect x="146" y="246" width="98" height="26" rx="5" fill="#7CB32E"/>
+    <text x="195" y="263" class="pill-text">libero_plus</text>
+
+    <text x="141" y="292" class="note-body" fill="#4D7C0F">Lazy __init__.py · component.toml</text>
+    <text x="141" y="309" class="note-body" fill="#4D7C0F">May import any lower layer</text>
+
+    <!-- Sibling import constraint -->
+    <rect x="28" y="330" width="226" height="54" rx="6" fill="#EDF6E1" stroke="#A7CF74" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="141" y="352" class="note-title" fill="#3F6212">Cross-robot imports:</text>
+    <text x="141" y="370" class="note-body" fill="#4D7C0F">Explicit imports in component.toml</text>
+  </g>
+
+  <!-- Arrow 1: robots/ -> components/models & tools -->
+  <polygon points="271,223 283,223 283,213 297,231 283,249 283,239 271,239" fill="url(#arrow-gray)"/>
+
+  <!-- ==================== COLUMN 2: components/models & tools (Sky Blue) ==================== -->
+  <g id="layer-models-tools">
+    <rect x="302" y="16" width="300" height="42" rx="7" fill="#1D88E5"/>
+    <text x="452" y="43" class="hdr">components/models &amp; tools</text>
+
+    <rect x="302" y="66" width="300" height="330" rx="8" fill="#F3F9FE" stroke="#1D88E5" stroke-width="1.8"/>
+
+    <!-- Top card: components/models/ -->
+    <rect x="314" y="78" width="276" height="168" rx="7" fill="#CBE4FC"/>
+    <text x="452" y="100" class="card-title" fill="#1565C0">components/models/</text>
+
+    <!-- 3x3 pills -->
+    <rect x="324" y="111" width="80" height="25" rx="5" fill="#479EEF"/>
+    <text x="364" y="128" class="pill-text">openpi</text>
+    <rect x="412" y="111" width="80" height="25" rx="5" fill="#479EEF"/>
+    <text x="452" y="128" class="pill-text">sam3</text>
+    <rect x="500" y="111" width="80" height="25" rx="5" fill="#479EEF"/>
+    <text x="540" y="128" class="pill-text">rldx</text>
+
+    <rect x="324" y="142" width="80" height="25" rx="5" fill="#479EEF"/>
+    <text x="364" y="159" class="pill-text">lingbot</text>
+    <rect x="412" y="142" width="80" height="25" rx="5" fill="#479EEF"/>
+    <text x="452" y="159" class="pill-text">molmo</text>
+    <rect x="500" y="142" width="80" height="25" rx="5" fill="#479EEF"/>
+    <text x="540" y="159" class="pill-text">vpp2</text>
+
+    <rect x="324" y="173" width="80" height="25" rx="5" fill="#479EEF"/>
+    <text x="364" y="190" class="pill-text">awomo05</text>
+    <rect x="412" y="173" width="80" height="25" rx="5" fill="#479EEF"/>
+    <text x="452" y="190" class="pill-text">apxinf</text>
+    <rect x="500" y="173" width="80" height="25" rx="5" fill="#479EEF"/>
+    <text x="540" y="190" class="pill-text">…</text>
+
+    <text x="452" y="217" class="note-body" fill="#1565C0">Imports rpent/ &amp; sim/ · no sibling models</text>
+    <text x="452" y="234" class="note-body" fill="#1565C0">No tools/ or robots/ imports</text>
+
+    <!-- Upward arrow: tools/ -> models/ (model clients) -->
+    <polygon points="448,276 448,262 441,262 452,249 463,262 456,262 456,276" fill="url(#arrow-blue)"/>
+    <text x="470" y="267" font-size="11.2px" font-weight="600" fill="#1565C0">model clients</text>
+
+    <!-- Bottom card: components/tools/ -->
+    <rect x="314" y="279" width="276" height="106" rx="7" fill="#D6EBFE"/>
+    <text x="452" y="300" class="card-title" fill="#1565C0">components/tools/</text>
+
+    <rect x="328" y="311" width="116" height="26" rx="5" fill="#479EEF"/>
+    <text x="386" y="328" class="pill-text">rgbd</text>
+    <rect x="460" y="311" width="116" height="26" rx="5" fill="#479EEF"/>
+    <text x="518" y="328" class="pill-text">flywheel</text>
+
+    <text x="452" y="356" class="note-body" fill="#1565C0">Imports rpent/ &amp; model clients only</text>
+    <text x="452" y="373" class="note-body" fill="#1565C0">No sim/, robots/, or sibling tool imports</text>
+  </g>
+
+  <!-- Arrow 2: components/models/ -> components/sim/ (aligned with models card) -->
+  <polygon points="607,154 619,154 619,144 633,162 619,180 619,170 607,170" fill="url(#arrow-gray)"/>
+
+  <!-- ==================== COLUMN 3: components/sim/ (Indigo) ==================== -->
+  <g id="layer-sim">
+    <rect x="638" y="16" width="224" height="42" rx="7" fill="#3B62E6"/>
+    <text x="750" y="43" class="hdr">components/sim/</text>
+
+    <rect x="638" y="66" width="224" height="330" rx="8" fill="#F2F5FE" stroke="#3B62E6" stroke-width="1.8"/>
+
+    <!-- Simulator services card -->
+    <rect x="650" y="78" width="200" height="222" rx="7" fill="#D5DFFA"/>
+    <text x="750" y="101" class="card-title" fill="#2B4CC4">Simulator Services</text>
+
+    <rect x="662" y="114" width="176" height="26" rx="5" fill="#6280EB"/>
+    <text x="750" y="131" class="pill-text">libero</text>
+
+    <rect x="662" y="146" width="176" height="26" rx="5" fill="#6280EB"/>
+    <text x="750" y="163" class="pill-text">libero_plus</text>
+
+    <rect x="662" y="178" width="176" height="26" rx="5" fill="#6280EB"/>
+    <text x="750" y="195" class="pill-text">robocasa</text>
+
+    <rect x="662" y="210" width="176" height="26" rx="5" fill="#6280EB"/>
+    <text x="750" y="227" class="pill-text">robodojo</text>
+
+    <rect x="662" y="242" width="176" height="26" rx="5" fill="#6280EB"/>
+    <text x="750" y="259" class="pill-text">robotwin</text>
+
+    <text x="750" y="288" class="note-body" fill="#2B4CC4">Imports rpent/ only</text>
+
+    <!-- Isolation boundary note -->
+    <rect x="650" y="312" width="200" height="72" rx="6" fill="#E8EEFD" stroke="#99B0F5" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="750" y="335" class="note-title" fill="#2B4CC4">Isolation boundary:</text>
+    <text x="750" y="353" class="note-body" fill="#2B4CC4">No sibling sim/, models/,</text>
+    <text x="750" y="369" class="note-body" fill="#2B4CC4">tools/, or robots/ imports</text>
+  </g>
+
+  <!-- Arrow 3: components/sim/ -> rpent/ -->
+  <polygon points="867,154 879,154 879,144 893,162 879,180 879,170 867,170" fill="url(#arrow-gray)"/>
+
+  <!-- ==================== COLUMN 4: rpent/ Core (Purple) ==================== -->
+  <g id="layer-core">
+    <rect x="898" y="16" width="286" height="42" rx="7" fill="#7C3AED"/>
+    <text x="1041" y="43" class="hdr">rpent/ (Core)</text>
+
+    <rect x="898" y="66" width="286" height="330" rx="8" fill="#F6F1FE" stroke="#7C3AED" stroke-width="1.8"/>
+
+    <!-- Top card: rpent[planner] -->
+    <rect x="910" y="78" width="262" height="122" rx="7" fill="#E3D5FC"/>
+    <text x="1041" y="100" class="card-title" fill="#5B21B6">rpent[planner] (Optional Extra)</text>
+
+    <rect x="920" y="112" width="76" height="24" rx="5" fill="#9772EE"/>
+    <text x="958" y="128" class="pill-text-sm">planner/</text>
+    <rect x="1003" y="112" width="76" height="24" rx="5" fill="#9772EE"/>
+    <text x="1041" y="128" class="pill-text-sm">session/</text>
+    <rect x="1086" y="112" width="76" height="24" rx="5" fill="#9772EE"/>
+    <text x="1124" y="128" class="pill-text-sm">prompt/</text>
+
+    <rect x="920" y="143" width="76" height="24" rx="5" fill="#9772EE"/>
+    <text x="958" y="159" class="pill-text-sm">tools/</text>
+    <rect x="1003" y="143" width="76" height="24" rx="5" fill="#9772EE"/>
+    <text x="1041" y="159" class="pill-text-sm">memory/</text>
+    <rect x="1086" y="143" width="76" height="24" rx="5" fill="#9772EE"/>
+    <text x="1124" y="159" class="pill-text-sm">dashboard/</text>
+
+    <text x="1041" y="187" class="note-body" fill="#5B21B6">Adapters, loop, Web UI · planner = true</text>
+
+    <!-- Middle card: rpent base runtime -->
+    <rect x="910" y="210" width="262" height="118" rx="7" fill="#E3D5FC"/>
+    <text x="1041" y="232" class="card-title" fill="#5B21B6">rpent (Core Runtime)</text>
+
+    <rect x="918" y="244" width="121" height="24" rx="5" fill="#8B5CF6"/>
+    <text x="978.5" y="260" class="pill-text-sm">components/env</text>
+    <rect x="1043" y="244" width="121" height="24" rx="5" fill="#8B5CF6"/>
+    <text x="1103.5" y="260" class="pill-text-sm">components/models</text>
+
+    <rect x="920" y="275" width="76" height="24" rx="5" fill="#8B5CF6"/>
+    <text x="958" y="291" class="pill-text-sm">robots/</text>
+    <rect x="1003" y="275" width="76" height="24" rx="5" fill="#8B5CF6"/>
+    <text x="1041" y="291" class="pill-text-sm">cli/</text>
+    <rect x="1086" y="275" width="76" height="24" rx="5" fill="#8B5CF6"/>
+    <text x="1124" y="291" class="pill-text-sm">install/</text>
+
+    <text x="1041" y="317" class="note-body" fill="#5B21B6">Contracts, RPC, clients, discovery, installer</text>
+
+    <!-- Dynamic discovery note -->
+    <rect x="910" y="338" width="262" height="46" rx="6" fill="#EFE8FD" stroke="#BFA5F7" stroke-width="1.2" stroke-dasharray="4 3"/>
+    <text x="1041" y="357" class="note-title" fill="#5B21B6">No static imports of robots/ or components/</text>
+    <text x="1041" y="373" class="note-body" fill="#6D28D9">(exception: rpent/cli/flywheel.py)</text>
+  </g>
+
+  <!-- ==================== IMPORT RULE STRIP ==================== -->
+  <g id="import-rules">
+    <rect x="16" y="406" width="1168" height="28" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="1.2"/>
+    <text x="600" y="424" class="rule-text">Import boundaries (tests/tooling/layout.py):  robots/ → models/, tools/, sim/, rpent/   |   models/ → sim/, rpent/   |   tools/ → models/, rpent/   |   sim/ → rpent/</text>
+  </g>
+
+  <!-- ==================== PACKAGING & DISTRIBUTION SPLIT ==================== -->
+  <g id="packaging-split">
+    <!-- Checkout-only layers (aligned under Cols 1–3) -->
+    <rect x="16" y="446" width="846" height="54" rx="7" fill="#F1F5F9" stroke="#94A3B8" stroke-width="1.5"/>
+    <rect x="26" y="457" width="166" height="32" rx="5" fill="#475569"/>
+    <text x="109" y="477" class="pill-text" font-weight="600">Checkout-Only Layers</text>
+    <text x="206" y="469" class="band-title" fill="#1E293B">robots/ · components/{sim, models, tools} · components/infra/ (dev, minimal, rlinf, unit_cpu)</text>
+    <text x="206" y="488" class="band-sub" fill="#475569">Excluded from the PyPI wheel; each component declares a component.toml manifest (infra/ has manifests only)</text>
+
+    <!-- PyPI Wheel (aligned directly under Col 4: rpent/) -->
+    <rect x="898" y="446" width="286" height="54" rx="7" fill="#F3ECFE" stroke="#7C3AED" stroke-width="1.8"/>
+    <text x="1041" y="469" class="band-title" fill="#5B21B6" text-anchor="middle">PyPI Wheel (RPENT_WHEEL_SCOPE=core)</text>
+    <text x="1041" y="488" class="band-sub" fill="#6D28D9" text-anchor="middle">Ships rpent/ only: rpent &amp; rpent[planner]</text>
+
+    <!-- Full-width Source Checkout + rpent-install workflow -->
+    <rect x="16" y="512" width="1168" height="56" rx="7" fill="#EFF6FF" stroke="#1D88E5" stroke-width="1.8"/>
+    <rect x="28" y="524" width="232" height="32" rx="5" fill="#1D88E5"/>
+    <text x="144" y="544" class="pill-text" font-weight="600">Source Checkout &amp; rpent-install</text>
+
+    <!-- Step 1 -->
+    <rect x="276" y="520" width="268" height="40" rx="5" fill="#ffffff" stroke="#BFDBFE" stroke-width="1.2"/>
+    <text x="410" y="536" class="note-title" fill="#1E3A8A">component.toml manifests</text>
+    <text x="410" y="552" class="note-body" fill="#475569">robots/, components/*, infra/</text>
+
+    <!-- Mini arrow 1 -->
+    <polygon points="550,537 558,537 558,532 568,540 558,548 558,543 550,543" fill="url(#arrow-gray)"/>
+
+    <!-- Step 2 -->
+    <rect x="574" y="520" width="282" height="40" rx="5" fill="#ffffff" stroke="#BFDBFE" stroke-width="1.2"/>
+    <text x="715" y="536" class="note-title" fill="#1E3A8A">rpent-install closure resolution</text>
+    <text x="715" y="552" class="note-body" fill="#475569">requires, planner = true, Python range</text>
+
+    <!-- Mini arrow 2 -->
+    <polygon points="862,537 870,537 870,532 880,540 870,548 870,543 862,543" fill="url(#arrow-gray)"/>
+
+    <!-- Step 3 -->
+    <rect x="886" y="520" width="284" height="40" rx="5" fill="#ffffff" stroke="#BFDBFE" stroke-width="1.2"/>
+    <text x="1028" y="536" class="note-title" fill="#1E3A8A">Isolated uv virtualenv</text>
+    <text x="1028" y="552" class="note-body" fill="#475569">--no-deps -e . · probes · rpent-install.json</text>
+  </g>
+</svg>

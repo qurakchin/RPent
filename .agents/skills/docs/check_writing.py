@@ -161,7 +161,7 @@ def _decorator_is_tool(dec: ast.expr) -> bool:
 def _tool_names(root: Path) -> set[str]:
     """Registered user-facing tool names declared with ``@tool`` or ``Tool``."""
     names: set[str] = set()
-    for folder in ("rpent", "robots", "toolkits"):
+    for folder in ("rpent", "robots", "components", "toolkits"):
         target = root / folder
         if not target.is_dir():
             continue
@@ -233,10 +233,10 @@ def _json_keys(obj: object) -> set[str]:
 
 
 def code_names(root: Path) -> frozenset[str]:
-    """Classes and functions under ``rpent/``, ``robots/``, and ``toolkits/``, minus config/user names."""
+    """Classes and functions under ``rpent/``, ``robots/``, ``components/``, and ``toolkits/``, minus config/user names."""
     defined: set[str] = set()
     keys: set[str] = set()
-    for folder in ("rpent", "robots", "toolkits"):
+    for folder in ("rpent", "robots", "components", "toolkits"):
         target = root / folder
         if not target.is_dir():
             continue

@@ -38,7 +38,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import route  # noqa: E402
 
 HEADER = re.compile(r"# Copyright (\d{4}) The RPent Authors\.")
-PACKAGE_ROOTS = ("rpent", "robots", "toolkits")
+PACKAGE_ROOTS = ("rpent", "robots", "components", "toolkits")
+STANDALONE_SCRIPT_DIRS = frozenset({"robots/dual_franka/calibration"})
 
 
 def check_pre_commit(paths: list[str]) -> list[route.Finding]:
@@ -121,6 +122,9 @@ def check_init(root: Path | None = None) -> list[route.Finding]:
         ):
             if "__pycache__" in directory.parts:
                 continue
+            rel_dir = directory.relative_to(base).as_posix()
+            if rel_dir in STANDALONE_SCRIPT_DIRS:
+                continue
             if (
                 any(directory.glob("*.py"))
                 and not (directory / "__init__.py").is_file()
@@ -128,7 +132,7 @@ def check_init(root: Path | None = None) -> list[route.Finding]:
                 findings.append(
                     route.Finding(
                         "major",
-                        directory.relative_to(base).as_posix(),
+                        rel_dir,
                         None,
                         "code/init",
                         "has Python files but no __init__.py",
