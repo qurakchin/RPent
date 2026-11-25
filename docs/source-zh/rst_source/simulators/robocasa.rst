@@ -487,8 +487,8 @@ VLA 推理检查
 启动与推理
 ~~~~~~~~~~~~
 
-- **旧环境缺少 RLDX 接口：** 重新执行 ``rpent-install install robot-robocasa --venv .venv-robocasa``，再在环境中重装 ``rlinf-rldx``。旧 PyPI wheel 即使版本号相同，也可能缺少所需接口。
-- **缺少导航相机：** 若报错包含 ``mobilebase0_navview``，重新执行 ``rpent-install install robot-robocasa --venv .venv-robocasa`` 以更新 Robosuite，不要手改 XML。
+- **旧环境缺少 RLDX 接口：** 重新执行 ``./rpent-install.sh install robot-robocasa --venv .venv-robocasa``，再在环境中重装 ``rlinf-rldx``。旧 PyPI wheel 即使版本号相同，也可能缺少所需接口。
+- **缺少导航相机：** 若报错包含 ``mobilebase0_navview``，重新执行 ``./rpent-install.sh install robot-robocasa --venv .venv-robocasa`` 以更新 Robosuite，不要手改 XML。
 - **目录权限错误：** 使用 ``sim-robocasa`` 安装的源码依赖，XML 转换应写入临时目录。将 ``NUMBA_CACHE_DIR`` 指向可写目录，无需修改包权限。
 - **CUDA/EGL 不可用：** 按本机配置选择 Torch/torchvision，再运行 :ref:`环境自检 <environment-smoke-tests>` 验证 GPU 运算和渲染；仅查看驱动版本不足以确认可用。
 - **离线找不到模型文件：** 核对 :ref:`支持文件和缓存路径 <robocasa-vla-configuration>`。``NO_ALBUMENTATIONS_UPDATE=1`` 只关闭更新检查，无需因此修改图像处理或 geometry fallback 参数。

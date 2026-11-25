@@ -65,17 +65,21 @@ described above. Installable components that are not robots live under
 
 Import boundaries are enforced by ``tests/tooling/layout.py`` along the layer
 order ``rpent/`` ← ``components/sim/`` ← ``components/models/`` ← ``robots/``:
-core ``rpent/`` discovers components dynamically and never imports concrete
-robots, simulators, models, or tools statically (except
-``rpent/cli/flywheel.py``); ``components/sim/`` imports only ``rpent/``;
-``components/tools/`` imports only ``rpent/`` and model clients under
-``components/models/``; sibling imports across simulators, models, or tools
-are forbidden; and cross-robot imports require an explicit ``imports`` entry
-in ``component.toml``. For packaging, the PyPI wheel
-(``RPENT_WHEEL_SCOPE=core``) ships only ``rpent/`` (the core runtime plus the
-optional ``rpent[planner]`` extra), while a source checkout builds isolated
-environments for ``robots/`` and ``components/`` from their ``component.toml``
-manifests via ``rpent-install``.
+
+- Core ``rpent/`` discovers components dynamically and never imports concrete
+  robots, simulators, models, or tools statically; the only exception is
+  ``rpent/cli/flywheel.py``, which imports ``components/tools``.
+- ``components/sim/`` imports only ``rpent/``; ``components/models/`` imports
+  only ``rpent/`` and ``components/sim/``; ``components/tools/`` imports only
+  ``rpent/`` and model clients under ``components/models/``.
+- Sibling imports across simulators, models, or tools are forbidden;
+  cross-robot imports require an explicit ``imports`` entry in
+  ``component.toml``.
+
+For packaging, the PyPI wheel (``RPENT_WHEEL_SCOPE=core``) ships only
+``rpent/`` (the core runtime plus the optional ``rpent[planner]`` extra), while
+a source checkout builds isolated environments for ``robots/`` and
+``components/`` from their ``component.toml`` manifests via ``rpent-install``.
 
 .. image:: ../../../_static/architecture_layers.svg
    :alt: RPent component layering, import boundaries, and packaging split between the PyPI core wheel and rpent-install checkout environments
@@ -96,9 +100,11 @@ manifests via ``rpent-install``.
      tools/          # Toolkit and shared tool behavior
      memory/         # Memory permissions, merge, and indexing
      evaluation/     # Evaluation result support
+     utils/          # Logging, config, RPC transport, and shared helpers
      install/        # Manifests, resolution, fingerprints
    robots/<name>/    # Slice: native translation and differentiated features
      libero/
+     libero_plus/
      robocasa/
      robotwin/
      robolab/

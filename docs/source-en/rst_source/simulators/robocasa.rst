@@ -638,11 +638,11 @@ Startup and Inference
 ~~~~~~~~~~~~~~~~~~~~~
 
 - **Missing RLDX interfaces in an old environment:** rerun
-  ``rpent-install install robot-robocasa --venv .venv-robocasa``, then reinstall ``rlinf-rldx`` in the
+  ``./rpent-install.sh install robot-robocasa --venv .venv-robocasa``, then reinstall ``rlinf-rldx`` in the
   environment. Older PyPI wheels can lack required interfaces even with the same
   version number.
 - **Missing navigation camera:** if the error names ``mobilebase0_navview``,
-  rerun ``rpent-install install robot-robocasa --venv .venv-robocasa`` to update Robosuite rather than
+  rerun ``./rpent-install.sh install robot-robocasa --venv .venv-robocasa`` to update Robosuite rather than
   patching XML.
 - **Directory permission errors:** use the source dependencies installed by
   ``sim-robocasa``; XML conversion should write temporary files. Set

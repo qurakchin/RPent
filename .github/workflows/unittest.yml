@@ -59,12 +59,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-      - name: Create environment for Python ${{ matrix.python-version }}
-        run: |
-          uv python install ${{ matrix.python-version }}
-          uv venv --python ${{ matrix.python-version }} .venv
-      - name: Install unit test environment
-        run: ./rpent-install.sh install infra-unit_cpu --venv .venv
+      - name: Install unit test environment (Python ${{ matrix.python-version }})
+        run: ./rpent-install.sh install infra-unit_cpu --python ${{ matrix.python-version }} --venv .venv
       - name: Run unit tests with coverage
         run: |
           .venv/bin/python -m coverage run --source=rpent,robots,components \

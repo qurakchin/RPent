@@ -125,9 +125,11 @@ def test_install_preserves_overlays_on_rerun_and_forwards_index_and_torch_backen
         verbose=False,
     )
     assert fp["targets"] == ["infra-a"]
-    pip_cmd, pip_env = next(c for c in commands if c[0][:3] == ["uv", "pip", "install"])
-    assert "--index-url" in pip_cmd and "https://mirror.example/simple" in pip_cmd
-    assert pip_env is not None and pip_env["UV_TORCH_BACKEND"] == "cu126"
+    pip_cmds = [c for c in commands if c[0][:3] == ["uv", "pip", "install"]]
+    assert len(pip_cmds) == 2
+    for pip_cmd, pip_env in pip_cmds:
+        assert "--index-url" in pip_cmd and "https://mirror.example/simple" in pip_cmd
+        assert pip_env is not None and pip_env["UV_TORCH_BACKEND"] == "cu126"
 
     # Re-running the same closure updates in place without nuking overlaid files.
     overlay_marker = venv / "custom-overlay.txt"
@@ -222,6 +224,8 @@ def test_install_force_restores_previous_venv_on_failure(tmp_path, monkeypatch):
         if cmd[:2] == ["uv", "venv"]:
             _fake_venv(Path(cmd[-1]))
             return ""
+        if "platform.python_version()" in " ".join(cmd):
+            return "3.11.9\n"
         if cmd[:3] == ["uv", "pip", "install"]:
             raise InstallError("network down")
         return ""
@@ -296,6 +300,8 @@ def test_install_force_accepts_existing_empty_directory(tmp_path, monkeypatch):
         if cmd[:2] == ["uv", "venv"]:
             _fake_venv(Path(cmd[-1]))
             return ""
+        if "platform.python_version()" in " ".join(cmd):
+            return "3.11.9\n"
         if cmd[:3] == ["uv", "pip", "install"]:
             raise InstallError("pip failed")
         return ""
@@ -328,6 +334,8 @@ def test_install_removes_newly_created_venv_on_failure(tmp_path, monkeypatch):
         if cmd[:2] == ["uv", "venv"]:
             _fake_venv(Path(cmd[-1]))
             return ""
+        if "platform.python_version()" in " ".join(cmd):
+            return "3.11.9\n"
         if cmd[:3] == ["uv", "pip", "install"]:
             raise InstallError("timed out")
         return ""
@@ -631,3 +639,166 @@ def test_install_rejects_broken_venv_without_python_and_preserves_directory(
     )
     assert fp["targets"] == ["infra-a"]
     assert not marker.exists()
+
+
+def test_install_rechecks_patch_level_python_after_creating_venv(tmp_path, monkeypatch):
+    repo = _write_repo(tmp_path / "repo")
+    (repo / "components/infra/a/component.toml").write_text(
+        'schema = 2\nname = "infra-a"\nprobe = "rpent"\npython = ">=3.11.4,<3.12"\n',
+        encoding="utf-8",
+    )
+    venv = tmp_path / ".venv-patch"
+    monkeypatch.setattr(installer, "find_uv", lambda: "uv")
+
+    def fake_run(cmd, *, env=None, capture=False, cwd=None, timeout=3600.0):
+        if cmd[:2] == ["uv", "venv"]:
+            _fake_venv(Path(cmd[-1]))
+        elif "platform.python_version()" in " ".join(cmd):
+            return "3.11.2\n"
+        return ""
+
+    monkeypatch.setattr(installer, "run_command", fake_run)
+    with pytest.raises(InstallError, match="3.11.2"):
+        installer.install(["infra-a"], root=repo, venv=venv, verbose=False)
+    assert not venv.exists()
+
+
+def test_install_python_flag_and_doctor_fingerprint_outside_checkout(
+    tmp_path, monkeypatch, capsys
+):
+    repo = _write_repo(tmp_path / "repo")
+    venv = tmp_path / ".venv-py311"
+    monkeypatch.setattr(installer, "find_uv", lambda: "uv")
+    seen_venv_cmd: list[str] = []
+
+    def fake_run(cmd, *, env=None, capture=False, cwd=None, timeout=3600.0):
+        if cmd[:2] == ["uv", "venv"]:
+            seen_venv_cmd.extend(cmd)
+            _fake_venv(Path(cmd[-1]))
+        elif "platform.python_version()" in " ".join(cmd):
+            return "3.11.9\n"
+        elif cmd[:3] == ["uv", "pip", "freeze"]:
+            return "numpy==1.26.4\n"
+        return ""
+
+    monkeypatch.setattr(installer, "run_command", fake_run)
+    assert (
+        install_cli.main(
+            [
+                "--root",
+                str(repo),
+                "install",
+                "infra-a",
+                "--python",
+                "3.11",
+                "--venv",
+                str(venv),
+            ]
+        )
+        == 0
+    )
+    assert "--python" in seen_venv_cmd
+    assert seen_venv_cmd[seen_venv_cmd.index("--python") + 1] == "3.11"
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    monkeypatch.chdir(outside)
+    monkeypatch.delenv("RPENT_DEFAULT_ROOT", raising=False)
+    assert install_cli.main(["doctor", "--venv", str(venv), "--fingerprint"]) == 0
+    assert "python: 3.11.9" in capsys.readouterr().out
+
+
+def test_doctor_fails_on_invalid_components_record(tmp_path, monkeypatch):
+    repo = _write_repo(tmp_path / "repo")
+    venv = _fake_venv(tmp_path / ".venv-bad-fp")
+    fp = _write_valid_fingerprint(repo, venv, "infra-a")
+    fp["components"] = []
+    installer.write_fingerprint(venv, fp)
+    monkeypatch.setattr(installer, "find_uv", lambda: "uv")
+    monkeypatch.setattr(
+        installer,
+        "_run_diag",
+        lambda cmd: subprocess.CompletedProcess(
+            cmd,
+            0,
+            "numpy==1.26.4\n" if cmd[:3] == ["uv", "pip", "freeze"] else "",
+            "",
+        ),
+    )
+
+    checks = installer.check_installation(venv, root=repo)
+    assert any(
+        c.status == installer.FAIL and "invalid components record" in c.message
+        for c in checks
+    )
+
+
+def test_install_and_doctor_downgrade_pip_check_when_overrides_declared(
+    tmp_path, monkeypatch, capsys
+):
+    repo = _write_repo(tmp_path / "repo")
+    override_file = repo / "components/infra/a/override.txt"
+    override_file.write_text("torch==2.7.0\n", encoding="utf-8")
+    (repo / "components/infra/a/component.toml").write_text(
+        'schema = 2\nname = "infra-a"\nprobe = "json"\n'
+        'overrides = ["override.txt"]\ndependencies = []\n',
+        encoding="utf-8",
+    )
+    venv = tmp_path / ".venv-override"
+    ran_hard_check = False
+
+    def fake_run(cmd, *, env=None, capture=False, cwd=None, timeout=3600.0):
+        nonlocal ran_hard_check
+        if cmd[:2] == ["uv", "venv"]:
+            _fake_venv(Path(cmd[-1]))
+        elif "platform.python_version()" in " ".join(cmd):
+            return "3.11.9\n"
+        elif cmd[:3] == ["uv", "pip", "check"]:
+            ran_hard_check = True
+            raise InstallError("uv pip check should not hard-fail with overrides")
+        elif cmd[:3] == ["uv", "pip", "freeze"]:
+            return "numpy==1.26.4\n"
+        return ""
+
+    def fake_diag(cmd):
+        if cmd[:3] == ["uv", "pip", "check"]:
+            return subprocess.CompletedProcess(
+                cmd, 1, "", "pkg requires torch==2.7.1, but torch 2.7.0 is installed"
+            )
+        if cmd[:3] == ["uv", "pip", "freeze"]:
+            return subprocess.CompletedProcess(cmd, 0, "numpy==1.26.4\n", "")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(installer, "find_uv", lambda: "uv")
+    monkeypatch.setattr(installer, "run_command", fake_run)
+    monkeypatch.setattr(installer, "_run_diag", fake_diag)
+
+    fp = installer.install(["infra-a"], root=repo, venv=venv, verbose=True)
+    assert not ran_hard_check
+    assert venv.is_dir()
+    assert fp["targets"] == ["infra-a"]
+    assert "override-induced mismatches" in capsys.readouterr().err
+
+    checks = installer.check_installation(venv, root=repo)
+    assert not any(c.status == installer.FAIL for c in checks)
+    assert any(
+        c.status == installer.WARN and "override-induced mismatches" in c.message
+        for c in checks
+    )
+
+
+def test_install_rejects_broken_venv_with_same_closure_fingerprint_without_deleting(
+    tmp_path, monkeypatch
+):
+    repo = _write_repo(tmp_path / "repo")
+    venv = _fake_venv(tmp_path / ".venv-dangling")
+    _write_valid_fingerprint(repo, venv, "infra-a")
+    marker = venv / "keep.txt"
+    marker.write_text("do-not-delete", encoding="utf-8")
+    (venv / "bin/python").unlink()
+
+    monkeypatch.setattr(installer, "find_uv", lambda: "uv")
+    with pytest.raises(InstallError, match="pyvenv.cfg.*no Python interpreter"):
+        installer.install(["infra-a"], root=repo, venv=venv, verbose=False)
+    assert venv.is_dir()
+    assert marker.read_text(encoding="utf-8") == "do-not-delete"

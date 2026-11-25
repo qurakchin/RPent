@@ -77,7 +77,10 @@ Follow these conventions while developing:
   `components/sim/<name>/`, and model services in `components/models/<name>/`.
   Place shared functionality in common modules with matching responsibilities.
   Infrastructure components that install packages without owning code live in
-  `components/infra/<name>/`, which holds their `component.toml` and no code.
+  `components/infra/<name>/`, which holds their `component.toml` and no code
+  (dependency-only variants of an existing robot or simulator, such as
+  `robots/libero_plus/` and `components/sim/libero_plus/`, may also be
+  manifest-only).
 - **Check responsibilities and impact when changing shared modules, classes,
   or methods.** Keep changes within their existing responsibilities and use
   existing extension points where they fit. Keep robot-specific policy and
@@ -116,6 +119,10 @@ Before opening a pull request, run the same required checks as CI:
 ```bash
 # Format and lint the complete repository.
 pre-commit run --all-files
+
+# Verify repository layout, import boundaries, and component manifests.
+./tests/tooling/run.sh layout
+./rpent-install.sh check --all
 
 # Run all unit tests. The suite needs the infra-unit_cpu environment, which
 # infra-dev deliberately omits; see tests/README.md.

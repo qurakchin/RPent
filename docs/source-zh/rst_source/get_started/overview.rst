@@ -41,12 +41,16 @@ RPent 的三条核心设计原则是服务化、标准化和可组合（service-
      - LingBot-VLA、双臂仿真任务和 C2R 复现。
    * - :doc:`RoboDojo <../simulators/robodojo>`
      - Isaac Sim 双臂 ARX-X5 操作，使用 RLinf Pi0.5 策略。
+   * - :doc:`RoboLab <../simulators/robolab>`
+     - RLinf RoboLab Isaac Sim 仿真环境与策略部署。
+   * - :doc:`EFE <../simulators/efe>`
+     - 通过 Harbor 运行 Embodied First Exam（EFE）任务，支持 Skills 或原生动作。
    * - :doc:`单臂 Franka <../real_world_robots/franka>`
      - 硬件准备、标定、自检和运行。
    * - :doc:`双臂 Franka <../real_world_robots/dual_franka>`
      - 双节点部署、操作与人工参与的探索。
    * - :doc:`YAM <../real_world_robots/yam>`
-     - 已有任务演示；安装使用文档即将推出。
+     - 双臂双机部署、手动技能测试与任务运行。
    * - :doc:`SO-101 <../real_world_robots/so101>`
      - 内容即将推出。
 
@@ -54,4 +58,4 @@ RPent 的三条核心设计原则是服务化、标准化和可组合（service-
 
 从 :doc:`quickstart` 开始运行第一个任务。评测成绩和资源开销见 :doc:`../leaderboard/index`，研究背景见 :doc:`../resources/harnessvla`。
 
-DreamZero、Cosmos Policy 和 RoboDojo 也列在项目的规划中，相关使用文档待补充。
+DreamZero 和 Cosmos Policy 也列在项目的规划中，相关使用文档待补充。

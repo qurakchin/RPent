@@ -50,32 +50,27 @@ plan used for the task.
 Configure Molmo
 ---------------
 
-Molmo runs in its own Python environment because its model stack pins its own
-Torch and Transformers versions. Molmo's model code also needs
-``transformers>=4.57``, while the RoboTwin stack is pinned to ``4.51.3``; the
-component manifests declare those two mutually exclusive, so
-``rpent-install check`` rejects an environment that names both.
+Molmo runs in its own Python environment because its model code requires
+``transformers>=4.57``, which conflicts with ``model-openpi`` and the RoboTwin
+stack (pinned to ``4.51.3``); the component manifests declare those mutually
+exclusive, so ``rpent-install check`` rejects an environment that combines them.
 
 Install ``model-molmo`` into a separate environment; its dependencies include
-the pinned PyTorch and torchvision:
+PyTorch and torchvision:
 
 .. code-block:: bash
 
    ./rpent-install.sh install model-molmo --venv .venv-molmo
 
-If your GPU or driver needs a different CUDA build, reinstall the pair from the
-PyTorch index afterwards, replacing ``<CUDA_TAG>`` with a
-compatible build such as ``cu126`` or ``cu128`` (see the
-`PyTorch installation guide <https://pytorch.org/get-started/locally/>`_):
+If your GPU or driver needs a specific CUDA build, pass ``--torch-backend``
+during installation, replacing ``<CUDA_TAG>`` with a compatible build such as
+``cu126`` or ``cu128`` (see the `PyTorch installation guide
+<https://pytorch.org/get-started/locally/>`_):
 
 .. code-block:: bash
 
-   uv pip install --python .venv-molmo/bin/python \
-     --reinstall-package torch --reinstall-package torchvision \
-     torch torchvision --index-url "https://download.pytorch.org/whl/<CUDA_TAG>/"
-
-``rpent-install doctor`` then reports that the installed package set differs from
-the fingerprint, which is expected after replacing the build.
+   ./rpent-install.sh install model-molmo --venv .venv-molmo \
+     --torch-backend <CUDA_TAG>
 
 Download ``allenai/Molmo2-8B`` from `Hugging Face
 <https://huggingface.co/allenai/Molmo2-8B>`_ or `ModelScope
@@ -84,8 +79,7 @@ Download ``allenai/Molmo2-8B`` from `Hugging Face
 .. code-block:: bash
 
    export MOLMO_CHECKPOINT_PATH=/path/to/Molmo2-8B
-   .venv-molmo/bin/python \
-     components/models/molmo/server.py \
+   .venv-molmo/bin/python -m components.models.molmo.server \
      --transport http --host 127.0.0.1 --port 20703
 
 Run a Plan

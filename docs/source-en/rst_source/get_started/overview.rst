@@ -56,12 +56,16 @@ Choose a Platform
      - LingBot-VLA, dual-arm simulation tasks, and C2R reproduction.
    * - :doc:`RoboDojo <../simulators/robodojo>`
      - Dual-arm ARX-X5 manipulation in Isaac Sim, with the RLinf Pi0.5 policy.
+   * - :doc:`RoboLab <../simulators/robolab>`
+     - RLinf RoboLab Isaac Sim environment and policy deployment.
+   * - :doc:`EFE <../simulators/efe>`
+     - Embodied First Exam (EFE) tasks via Harbor with Skills or native actions.
    * - :doc:`Single-Arm Franka <../real_world_robots/franka>`
      - Hardware preparation, calibration, motion checks, and operation.
    * - :doc:`Dual-Arm Franka <../real_world_robots/dual_franka>`
      - Two-node deployment, operation, and exploration with an operator.
    * - :doc:`YAM <../real_world_robots/yam>`
-     - Task demo available; installation and usage documentation is coming soon.
+     - Dual-arm two-machine deployment, manual skill checks, and task execution.
    * - :doc:`SO-101 <../real_world_robots/so101>`
      - Coming soon.
 
@@ -69,4 +73,4 @@ Choose ``api``, ``claude_code``, ``codex``, or ``gemini_cli`` as the planner. LI
 
 Start with :doc:`quickstart`. See :doc:`../leaderboard/index` for reported results and resource costs, and :doc:`../resources/harnessvla` for the research background.
 
-DreamZero, Cosmos Policy, and RoboDojo are also listed in the project roadmap; their usage documentation is pending.
+DreamZero and Cosmos Policy are also listed in the project roadmap; their usage documentation is pending.

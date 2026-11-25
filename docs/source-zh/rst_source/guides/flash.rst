@@ -31,31 +31,27 @@
 配置 Molmo
 ------------
 
-Molmo 在自己的 Python 环境中运行，因为它的模型栈锁定了独立的 Torch 和 Transformers 版本。Molmo 的模型代码还需要 ``transformers>=4.57``，而 RoboTwin 栈锁定 ``4.51.3``；组件清单声明这两者互斥，因此 ``rpent-install check`` 会拒绝同时指定两者的环境。
+Molmo 在自己的 Python 环境中运行，因为它的模型代码需要 ``transformers>=4.57``，与 ``model-openpi`` 及锁定 ``4.51.3`` 的 RoboTwin 栈冲突；组件清单声明它们互斥，因此 ``rpent-install check`` 会拒绝同时组合它们的环境。
 
-把 ``model-molmo`` 安装到独立环境；它的依赖包含锁定版本的 PyTorch 和 torchvision：
+把 ``model-molmo`` 安装到独立环境；它的依赖包含 PyTorch 和 torchvision：
 
 .. code-block:: bash
 
    ./rpent-install.sh install model-molmo --venv .venv-molmo
 
-若 GPU 或驱动需要其他 CUDA 构建，之后再从 PyTorch 镜像重装这一对包，按 `PyTorch 安装指南 <https://pytorch.org/get-started/locally/>`_ 选择兼容构建并把 ``<CUDA_TAG>`` 替换为 ``cu126`` 或 ``cu128`` 等值（下例使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_）：
+若 GPU 或驱动需要指定 CUDA 构建，安装时直接传入 ``--torch-backend``，按 `PyTorch 安装指南 <https://pytorch.org/get-started/locally/>`_ 选择兼容构建并将 ``<CUDA_TAG>`` 替换为 ``cu126`` 或 ``cu128`` 等值：
 
 .. code-block:: bash
 
-   uv pip install --python .venv-molmo/bin/python \
-     --reinstall-package torch --reinstall-package torchvision \
-     torch torchvision --index-url "https://mirror.sjtu.edu.cn/pytorch-wheels/<CUDA_TAG>/"
-
-此后 ``rpent-install doctor`` 会报告已安装的包集合与指纹不同，这是替换构建后的预期结果。
+   ./rpent-install.sh install model-molmo --venv .venv-molmo \
+     --torch-backend <CUDA_TAG>
 
 从 `Hugging Face <https://huggingface.co/allenai/Molmo2-8B>`_ 或 `ModelScope <https://modelscope.cn/models/allenai/Molmo2-8B>`_ 下载 ``allenai/Molmo2-8B``，然后启动服务：
 
 .. code-block:: bash
 
    export MOLMO_CHECKPOINT_PATH=/path/to/Molmo2-8B
-   .venv-molmo/bin/python \
-     components/models/molmo/server.py \
+   .venv-molmo/bin/python -m components.models.molmo.server \
      --transport http --host 127.0.0.1 --port 20703
 
 运行计划

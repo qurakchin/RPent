@@ -230,7 +230,11 @@ class Pi05VLAFacade(BaseVLAFacade):
         self._embodiment = embodiment
         super().__init__()
 
-        get_model = require("infra-rlinf", "rlinf.models.embodiment.openpi").get_model
+        get_model = require(
+            "infra-rlinf",
+            "rlinf.models.embodiment.openpi",
+            alternatives=("sim-robodojo",),
+        ).get_model
 
         self._torch = require("model-openpi", "torch")
         platform = PI05_ROBOT_PLATFORMS.get(embodiment)

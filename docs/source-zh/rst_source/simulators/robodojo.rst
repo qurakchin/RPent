@@ -92,14 +92,18 @@ NVIDIA 驱动版本建议参考 `Isaac Sim 5.1 官方系统要求 <https://docs.
 .. dropdown:: Blackwell GPU 安装
 
    Blackwell GPU 需要 CUDA 12.8 版 PyTorch。本项目固定的 PyTorch 2.7.0 也提供 CUDA 12.6 构建，\
-   但该构建不支持 Blackwell。使用这类 GPU 时，在首次安装及后续重新安装前都导出 ``UV_TORCH_BACKEND=cu128``，以选择 CUDA 12.8 构建。
+   但该构建不支持 Blackwell。使用这类 GPU 首次安装时，请传入 ``--torch-backend cu128``（或先导出 ``UV_TORCH_BACKEND=cu128``）：
+
+   .. code-block:: bash
+
+      ./rpent-install.sh install robot-robodojo --venv .venv-robodojo --torch-backend cu128
 
    如果环境中已安装 ``torch==2.7.0+cu126``，uv 会认为它满足版本要求，继续保留原有安装。\
    此时需在环境中显式替换：
 
    .. code-block:: bash
 
-      uv pip install --python .venv-robodojo/bin/python \
+      UV_TORCH_BACKEND=cu128 uv pip install --python .venv-robodojo/bin/python \
         --override components/sim/robodojo/requirements/robodojo-override.txt \
         --reinstall-package torch --reinstall-package torchvision \
         torch==2.7.0 torchvision

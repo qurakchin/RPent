@@ -27,8 +27,8 @@ assets; configure API credentials in :doc:`configure_planner`. ``robot-libero``
 requires ``tool-flywheel``, so the LIBERO environment installed from the
 installation page already carries the exporter.
 
-``rpent-install install tool-flywheel`` creates an environment with only the
-exporter; it does not add the simulator.
+``./rpent-install.sh install tool-flywheel --venv .venv-flywheel`` creates an
+environment with only the exporter; it does not add the simulator.
 
 Record a Trajectory
 -------------------

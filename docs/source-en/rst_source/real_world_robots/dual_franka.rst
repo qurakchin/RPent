@@ -368,6 +368,20 @@ Node ``1``:
    ray stop --force
    ray start --address=HEAD_IP:6379 --node-ip-address=WORKER_IP
 
+Safety
+------
+
+.. warning::
+
+   Keep an operator at the hardware emergency stop (E-stop) throughout manual
+   skill tests, VLA console rollouts, and task execution. Software interrupts
+   such as ``Ctrl+C`` or the ``STOP`` file are **not** hardware emergency stops
+   and may allow an in-flight RPC to finish. Before enabling motion, confirm
+   both arms' workspaces and reset paths are clear and validate with small
+   displacements first. After an E-stop or uncertain execution state, inspect
+   the physical scene, recover the robot controllers, and restart the session
+   before issuing new motion commands.
+
 Manual Skill Testing
 --------------------
 

@@ -71,3 +71,32 @@ def test_require_preserves_internal_missing_dependency_errors(tmp_path, monkeypa
         require("model-demo", "broken_mod_xyz")
     assert not isinstance(exc_info.value, MissingComponentError)
     assert exc_info.value.name == "nonexistent_inner_dep_xyz"
+
+
+def test_require_repairs_active_alternative_provider_instead_of_adding_conflict(
+    tmp_path, monkeypatch
+):
+    venv = tmp_path / ".venv-robodojo"
+    venv.mkdir()
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
+    (venv / installer.FINGERPRINT_NAME).write_text(
+        json.dumps(
+            {
+                "targets": ["robot-robodojo"],
+                "components": {"robot-robodojo": {}, "sim-robodojo": {}},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(require_mod, "current_venv", lambda: venv)
+
+    with pytest.raises(MissingComponentError) as exc_info:
+        require(
+            "infra-rlinf",
+            "rpent_definitely_missing_pkg_xyz",
+            alternatives=("sim-robodojo",),
+        )
+    msg = str(exc_info.value)
+    assert "sim-robodojo" in msg
+    assert "rpent-install install robot-robodojo" in msg
+    assert "infra-rlinf --force" not in msg

@@ -109,6 +109,11 @@ def test_load_valid_manifest_with_overrides_and_git_pins(write_toml, tmp_path):
             "has no git ref",
         ),
         (
+            'schema = 2\nname = "robot-a"\nprobe = "robots.a"\n'
+            'dependencies = ["pkg @ git+ssh://git@example.com/org/p.git"]',
+            "has no git ref",
+        ),
+        (
             'schema = 2\nname = "robot-a"\nprobe = "robots.a"\noverrides = ["/abs.txt"]',
             "must be relative",
         ),

@@ -29,5 +29,27 @@ export PYTHONPATH="$repo_root${PYTHONPATH:+:$PYTHONPATH}"
 export RPENT_DEFAULT_ROOT="$repo_root"
 export RPENT_INSTALL_BOOTSTRAP=1
 export RPENT_CALLER_VENV="${VIRTUAL_ENV:-}"
-exec uv run --no-project --python 3.11 --with packaging -- \
-  python -P -m rpent.cli.install "$@"
+uv_index_args=()
+if (($# > 0)); then
+  args=("$@")
+  for ((i = 0; i < ${#args[@]}; i++)); do
+    case "${args[i]}" in
+      --index-url)
+        if ((i + 1 < ${#args[@]})); then
+          uv_index_args=(--index-url "${args[i + 1]}")
+        fi
+        ;;
+      --index-url=*)
+        uv_index_args=(--index-url "${args[i]#--index-url=}")
+        ;;
+    esac
+  done
+fi
+
+if ((${#uv_index_args[@]} > 0)); then
+  exec uv run --no-project --python 3.11 "${uv_index_args[@]}" --with packaging -- \
+    python -P -m rpent.cli.install "$@"
+else
+  exec uv run --no-project --python 3.11 --with packaging -- \
+    python -P -m rpent.cli.install "$@"
+fi

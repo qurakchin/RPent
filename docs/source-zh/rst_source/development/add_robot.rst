@@ -41,9 +41,12 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
        env_client.py           # MyEnvClient —— agent 侧 RPC 客户端（第 1 节）
        prompt_bundle.py        # system_prompt()/user_prompt() prompt 工厂（第 2 节）
        toolkit.py              # MyRobotToolkit、primitives 与工具定义（第 3 节）
+
+   components/sim/mysim/       # 共享仿真器组件（接入仿真环境时）
+       component.toml          # name = "sim-mysim" 及仿真器依赖
        env_server.py           # 服务端 facade 与 RPC 服务（第 1 节）
 
-``component.toml`` 声明 ``rpent-install`` 读取的清单字段：
+``robots/myrobot/component.toml`` 声明 ``rpent-install`` 读取的清单字段：
 
 .. code-block:: toml
 
@@ -54,7 +57,9 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
    python = ">=3.10,<3.13"
    requires = ["sim-mysim", "model-mymodel"]
 
-   dependencies = ["my-simulator==1.2"]
+   dependencies = []
+
+仿真器包依赖（例如 ``dependencies = ["my-simulator==1.2"]``）与 ``env_server.py`` 放在 ``components/sim/<name>/`` 中，以便多个机器人复用；仅当真机驱动没有共享仿真器组件时，才把 ``env_server.py`` 与硬件专属的 ``dependencies`` 直接放在 ``robots/<name>/`` 下。
 
 每个环境的目标都是 Linux ``x86_64``；清单不声明平台字段。
 
@@ -77,7 +82,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
    * - ``imports``
      - 仅当本机器人直接复用另一个机器人的代码时填写对方名称，且两者之一须在 ``requires`` 中声明对方以确保一同安装。工具包与模型服务通过契约解耦，不互相 import。
 
-``__init__.py`` 是包入口，必须保持惰性。机器人发现会在用户选择之前导入所有包，一旦在这里直接导入仿真器或模型包，整个 CLI 就会依赖每个机器人的依赖包。通过 ``__getattr__`` 暴露工厂：
+``__init__.py`` 是包入口，必须保持惰性。CLI 参数解析（``rpent --robot <name> --help``）、组件探针（``rpent-install doctor``）和布局检查导入 ``robots.<name>`` 时，不得提前拉起可选的仿真器或模型依赖。通过 ``__getattr__`` 暴露工厂：
 
 .. code-block:: python
 

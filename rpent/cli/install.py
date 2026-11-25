@@ -167,6 +167,7 @@ def command_install(args: argparse.Namespace) -> int:
         args.targets,
         root=args.root,
         venv=args.venv,
+        python_version=args.python,
         dry_run=args.dry_run,
         force=args.force,
         index_url=args.index_url,
@@ -239,6 +240,11 @@ def build_parser() -> argparse.ArgumentParser:
     installer.add_argument("targets", nargs="+", metavar="COMPONENT")
     installer.add_argument("--venv", type=Path, help="target virtualenv path")
     installer.add_argument(
+        "--python",
+        default=None,
+        help="Python version to provision for the virtualenv (e.g. 3.11 or 3.12)",
+    )
+    installer.add_argument(
         "--dry-run", action="store_true", help="print generated requirements only"
     )
     installer.add_argument(
@@ -273,18 +279,20 @@ def main(argv: list[str] | None = None) -> int:
     """Run ``rpent-install`` and return a process exit code."""
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.root is None:
-        default_root = os.environ.get("RPENT_DEFAULT_ROOT")
-        args.root = (
-            _checkout_root(Path.cwd())
-            or (Path(default_root) if default_root else None)
-            or get_repo_root()
-        )
-    args.root = args.root.resolve()
-    if _checkout_root(args.root) != args.root:
-        parser.error(
-            f"{args.root} is not an RPent checkout; run from a checkout or pass --root"
-        )
+    needs_checkout = not (args.command == "doctor" and args.fingerprint)
+    if needs_checkout:
+        if args.root is None:
+            default_root = os.environ.get("RPENT_DEFAULT_ROOT")
+            args.root = (
+                _checkout_root(Path.cwd())
+                or (Path(default_root) if default_root else None)
+                or get_repo_root()
+            )
+        args.root = args.root.resolve()
+        if _checkout_root(args.root) != args.root:
+            parser.error(
+                f"{args.root} is not an RPent checkout; run from a checkout or pass --root"
+            )
     try:
         return args.handler(args)
     except (InstallError, InstallConfigError) as exc:

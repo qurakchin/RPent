@@ -115,7 +115,7 @@ RPent is built for four kinds of users:
           <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/real_world_robots/franka.html">Franka</a> ✅</li>
           <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/real_world_robots/dual_franka.html">Dual Franka</a> ✅</li>
           <li>SO-101</li>
-          <li>YAM</li>
+          <li><a href="https://rpent.readthedocs.io/en/latest/rst_source/real_world_robots/yam.html">YAM</a> ✅</li>
         </ul>
       </td>
     </tr>

@@ -101,7 +101,7 @@ class Component:
 
     @property
     def is_infra(self) -> bool:
-        """Return whether this component installs packages without owning code."""
+        """Return whether this component belongs to the ``infra`` kind."""
         return self.kind == "infra"
 
 
@@ -158,7 +158,15 @@ def _git_ref(requirement: str) -> str | None:
     target = (
         requirement[marker + len("git+") :].split(";", 1)[0].split("#", 1)[0].strip()
     )
-    _, separator, ref = target.rpartition("@")
+    _, scheme_sep, rest = target.partition("://")
+    if scheme_sep:
+        _, slash, path = rest.partition("/")
+        if not slash:
+            return None
+        ref_region = path
+    else:
+        ref_region = target
+    _, separator, ref = ref_region.rpartition("@")
     if not separator:
         return None
     return ref or None

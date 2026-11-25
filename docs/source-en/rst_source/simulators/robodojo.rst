@@ -98,9 +98,13 @@ The component closure installs the RoboDojo runtime, SAM 3.0, and Pi0.5.
 .. dropdown:: Blackwell GPU installation
 
    Blackwell GPUs need the CUDA 12.8 build of PyTorch. The pinned PyTorch 2.7.0
-   also has a CUDA 12.6 build, but that build does not support Blackwell. On
-   these GPUs, export ``UV_TORCH_BACKEND=cu128`` before both the initial
-   installation and any reinstallation.
+   also has a CUDA 12.6 build, but that build does not support Blackwell. For an
+   initial install on these GPUs, pass ``--torch-backend cu128`` (or export
+   ``UV_TORCH_BACKEND=cu128``):
+
+   .. code-block:: bash
+
+      ./rpent-install.sh install robot-robodojo --venv .venv-robodojo --torch-backend cu128
 
    If ``torch==2.7.0+cu126`` is already installed, uv considers it compatible
    with the version requirement and keeps it. In that case, replace it in the
@@ -108,7 +112,7 @@ The component closure installs the RoboDojo runtime, SAM 3.0, and Pi0.5.
 
    .. code-block:: bash
 
-      uv pip install --python .venv-robodojo/bin/python \
+      UV_TORCH_BACKEND=cu128 uv pip install --python .venv-robodojo/bin/python \
         --override components/sim/robodojo/requirements/robodojo-override.txt \
         --reinstall-package torch --reinstall-package torchvision \
         torch==2.7.0 torchvision

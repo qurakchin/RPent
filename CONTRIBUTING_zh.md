@@ -64,7 +64,7 @@ pre-commit install
 
 - **保持改动聚焦。** 新功能、无关重构和全仓库清理通常应该拆成不同的 Pull
   Request。
-- **按模块职责放置代码。** 优先复用现有实现。具体机器人的接入代码放在对应的 `robots/<name>/` 目录中，仿真器服务放在 `components/sim/<name>/`，模型服务放在 `components/models/<name>/`；通用能力放在职责相符的公共模块中。不拥有代码、只安装依赖包的基础设施组件放在 `components/infra/<name>/`，目录里只有 `component.toml`。
+- **按模块职责放置代码。** 优先复用现有实现。具体机器人的接入代码放在对应的 `robots/<name>/` 目录中，仿真器服务放在 `components/sim/<name>/`，模型服务放在 `components/models/<name>/`；通用能力放在职责相符的公共模块中。不拥有代码、只安装依赖包的基础设施组件放在 `components/infra/<name>/`，目录里只有 `component.toml`（已有机器人或仿真器的纯依赖变体，如 `robots/libero_plus/` 和 `components/sim/libero_plus/`，也可以只包含 `component.toml`）。
 - **修改共享模块、类和方法时检查职责与影响。** 确认改动符合原有职责，优先使用合适的现有扩展点，避免将环境专用逻辑或上层依赖放入底层公共组件。检查受影响的调用方、子类和后端，包括不使用新功能的实现；即使接口签名不变，也要核对行为、状态和生命周期是否改变。是否修改公共层应根据共享需求判断，不能只看功能大小。
 - **可选依赖只在使用处导入。** 例如，只在实际使用 RoboCasa 的代码中导入
   `robosuite`，不要在模块加载时导入。这样即使没有安装所有模拟器，
@@ -86,6 +86,10 @@ pre-commit install
 ```bash
 # 格式化并检查整个仓库。
 pre-commit run --all-files
+
+# 检查仓库布局、导入边界与组件清单。
+./tests/tooling/run.sh layout
+./rpent-install.sh check --all
 
 # 运行全部单元测试。该套件需要 infra-unit_cpu 环境，infra-dev 有意不含
 # 其中的依赖；见 tests/README.md。

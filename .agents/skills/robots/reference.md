@@ -35,18 +35,22 @@ try_wait_server(daemons, dashboard_events, "env", env_rpc, env_daemon, timeout_s
 
 When `components` (`set[str] | None`) is passed by the Dashboard, start only the requested subset of components and return `(list(daemons.values()), runtime_handles)`.
 
-## 3. Optional extras and conflicts (`pyproject.toml`)
+## 3. Component manifests and conflicts (`component.toml`)
 
-- Put integration-only dependencies under `[project.optional-dependencies]`:
+- Put integration-only dependencies in `robots/<robot>/component.toml` (or `components/{sim,models,tools,infra}/<name>/component.toml`) using `schema = 2`:
   ```toml
-  my_robot = [
-      "rpent[rlinf]",
+  schema = 2
+  name = "robot-my_robot"
+  kind = "robot"
+  probe = "robots.my_robot"
+  requires = ["infra-rlinf"]
+  dependencies = [
       "upstream-pkg @ git+https://github.com/RLinf/upstream.git@rpent",
   ]
   ```
-- When a robot extra pins incompatible `torch`, `transformers`, `numpy`, or `robosuite` versions, add pairs to `[tool.uv] conflicts`.
-- If a robot needs `uv` resolver overrides that must not affect other robots, put them in `requirements/<robot>-override.txt` (following `requirements/robodojo-override.txt`) and document `--override` in the simulator guide.
-- Keep `include = ["rpent*", "robots", "robots.*", "toolkits", "toolkits.*"]` in `[tool.setuptools.packages.find]` and list any non-Python prompt/config/guide assets under `[tool.setuptools.package-data]`.
+- When a component pins incompatible `torch`, `transformers`, `numpy`, or `robosuite` versions, declare mutually exclusive components in `env_conflicts`.
+- If a component needs `uv` resolver overrides that must not affect other components, keep them alongside the component (following `components/sim/robodojo/requirements/robodojo-override.txt`) and list them in `overrides`.
+- Run `rpent-install check --all` and `bash tests/tooling/run.sh layout` to validate manifests, package discovery (`setup.py` / `MANIFEST.in`), and import boundaries.
 
 ## 4. GPU E2E runner and workflow wiring
 

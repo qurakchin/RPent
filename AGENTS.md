@@ -13,11 +13,11 @@ RPent is a recursive physical agent framework that coordinates high-level planne
 
 ## Setup and commands
 
-Create an isolated Python 3.10–3.12 environment (3.11 default) with `./rpent-install.sh` and install only the component your change needs:
+Create an isolated Python 3.10–3.12 environment (3.12 default when unconstrained; per-component newest supported minor) with `./rpent-install.sh` and install only the component your change needs:
 
 ```bash
-./rpent-install.sh install infra-dev --venv .venv && source .venv/bin/activate
-./rpent-install.sh install infra-unit_cpu --venv .venv-unit  # full CPU unit suite
+./rpent-install.sh install infra-dev --venv .venv-dev && source .venv-dev/bin/activate
+./rpent-install.sh install infra-unit_cpu --venv .venv-unit-cpu  # full CPU unit suite
 ./rpent-install.sh install robot-libero --venv .venv-libero  # or robot-robocasa / tool-flywheel
 ```
 
@@ -54,9 +54,9 @@ python3 .agents/skills/docs/check.py
 - `rpent/tools/` and `rpent/memory/` – `Toolkit` container, scheduling/cancellation, common/HIL tools, and task memory sync and retrieval.
 - `rpent/robots/` and `rpent/components/` – robot discovery (`base.py`), `RobotSpec`/`RunConfig`/`PromptBundle`, shared daemon lifecycle (`runtime.py`), and shared Env/VLA/perception contracts and facades (`rpent/components/env/`, `rpent/components/models/`).
 - `rpent/cli/`, `rpent/dashboard/`, `rpent/evaluation/`, `rpent/install/`, `rpent/utils/` – CLI entry points, interactive Dashboard, run finalization, component installer (`component.toml` manifests, resolution, fingerprints), and RPC/daemon/logging helpers.
-- `robots/<name>/` – concrete robot integrations (`libero`, `robocasa`, `robotwin`, `robodojo`, `robolab`, `efe`, `franka`, `dual_franka`, `yam`), each owning its `component.toml` and exposing `get_robot_spec` and `get_toolkit`.
-- `components/{sim,models,tools,infra}/<name>/` – installable simulator/model services, tools (e.g. `components/tools/flywheel`, RGB-D `components/tools/rgbd`), and manifest-only infrastructure environments (`infra-dev`, `infra-unit_cpu`).
-- `rpent-install.sh`, `calibration_tools/`, `tests/` (`unit_tests/`, `e2e_tests/`, `tooling/`), and `docs/` (`source-en/`, `source-zh/`, `STYLE_GUIDE.md`).
+- `robots/<name>/` – concrete robot integrations (`libero`, `robocasa`, `robotwin`, `robodojo`, `robolab`, `efe`, `franka`, `dual_franka`, `yam`), each owning its `component.toml` and exposing `get_robot_spec` and `get_toolkit` (plus manifest-only dependency variants such as `robots/libero_plus/`).
+- `components/{sim,models,tools,infra}/<name>/` – installable simulator/model services (including manifest-only variants such as `components/sim/libero_plus/`), tools (e.g. `components/tools/flywheel`, RGB-D `components/tools/rgbd`), and manifest-only infrastructure environments (`infra-dev`, `infra-unit_cpu`).
+- `rpent-install.sh`, `tests/` (`unit_tests/`, `e2e_tests/`, `tooling/`), and `docs/` (`source-en/`, `source-zh/`, `STYLE_GUIDE.md`).
 
 The dependency direction is `rpent` ← `components/sim` ← `components/models` ← `robots` (enforced by `tests/tooling/layout.py`): core `rpent/` discovers components dynamically and never imports concrete slices statically, tools depend only on `rpent/` and model clients, and sibling simulators/models/tools do not import each other.
 
@@ -108,7 +108,7 @@ Skills live in `.agents/skills/<name>/SKILL.md` ([.agents/skills/README.md](.age
 
 | Files | Skill |
 |---|---|
-| Code, tests, tools, and CI: `rpent/`, `robots/`, `components/`, `calibration_tools/`, `tests/`, `.github/`, `pyproject.toml`, any `.py` file | `code` |
+| Code, tests, tools, and CI: `rpent/`, `robots/`, `components/`, `tests/`, `.github/`, `pyproject.toml`, `setup.py`, any `.py` file | `code` |
 | Docs: `docs/`, `README.md`, `README.zh-CN.md`, `CONTRIBUTING.md`, `CONTRIBUTING_zh.md` | `docs` |
 | Robots, component manifests, and GPU e2e: `robots/`, `components/`, `rpent/robots/`, `pyproject.toml`, `tests/e2e_tests/`, `.github/workflows/embodied-gpu-e2e*.yml` | `robots` |
 

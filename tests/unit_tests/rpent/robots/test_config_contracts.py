@@ -404,6 +404,27 @@ def test_am_backend_selects_one_model_category(robot_name, default_backend):
     assert "--wam-backend" not in parser.format_help()
 
 
+def test_am_backends_degrade_gracefully_without_components(monkeypatch):
+    import argparse
+
+    from rpent.components.models import backends
+
+    def _missing_components(name: str):
+        raise ModuleNotFoundError("No module named 'components'", name="components")
+
+    monkeypatch.setattr(backends.importlib, "import_module", _missing_components)
+
+    parser = argparse.ArgumentParser()
+    backends.add_am_args(parser, platform="libero")
+    args = parser.parse_args(["--am-endpoint", "http://localhost:8116"])
+    selected = backends.select_am(args, "libero")
+    assert selected.backend == "pi05"
+    assert not selected.is_wam
+
+    with pytest.raises(RuntimeError, match="core-only installation"):
+        backends._runtime_config("fast-wam")
+
+
 @pytest.mark.parametrize(
     ("robot_name", "required_args", "identity_fields"),
     [

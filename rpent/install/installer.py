@@ -297,6 +297,13 @@ def _prepare_destination(
     if force:
         return _replace(destination)
 
+    python = venv_python(destination)
+    if (destination / "pyvenv.cfg").is_file() and not python.exists():
+        raise InstallError(
+            f"{destination} has pyvenv.cfg but no Python interpreter; "
+            "pass `--force` to recreate it"
+        )
+
     existing = read_fingerprint(destination)
     if existing is not None:
         recorded = recorded_closure(existing)
@@ -316,13 +323,7 @@ def _prepare_destination(
             )
         return None
 
-    python = venv_python(destination)
     if not python.exists():
-        if (destination / "pyvenv.cfg").is_file():
-            raise InstallError(
-                f"{destination} has pyvenv.cfg but no Python interpreter; "
-                "pass `--force` to recreate it"
-            )
         return None
     packages = _installed_distributions(python)
     if packages is None:
@@ -388,6 +389,7 @@ def install(
     *,
     root: Path | None = None,
     venv: Path | None = None,
+    python_version: str | None = None,
     dry_run: bool = False,
     force: bool = False,
     index_url: str | None = None,
@@ -431,22 +433,35 @@ def install(
     created = False
     try:
         python = venv_python(destination)
-        interpreter = (
-            _python_version(python)
-            if python.exists()
-            else choose_python(resolution.components.values())
-        )
+        existed = python.exists()
+        if existed:
+            interpreter = _python_version(python)
+            if python_version is not None and not (
+                interpreter == python_version
+                or interpreter.startswith(f"{python_version}.")
+            ):
+                raise InstallError(
+                    f"{destination} uses Python {interpreter}, not requested "
+                    f"{python_version}; rerun with `--force` to recreate the "
+                    "environment"
+                )
+        else:
+            interpreter = python_version or choose_python(
+                resolution.components.values()
+            )
         unsupported = python_errors(
             interpreter, resolution.components.values(), owner=str(destination)
         )
         if unsupported:
-            raise InstallError(
-                "\n".join(unsupported)
-                + "\nrerun with `--force` to recreate the environment with a "
+            suffix = (
+                "\nrerun with `--force` to recreate the environment with a "
                 "supported Python version"
+                if existed
+                else ""
             )
+            raise InstallError("\n".join(unsupported) + suffix)
 
-        if not python.exists():
+        if not existed:
             if verbose:
                 print(f"$ {uv} venv --python {interpreter} {destination}")
             created = True
@@ -458,7 +473,17 @@ def install(
             python = venv_python(destination)
         if not python.exists():
             raise InstallError(f"{destination} has no Python interpreter")
+        if created:
+            actual_python = _python_version(python)
+            actual_unsupported = python_errors(
+                actual_python,
+                resolution.components.values(),
+                owner=str(destination),
+            )
+            if actual_unsupported:
+                raise InstallError("\n".join(actual_unsupported))
 
+        index_args = index_options(resolution, index_url_override=index_url)
         with tempfile.NamedTemporaryFile(
             "w", suffix=".txt", prefix="rpent-req-", encoding="utf-8", delete=False
         ) as req_file:
@@ -466,7 +491,7 @@ def install(
             req_path = Path(req_file.name)
         try:
             install_cmd = [uv, "pip", "install", "--python", str(python)]
-            install_cmd.extend(index_options(resolution, index_url_override=index_url))
+            install_cmd.extend(index_args)
             for component in resolution.components.values():
                 for override in component.overrides:
                     install_cmd.extend(["--override", str(override)])
@@ -483,6 +508,7 @@ def install(
             "install",
             "--python",
             str(python),
+            *index_args,
             "--no-deps",
             "-e",
             str(repo_root),
@@ -507,7 +533,18 @@ def install(
                     f"  probe: import {component.probe}\n{exc}"
                 ) from exc
 
-        run_command([uv, "pip", "check", "--python", str(python)], cwd=repo_root)
+        has_overrides = any(comp.overrides for comp in resolution.components.values())
+        if not has_overrides:
+            run_command([uv, "pip", "check", "--python", str(python)], cwd=repo_root)
+        else:
+            checked = _run_diag([uv, "pip", "check", "--python", str(python)])
+            if checked.returncode != 0 and verbose:
+                detail = (checked.stdout + checked.stderr).strip()
+                print(
+                    "warning: uv pip check reported override-induced mismatches:\n"
+                    f"{detail}",
+                    file=sys.stderr,
+                )
         frozen = run_command(
             [uv, "pip", "freeze", "--python", str(python)], capture=True, cwd=repo_root
         )
@@ -598,7 +635,15 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
         core_dependencies=read_core_dependencies(repo_root),
         planner_dependencies=read_planner_dependencies(repo_root),
     )
-    if recorded is not None and recorded != closure(resolution.components):
+    if recorded is None:
+        checks.append(
+            Check(
+                FAIL,
+                f"fingerprint in {venv} has an invalid components record; rerun "
+                f"`{repair_command(resolution, force=True)} --venv {venv}`",
+            )
+        )
+    elif recorded != closure(resolution.components):
         checks.append(
             Check(
                 FAIL,
@@ -664,10 +709,19 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
             )
         else:
             checks.append(Check(OK, "installed package set matches the fingerprint"))
+        has_overrides = any(comp.overrides for comp in resolution.components.values())
         checked = _run_diag([uv, "pip", "check", "--python", str(python)])
         if checked.returncode != 0:
             detail = (checked.stdout + checked.stderr).strip()
-            checks.append(Check(FAIL, f"uv pip check failed: {detail}"))
+            if has_overrides:
+                checks.append(
+                    Check(
+                        WARN,
+                        f"uv pip check reported override-induced mismatches: {detail}",
+                    )
+                )
+            else:
+                checks.append(Check(FAIL, f"uv pip check failed: {detail}"))
         else:
             checks.append(Check(OK, "uv pip check"))
 

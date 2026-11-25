@@ -61,9 +61,12 @@ that tells ``rpent-install`` how to install it. For a new robot named
        env_client.py           # MyEnvClient — agent-side RPC stub (§1)
        prompt_bundle.py        # system_prompt()/user_prompt() factories (§2)
        toolkit.py              # MyRobotToolkit + primitives + tool definitions (§3)
+
+   components/sim/mysim/       # shared simulator component (when adding a simulator)
+       component.toml          # name = "sim-mysim", simulator dependencies
        env_server.py           # server-side facade + RPC server (§1)
 
-``component.toml`` declares what ``rpent-install`` reads:
+``robots/myrobot/component.toml`` declares what ``rpent-install`` reads:
 
 .. code-block:: toml
 
@@ -74,7 +77,13 @@ that tells ``rpent-install`` how to install it. For a new robot named
    python = ">=3.10,<3.13"
    requires = ["sim-mysim", "model-mymodel"]
 
-   dependencies = ["my-simulator==1.2"]
+   dependencies = []
+
+Simulator packages (such as ``dependencies = ["my-simulator==1.2"]``) and
+``env_server.py`` belong in ``components/sim/<name>/`` so the simulator can be
+shared across robots; place ``env_server.py`` and hardware-specific
+``dependencies`` directly in ``robots/<name>/`` only for real-robot drivers
+that have no shared simulator component.
 
 Every environment targets Linux ``x86_64``; a manifest declares no platform
 field.
@@ -108,10 +117,11 @@ field.
        installed together. Toolkits and model services share a contract rather
        than importing each other.
 
-``__init__.py`` is the package entry point and must stay lazy. Robot discovery
-imports every package before the user selects one, so an eager import of a
-simulator or model package makes the whole CLI depend on every robot package.
-Export the factories through ``__getattr__``:
+``__init__.py`` is the package entry point and must stay lazy. Importing
+``robots.<name>`` during CLI argument parsing (``rpent --robot <name> --help``),
+component probing (``rpent-install doctor``), or layout checks must not eagerly
+pull in optional simulator or model packages. Export the factories through
+``__getattr__``:
 
 .. code-block:: python
 
