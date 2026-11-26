@@ -17,11 +17,9 @@ Requirements
 Common Environments
 -------------------
 
-Each RPent component lives in a directory with a ``component.toml`` manifest
-(``robots/<name>/`` for robots, ``components/{sim,models,tools,infra}/<name>/``
-for shared services and test stacks). Installing a ``robot-*`` component pulls
-in the planner layer, tools, simulator, and required model services into one
-virtual environment.
+Installing a ``robot-*`` component pulls in the planner layer, tools,
+simulator, and required model services into one virtual environment. Check each
+platform's guide for extra system prerequisites or asset downloads.
 
 .. list-table::
    :header-rows: 1
@@ -57,18 +55,28 @@ virtual environment.
    * - YAM (control machine)
      - ``./rpent-install.sh install robot-yam --venv .venv-yam-real``
      - 3.11 · :doc:`../real_world_robots/yam`
-   * - Standalone Pi0.5 VLA
-     - ``./rpent-install.sh install model-openpi infra-rlinf --venv .venv-openpi``
-     - 3.12 · :doc:`../guides/advanced_deployment`
-   * - Standalone Molmo
-     - ``./rpent-install.sh install model-molmo --venv .venv-molmo``
-     - 3.12 · :doc:`../guides/flash`
-   * - Minimal core
-     - ``./rpent-install.sh install infra-minimal --venv .venv-minimal``
-     - 3.12 · CLI & discovery check
-   * - Development / unit tests
-     - ``./rpent-install.sh install infra-dev --venv .venv-dev``
-     - 3.12 · ``infra-unit_cpu`` adds CPU Torch
+
+.. dropdown:: Standalone Model and Developer Environments
+
+   .. list-table::
+      :header-rows: 1
+      :widths: 20 46 34
+
+      * - Environment
+        - Install command
+        - Python & guide
+      * - Standalone Pi0.5 VLA
+        - ``./rpent-install.sh install model-openpi infra-rlinf --venv .venv-openpi``
+        - 3.12 · :doc:`../guides/advanced_deployment`
+      * - Standalone Molmo
+        - ``./rpent-install.sh install model-molmo --venv .venv-molmo``
+        - 3.12 · :doc:`../guides/flash`
+      * - Minimal core
+        - ``./rpent-install.sh install infra-minimal --venv .venv-minimal``
+        - 3.12 · CLI & discovery check
+      * - Development / unit tests
+        - ``./rpent-install.sh install infra-dev --venv .venv-dev``
+        - 3.12 · ``infra-unit_cpu`` adds CPU Torch
 
 Install an Environment
 ----------------------
@@ -84,8 +92,10 @@ and create a virtual environment:
 Once activated, ``rpent-install`` is available directly inside the environment.
 Pass multiple component names to compose one environment (for example,
 ``model-openpi infra-rlinf`` for a standalone Pi0.5 VLA host, or
-``robot-libero infra-dev`` for development with test tools). Pass ``--dry-run``
-to inspect the generated requirements without installing.
+``robot-libero infra-dev`` for development with test tools). Pass
+``--python <version>`` (such as ``3.11``) to choose a specific supported Python
+version, or ``--dry-run`` to inspect the generated requirements without
+installing.
 
 **PyPI Mirrors and CUDA PyTorch Backends**
 

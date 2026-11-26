@@ -91,7 +91,7 @@ range:
    ./rpent-install.sh install robot-robocasa --venv .venv-robocasa
    source .venv-robocasa/bin/activate
 
-The component closure installs a CUDA-enabled Torch and torchvision pair; RLDX
+This command installs a CUDA-enabled Torch and torchvision pair; RLDX
 requires Torch >= 2.7 and torchvision >= 0.22. If your driver needs a different
 build, reinstall the matching pair with ``uv pip install`` using the
 `PyTorch instructions <https://pytorch.org/get-started/locally/>`_.

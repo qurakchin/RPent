@@ -88,7 +88,7 @@ Target50 包含以下任务类别，完整任务、seed 和运行限制见本页
    ./rpent-install.sh install robot-robocasa --venv .venv-robocasa
    source .venv-robocasa/bin/activate
 
-该组件闭包会安装一组成对的 CUDA Torch 与 torchvision；RLDX 要求 Torch >= 2.7、torchvision >= 0.22。若驱动需要其他构建，可按 `PyTorch 安装说明 <https://pytorch.org/get-started/locally/>`_ 用 ``uv pip install`` 重新安装匹配的版本；国内可使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_。
+该命令会安装一组成对的 CUDA Torch 与 torchvision；RLDX 要求 Torch >= 2.7、torchvision >= 0.22。若驱动需要其他构建，可按 `PyTorch 安装说明 <https://pytorch.org/get-started/locally/>`_ 用 ``uv pip install`` 重新安装匹配的版本；国内可使用 `上海交大 PyTorch 镜像 <https://mirror.sjtu.edu.cn/docs/pytorch-wheels>`_。
 
 :ref:`环境自检 <environment-smoke-tests>` 需要 ``infra-dev`` 提供的测试工具，因此使用第二个环境：``./rpent-install.sh install robot-robocasa infra-dev --venv .venv-robocasa-dev``。
 

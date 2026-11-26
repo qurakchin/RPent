@@ -93,7 +93,7 @@ override that reconciles the Isaac Sim pins with the agent stack:
    ./rpent-install.sh install robot-robodojo --venv .venv-robodojo
    source .venv-robodojo/bin/activate
 
-The component closure installs the RoboDojo runtime, SAM 3.0, and Pi0.5.
+This command installs the RoboDojo runtime, SAM 3.0, and Pi0.5.
 
 .. dropdown:: Blackwell GPU installation
 

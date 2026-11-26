@@ -41,8 +41,8 @@ When `components` (`set[str] | None`) is passed by the Dashboard, start only the
   ```toml
   schema = 2
   name = "robot-my_robot"
-  kind = "robot"
   probe = "robots.my_robot"
+  planner = true
   requires = ["infra-rlinf"]
   dependencies = [
       "upstream-pkg @ git+https://github.com/RLinf/upstream.git@rpent",

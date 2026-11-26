@@ -245,7 +245,7 @@ RPent 的整体进程划分、服务职责和通信方式见 :doc:`系统说明 
 2. Prompt
 ---------
 
-prompt 工厂位于 ``prompt_bundle.py``。定义 ``system_prompt()`` 和 ``user_prompt()`` 两个工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle(system=system_prompt, user=user_prompt)``（见上面的“入口与组件清单”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节；``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等规划器共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
+prompt 工厂位于 ``prompt_bundle.py``。定义 ``system_prompt()`` 和 ``user_prompt()`` 两个工厂，并在机器人的 ``robot_spec.py`` 中构造 ``PromptBundle(system=system_prompt, user=user_prompt)``\ （见上面的“入口与组件清单”）。每个工厂返回一个有序的 ``dict[str, PromptNode]``，其中包含带标题的分节；``PromptBundle.render`` 负责组装和填充。一套 prompt 供 API loop、Claude Code 和 Codex 等规划器共用。正文使用工具的裸名（如 ``move_to``），并说明 Claude Code 和 Codex SDK 会将其显示为 ``mcp__rpent__<name>``；无需分别维护 CLI 与 API 版本。
 
 .. code-block:: python
 
@@ -277,7 +277,7 @@ prompt 工厂位于 ``prompt_bundle.py``。定义 ``system_prompt()`` 和 ``user
 3. 原生工具与 toolkit
 ---------------------
 
-``toolkit.py``（也可与 ``tools.py`` 拆分）负责工具定义、动作原语、每步状态记录，以及允许通过 MCP 调用的工具列表。LIBERO 将这些内容分开存放；新增机器人可以从单个模块开始。
+``toolkit.py``\ （也可与 ``tools.py`` 拆分）负责工具定义、动作原语、每步状态记录，以及允许通过 MCP 调用的工具列表。LIBERO 将这些内容分开存放；新增机器人可以从单个模块开始。
 
 toolkit 模块通常包含四部分：
 

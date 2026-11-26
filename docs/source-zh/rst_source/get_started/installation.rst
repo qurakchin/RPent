@@ -7,13 +7,13 @@
 --------
 
 - Linux ``x86_64`` 与 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_。
-- Python 3.10–3.12。``rpent-install`` 会自动选择所选组件共同支持的最新 Python 次版本，并由 ``uv`` 准备对应解释器。
+- Python 3.10–3.12。``rpent-install`` 会自动选择所选组件共同支持的最新 Python 版本，并由 ``uv`` 准备对应解释器。
 - 与所选组件 PyTorch 构建兼容的 NVIDIA GPU 与驱动。
 
 常用环境
 --------
 
-每个组件位于包含 ``component.toml`` 清单的目录中（机器人在 ``robots/<name>/``，共享仿真器、模型、工具和基础设施组件在 ``components/{sim,models,tools,infra}/<name>/``）。安装 ``robot-*`` 组件时，会自动将规划器依赖、工具、仿真器和所需模型服务装入同一个虚拟环境。
+安装 ``robot-*`` 组件时，会自动将规划器依赖、工具、仿真环境和所需模型服务装入同一个虚拟环境。各平台的系统前置依赖和资源下载见对应指南。
 
 .. list-table::
    :header-rows: 1
@@ -49,18 +49,28 @@
    * - YAM（控制机）
      - ``./rpent-install.sh install robot-yam --venv .venv-yam-real``
      - 3.11 · :doc:`../real_world_robots/yam`
-   * - 独立 Pi0.5 VLA 服务
-     - ``./rpent-install.sh install model-openpi infra-rlinf --venv .venv-openpi``
-     - 3.12 · :doc:`../guides/advanced_deployment`
-   * - 独立 Molmo 服务
-     - ``./rpent-install.sh install model-molmo --venv .venv-molmo``
-     - 3.12 · :doc:`../guides/flash`
-   * - 最小核心环境
-     - ``./rpent-install.sh install infra-minimal --venv .venv-minimal``
-     - 3.12 · CLI 与机器人发现检查
-   * - 开发 / 单元测试
-     - ``./rpent-install.sh install infra-dev --venv .venv-dev``
-     - 3.12 · ``infra-unit_cpu`` 额外包含 CPU Torch
+
+.. dropdown:: 独立模型服务与开发环境
+
+   .. list-table::
+      :header-rows: 1
+      :widths: 20 46 34
+
+      * - 环境
+        - 安装命令
+        - Python 与对应指南
+      * - 独立 Pi0.5 VLA 服务
+        - ``./rpent-install.sh install model-openpi infra-rlinf --venv .venv-openpi``
+        - 3.12 · :doc:`../guides/advanced_deployment`
+      * - 独立 Molmo 服务
+        - ``./rpent-install.sh install model-molmo --venv .venv-molmo``
+        - 3.12 · :doc:`../guides/flash`
+      * - 最小核心环境
+        - ``./rpent-install.sh install infra-minimal --venv .venv-minimal``
+        - 3.12 · CLI 与机器人发现检查
+      * - 开发 / 单元测试
+        - ``./rpent-install.sh install infra-dev --venv .venv-dev``
+        - 3.12 · ``infra-unit_cpu`` 额外包含 CPU Torch
 
 安装环境
 --------
@@ -72,11 +82,11 @@
    ./rpent-install.sh install robot-libero --venv .venv-libero
    source .venv-libero/bin/activate
 
-激活环境后即可直接运行 ``rpent-install``。一次指定多个组件可将它们组合到同一环境中（例如独立 Pi0.5 VLA 主机使用 ``model-openpi infra-rlinf``，开发测试使用 ``robot-libero infra-dev``）。添加 ``--dry-run`` 可只打印生成的依赖清单而不执行安装。
+激活环境后即可直接运行 ``rpent-install``。一次指定多个组件可将它们组合到同一环境中（例如独立 Pi0.5 VLA 主机使用 ``model-openpi infra-rlinf``，开发测试使用 ``robot-libero infra-dev``）。传入 ``--python <版本>``\ （例如 ``3.11``）可指定受支持的 Python 版本；添加 ``--dry-run`` 可只打印生成的依赖清单而不执行安装。
 
 **PyPI 镜像与 CUDA PyTorch 后端**
 
-可通过 ``--index-url`` 指定 PyPI 镜像，或通过 ``--torch-backend`` 选择 PyTorch 轮子源（如 ``auto``、``cpu``、``cu124``、``cu126``、``cu128``）：
+可通过 ``--index-url`` 指定 PyPI 镜像，或通过 ``--torch-backend`` 选择 PyTorch 构建后端（如 ``auto``、``cpu``、``cu124``、``cu126``、``cu128``）：
 
 .. code-block:: bash
 
@@ -142,7 +152,7 @@
    ./rpent-install.sh list
    ./rpent-install.sh check --all
 
-``check`` 不下载依赖，仅根据清单计算组件依赖集合，检查 Python 版本范围、互相冲突的精确版本固定以及 ``env_conflicts``。同一环境内多个组件的 ``extra-index-urls`` 会取并集，而 ``index-url`` 或 ``index-strategy`` 不一致时会直接报错。同时指定多个组件名可检查它们能否共用同一环境。
+``check`` 不下载依赖，仅根据清单计算组件依赖集合，检查 Python 版本范围、精确版本冲突以及 ``env_conflicts``。同一环境内多个组件的 ``extra-index-urls`` 会自动合并，而 ``index-url`` 或 ``index-strategy`` 不一致时会直接报错。同时指定多个组件名可检查它们能否共用同一环境。
 
 .. dropdown:: 依赖可解性检查（``check --resolve``）
 

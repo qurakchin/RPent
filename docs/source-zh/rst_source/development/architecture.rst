@@ -59,7 +59,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 - ``components/sim/`` 仅依赖 ``rpent/``；``components/models/`` 仅依赖 ``rpent/`` 与 ``components/sim/``；``components/tools/`` 仅依赖 ``rpent/`` 与 ``components/models/`` 中的模型 client。
 - 仿真器、模型和工具各自禁止同层互导；机器人切片之间的跨包导入必须在 ``component.toml`` 的 ``imports`` 中显式声明。
 
-打包上，PyPI wheel（``RPENT_WHEEL_SCOPE=core``）仅包含 ``rpent/``（核心运行时与可选扩展 ``rpent[planner]``），而源码仓库通过各目录的 ``component.toml`` 清单配合 ``rpent-install`` 为 ``robots/`` 与 ``components/`` 创建隔离环境。
+打包上，PyPI wheel（``RPENT_WHEEL_SCOPE=core``）仅包含 ``rpent/``\ （核心运行时与可选扩展 ``rpent[planner]``），而源码仓库通过各目录的 ``component.toml`` 清单配合 ``rpent-install`` 为 ``robots/`` 与 ``components/`` 创建隔离环境。
 
 .. image:: ../../../_static/architecture_layers.svg
    :alt: RPent 组件分层、导入边界及 PyPI 核心包与 rpent-install 源码环境的打包划分
