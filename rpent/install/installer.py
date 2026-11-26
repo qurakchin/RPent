@@ -384,30 +384,6 @@ def repair_command(resolution: Resolution, *, force: bool = False) -> str:
     return f"{command} --force" if force else command
 
 
-def _apply_github_mirror(env: dict[str, str], github_mirror: str | None) -> None:
-    """Route ``https://github.com/`` git fetches through a user-supplied URL prefix."""
-    raw = (
-        github_mirror
-        if github_mirror is not None
-        else env.get("RPENT_GITHUB_MIRROR", "")
-    ).strip()
-    if not raw:
-        return
-    if not raw.startswith(("http://", "https://")):
-        raise InstallError(
-            "--github-mirror / RPENT_GITHUB_MIRROR must start with http:// or https://"
-        )
-    prefix = f"{raw.rstrip('/')}/https://github.com/"
-    existing = env.get("GIT_CONFIG_COUNT", "0").strip()
-    try:
-        count = int(existing) if existing else 0
-    except ValueError as exc:
-        raise InstallError(f"invalid GIT_CONFIG_COUNT value: {existing!r}") from exc
-    env["GIT_CONFIG_COUNT"] = str(count + 1)
-    env[f"GIT_CONFIG_KEY_{count}"] = f"url.{prefix}.insteadOf"
-    env[f"GIT_CONFIG_VALUE_{count}"] = "https://github.com/"
-
-
 def install(
     targets: Iterable[str],
     *,
@@ -418,7 +394,6 @@ def install(
     force: bool = False,
     index_url: str | None = None,
     torch_backend: str | None = None,
-    github_mirror: str | None = None,
     verbose: bool = True,
 ) -> dict[str, Any]:
     """Install ``targets`` and their closure into one virtualenv."""
@@ -454,7 +429,6 @@ def install(
     cmd_env = dict(os.environ)
     if torch_backend:
         cmd_env["UV_TORCH_BACKEND"] = torch_backend
-    _apply_github_mirror(cmd_env, github_mirror)
 
     created = False
     try:

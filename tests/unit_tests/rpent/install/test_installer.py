@@ -802,33 +802,3 @@ def test_install_rejects_broken_venv_with_same_closure_fingerprint_without_delet
         installer.install(["infra-a"], root=repo, venv=venv, verbose=False)
     assert venv.is_dir()
     assert marker.read_text(encoding="utf-8") == "do-not-delete"
-
-
-def test_apply_github_mirror_sets_git_insteadof_and_preserves_existing():
-    env = {
-        "GIT_CONFIG_COUNT": "1",
-        "GIT_CONFIG_KEY_0": "http.version",
-        "GIT_CONFIG_VALUE_0": "HTTP/1.1",
-    }
-    installer._apply_github_mirror(env, "https://gh-proxy.com/")
-    assert env["GIT_CONFIG_COUNT"] == "2"
-    assert env["GIT_CONFIG_KEY_0"] == "http.version"
-    assert (
-        env["GIT_CONFIG_KEY_1"]
-        == "url.https://gh-proxy.com/https://github.com/.insteadOf"
-    )
-    assert env["GIT_CONFIG_VALUE_1"] == "https://github.com/"
-
-
-def test_apply_github_mirror_reads_env_and_rejects_invalid_scheme():
-    env = {"RPENT_GITHUB_MIRROR": "https://ghproxy.net"}
-    installer._apply_github_mirror(env, None)
-    assert env["GIT_CONFIG_COUNT"] == "1"
-    assert (
-        env["GIT_CONFIG_KEY_0"]
-        == "url.https://ghproxy.net/https://github.com/.insteadOf"
-    )
-    assert env["GIT_CONFIG_VALUE_0"] == "https://github.com/"
-
-    with pytest.raises(InstallError, match="http:// or https://"):
-        installer._apply_github_mirror({}, "gh-proxy.com")

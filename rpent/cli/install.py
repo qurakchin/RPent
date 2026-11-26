@@ -172,7 +172,6 @@ def command_install(args: argparse.Namespace) -> int:
         force=args.force,
         index_url=args.index_url,
         torch_backend=args.torch_backend,
-        github_mirror=args.github_mirror,
         verbose=True,
     )
     return 0
@@ -262,11 +261,6 @@ def build_parser() -> argparse.ArgumentParser:
         "--torch-backend",
         default=None,
         help="set UV_TORCH_BACKEND (e.g. auto, cpu, cu124, cu126, cu128)",
-    )
-    installer.add_argument(
-        "--github-mirror",
-        default=None,
-        help="URL prefix for GitHub git dependencies (or set RPENT_GITHUB_MIRROR)",
     )
     installer.set_defaults(handler=command_install)
 
