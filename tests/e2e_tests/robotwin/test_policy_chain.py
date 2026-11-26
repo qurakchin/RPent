@@ -24,6 +24,7 @@ from tests.e2e_tests.common import (
 from tests.e2e_tests.robotwin.scenario import RoboTwinScenario
 
 
+@pytest.mark.usefixtures("lingbot_checkpoint")
 def test_policy_chain(robotwin_scenario: RoboTwinScenario) -> None:
     publish_check("robotwin_policy_chain", robotwin_scenario.policy_chain)
 

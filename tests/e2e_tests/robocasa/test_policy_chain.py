@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from tests.e2e_tests.common import publish_check
+from tests.e2e_tests.common import publish_check, require_model_path
 from tests.e2e_tests.robocasa.scenario import RoboCasaScenario
 
 
 def test_policy_chain(robocasa_scenario: RoboCasaScenario) -> None:
+    require_model_path("RLDX_MODEL_PATH")
     publish_check("robocasa_policy_chain", robocasa_scenario.policy_chain)

@@ -36,14 +36,23 @@ def check_pose_transition(before, after, *, z_delta=0.0, yaw_deg=0.0):
     assert angle_error < np.deg2rad(0.5), angle_error
 
 
-def test_environment_primitives(monkeypatch):
+def test_environment_primitives(monkeypatch, robodojo_runtime_argv):
     from rpent.utils import logging
 
     output = Path(os.environ["RPENT_E2E_OUTPUT_DIR"])
     monkeypatch.setattr(logging, "_output_dir", output)
     spec = get_robot_spec()
     args = parse_runtime_args(
-        spec, ["--task", "put_bottles_into_dustbin", "--seed", "0", "--layout", "0"]
+        spec,
+        [
+            "--task",
+            "put_bottles_into_dustbin",
+            "--seed",
+            "0",
+            "--layout",
+            "0",
+            *robodojo_runtime_argv,
+        ],
     )
     with runtime_phase(spec, args, output / "runtime", {"env"}) as kwargs:
         env = kwargs["env"]

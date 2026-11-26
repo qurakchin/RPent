@@ -17,16 +17,13 @@ from pathlib import Path
 
 import pytest
 
+from tests.e2e_tests.common import fast_wam_launch_argv, require_model_path
 from tests.e2e_tests.robotwin.scenario import RoboTwinScenario
 
 
 @pytest.fixture
 def wam_argv() -> list[str]:
-    endpoint = os.getenv("RPENT_FAST_WAM_ROBOTWIN_ENDPOINT")
-    if not endpoint or not os.getenv("ROBOTWIN_ASSETS_PATH"):
-        pytest.skip(
-            "requires RPENT_FAST_WAM_ROBOTWIN_ENDPOINT and ROBOTWIN_ASSETS_PATH"
-        )
+    require_model_path("ROBOTWIN_ASSETS_PATH")
     return [
         "--task-name",
         "beat_block_hammer",
@@ -36,11 +33,16 @@ def wam_argv() -> list[str]:
         "demo_randomized",
         "--max-episode-steps",
         "64",
-        "--am-backend",
-        "fast-wam",
-        "--am-endpoint",
-        endpoint,
+        *fast_wam_launch_argv("RPENT_FAST_WAM_ROBOTWIN"),
     ]
+
+
+@pytest.fixture
+def lingbot_checkpoint() -> None:
+    """Skip LingBot cases until the checkpoint and Qwen base are present."""
+    model = require_model_path("LINGBOT_MODEL_PATH")
+    if not (model / "qwen_base").is_dir():
+        pytest.skip("LINGBOT_MODEL_PATH requires a qwen_base directory")
 
 
 @pytest.fixture(scope="session")

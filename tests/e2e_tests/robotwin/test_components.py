@@ -34,6 +34,7 @@ def test_environment_component(robotwin_scenario: RoboTwinScenario) -> None:
     publish_check("robotwin_environment_component", result)
 
 
+@pytest.mark.usefixtures("lingbot_checkpoint")
 def test_lingbot_component(robotwin_scenario: RoboTwinScenario) -> None:
     _, result = robotwin_scenario.lingbot
     publish_check("lingbot_component", result)

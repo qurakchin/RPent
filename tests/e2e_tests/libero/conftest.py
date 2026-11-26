@@ -17,23 +17,27 @@ from pathlib import Path
 
 import pytest
 
+from tests.e2e_tests.common import fast_wam_launch_argv
 from tests.e2e_tests.libero.scenario import LiberoScenario
 
 
 @pytest.fixture(params=["cosmos-policy", "cosmos3", "fast-wam"])
 def wam_argv(request) -> list[str]:
-    """Select a provisioned worker without requiring Pi0.5 or SAM3 weights."""
+    """Select local resources or a provisioned endpoint for the WAM case."""
     from components.sim.libero.suites import suite_variant
 
     backend = request.param
-    variable = {
-        "cosmos-policy": "RPENT_COSMOS_ENDPOINT",
-        "cosmos3": "RPENT_COSMOS3_ENDPOINT",
-        "fast-wam": "RPENT_FAST_WAM_ENDPOINT",
-    }[backend]
-    endpoint = os.getenv(variable)
-    if not endpoint:
-        pytest.skip(f"requires {variable} and LIBERO assets")
+    if backend == "fast-wam":
+        model_argv = fast_wam_launch_argv("RPENT_FAST_WAM")
+    else:
+        variable = {
+            "cosmos-policy": "RPENT_COSMOS_ENDPOINT",
+            "cosmos3": "RPENT_COSMOS3_ENDPOINT",
+        }[backend]
+        endpoint = os.getenv(variable)
+        if not endpoint:
+            pytest.skip(f"requires {variable} and LIBERO assets")
+        model_argv = ["--am-backend", backend, "--am-endpoint", endpoint]
     suite = os.getenv("RPENT_WAM_SUITE", "libero_spatial")
     return [
         "--suite",
@@ -46,10 +50,7 @@ def wam_argv(request) -> list[str]:
         suite_variant(suite),
         "--max-episode-steps",
         "32",
-        "--am-backend",
-        backend,
-        "--am-endpoint",
-        endpoint,
+        *model_argv,
     ]
 
 

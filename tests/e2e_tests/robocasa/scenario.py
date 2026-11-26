@@ -50,6 +50,7 @@ RLDX_ACTION_DIMS = {
 
 
 def _runtime_args() -> Namespace:
+    model = os.getenv("RLDX_MODEL_PATH")
     return parse_runtime_args(
         get_robot_spec(),
         [
@@ -59,8 +60,7 @@ def _runtime_args() -> Namespace:
             "target",
             "--seed",
             "0",
-            "--am-checkpoint",
-            str(Path(_required_env("RLDX_MODEL_PATH")).resolve()),
+            *(["--am-checkpoint", str(Path(model).resolve())] if model else []),
             "--cuda-device",
             str(selected_cuda_ordinal()),
         ],
@@ -177,7 +177,7 @@ def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
             "--seed",
             str(args.seed),
             "--am-checkpoint",
-            args.vla_model_path,
+            args.am_checkpoint,
             "--env-cuda-device",
             str(args.cuda_device),
             "--vla-cuda-device",
@@ -213,7 +213,7 @@ class RoboCasaScenario:
                     "seed": self.args.seed,
                 },
                 "resources": {
-                    "rldx_model": self.args.vla_model_path,
+                    "rldx_model": self.args.am_checkpoint,
                     "robocasa_assets": str(
                         Path(_required_env("ROBOCASA_ASSETS_PATH")).resolve()
                     ),

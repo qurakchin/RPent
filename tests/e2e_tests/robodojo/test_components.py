@@ -11,7 +11,12 @@ from robots.robodojo.robot_spec import get_robot_spec
 from robots.robodojo.toolkit import RoboDojoToolkit
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.memory import MemoryManager
-from tests.e2e_tests.common import parse_runtime_args, require_rgb, runtime_phase
+from tests.e2e_tests.common import (
+    parse_runtime_args,
+    require_model_path,
+    require_rgb,
+    runtime_phase,
+)
 
 pytestmark = [
     pytest.mark.timeout(900),
@@ -22,14 +27,24 @@ pytestmark = [
 ]
 
 
-def test_sam3_component(monkeypatch):
+def test_sam3_component(monkeypatch, robodojo_runtime_argv):
+    require_model_path("SAM3_CHECKPOINT_PATH", file=True)
     from rpent.utils import logging
 
     output = Path(os.environ["RPENT_E2E_OUTPUT_DIR"]) / "sam3-component"
     monkeypatch.setattr(logging, "_output_dir", output)
     spec = get_robot_spec()
     args = parse_runtime_args(
-        spec, ["--task", "put_bottles_into_dustbin", "--seed", "0", "--layout", "0"]
+        spec,
+        [
+            "--task",
+            "put_bottles_into_dustbin",
+            "--seed",
+            "0",
+            "--layout",
+            "0",
+            *robodojo_runtime_argv,
+        ],
     )
     with runtime_phase(spec, args, output / "runtime", {"env", "sam3"}) as runtime:
         toolkit = RoboDojoToolkit(
@@ -77,19 +92,11 @@ def test_sam3_component(monkeypatch):
 
 
 @pytest.mark.timeout(2400)
-def test_vpp2_component(vla_backend):
-    if vla_backend != "vpp2":
-        pytest.skip("VPP2 is not the selected backend")
+def test_vpp2_component(robodojo_model_argv):
     output = Path(os.environ["RPENT_E2E_OUTPUT_DIR"]) / "vpp2-component"
     spec = get_robot_spec()
-    endpoint = os.environ.get("RPENT_ROBODOJO_VLA_ENDPOINT")
     args = parse_runtime_args(
-        spec,
-        [
-            "--task",
-            "put_bottles_into_dustbin",
-            *(["--vla-endpoint", endpoint] if endpoint else []),
-        ],
+        spec, ["--task", "put_bottles_into_dustbin", *robodojo_model_argv("vpp2")]
     )
     with runtime_phase(spec, args, output / "runtime", {"env", "vla"}) as runtime:
         env = runtime["env"]
@@ -112,21 +119,11 @@ def test_vpp2_component(vla_backend):
 
 
 @pytest.mark.timeout(2400)
-def test_awomo05_component(vla_backend):
-    if vla_backend != "awomo05":
-        pytest.skip("Awomo05 is not the selected backend")
+def test_awomo05_component(robodojo_model_argv):
     output = Path(os.environ["RPENT_E2E_OUTPUT_DIR"]) / "awomo05-component"
-    endpoint = os.environ.get("RPENT_ROBODOJO_VLA_ENDPOINT")
     spec = get_robot_spec()
     args = parse_runtime_args(
-        spec,
-        [
-            "--task",
-            "put_bottles_into_dustbin",
-            "--vla-backend",
-            "awomo05",
-            *(["--vla-endpoint", endpoint] if endpoint else []),
-        ],
+        spec, ["--task", "put_bottles_into_dustbin", *robodojo_model_argv("awomo05")]
     )
     with runtime_phase(spec, args, output / "runtime", {"env", "vla"}) as runtime:
         env, policy = runtime["env"], runtime["vla_client"]

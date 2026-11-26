@@ -23,6 +23,7 @@ from tests.e2e_tests.common import (
     parse_runtime_args,
     publish_check,
     require_array,
+    require_model_path,
     runtime_phase,
 )
 from tests.e2e_tests.libero.scenario import LiberoScenario
@@ -38,15 +39,13 @@ def test_environment_action(libero_scenario: LiberoScenario) -> None:
 
 
 def test_pi05_component(libero_scenario: LiberoScenario) -> None:
-    if libero_scenario.variant != "pro":
-        pytest.skip("shared Pi0.5 component is covered by LIBERO-PRO")
+    require_model_path("PI05_CHECKPOINT_PATH")
     _, result = libero_scenario.pi05
     publish_check("pi05_component", result)
 
 
 def test_sam3_component(libero_scenario: LiberoScenario) -> None:
-    if libero_scenario.variant != "pro":
-        pytest.skip("shared SAM3 component is covered by LIBERO-PRO")
+    require_model_path("SAM3_CHECKPOINT_PATH", file=True)
     publish_check("sam3_component", libero_scenario.sam3)
 
 
@@ -81,9 +80,11 @@ def test_wam_component(wam_argv, tmp_path, record_property) -> None:
 
 
 @pytest.mark.timeout(1200)
-def test_environment_horizon_excludes_settling(wam_argv, tmp_path) -> None:
+def test_environment_horizon_excludes_settling(
+    libero_scenario: LiberoScenario, tmp_path
+) -> None:
     spec = get_robot_spec()
-    args = parse_runtime_args(spec, wam_argv)
+    args = libero_scenario.args
     with runtime_phase(spec, args, tmp_path, {"env"}) as runtime:
         env = runtime["env"]
         env.reset()

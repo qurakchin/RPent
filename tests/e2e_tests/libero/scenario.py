@@ -290,12 +290,14 @@ class LiberoScenario:
                     "simulator_assets": str(
                         Path(os.environ[config["asset_env"]]).resolve()
                     ),
-                    "pi05_checkpoint": str(
-                        Path(os.environ["PI05_CHECKPOINT_PATH"]).resolve()
-                    ),
-                    "sam3_checkpoint": str(
-                        Path(os.environ["SAM3_CHECKPOINT_PATH"]).resolve()
-                    ),
+                    **{
+                        name: str(Path(value).resolve())
+                        for name, variable in (
+                            ("pi05_checkpoint", "PI05_CHECKPOINT_PATH"),
+                            ("sam3_checkpoint", "SAM3_CHECKPOINT_PATH"),
+                        )
+                        if (value := os.environ.get(variable))
+                    },
                 },
             },
         )

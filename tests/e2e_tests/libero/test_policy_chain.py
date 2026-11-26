@@ -19,14 +19,15 @@ import pytest
 from tests.e2e_tests.common import (
     ScriptedToolCall,
     publish_check,
+    require_model_path,
     run_scripted_policy_chain,
 )
 from tests.e2e_tests.libero.scenario import LiberoScenario
 
 
 def test_policy_chain(libero_scenario: LiberoScenario) -> None:
-    if libero_scenario.variant != "pro":
-        pytest.skip("shared LIBERO policy chain is covered by LIBERO-PRO")
+    require_model_path("PI05_CHECKPOINT_PATH")
+    require_model_path("SAM3_CHECKPOINT_PATH", file=True)
     publish_check("libero_policy_chain", libero_scenario.policy_chain)
 
 

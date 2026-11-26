@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pytest
 
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.robots.robot_spec import RobotSpec
@@ -38,6 +39,34 @@ from tests.e2e_tests.offline_planner_server import (
     OfflinePlannerServer,
     ScriptedToolCall,
 )
+
+
+def require_model_path(variable: str, *, file: bool = False) -> Path:
+    """Skip a model test until its local resource is available."""
+    value = os.getenv(variable)
+    if value:
+        path = Path(value).expanduser()
+        exists = path.is_file() if file else path.is_dir()
+        if exists:
+            return path
+    expected = "file" if file else "directory"
+    pytest.skip(f"{variable} must point to an available {expected}")
+
+
+def fast_wam_launch_argv(prefix: str) -> list[str]:
+    """Build local worker arguments for a platform's Fast-WAM resources."""
+    return [
+        "--am-backend",
+        "fast-wam",
+        "--am-checkpoint",
+        str(require_model_path(f"{prefix}_CHECKPOINT", file=True)),
+        "--am-python",
+        str(require_model_path(f"{prefix}_PYTHON", file=True)),
+        "--fast-wam-config",
+        str(require_model_path(f"{prefix}_CONFIG", file=True)),
+        "--fast-wam-dataset-stats",
+        str(require_model_path(f"{prefix}_DATASET_STATS", file=True)),
+    ]
 
 
 def run_scripted_policy_chain(

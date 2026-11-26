@@ -10,6 +10,7 @@ import pytest
 from tests.e2e_tests.common import (
     ScriptedToolCall,
     publish_check,
+    require_model_path,
     run_scripted_policy_chain,
 )
 
@@ -23,7 +24,9 @@ pytestmark = [
 
 
 @pytest.mark.parametrize("control", ["primitive", "policy"])
-def test_policy_chain(control, vla_backend):
+@pytest.mark.parametrize("vla_backend", ["vpp2", "awomo05"])
+def test_policy_chain(control, vla_backend, robodojo_model_argv):
+    require_model_path("SAM3_CHECKPOINT_PATH", file=True)
     if control == "primitive":
         action = ScriptedToolCall(
             "set_gripper", {"arm": "left", "val": 0.5, "steps": 2}
@@ -38,7 +41,6 @@ def test_policy_chain(control, vla_backend):
         if vla_backend == "vpp2"
         else f"policy-chain-awomo05-{action.name}"
     )
-    endpoint = os.environ.get("RPENT_ROBODOJO_VLA_ENDPOINT")
     result = run_scripted_policy_chain(
         robot="robodojo",
         robot_argv=[
@@ -48,8 +50,7 @@ def test_policy_chain(control, vla_backend):
             "0",
             "--layout",
             "0",
-            *(["--vla-backend", vla_backend] if vla_backend != "vpp2" else []),
-            *(["--vla-endpoint", endpoint] if endpoint else []),
+            *robodojo_model_argv(vla_backend),
         ],
         output_dir=output,
         action=action,

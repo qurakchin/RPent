@@ -50,6 +50,7 @@ def _required_env(name: str) -> str:
 
 
 def _runtime_args() -> Namespace:
+    model = os.getenv("LINGBOT_MODEL_PATH")
     return parse_runtime_args(
         get_robot_spec(),
         [
@@ -63,8 +64,7 @@ def _runtime_args() -> Namespace:
             "32",
             "--robotwin-assets-path",
             str(Path(_required_env("ROBOTWIN_ASSETS_PATH")).resolve()),
-            "--vla-model-path",
-            str(Path(_required_env("LINGBOT_MODEL_PATH")).resolve()),
+            *(["--am-checkpoint", str(Path(model).resolve())] if model else []),
             "--cuda-device",
             str(selected_cuda_ordinal()),
         ],
@@ -200,8 +200,8 @@ def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
             str(args.max_episode_steps),
             "--robotwin-assets-path",
             args.robotwin_assets_path,
-            "--vla-model-path",
-            args.vla_model_path,
+            "--am-checkpoint",
+            args.am_checkpoint,
             "--env-cuda-device",
             str(args.cuda_device),
             "--vla-cuda-device",
@@ -229,7 +229,7 @@ class RoboTwinScenario:
                     "seed": self.args.seed,
                 },
                 "resources": {
-                    "lingbot_model": self.args.vla_model_path,
+                    "lingbot_model": self.args.am_checkpoint,
                     "robotwin_assets": self.args.robotwin_assets_path,
                 },
             },
