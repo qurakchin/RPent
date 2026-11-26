@@ -75,7 +75,7 @@ def fast_wam_launch_argv(prefix: str) -> list[str]:
 
 
 # The vLLM client profile joins RPent's leading system messages for Qwen's template.
-PLANNER_MODEL = "Qwen3.5-2B"
+PLANNER_MODEL = "Qwen3.5-0.8B"
 PLANNER_TIMEOUT_SECONDS = 35 * 60
 TOOL_TEST_ROLE = (
     "You are a simulator integration tester. Your assignment is to exercise "

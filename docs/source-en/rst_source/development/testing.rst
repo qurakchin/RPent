@@ -5,19 +5,38 @@ GitHub runs the CPU unit tests and reports line coverage in the test logs.
 On same-repository PRs and pushes to ``main``, **Simulator CI** selects
 environment builds and GPU suites from the changed paths. For example,
 RLDX changes select RoboCasa. Shared planner changes select all seven suites.
-Documentation-only changes select none. The workflow log also lists selected targets for fork PRs.
+Documentation-only changes select none. The workflow log also lists selected targets for fork PRs. Self-hosted runners
+execute jobs from branches in this repository.
 
-Each selected GPU job starts Qwen3.5-2B on the runner CPU and uses the GPU for
-the robot stack. RPent asks the model to call each advertised tool one at a time,
-then call ``finish``. The job uploads ``tool-coverage.json`` alongside the JUnit
-and server logs. Check the missing tools and failed calls there.
+Each simulator build and GPU suite creates a fresh virtual environment and
+reuses the shared uv cache. Missing dependencies download normally.
 
-The first run installs the pinned llama.cpp binary, weights and vision projector.
-To preload them on a Linux x86-64 runner host, run this command from the repository root.
+Each selected GPU job starts Qwen3.5-0.8B with vLLM on the same GPU as the
+robot stack. The planner retains image inputs and calls each advertised tool
+one at a time, then calls ``finish``. The job uploads ``tool-coverage.json``
+alongside the JUnit and server logs. Check the missing tools and failed calls there.
+
+The first run installs vLLM 0.18.0 in an isolated Python 3.11 environment and
+fetches the model at revision ``2fc06364715b967f1860aea9cf38778875588b17``.
+On a Linux x86-64 runner with a compatible NVIDIA driver, preload it from
+the repository root:
 
 .. code-block:: bash
 
-   bash tests/e2e_tests/provision_planner.sh /mnt/public/rpent_shared/models/ci-qwen35-2b
+   bash tests/e2e_tests/provision_planner.sh /mnt/public/ljy/ci-planner/qwen35-08b
+
+Set ``RPENT_E2E_PLANNER_DIR`` to use another installation directory.
+The default GPU memory utilization is 0.20 (about 4.8 GiB on a 24 GiB card),
+with one request, a 16,384-token context and eager execution.
+This is vLLM's memory budget, not a measured peak or a hard allocation limit.
+Set ``RPENT_E2E_PLANNER_GPU_MEMORY_UTILIZATION`` to adjust the budget after
+checking the simulator and action model's peak usage. Single-card coexistence
+still requires GPU verification for each suite.
+
+To reuse an existing service, set ``RPENT_E2E_PLANNER_URL`` to its
+OpenAI-compatible base URL, ending in ``/v1``. It must serve the model as
+``Qwen3.5-0.8B`` with image inputs and tool calling enabled. The test wrapper
+checks the service and leaves its lifecycle to the operator.
 
 Test Structure
 --------------
