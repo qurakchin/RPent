@@ -17,10 +17,10 @@ set -euo pipefail
 
 # Do not let a runner's interactive shell or previously activated environment
 # affect imports or uv's target environment.
-unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX
+unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX UV_NO_CACHE
 
 if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <libero-pro|robocasa|robotwin> <output-dir> <venv-root>"
+  echo "Usage: $0 <suite|build:<component>> <output-dir> <venv-root>"
   echo "Each target installs the matching robot component into a clean environment."
   exit 2
 fi
@@ -29,8 +29,9 @@ target=$1
 output_dir=$2
 venv_root=$3
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+all_suites=(libero libero-pro libero-plus robocasa robotwin robodojo robolab)
 
-if [[ -z "${CUDA_VISIBLE_DEVICES:-}" ]]; then
+if [[ "$target" != build:* && ! "${CUDA_VISIBLE_DEVICES:-}" =~ ^[0-9]+$ ]]; then
   echo "CUDA_VISIBLE_DEVICES must expose exactly one selected GPU"
   exit 1
 fi
@@ -39,7 +40,7 @@ if [[ -e "$output_dir" || -e "$venv_root" ]]; then
   exit 1
 fi
 if ! command -v uv >/dev/null 2>&1; then
-  echo "uv is required to create clean Python 3.10/3.11 environments"
+  echo "uv is required to create a clean Python environment"
   exit 1
 fi
 for command in timeout setsid ps; do
@@ -187,9 +188,9 @@ verify_test_session_cleanup() {
 run_gpu_pytest() {
   local name=$1
   local python=$2
-  local test_dir=$3
-  local suite_output=$4
-  local junit_path=$5
+  local suite_output="$output_dir/$name"
+  local junit_path="$output_dir/$name-junit.xml"
+  shift 2
   local session_file="$output_dir/$name-pytest-session.txt"
   local test_status
   local cleanup_status=0
@@ -210,9 +211,10 @@ run_gpu_pytest() {
       trap cleanup EXIT HUP INT TERM
       wait "$session_id"
     ' bash "$session_file" \
-      "$python" -m pytest -v "$test_dir" \
+      "$python" -m pytest -v -rs \
       --timeout="$pytest_timeout" \
-      --junitxml="$junit_path"
+      --basetemp="$output_dir/$name-pytest-tmp" \
+      --junitxml="$junit_path" "$@"
   test_status=$?
   set -e
 
@@ -243,83 +245,118 @@ install_test_runner() {
 run_in_clean_env() {
   local name=$1
   local component=$2
-  local test_dir=$3
-  local suite_output=$4
+  shift 2
   local venv_dir="$venv_root/$name"
 
-  # Torch and torchvision compatibility comes from the robot component's
-  # declared dependencies. The CUDA wheel backend is the separate
-  # runner/install-policy input UV_TORCH_BACKEND. Do not hide a
-  # dependency-contract failure with a workflow-only version pin.
   run_rpent_install install "$component" --venv "$venv_dir"
   install_test_runner "$venv_dir/bin/python"
-  timeout --foreground --kill-after=2m "$install_timeout" \
-    uv pip check --python "$venv_dir/bin/python"
-  (
-    cd "$repo_root"
-    run_gpu_pytest \
-      "$name" \
-      "$venv_dir/bin/python" \
-      "$test_dir" \
-      "$suite_output" \
-      "$output_dir/$name-junit.xml"
-  )
-  find "$venv_dir" -depth -delete
+  run_gpu_pytest "$name" "$venv_dir/bin/python" "$@"
 }
 
+run_libero() {
+  local name=$1
+  local variant=$2
+  local component=$3
+  local asset_var=$4
+  local package=$5
+  local downloader=$6
+  shift 6
+  local venv_dir="$venv_root/$name"
+  local requirement
+
+  require_dir "$asset_var"
+  export RPENT_LIBERO_VARIANT="$variant"
+  export LIBERO_CONFIG_PATH="$output_dir/libero-config"
+  mkdir "$LIBERO_CONFIG_PATH"
+  run_rpent_install install "$component" --venv "$venv_dir"
+  install_test_runner "$venv_dir/bin/python"
+
+  # The download command writes beside the simulator module. Keep those writes
+  # in this venv even when its dependencies are symlinked to the shared cache.
+  requirement=$(uv pip freeze --python "$venv_dir/bin/python" \
+    | awk -v pkg="$package" '$1 == pkg || index($1, pkg "==") == 1 {print}')
+  if [[ -z "$requirement" ]]; then
+    echo "Expected $package in $venv_dir" >&2
+    return 1
+  fi
+  timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
+    --python "$venv_dir/bin/python" --link-mode copy \
+    --reinstall-package "$package" --no-deps "$requirement"
+  timeout --foreground --kill-after=2m "$install_timeout" \
+    "$venv_dir/bin/$downloader" --link "${!asset_var}"
+  run_gpu_pytest "$name" "$venv_dir/bin/python" "$@"
+}
+
+run_robodojo() {
+  require_dir ROBODOJO_ASSETS_ROOT
+  if [[ -n "${ROBODOJO_SIM_PYTHON:-}" ]]; then
+    require_file ROBODOJO_SIM_PYTHON
+  fi
+  export OMNI_KIT_ACCEPT_EULA=YES
+  export RPENT_RUN_ROBODOJO_INTEGRATION=1
+  run_in_clean_env "$target" robot-robodojo "$@"
+}
+
+build_component_env() {
+  local component=$1
+  local venv_dir="$venv_root/$component"
+
+  run_rpent_install install "$component" --venv "$venv_dir"
+  cp "$venv_dir/rpent-install.json" "$output_dir/"
+  run_rpent_install doctor --venv "$venv_dir"
+  "$venv_dir/bin/rpent" --help >/dev/null
+}
+
+cd "$repo_root"
 case "$target" in
+  build:*)
+    build_component_env "${target#build:}"
+    ;;
+  all)
+    status=0
+    for suite in "${all_suites[@]}"; do
+      bash "$repo_root/tests/e2e_tests/run_gpu_suite.sh" \
+        "$suite" "$output_dir/$suite" "$venv_root/$suite" || status=1
+    done
+    exit "$status"
+    ;;
+  libero)
+    export PI05_CHECKPOINT_PATH="${LIBERO_STANDARD_CHECKPOINT_PATH:-${PI05_CHECKPOINT_PATH:-}}"
+    run_libero libero standard robot-libero LIBERO_ASSET_PATH rpent-libero \
+      libero-download-assets tests/e2e_tests/libero/test_components.py \
+      tests/e2e_tests/libero/test_policy_chain.py
+    ;;
   libero-pro)
-    require_dir PI05_CHECKPOINT_PATH
-    require_file SAM3_CHECKPOINT_PATH
-    require_dir LIBERO_PRO_ASSET_PATH
-    # Keep package imports and child daemons off the runner's shared config.
-    export LIBERO_CONFIG_PATH="$(cd "$output_dir" && pwd)/libero-config"
-    mkdir -p "$LIBERO_CONFIG_PATH"
-    venv_dir="$venv_root/libero-pro"
-    run_rpent_install install robot-libero --venv "$venv_dir"
-    install_test_runner "$venv_dir/bin/python"
-    # Keep realpath(__file__) beside this venv's assets, preserving the Git revision.
-    liberopro_requirement=$(uv pip freeze --python "$venv_dir/bin/python" \
-      | awk '$1 == "rpent-liberopro" {print}')
-    timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
-      --python "$venv_dir/bin/python" \
-      --link-mode copy --reinstall-package rpent-liberopro --no-deps \
-      "$liberopro_requirement"
-    timeout --foreground --kill-after=2m "$install_timeout" \
-      uv pip check --python "$venv_dir/bin/python"
-    timeout --foreground --kill-after=2m "$install_timeout" \
-      "$venv_dir/bin/liberopro-download-assets" --link "$LIBERO_PRO_ASSET_PATH"
-    (
-      cd "$repo_root"
-      export RPENT_LIBERO_VARIANT=pro
-      run_gpu_pytest \
-        libero-pro \
-        "$venv_dir/bin/python" \
-        tests/e2e_tests/libero \
-        "$output_dir/pro" \
-        "$output_dir/libero-pro-junit.xml"
-    )
-    find "$venv_dir" -depth -delete
+    run_libero libero-pro pro robot-libero LIBERO_PRO_ASSET_PATH rpent-liberopro \
+      liberopro-download-assets tests/e2e_tests/libero -k 'not wam'
+    ;;
+  libero-plus)
+    export PI05_CHECKPOINT_PATH="${LIBERO_STANDARD_CHECKPOINT_PATH:-${PI05_CHECKPOINT_PATH:-}}"
+    run_libero libero-plus plus robot-libero_plus LIBERO_PLUS_ASSET_PATH \
+      rlinf-liberoplus liberoplus-download-assets \
+      tests/e2e_tests/libero/test_components.py \
+      tests/e2e_tests/libero/test_policy_chain.py -k 'not wam'
     ;;
   robocasa)
-    require_dir RLDX_MODEL_PATH
     require_dir ROBOCASA_ASSETS_PATH
     export RPENT_RUN_ROBOCASA_INTEGRATION=1
-    run_in_clean_env \
-      robocasa robot-robocasa tests/e2e_tests/robocasa "$output_dir/robocasa"
+    run_in_clean_env robocasa robot-robocasa tests/e2e_tests/robocasa
     ;;
   robotwin)
-    require_dir LINGBOT_MODEL_PATH
     require_dir ROBOTWIN_ASSETS_PATH
-    if [[ ! -d "$LINGBOT_MODEL_PATH/qwen_base" ]]; then
-      echo "LINGBOT_MODEL_PATH must contain qwen_base"
-      exit 1
-    fi
-    run_in_clean_env \
-      robotwin robot-robotwin tests/e2e_tests/robotwin "$output_dir/robotwin"
+    run_in_clean_env robotwin robot-robotwin tests/e2e_tests/robotwin
+    ;;
+  robodojo)
+    run_robodojo tests/e2e_tests/robodojo
+    ;;
+  robolab)
+    export PI05_CHECKPOINT_PATH="${ROBOLAB_CHECKPOINT_PATH:-${PI05_CHECKPOINT_PATH:-}}"
+    require_dir ROBOLAB_ASSETS_PATH
+    require_file ROBOLAB_SIM_PYTHON
+    run_in_clean_env robolab robot-robolab tests/e2e_tests/robolab
     ;;
   *)
-    echo "Unknown target: $target"
+    echo "Unknown target: $target" >&2
     exit 2
     ;;
 esac

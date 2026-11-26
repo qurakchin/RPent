@@ -21,36 +21,70 @@ permissions:
 
 jobs:
   gpu-suite:
-    runs-on: embodied
-    timeout-minutes: 180
+    name: GPU E2E (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(inputs.target == 'all' && '["libero","libero-pro","libero-plus","robocasa","robotwin","robodojo","robolab"]' || format('[{0}]', toJSON(inputs.target))) }}
+    runs-on: rpent-gpu
+    timeout-minutes: 240
     concurrency:
-      group: robot-gpu-${{ inputs.scope }}-${{ inputs.target }}
+      group: robot-gpu-${{ inputs.scope }}-${{ matrix.target }}
       cancel-in-progress: true
     env:
-      CUDA_VISIBLE_DEVICES: "0"
+      # LIBERO variants. Standard and Plus share a Pi0.5 checkpoint; Pro uses PI05_CHECKPOINT_PATH.
+      LIBERO_ASSET_PATH: /mnt/public/rpent_shared/assets/libero-standard
+      LIBERO_PLUS_ASSET_PATH: /mnt/public/rpent_shared/assets/libero-plus
+      LIBERO_PRO_ASSET_PATH: /mnt/public/rpent_shared/assets/libero-pro
+      LIBERO_STANDARD_CHECKPOINT_PATH: /mnt/public/rpent_shared/models/RLinf-Pi05-LIBERO-SFT
+      PI05_CHECKPOINT_PATH: /mnt/public/rpent_shared/models/RLinf-Pi05-LIBERO-130-fullshot-SFT
+      RPENT_FAST_WAM_CHECKPOINT: /mnt/public/rpent_shared/models/fastwam/libero_uncond_2cam224.pt
+      RPENT_FAST_WAM_DATASET_STATS: /mnt/public/rpent_shared/models/fastwam/libero_uncond_2cam224_dataset_stats.json
+      RPENT_FAST_WAM_PYTHON: ""  # Temporarily unset; to be added later
+      RPENT_FAST_WAM_CONFIG: ""  # Temporarily unset; to be added later
+      RPENT_COSMOS_ENDPOINT: ""  # Temporarily unset; to be added later
+      RPENT_COSMOS3_ENDPOINT: ""  # Temporarily unset; to be added later
+
+      # RoboCasa
+      ROBOCASA_ASSETS_PATH: /mnt/public/rpent_shared/assets/robocasa
+      RLDX_MODEL_PATH: /mnt/public/rpent_shared/models/RLDX-1-FT-RC365
+
+      # RoboTwin
+      ROBOTWIN_ASSETS_PATH: /mnt/public/rpent_shared/assets/robotwin
+      LINGBOT_MODEL_PATH: /mnt/public/rpent_shared/models/LingBot-VLA-RoboTwin-EEF-ckpt1500
+      RPENT_FAST_WAM_ROBOTWIN_CHECKPOINT: /mnt/public/rpent_shared/models/fastwam/robotwin_uncond_3cam_384.pt
+      RPENT_FAST_WAM_ROBOTWIN_DATASET_STATS: /mnt/public/rpent_shared/models/fastwam/robotwin_uncond_3cam_384_dataset_stats.json
+      RPENT_FAST_WAM_ROBOTWIN_PYTHON: ""  # Temporarily unset; to be added later
+      RPENT_FAST_WAM_ROBOTWIN_CONFIG: ""  # Temporarily unset; to be added later
+
+      # RoboDojo
+      ROBODOJO_ASSETS_ROOT: /mnt/public/rpent_shared/assets/robodojo
+      ROBODOJO_SIM_PYTHON: /mnt/public/rpent_shared/venvs/robodojo-isaacsim5.1-py311/bin/python
+      VPP2_MODEL_PATH: ""  # Temporarily unset; to be added later
+      RPENT_VPP2_PYTHON: ""  # Temporarily unset; to be added later
+      AWOMO05_MODEL_PATH: ""  # Temporarily unset; to be added later
+      RPENT_AWOMO05_PYTHON: ""  # Temporarily unset; to be added later
+
+      # RoboLab
+      ROBOLAB_ASSETS_PATH: /mnt/public/rpent_shared/assets/robolab
+      ROBOLAB_SIM_PYTHON: /mnt/public/rpent_shared/venvs/robolab-sim/bin/python
+      ROBOLAB_CHECKPOINT_PATH: /mnt/public/rpent_shared/models/RLinf-Pi05-RoboLab-droid-jointpos
+
+      # Shared runner and rendering settings (CUDA_VISIBLE_DEVICES comes from each runner's .env)
+      SUITE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.target }}
       MUJOCO_GL: egl
       PYOPENGL_PLATFORM: egl
 
-      # Shared install policy used by RLinf's NVIDIA embodied runner.
-      UV_CACHE_DIR: /workspace/dataset/.uv_cache
+      # Shared dependency and model caches
+      UV_CACHE_DIR: /mnt/public/rpent_shared/cache/uv
       UV_LINK_MODE: symlink
-      UV_PYTHON_INSTALL_DIR: /workspace/dataset/.uv_python
+      UV_PYTHON_INSTALL_DIR: /mnt/public/rpent_shared/python
       UV_TORCH_BACKEND: auto
+      HF_HUB_CACHE: /mnt/public/rpent_shared/models/huggingface/hub
+      OPENPI_DATA_HOME: /mnt/public/rpent_shared/models/openpi
 
-      # Runner resources under the shared /workspace/dataset mount.
-      #
-      # LIBERO-PRO
-      PI05_CHECKPOINT_PATH: /workspace/dataset/RLinf-Pi05-LIBERO-130-fullshot-SFT
-      LIBERO_PRO_ASSET_PATH: /workspace/dataset/LIBERO-PRO/liberopro/liberopro/assets
-      SAM3_CHECKPOINT_PATH: /workspace/dataset/rpent/sam3/sam3.pt
-      #
-      # RoboCasa
-      RLDX_MODEL_PATH: /workspace/dataset/RLDX-1-FT-RC365
-      ROBOCASA_ASSETS_PATH: /workspace/dataset/robocasa365_assets
-      #
-      # RoboTwin
-      ROBOTWIN_ASSETS_PATH: /workspace/dataset/RoboTwin
-      LINGBOT_MODEL_PATH: /workspace/dataset/rpent/LingBot-VLA-RoboTwin-EEF-ckpt1500
+      # Shared
+      SAM3_CHECKPOINT_PATH: /mnt/public/rpent_shared/models/sam3/sam3.pt
     steps:
       - name: Checkout selected revision
         uses: actions/checkout@v7
@@ -59,47 +93,47 @@ jobs:
           ref: ${{ inputs.revision }}
           persist-credentials: false
 
-      - name: Set up uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          enable-cache: false
-
       - name: Run selected GPU suite
-        timeout-minutes: 165
+        timeout-minutes: 225
         shell: bash
         env:
-          RPENT_INSTALL_TIMEOUT: 45m
-          RPENT_TEST_TIMEOUT: 45m
-          RPENT_GPU_PYTEST_TIMEOUT_SECONDS: "1200"
+          TARGET: ${{ matrix.target }}
+          RPENT_INSTALL_TIMEOUT: 90m
+          RPENT_TEST_TIMEOUT: 120m
+          RPENT_GPU_PYTEST_TIMEOUT_SECONDS: "2400"
         run: |
-          uv cache dir
-          uv python dir
-          bash tests/e2e_tests/run_gpu_suite.sh \
-            "${{ inputs.target }}" \
-            "$RUNNER_TEMP/rpent-gpu-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
-            "$RUNNER_TEMP/rpent-venvs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          output_dir="$RUNNER_TEMP/rpent-gpu-$SUITE_ID"
+          {
+            echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
+            uv --version
+            uv cache dir
+            uv python dir
+            bash tests/e2e_tests/run_gpu_suite.sh \
+              "$TARGET" "$output_dir" \
+              "$RUNNER_TEMP/rpent-venvs-$SUITE_ID"
+          } 2>&1 | tee "$output_dir.log"
 
-      - name: Print server logs on failure
-        if: failure()
-        shell: bash
-        run: |
-          output_dir="$RUNNER_TEMP/rpent-gpu-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          if [[ -d "$output_dir" ]]; then
-            while IFS= read -r -d '' log_path; do
-              echo "::group::${log_path#"$output_dir"/}"
-              cat "$log_path"
-              echo "::endgroup::"
-            done < <(find "$output_dir" -type f -name '*server.log' -print0)
-          fi
+      - name: Upload suite diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: gpu-e2e-${{ matrix.target }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}.log
+            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/*-junit.xml
+            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/*server.log
+            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/*-daemon-cleanup.txt
+          if-no-files-found: ignore
 
       - name: Clean up
         if: always()
         shell: bash
         run: |
           for path in \
-            "$RUNNER_TEMP/rpent-gpu-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
-            "$RUNNER_TEMP/rpent-venvs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"; do
+            "$RUNNER_TEMP/rpent-gpu-$SUITE_ID" \
+            "$RUNNER_TEMP/rpent-venvs-$SUITE_ID"; do
             if [[ -d "$path" ]]; then
               find "$path" -depth -delete
             fi
           done
+          rm -f "$RUNNER_TEMP/rpent-gpu-$SUITE_ID.log"

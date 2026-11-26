@@ -9,10 +9,16 @@ on:
         description: Robot stack to test
         required: true
         type: choice
+        default: all
         options:
+          - all
+          - libero
           - libero-pro
+          - libero-plus
           - robocasa
           - robotwin
+          - robodojo
+          - robolab
 
 permissions:
   contents: read
@@ -33,7 +39,7 @@ jobs:
       github.event_name == 'issue_comment' &&
       github.event.issue.pull_request &&
       contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
-      contains(fromJSON('["/ci-libero-pro", "/ci-robocasa", "/ci-robotwin"]'), github.event.comment.body)
+      contains(fromJSON('["/ci-all", "/ci-libero", "/ci-libero-pro", "/ci-libero-plus", "/ci-robocasa", "/ci-robotwin", "/ci-robodojo", "/ci-robolab"]'), github.event.comment.body)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
