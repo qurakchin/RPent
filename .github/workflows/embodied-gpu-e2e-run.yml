@@ -34,7 +34,7 @@ jobs:
       RPENT_COSMOS3_ENDPOINT: ""  # Temporarily unset; to be added later
 
       # RoboCasa
-      ROBOCASA_ASSETS_PATH: /mnt/public/rpent_shared/assets/robocasa
+      ROBOCASA_ASSETS_PATH: /mnt/public/rpent_shared/assets/robocasa-kitchen
       RLDX_MODEL_PATH: /mnt/public/rpent_shared/models/RLDX-1-FT-RC365
 
       # RoboTwin
