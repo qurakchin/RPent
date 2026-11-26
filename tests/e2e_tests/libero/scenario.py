@@ -265,6 +265,10 @@ def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
             },
         ),
         action_count_field="chunks_used",
+        before_action_calls=(
+            ToolExample("segment", {"prompt": "basket", "step": 0}),
+            ToolExample("back_project", {"row": 128, "col": 128, "resolution": "low"}),
+        ),
     )
 
 

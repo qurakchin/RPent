@@ -17,6 +17,7 @@ from rpent.planner.base import build_api_model
 from rpent.session.planner_capture import end_planner_task, start_planner_task
 from tests.e2e_tests.common import (
     PLANNER_MODEL,
+    PLANNER_TIMEOUT_SECONDS,
     TOOL_TEST_ROLE,
     ToolExample,
     parse_runtime_args,
@@ -74,6 +75,7 @@ def test_simulator_tool_coverage(robodojo_runtime_argv, monkeypatch):
                 model=build_api_model(f"vllm:{PLANNER_MODEL}", planner_url()),
                 dashboard_events=events,
                 max_tokens=512,
+                timeout_s=PLANNER_TIMEOUT_SECONDS,
             )
             planner.capabilities = (ExerciseTools(),)
             prompt = tool_test_prompt(

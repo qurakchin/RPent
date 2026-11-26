@@ -234,6 +234,10 @@ run_gpu_pytest() {
 # no installed CLI yet, so the launcher bootstraps it in a throwaway environment;
 # the installer then selects the target Python from the component manifest.
 run_rpent_install() {
+  # Runners can preload verified wheels alongside the shared uv cache.
+  if [[ -z "${UV_FIND_LINKS:-}" && -n "${UV_CACHE_DIR:-}" && -d "$UV_CACHE_DIR/wheelhouse" ]]; then
+    export UV_FIND_LINKS="$UV_CACHE_DIR/wheelhouse"
+  fi
   timeout --kill-after=2m "$install_timeout" \
     "$repo_root/rpent-install.sh" "$@"
 }

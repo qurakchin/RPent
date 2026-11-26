@@ -211,6 +211,15 @@ def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
         output_dir=output_dir / "policy-chain",
         action=ToolExample("lingbot_act", {"chunks": 1, "use_length": 50}),
         action_count_field="executed_steps",
+        before_action_calls=(
+            ToolExample("sample_world_xyz", {"view": "head", "pixels": [[120, 160]]}),
+            ToolExample("rotate_wrist", {"arm": "left", "delta_yaw_deg": 1}),
+            ToolExample("set_gripper", {"arm": "left", "val": 0.5, "steps": 1}),
+            ToolExample("release", {"arm": "left", "steps": 1}),
+            ToolExample(
+                "query_world_map", {"view": "head", "bbox": [110, 150, 130, 170]}
+            ),
+        ),
     )
 
 

@@ -20,7 +20,8 @@ def _images(value: Any) -> set[str]:
 
 def inspect_trajectory(output_dir: Path, action: str) -> dict[str, Any]:
     """Write a per-tool report even when a CLI run stopped early."""
-    expected = set()
+    inventory = output_dir / "tool-inventory.json"
+    expected = set(json.loads(inventory.read_text())) if inventory.is_file() else set()
     executed = []
     failures = []
     calls = []
@@ -85,6 +86,7 @@ def inspect_trajectory(output_dir: Path, action: str) -> dict[str, Any]:
     missing = sorted(expected - set(executed))
     report = {
         "expected": sorted(expected),
+        "attempted": sorted({call["name"] for call in calls}),
         "executed": executed,
         "missing": missing,
         "failures": failures,

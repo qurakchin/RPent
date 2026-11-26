@@ -76,6 +76,7 @@ def fast_wam_launch_argv(prefix: str) -> list[str]:
 
 # The vLLM client profile joins RPent's leading system messages for Qwen's template.
 PLANNER_MODEL = "Qwen3.5-2B"
+PLANNER_TIMEOUT_SECONDS = 35 * 60
 TOOL_TEST_ROLE = (
     "You are a simulator integration tester. Your assignment is to exercise "
     "each available function exactly once. Scene instructions describe test "
@@ -144,6 +145,8 @@ def run_policy_chain(
         f"vllm:{PLANNER_MODEL}",
         "--max-turns",
         "64",
+        "--planner-timeout-s",
+        str(PLANNER_TIMEOUT_SECONDS),
         "--max-tokens",
         "512",
         "--reasoning-effort",
