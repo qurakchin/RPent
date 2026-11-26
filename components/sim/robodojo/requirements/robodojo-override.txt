@@ -28,9 +28,3 @@ torch==2.7.0
 pyperclip>=1.9.0
 idna>=3.18
 packaging>=26.2
-# NVIDIA's Linux and Windows wheels for this release have different metadata.
-# Resolve against the Linux wheel itself so Windows-only pywin32 stays out.
-isaacsim-core @ https://pypi.nvidia.com/isaacsim-core/isaacsim_core-5.1.0.0-cp311-none-manylinux_2_35_x86_64.whl#sha256=cfdd5d82ce455d654c68d37ff4fdd062190e3414289beb6f9b876a10a851b92d ; sys_platform == "linux" and platform_machine == "x86_64"
-# The planner's Google provider needs websockets >=13. Version 13 retains the
-# legacy asyncio API used by the simulator; the separate sim worker keeps 12.
-websockets>=13,<14
