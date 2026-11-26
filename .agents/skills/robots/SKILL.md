@@ -22,7 +22,7 @@ Each concrete robot integration lives under `robots/<robot>/` and plugs into RPe
 3. **Keep package imports lazy.** `robots/<robot>/__init__.py` and `robot_spec.py` must not import simulator, VLA, perception, or hardware SDK packages (`torch`, `mujoco`, `robosuite`, `libero`, `openpi`, `rlinf`, `sam3`, `isaacsim`, `curobo`, `pyrealsense2`, `franky_control`, `cv2`, `transformers`) at module top level. `import rpent`, `enumerate_robots()`, and `rpent --help` must work with only base dependencies.
 4. **Make daemon ownership explicit.** Spawn and wait for owned subprocesses through `try_spawn_server` and `try_wait_server`, roll back earlier daemons on startup failure via `stop_owned_daemons`, handle Dashboard component subsets when supported, and never terminate borrowed external endpoints.
 5. **Pin component dependencies cleanly.** Put integration-only dependencies in `component.toml` (`schema = 2`) under `robots/<robot>/` or `components/{sim,models,tools,infra}/<name>/`. Pin git dependencies to an explicit commit SHA, version tag, or integration/release branch (`@<ref>`). Declare mutually incompatible components in `env_conflicts`, and keep component-local resolver overrides in `overrides` (e.g. `components/sim/robodojo/requirements/robodojo-override.txt`). Verify with `rpent-install check --all` and `tests/tooling/run.sh layout`.
-6. **Keep E2E targets aligned.** Adding a directory under `tests/e2e_tests/<robot>/` does not wire it into GPU CI. When adding a new CI target, update `tests/e2e_tests/run_gpu_suite.sh`, `.github/workflows/embodied-gpu-e2e.yml` (`options` and `/ci-*`), and `.github/workflows/embodied-gpu-e2e-run.yml` together, and document opt-in prerequisites in [tests/README.md](../../../tests/README.md).
+6. **Keep E2E targets aligned.** Adding a directory under `tests/e2e_tests/<robot>/` does not wire it into GPU CI. When adding a new CI target, update `tests/e2e_tests/run_gpu_suite.sh`, `.github/workflows/embodied-gpu-e2e.yml` (`options` and `/ci-*`), and `.github/workflows/embodied-gpu-e2e-run.yml` together, and document the target in [Testing and CI](https://rpent.readthedocs.io/en/latest/rst_source/development/testing.html) and its prerequisites in the simulator guide.
 
 ## Write
 
@@ -59,7 +59,7 @@ Then judge what the script cannot:
 - [ ] Startup failure tears down every earlier owned daemon and leaves borrowed endpoints running.
 - [ ] Tool schemas, handlers, and rendered prompts agree on every tool name and placeholder across supported planners.
 - [ ] Offline unit tests cover config, CLI args, dispatch, prompts, and lifecycle without requiring the robot extra; real-component and policy-chain checks exist for simulator integrations.
-- [ ] Paired EN/ZH simulator or real-world robot guides and `tests/README.md` match actual install extras, env vars, and commands.
+- [ ] Paired EN/ZH simulator or real-world robot guides and the [Testing and CI](https://rpent.readthedocs.io/en/latest/rst_source/development/testing.html) guide match actual install extras, env vars, and commands.
 
 ## Verify
 
@@ -81,7 +81,7 @@ Then judge what the script cannot:
      /path/to/new-venv-root
    ```
 
-   Inspect JUnit XML, server logs, and `*-daemon-cleanup.txt` in the output directory. For opt-in simulator suites not wired into `run_gpu_suite.sh` (such as RoboDojo, EFE, or external WAM endpoints) or operator-controlled real-robot diagnostics (`dual_franka`), follow the exact prerequisites and commands in [tests/README.md](../../../tests/README.md).
+   Inspect JUnit XML, server logs, and `*-daemon-cleanup.txt` in the output directory. For opt-in suites such as [EFE](../../../tests/e2e_tests/efe/) and [dual Franka](../../../tests/e2e_tests/dual_franka/), check the prerequisites in the suite before running it.
 
 3. **Distinguish integration from task success.** A bounded policy-chain test proves action execution, recorded `finish`, saved state/observation artifacts, and owned-daemon cleanup; report native environment success (`terminated` or benchmark verifier reward) separately.
 
