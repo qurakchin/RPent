@@ -74,6 +74,28 @@ def fast_wam_launch_argv(prefix: str) -> list[str]:
     ]
 
 
+PLANNER_MODEL = "Qwen3.5-2B"
+
+
+def planner_url() -> str:
+    return os.environ.get("RPENT_E2E_PLANNER_URL", "http://127.0.0.1:18396/v1")
+
+
+def tool_test_prompt(output_dir: Path, *examples: ToolExample) -> str:
+    """Ask the model to exercise the tools it receives from the runtime."""
+    return (
+        "Test the available tools in this simulator. Call every tool one at a "
+        "time, use its schema, and inspect the result before the next call. "
+        "Start with view_env_state. Use small valid actions. For file tools "
+        f"use {output_dir}/probe.txt (write it before reading it). "
+        "Use an observed image filename for read_image. If a tool fails, "
+        "continue with the remaining tools. Call finish last and summarize "
+        "the errors. The objective is tool coverage. "
+        "For these specific calls use the following bounded inputs: "
+        + json.dumps({t.name: t.arguments for t in examples})
+    )
+
+
 def run_policy_chain(
     *,
     robot: str,
@@ -82,7 +104,7 @@ def run_policy_chain(
     action: ToolExample,
     action_count_field: str,
     before_action_calls: tuple[ToolExample, ...] = (),
-    include_images: bool = False,
+    require_post_action_image: bool = False,
 ) -> dict[str, Any]:
     """Exercise every advertised tool through the public CLI and local model."""
     memory_dir = output_dir.parent / "offline-memory"
@@ -97,18 +119,7 @@ def run_policy_chain(
         "# Offline GPU E2E memory\n\nNo task-specific guidance is provided.\n",
         encoding="utf-8",
     )
-    model = "Qwen3.5-2B"
-    prompt = (
-        "Test the available tools in this simulator. Call every tool one at a "
-        "time, use its schema, and inspect the result before the next call. "
-        "Start with view_env_state. Use small valid actions. For file tools "
-        f"use {output_dir}/probe.txt (write it before reading it). "
-        "Use an observed image filename for read_image. If a tool fails, "
-        "continue with the remaining tools. Call finish last and summarize "
-        "the errors. The objective is tool coverage. "
-        "For these specific calls use the following bounded inputs: "
-        + json.dumps({t.name: t.arguments for t in (*before_action_calls, action)})
-    )
+    prompt = tool_test_prompt(output_dir, *before_action_calls, action)
     executable = Path(sys.executable).with_name("rpent")
     if not executable.is_file():
         raise RuntimeError(f"RPent console script not found: {executable}")
@@ -119,7 +130,7 @@ def run_policy_chain(
         "--planner",
         "api",
         "--model",
-        f"openai-chat:{model}",
+        f"openai-chat:{PLANNER_MODEL}",
         "--max-turns",
         "64",
         "--max-tokens",
@@ -127,7 +138,6 @@ def run_policy_chain(
         "--record-trajectory",
         "--user-message",
         prompt,
-        *([] if include_images else ["--no-images"]),
         "--memory-profile",
         "local",
         "--memory-dir",
@@ -151,9 +161,8 @@ def run_policy_chain(
     env.update(NO_PROXY=no_proxy, no_proxy=no_proxy)
 
     repo_root = Path(__file__).resolve().parents[2]
-    base_url = os.environ.get("RPENT_E2E_PLANNER_URL", "http://127.0.0.1:18396/v1")
     completed = subprocess.run(
-        [*command, "--base-url", base_url], cwd=repo_root, env=env, check=False
+        [*command, "--base-url", planner_url()], cwd=repo_root, env=env, check=False
     )
     coverage = inspect_trajectory(output_dir, action.name)
     if completed.returncode or not coverage["passed"]:
@@ -162,7 +171,7 @@ def run_policy_chain(
             f"missing={coverage['missing']}, failures={coverage['failures']}. "
             f"See {output_dir / 'tool-coverage.json'}"
         )
-    if include_images and not coverage["post_action_new_image_count"]:
+    if require_post_action_image and not coverage["post_action_new_image_count"]:
         raise RuntimeError("post-action planner request contained no new image")
 
     transcript_paths = list(output_dir.glob("transcript_*.json"))
@@ -204,7 +213,7 @@ def run_policy_chain(
             "local model planner -> public CLI -> toolkit -> action primitive "
             "-> simulator action -> finish"
         ),
-        "planner": model,
+        "planner": PLANNER_MODEL,
         "action_tool": action.name,
         "recorded_action_steps": len(action_steps),
         "simulator_action_count": action_count,

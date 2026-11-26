@@ -41,7 +41,7 @@ def test_pi05_policy_chain() -> None:
         action=ToolExample("pi05_act", {"steps": 1}),
         action_count_field="executed_steps",
         before_action_calls=(ToolExample("view_env_state", {}),),
-        include_images=True,
+        require_post_action_image=True,
     )
     assert result["simulator_action_count"] == 1
     assert list((output / "main.png").glob("*.png"))

@@ -12,8 +12,8 @@ the robot stack. RPent asks the model to call each advertised tool one at a time
 then call ``finish``. The job uploads ``tool-coverage.json`` alongside the JUnit
 and server logs. Check the missing tools and failed calls there.
 
-On each Linux x86-64 runner host, run this command from the repository root
-to install the pinned llama.cpp binary, weights and vision projector.
+The first run installs the pinned llama.cpp binary, weights and vision projector.
+To preload them on a Linux x86-64 runner host, run this command from the repository root.
 
 .. code-block:: bash
 

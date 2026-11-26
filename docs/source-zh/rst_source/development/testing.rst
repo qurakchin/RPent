@@ -5,7 +5,7 @@ GitHub 自动运行 CPU 单元测试，测试日志中包含代码行覆盖率�
 
 每个 GPU 任务都会在 CPU 上启动 Qwen3.5-2B，GPU 用于仿真和机器人模型。RPent 要求模型每次调用一个工具，遍历当前环境提供的工具后调用 ``finish``。在 Actions 的测试产物中打开 ``tool-coverage.json`` 即可查看哪些工具未被调用、哪些调用执行失败，也可以下载 JUnit 报告和服务日志。
 
-首次配置 Linux x86-64 runner 时，在仓库根目录执行以下命令安装固定版本的 llama.cpp、模型权重和视觉投影器。
+首次运行会自动安装固定版本的 llama.cpp、模型权重和视觉投影器。也可以在 Linux x86-64 runner 上进入仓库根目录，提前安装。
 
 .. code-block:: bash
 

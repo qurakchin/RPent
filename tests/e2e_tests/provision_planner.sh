@@ -5,6 +5,8 @@ set -euo pipefail
 root=${1:?usage: provision_planner.sh INSTALL_DIRECTORY}
 mkdir -p "$root"
 cd "$root"
+exec 9>.provision.lock
+flock 9
 tmp=$(mktemp -d .provision.XXXXXX)
 trap 'rm -rf "$tmp"' EXIT
 
@@ -13,7 +15,7 @@ fetch() {
   if [[ -f "$name" ]] && echo "$digest  $name" | sha256sum -c -; then
     return
   fi
-  curl --fail --location --retry 4 --output "$tmp/$name" "$url"
+  curl --fail --silent --show-error --location --retry 4 --output "$tmp/$name" "$url"
   echo "$digest  $tmp/$name" | sha256sum -c -
   mv "$tmp/$name" "$name"
 }

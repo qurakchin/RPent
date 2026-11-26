@@ -5,7 +5,12 @@ set -euo pipefail
 log=${1:?expected server log path}
 shift
 root=${RPENT_E2E_PLANNER_DIR:-/mnt/public/rpent_shared/models/ci-qwen35-2b}
+if [[ ! -x "$root/llama-b12774/llama-server" || ! -s "$root/Qwen3.5-2B-Q4_K_M.gguf" || ! -s "$root/mmproj-F16.gguf" ]]; then
+  bash "$(dirname "${BASH_SOURCE[0]}")/provision_planner.sh" "$root"
+fi
 port=$((18396 + ${CUDA_VISIBLE_DEVICES:?select a single GPU}))
+export NO_PROXY="${NO_PROXY:+$NO_PROXY,}${no_proxy:+$no_proxy,}127.0.0.1,localhost"
+export no_proxy="$NO_PROXY"
 export RPENT_E2E_PLANNER_URL="http://127.0.0.1:$port/v1"
 
 "$root/llama-b12774/llama-server" --host 127.0.0.1 --port "$port" \

@@ -3,16 +3,30 @@
 
 import json
 import os
+from contextlib import closing
 from pathlib import Path
 
 import pytest
 
+from robots.robodojo.robot_spec import get_robot_spec
+from robots.robodojo.toolkit import RoboDojoToolkit
+from rpent.dashboard.events import NullDashboardEventSink
+from rpent.memory import MemoryManager
+from rpent.planner.api_loop import ApiAgentLoop
+from rpent.planner.base import build_api_model
+from rpent.session.planner_capture import end_planner_task, start_planner_task
 from tests.e2e_tests.common import (
+    PLANNER_MODEL,
     ToolExample,
+    parse_runtime_args,
+    planner_url,
     publish_check,
     require_model_path,
     run_policy_chain,
+    runtime_phase,
+    tool_test_prompt,
 )
+from tests.e2e_tests.tool_coverage import inspect_trajectory
 
 pytestmark = [
     pytest.mark.timeout(2400),
@@ -21,6 +35,69 @@ pytestmark = [
         reason="requires a reserved GPU, RoboDojo assets and model checkpoints",
     ),
 ]
+
+
+def test_simulator_tool_coverage(robodojo_runtime_argv, monkeypatch):
+    """Exercise the simulator and SAM3 toolkit independently of policy weights."""
+    from rpent.utils import logging
+
+    require_model_path("SAM3_CHECKPOINT_PATH", file=True)
+    output = Path(os.environ["RPENT_E2E_OUTPUT_DIR"]) / "simulator-tools"
+    monkeypatch.setattr(logging, "_output_dir", output)
+    monkeypatch.setenv("OPENAI_API_KEY", "local")
+    spec = get_robot_spec()
+    args = parse_runtime_args(
+        spec,
+        [
+            "--task",
+            "put_bottles_into_dustbin",
+            "--seed",
+            "0",
+            "--layout",
+            "0",
+            *robodojo_runtime_argv,
+        ],
+    )
+    with runtime_phase(spec, args, output, {"env", "sam3"}) as runtime:
+        events = NullDashboardEventSink()
+        with closing(
+            RoboDojoToolkit(
+                primitives_kwargs=runtime,
+                dashboard_events=events,
+                memory=MemoryManager(output / "memory"),
+                state_output_dir=output,
+            )
+        ) as toolkit:
+            planner = ApiAgentLoop(
+                model=build_api_model(f"openai-chat:{PLANNER_MODEL}", planner_url()),
+                dashboard_events=events,
+                max_tokens=512,
+            )
+            prompt = tool_test_prompt(
+                output,
+                ToolExample("set_gripper", {"arm": "left", "val": 0.5, "steps": 2}),
+            )
+            start_planner_task(
+                toolkit.state,
+                instruction=prompt,
+                config={"seed": 0, "model": PLANNER_MODEL},
+            )
+            result = planner.solve(
+                system_prompt="Test the RoboDojo simulator tools.",
+                user_message=prompt,
+                toolkit=toolkit,
+                max_turns=64,
+            )
+            end_planner_task(
+                toolkit.state,
+                result,
+                finish_result=result.finish_result,
+                environment_success=None,
+                exception=None,
+            )
+            report = inspect_trajectory(output, "set_gripper")
+            assert report["passed"], report
+            assert result.error is None and result.finish_result, result.error
 
 
 @pytest.mark.parametrize("control", ["primitive", "policy"])
@@ -62,7 +139,7 @@ def test_policy_chain(control, vla_backend, robodojo_model_argv):
                 "sample_world_xyz", {"view": "head", "pixels": [[240, 320]], "step": 0}
             ),
         ),
-        include_images=True,
+        require_post_action_image=True,
     )
     assert result["post_action_new_image_count"] > 0, result
     transcript = json.loads((output / result["transcript"]).read_text(encoding="utf-8"))
