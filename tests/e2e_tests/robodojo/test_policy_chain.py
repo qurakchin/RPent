@@ -18,7 +18,6 @@ from rpent.session.planner_capture import end_planner_task, start_planner_task
 from tests.e2e_tests.common import (
     PLANNER_MODEL,
     PLANNER_TIMEOUT_SECONDS,
-    TOOL_TEST_ROLE,
     ToolExample,
     parse_runtime_args,
     planner_url,
@@ -26,9 +25,8 @@ from tests.e2e_tests.common import (
     require_model_path,
     run_policy_chain,
     runtime_phase,
-    tool_test_prompt,
 )
-from tests.e2e_tests.planner_cli import ExerciseTools
+from tests.e2e_tests.guided_planner_proxy import TOOL_TEST_ROLE, GuidedPlannerProxy
 from tests.e2e_tests.tool_coverage import inspect_trajectory
 
 pytestmark = [
@@ -71,35 +69,38 @@ def test_simulator_tool_coverage(robodojo_runtime_argv, monkeypatch):
                 state_output_dir=output,
             )
         ) as toolkit:
-            planner = ApiAgentLoop(
-                model=build_api_model(f"vllm:{PLANNER_MODEL}", planner_url()),
-                dashboard_events=events,
-                max_tokens=512,
+            prompt = "Exercise each available tool once."
+            with GuidedPlannerProxy(
+                planner_url(),
+                output_dir=output,
+                examples={"set_gripper": {"arm": "left", "val": 0.5, "steps": 2}},
+                role_prompt=TOOL_TEST_ROLE,
                 timeout_s=PLANNER_TIMEOUT_SECONDS,
-            )
-            planner.capabilities = (ExerciseTools(),)
-            prompt = tool_test_prompt(
-                output,
-                ToolExample("set_gripper", {"arm": "left", "val": 0.5, "steps": 2}),
-            )
-            start_planner_task(
-                toolkit.state,
-                instruction=prompt,
-                config={"seed": 0, "model": PLANNER_MODEL},
-            )
-            result = planner.solve(
-                system_prompt=TOOL_TEST_ROLE,
-                user_message=prompt,
-                toolkit=toolkit,
-                max_turns=64,
-            )
-            end_planner_task(
-                toolkit.state,
-                result,
-                finish_result=result.finish_result,
-                environment_success=None,
-                exception=None,
-            )
+            ) as proxy:
+                planner = ApiAgentLoop(
+                    model=build_api_model(f"vllm:{PLANNER_MODEL}", proxy.base_url),
+                    dashboard_events=events,
+                    max_tokens=512,
+                    timeout_s=PLANNER_TIMEOUT_SECONDS,
+                )
+                start_planner_task(
+                    toolkit.state,
+                    instruction=prompt,
+                    config={"seed": 0, "model": PLANNER_MODEL},
+                )
+                result = planner.solve(
+                    system_prompt=TOOL_TEST_ROLE,
+                    user_message=prompt,
+                    toolkit=toolkit,
+                    max_turns=64,
+                )
+                end_planner_task(
+                    toolkit.state,
+                    result,
+                    finish_result=result.finish_result,
+                    environment_success=None,
+                    exception=None,
+                )
             report = inspect_trajectory(output, "set_gripper")
             assert report["passed"], report
             assert result.error is None and result.finish_result, result.error

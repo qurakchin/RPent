@@ -5,17 +5,7 @@ GitHub 自动运行 CPU 单元测试，测试日志中包含代码行覆盖率�
 
 仿真环境构建和 GPU 测试每次都新建虚拟环境，并复用共享 uv 缓存。缺少的依赖会正常联网下载。
 
-每个 GPU 任务都会用 vLLM 启动 Qwen3.5-0.8B，与仿真和机器人模型共用一张 GPU。规划器保留图片输入，每次调用一个工具，遍历当前环境提供的工具后调用 ``finish``。在 Actions 的测试产物中打开 ``tool-coverage.json`` 即可查看哪些工具未被调用、哪些调用执行失败，也可以下载 JUnit 报告和服务日志。
-
-首次运行会在独立的 Python 3.11 环境中安装 vLLM 0.18.0，并下载固定版本的模型，版本号为 ``2fc06364715b967f1860aea9cf38778875588b17``。也可以在具备兼容 NVIDIA 驱动的 Linux x86-64 runner 上进入仓库根目录，提前安装。
-
-.. code-block:: bash
-
-   bash tests/e2e_tests/provision_planner.sh /mnt/public/ljy/ci-planner/qwen35-08b
-
-设置 ``RPENT_E2E_PLANNER_DIR`` 可以更换安装目录。默认显存比例为 0.20，在 24 GiB 显卡上约为 4.8 GiB；并发请求数为 1，上下文长度为 16,384 token，采用 eager 执行。这是 vLLM 的显存预算，不代表实测峰值或严格的分配上限。检查仿真和动作模型的峰值占用后，可以用 ``RPENT_E2E_PLANNER_GPU_MEMORY_UTILIZATION`` 调整比例。各套件能否在单卡上共存，仍需 GPU 实测。
-
-复用已有服务时，将 ``RPENT_E2E_PLANNER_URL`` 设为以 ``/v1`` 结尾的 OpenAI 兼容接口地址。服务须以 ``Qwen3.5-0.8B`` 为模型名，并启用图片输入和工具调用。测试脚本检查服务是否可用，服务的启动和停止由操作者负责。
+每个 GPU 任务都会通过公开 CLI 逐个调用当前环境提供的工具并最终调用 ``finish``，在 Actions 产物中上传 ``tool-coverage.json``、JUnit 报告与服务日志。
 
 
 测试结构

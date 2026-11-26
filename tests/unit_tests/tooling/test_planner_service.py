@@ -17,9 +17,11 @@ WRAPPER = Path(__file__).resolve().parents[2] / "e2e_tests/with_planner.sh"
 )
 def test_owned_service_stops_after_tests(tmp_path, test_status, startup_failure):
     root = tmp_path / "planner"
-    binary = root / "venv/bin/vllm"
+    venv = root / "venv"
+    model = root / "model"
+    binary = venv / "bin/vllm"
     binary.parent.mkdir(parents=True)
-    (root / ".ready-vllm-0.18.0").touch()
+    model.mkdir(parents=True)
     pid_file = root / "pid"
     binary.write_text(
         f"#!{sys.executable}\n"
@@ -40,7 +42,9 @@ def test_owned_service_stops_after_tests(tmp_path, test_status, startup_failure)
     env = dict(os.environ)
     env.pop("RPENT_E2E_PLANNER_URL", None)
     env.update(
-        RPENT_E2E_PLANNER_DIR=str(root),
+        RPENT_E2E_PLANNER_VENV=str(venv),
+        RPENT_E2E_PLANNER_MODEL=str(model),
+        RPENT_E2E_PLANNER_CACHE=str(root / "cache"),
         RPENT_E2E_PLANNER_PORT=str(port),
     )
     result = subprocess.run(
@@ -87,7 +91,8 @@ def test_external_service_is_borrowed(tmp_path):
             env={
                 **os.environ,
                 "RPENT_E2E_PLANNER_URL": f"http://127.0.0.1:{server.server_port}/v1",
-                "RPENT_E2E_PLANNER_DIR": str(tmp_path / "must-not-install"),
+                "RPENT_E2E_PLANNER_VENV": str(tmp_path / "must-not-exist"),
+                "RPENT_E2E_PLANNER_MODEL": str(tmp_path / "must-not-exist-model"),
             },
             capture_output=True,
             text=True,

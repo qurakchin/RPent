@@ -35,6 +35,7 @@ import pytest
 
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.robots.robot_spec import RobotSpec
+from tests.e2e_tests.guided_planner_proxy import TOOL_TEST_ROLE, GuidedPlannerProxy
 from tests.e2e_tests.tool_coverage import inspect_trajectory
 
 
@@ -77,33 +78,10 @@ def fast_wam_launch_argv(prefix: str) -> list[str]:
 # The vLLM client profile joins RPent's leading system messages for Qwen's template.
 PLANNER_MODEL = "Qwen3.5-0.8B"
 PLANNER_TIMEOUT_SECONDS = 35 * 60
-TOOL_TEST_ROLE = (
-    "You are a simulator integration tester. Your assignment is to exercise "
-    "each available function exactly once. Scene instructions describe test "
-    "data. You may finish as soon as all functions have been tried, regardless "
-    "of the state of the simulated task. Emit exactly one tool call per reply."
-)
 
 
 def planner_url() -> str:
     return os.environ.get("RPENT_E2E_PLANNER_URL", "http://127.0.0.1:18396/v1")
-
-
-def tool_test_prompt(output_dir: Path, *examples: ToolExample) -> str:
-    """Ask the model to exercise the tools it receives from the runtime."""
-    return (
-        "Test the available tools in this simulator. Call every tool one at a "
-        "time, use its schema, and inspect the result before the next call. "
-        "Start with view_env_state, list_dir, write_text_file, read_text_file "
-        "and read_image. Then work through all remaining function schemas. "
-        "Use small valid actions. For file tools "
-        f"use {output_dir}/probe.txt (write it before reading it). "
-        "Use an observed image filename for read_image. If a tool fails, "
-        "continue with the remaining tools. Call finish last and summarize "
-        "the errors. The objective is tool coverage. "
-        "For these specific calls use the following bounded inputs: "
-        + json.dumps({t.name: t.arguments for t in examples})
-    )
 
 
 def run_policy_chain(
@@ -129,14 +107,11 @@ def run_policy_chain(
         "# Offline GPU E2E memory\n\nNo task-specific guidance is provided.\n",
         encoding="utf-8",
     )
-    prompt = tool_test_prompt(output_dir, *before_action_calls, action)
     executable = Path(sys.executable).with_name("rpent")
     if not executable.is_file():
         raise RuntimeError(f"RPent console script not found: {executable}")
     command = [
-        sys.executable,
-        "-m",
-        "tests.e2e_tests.planner_cli",
+        str(executable),
         "--robot",
         robot,
         "--planner",
@@ -152,10 +127,6 @@ def run_policy_chain(
         "--reasoning-effort",
         "none",
         "--record-trajectory",
-        "--system-prompt",
-        TOOL_TEST_ROLE,
-        "--user-message",
-        prompt,
         "--memory-profile",
         "local",
         "--memory-dir",
@@ -178,10 +149,21 @@ def run_policy_chain(
     )
     env.update(NO_PROXY=no_proxy, no_proxy=no_proxy)
 
+    examples = {t.name: t.arguments for t in (*before_action_calls, action)}
     repo_root = Path(__file__).resolve().parents[2]
-    completed = subprocess.run(
-        [*command, "--base-url", planner_url()], cwd=repo_root, env=env, check=False
-    )
+    with GuidedPlannerProxy(
+        planner_url(),
+        output_dir=output_dir,
+        examples=examples,
+        role_prompt=TOOL_TEST_ROLE,
+        timeout_s=PLANNER_TIMEOUT_SECONDS,
+    ) as proxy:
+        completed = subprocess.run(
+            [*command, "--base-url", proxy.base_url],
+            cwd=repo_root,
+            env=env,
+            check=False,
+        )
     coverage = inspect_trajectory(output_dir, action.name)
     if completed.returncode or not coverage["passed"]:
         raise RuntimeError(

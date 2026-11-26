@@ -11,32 +11,9 @@ execute jobs from branches in this repository.
 Each simulator build and GPU suite creates a fresh virtual environment and
 reuses the shared uv cache. Missing dependencies download normally.
 
-Each selected GPU job starts Qwen3.5-0.8B with vLLM on the same GPU as the
-robot stack. The planner retains image inputs and calls each advertised tool
-one at a time, then calls ``finish``. The job uploads ``tool-coverage.json``
-alongside the JUnit and server logs. Check the missing tools and failed calls there.
-
-The first run installs vLLM 0.18.0 in an isolated Python 3.11 environment and
-fetches the model at revision ``2fc06364715b967f1860aea9cf38778875588b17``.
-On a Linux x86-64 runner with a compatible NVIDIA driver, preload it from
-the repository root:
-
-.. code-block:: bash
-
-   bash tests/e2e_tests/provision_planner.sh /mnt/public/ljy/ci-planner/qwen35-08b
-
-Set ``RPENT_E2E_PLANNER_DIR`` to use another installation directory.
-The default GPU memory utilization is 0.20 (about 4.8 GiB on a 24 GiB card),
-with one request, a 16,384-token context and eager execution.
-This is vLLM's memory budget, not a measured peak or a hard allocation limit.
-Set ``RPENT_E2E_PLANNER_GPU_MEMORY_UTILIZATION`` to adjust the budget after
-checking the simulator and action model's peak usage. Single-card coexistence
-still requires GPU verification for each suite.
-
-To reuse an existing service, set ``RPENT_E2E_PLANNER_URL`` to its
-OpenAI-compatible base URL, ending in ``/v1``. It must serve the model as
-``Qwen3.5-0.8B`` with image inputs and tool calling enabled. The test wrapper
-checks the service and leaves its lifecycle to the operator.
+Each selected GPU job exercises every advertised tool one at a time through the
+public CLI, then calls ``finish``, and uploads ``tool-coverage.json`` alongside
+the JUnit and server logs.
 
 Test Structure
 --------------
