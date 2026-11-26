@@ -1,7 +1,7 @@
 安装
 ====
 
-在 RPent 源码目录中为机器人、仿真器或独立模型服务安装隔离的虚拟环境，并检查依赖是否可用。若需包含资产下载与模型权重的首次 LIBERO-PRO 运行流程，请先阅读 :doc:`quickstart`。
+在 RPent 源码目录中为机器人、仿真环境或独立模型服务安装隔离的虚拟环境，并检查依赖是否可用。若需包含资产下载与模型权重的首次 LIBERO-PRO 运行流程，请先阅读 :doc:`quickstart`。
 
 环境要求
 --------
@@ -68,9 +68,12 @@
       * - 最小核心环境
         - ``./rpent-install.sh install infra-minimal --venv .venv-minimal``
         - 3.12 · CLI 与机器人发现检查
-      * - 开发 / 单元测试
+      * - 开发工具
         - ``./rpent-install.sh install infra-dev --venv .venv-dev``
-        - 3.12 · ``infra-unit_cpu`` 额外包含 CPU Torch
+        - 3.12 · Lint 与测试工具
+      * - 完整单元测试套件
+        - ``./rpent-install.sh install infra-unit_cpu --venv .venv-unit-cpu``
+        - 3.12 · 额外包含 CPU Torch
 
 安装环境
 --------
@@ -140,23 +143,20 @@
    - **默认路径：** 省略 ``--venv`` 时，环境创建在源码目录的 ``.rpent/venvs/<组件名以 + 连接>`` 下。
    - **复用与叠加包：** 对相同组件集合重复执行 ``install`` 会在原环境中原地更新依赖，保留用户额外安装的包（如 ``modelscope``、``pre-commit`` 或可编辑安装的 RLinf）。需要彻底重建时传入 ``--force``；若重建失败，原有环境会被恢复。
    - **外部管理的虚拟环境：** ``rpent-install`` 会拒绝覆盖非空的普通目录，也会在未传 ``--force`` 时拒绝写入非本工具创建的已有虚拟环境。对于由外部工具维护的环境，仅运行服务的主机（例如 :doc:`../real_world_robots/yam` 中的推理机环境）请直接执行 ``uv pip install -e .`` 安装 RPent；需要运行 ``rpent`` CLI 的环境（例如 :doc:`../simulators/efe` 中的 Harbor 环境）请执行 ``uv pip install -e ".[planner]"``。
-   - **PyPI wheel 与源码目录：** ``pip install rpent`` 只包含核心运行时（``rpent[planner]`` 额外包含规划器适配器与 Dashboard），不含 ``robots/`` 与 ``components/``。运行机器人请在源码目录中通过 ``./rpent-install.sh`` 创建环境。
+   - **PyPI wheel 与源码目录：** ``pip install rpent`` 只包含核心运行时（``rpent[planner]`` 额外包含规划器适配器与 Dashboard），不含机器人集成与仿真/模型组件。运行机器人请在源码目录中通过 ``./rpent-install.sh`` 创建环境。
 
-查看与检查组件
---------------
+.. dropdown:: 开发者工具：查看与校验组件
 
-在安装前列出源码目录中的全部组件，并校验清单配置：
+   在安装前列出源码目录中的全部组件，并校验组件清单配置：
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   ./rpent-install.sh list
-   ./rpent-install.sh check --all
+      ./rpent-install.sh list
+      ./rpent-install.sh check --all
 
-``check`` 不下载依赖，仅根据清单计算组件依赖集合，检查 Python 版本范围、精确版本冲突以及 ``env_conflicts``。同一环境内多个组件的 ``extra-index-urls`` 会自动合并，而 ``index-url`` 或 ``index-strategy`` 不一致时会直接报错。同时指定多个组件名可检查它们能否共用同一环境。
+   ``check`` 不下载依赖，仅根据清单计算组件依赖集合，检查 Python 版本范围、精确版本冲突及互斥规则。同时指定多个组件名可检查它们能否共用同一环境。
 
-.. dropdown:: 依赖可解性检查（``check --resolve``）
-
-   添加 ``--resolve`` 会调用 ``uv pip compile`` 验证依赖在 Linux ``x86_64`` 目标上是否可解（默认 ``manylinux_2_31``，当包含 ``sim-robodojo`` 等声明更高基线的组件时自动提升至 ``manylinux_2_35``），并在检查后清理临时文件。检查包含 ``nvidia-curobo`` 的环境需要在设置了 ``CUDA_HOME`` 的 Linux 主机上运行。
+   添加 ``--resolve`` 会调用 ``uv pip compile`` 验证依赖在 Linux ``x86_64`` 目标上是否可解（默认 ``manylinux_2_31``，若包含 ``sim-robodojo`` 等声明更高基线的组件则自动提升至 ``manylinux_2_35``），并在检查后清理临时文件。检查包含 ``nvidia-curobo`` 的环境需要在设置了 ``CUDA_HOME`` 的 Linux 主机上运行。
 
 环境诊断
 --------

@@ -25,7 +25,7 @@
    ./rpent-install.sh install robot-libero --venv .venv-libero
    source .venv-libero/bin/activate
 
-这些组件会一起锁定 Python、RLinf 版本、Pi0.5、SAM 3.0 和 LIBERO 相关依赖。若显卡驱动需要指定的 PyTorch CUDA 构建，可在安装命令中添加 ``--torch-backend <backend>``\ （例如 ``cu126`` 或 ``cu128``）。全部组件、各自的安装命令和诊断方法见 :doc:`installation`。
+这些组件会一起锁定 Python、RLinf 版本、Pi0.5、SAM3 和 LIBERO 相关依赖。若显卡驱动需要指定的 PyTorch CUDA 构建，可在安装命令中添加 ``--torch-backend <backend>``\ （例如 ``cu126`` 或 ``cu128``）。全部组件、各自的安装命令和诊断方法见 :doc:`installation`。
 
 后续命令都在这个终端和 RPent 仓库目录中执行。重新打开终端时，先激活 ``.venv-libero``，再设置下文的模型路径与 API Key。
 

@@ -74,9 +74,12 @@ platform's guide for extra system prerequisites or asset downloads.
       * - Minimal core
         - ``./rpent-install.sh install infra-minimal --venv .venv-minimal``
         - 3.12 · CLI & discovery check
-      * - Development / unit tests
+      * - Development tools
         - ``./rpent-install.sh install infra-dev --venv .venv-dev``
-        - 3.12 · ``infra-unit_cpu`` adds CPU Torch
+        - 3.12 · Lint & test tools
+      * - Full unit test suite
+        - ``./rpent-install.sh install infra-unit_cpu --venv .venv-unit-cpu``
+        - 3.12 · Adds CPU Torch for CI tests
 
 Install an Environment
 ----------------------
@@ -171,26 +174,22 @@ You can also set ``UV_INDEX_URL``, ``UV_DEFAULT_INDEX``, or
      Harbor in :doc:`../simulators/efe`).
    - **PyPI wheel vs. checkout:** ``pip install rpent`` installs the core
      runtime only (``rpent[planner]`` adds planner adapters and the dashboard)
-     without ``robots/`` or ``components/``. Run robots from a source checkout
-     built with ``./rpent-install.sh``.
+     without robot integrations or simulator/model components. Run robots from a
+     source checkout built with ``./rpent-install.sh``.
 
-List and Check Components
--------------------------
+.. dropdown:: Contributor Tools: List and Validate Components
 
-Inspect all available components and validate manifests before installing:
+   Inspect all available components and validate manifests before installing:
 
-.. code-block:: bash
+   .. code-block:: bash
 
-   ./rpent-install.sh list
-   ./rpent-install.sh check --all
+      ./rpent-install.sh list
+      ./rpent-install.sh check --all
 
-``check`` computes each component's dependency closure without downloading
-packages, verifying Python ranges, exact-pin conflicts, and ``env_conflicts``.
-Across a closure, ``extra-index-urls`` are unioned, while conflicting
-``index-url`` or ``index-strategy`` declarations are rejected. Passing several
-component names checks whether they can share one environment.
-
-.. dropdown:: Dependency Resolution Check (``check --resolve``)
+   ``check`` computes each component's dependency set without downloading
+   packages, verifying Python ranges, exact-pin conflicts, and mutual-exclusion
+   rules. Passing several component names checks whether they can share one
+   environment.
 
    Add ``--resolve`` to run ``uv pip compile`` against Linux ``x86_64``
    (default ``manylinux_2_31``, or ``manylinux_2_35`` when required by a

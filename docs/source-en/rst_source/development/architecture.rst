@@ -64,7 +64,7 @@ described above. Installable components that are not robots live under
 ``components/infra/`` contribute that manifest alone.
 
 Import boundaries are enforced by ``tests/tooling/layout.py`` along the layer
-order ``rpent/`` ← ``components/sim/`` ← ``components/models/`` ← ``robots/``:
+order ``robots/`` → ``components/models/`` → ``components/sim/`` → ``rpent/``:
 
 - Core ``rpent/`` discovers components dynamically and never imports concrete
   robots, simulators, models, or tools statically; the only exception is
@@ -88,7 +88,7 @@ a source checkout builds isolated environments for ``robots/`` and
 .. code-block:: text
 
    rpent/            # Core: contracts, scheduling, model bases
-     components/     # Core contracts for the services a slice talks to
+     components/     # Core contracts for services used by robot packages
        env/          # Environment contracts, client, facade, action spec
        models/       # Model contracts, client, facade, backends, platforms
      cli/            # CLI, Dashboard launcher, memory and install commands
@@ -102,7 +102,7 @@ a source checkout builds isolated environments for ``robots/`` and
      evaluation/     # Evaluation result support
      utils/          # Logging, config, RPC transport, and shared helpers
      install/        # Manifests, resolution, fingerprints
-   robots/<name>/    # Slice: native translation and differentiated features
+   robots/<name>/    # Robot package: native adapters and robot-specific features
      libero/
      libero_plus/
      robocasa/

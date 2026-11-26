@@ -85,15 +85,15 @@ Installation and Resources
 For NVIDIA driver recommendations, see the `Isaac Sim 5.1 system requirements
 <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html>`_.
 The host also needs the CUDA toolkit/NVCC and a compiler toolchain to build
-cuRobo. Install ``robot-robodojo``; its manifest declares the requirements
-override that reconciles the Isaac Sim pins with the agent stack:
+cuRobo. Create the ``robot-robodojo`` environment:
 
 .. code-block:: bash
 
    ./rpent-install.sh install robot-robodojo --venv .venv-robodojo
    source .venv-robodojo/bin/activate
 
-This command installs the RoboDojo runtime, SAM 3.0, and Pi0.5.
+This command installs the RoboDojo simulator runtime, SAM3, and the Pi0.5 VLA
+dependencies.
 
 .. dropdown:: Blackwell GPU installation
 

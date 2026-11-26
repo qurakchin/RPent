@@ -94,6 +94,8 @@ field.
 
    * - Field
      - Purpose
+   * - ``schema``
+     - Manifest format version (currently ``2``).
    * - ``name``
      - Must be ``robot-<dir>`` so the prefix identifies the component kind and
        its directory location.
@@ -105,6 +107,10 @@ field.
      - Set ``planner = true`` when the robot imports the planner layer so the
        environment installs ``rpent[planner]`` on top of ``rpent``; omit it for
        simulator or model services that run without the planner stack.
+   * - ``python``
+     - Supported Python version range (for example ``">=3.10,<3.13"``);
+       ``rpent-install`` selects the newest minor accepted by all components in
+       the environment.
    * - ``requires``
      - Other components installed into the same environment (typically the
        robot's simulator, model services, and tools).

@@ -19,7 +19,9 @@ video, see :doc:`YAM demo <../real_world_demos/yam>`.
 Installation
 ------------
 
-Use Linux and Python 3.11. This guide uses two machines:
+Use Linux, Python 3.11, and `uv <https://docs.astral.sh/uv/getting-started/installation/>`_
+(see :doc:`../get_started/installation` for mirror and backend flags). This
+guide uses two machines:
 
 * **Control machine**: connects both arm CAN interfaces and three RealSense cameras, and
   runs ENV and RPent.

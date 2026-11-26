@@ -80,14 +80,14 @@ RoboDojo
 --------------
 
 NVIDIA 驱动版本建议参考 `Isaac Sim 5.1 官方系统要求 <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html>`_。\
-宿主机还需具备构建 cuRobo 所需的 CUDA toolkit/NVCC 和编译工具链。安装 ``robot-robodojo``；它的清单声明了调和 Isaac Sim 固定版本与 agent 依赖栈的依赖覆盖文件：
+宿主机还需具备构建 cuRobo 所需的 CUDA toolkit/NVCC 和编译工具链。创建 ``robot-robodojo`` 环境：
 
 .. code-block:: bash
 
    ./rpent-install.sh install robot-robodojo --venv .venv-robodojo
    source .venv-robodojo/bin/activate
 
-该命令会安装 RoboDojo 运行时、SAM 3.0 和 Pi0.5。
+该命令会安装 RoboDojo 仿真运行时、SAM3 与 Pi0.5 VLA 依赖。
 
 .. dropdown:: Blackwell GPU 安装
 

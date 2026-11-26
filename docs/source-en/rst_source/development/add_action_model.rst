@@ -112,7 +112,7 @@ Add a VLA
 Because the model runs in its own process, adding a model-based
 primitive requires a few additional components:
 
-1. **Write ``components/models/<name>/server.py``.** This process owns only
+1. **Implement the model server** (``components/models/<name>/server.py``). This process owns only
    the model weights and CUDA context. Give the package a
    ``component.toml`` manifest alongside it. Use
    :class:`rpent.components.models.facade.BaseVLAFacade` as the base

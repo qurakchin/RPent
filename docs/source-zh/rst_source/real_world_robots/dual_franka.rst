@@ -13,7 +13,7 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
 安装
 ----
 
-在两台 Linux 控制节点分别安装 RPent，保持代码、Python、Ray 和 RLinf 版本一致。本地运行 VLA 或 SAM3 的节点需要 NVIDIA GPU。把 ``robot-dual_franka`` 安装到 ``.venv-dual-franka-real``，其中包含双臂 Franka 和本地 SAM 3.0：
+在两台 Linux 控制节点分别安装 RPent，保持代码、Python、Ray 和 RLinf 版本一致。本地运行 VLA 或 SAM3 的节点需要 NVIDIA GPU。把 ``robot-dual_franka`` 安装到 ``.venv-dual-franka-real``，其中包含双臂 Franka 和本地 SAM3：
 
 .. code-block:: bash
 

@@ -53,11 +53,11 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 
 共享执行逻辑、接口和模型基类位于 ``rpent/`` 中，各环境的具体实现位于 ``robots/`` 下的独立包中。不属于机器人的可安装组件放在 ``components/``；每个组件都是一个目录，里面放着它的 ``component.toml``，``components/infra/`` 下的基础设施组件只贡献这份清单。
 
-``tests/tooling/layout.py`` 按 ``rpent/`` ← ``components/sim/`` ← ``components/models/`` ← ``robots/`` 的层级顺序检查导入边界：
+``tests/tooling/layout.py`` 按 ``robots/`` → ``components/models/`` → ``components/sim/`` → ``rpent/`` 的依赖方向检查导入边界：
 
 - 核心 ``rpent/`` 按名称动态发现组件，不静态导入具体机器人、仿真器、模型或工具；唯一例外是 ``rpent/cli/flywheel.py`` 导入 ``components/tools``。
 - ``components/sim/`` 仅依赖 ``rpent/``；``components/models/`` 仅依赖 ``rpent/`` 与 ``components/sim/``；``components/tools/`` 仅依赖 ``rpent/`` 与 ``components/models/`` 中的模型 client。
-- 仿真器、模型和工具各自禁止同层互导；机器人切片之间的跨包导入必须在 ``component.toml`` 的 ``imports`` 中显式声明。
+- 仿真器、模型和工具各自禁止同层互导；机器人包之间的跨包导入必须在 ``component.toml`` 的 ``imports`` 中显式声明。
 
 打包上，PyPI wheel（``RPENT_WHEEL_SCOPE=core``）仅包含 ``rpent/``\ （核心运行时与可选扩展 ``rpent[planner]``），而源码仓库通过各目录的 ``component.toml`` 清单配合 ``rpent-install`` 为 ``robots/`` 与 ``components/`` 创建隔离环境。
 
@@ -68,7 +68,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
 .. code-block:: text
 
    rpent/            # 核心：契约、调度、模型基类
-     components/     # 切片所对接服务的核心契约
+     components/     # 机器人包所对接服务的核心契约
        env/          # 环境契约、client、facade、动作规格
        models/       # 模型契约、client、facade、后端注册、平台助手
      cli/            # CLI、Dashboard 启动器、记忆与安装命令
@@ -82,7 +82,7 @@ RPent 将任务规划、工具执行和环境运行分开：规划器选择工�
      evaluation/     # 评测结果支持
      utils/          # 日志、配置、RPC 传输与共享工具
      install/        # 清单、解析与指纹
-   robots/<name>/    # 切片：原生翻译与差异化功能
+   robots/<name>/    # 机器人包：原生接口适配与差异化功能
      libero/
      libero_plus/
      robocasa/

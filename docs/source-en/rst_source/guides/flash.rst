@@ -50,27 +50,18 @@ plan used for the task.
 Configure Molmo
 ---------------
 
-Molmo runs in its own Python environment because its model code requires
-``transformers>=4.57``, which conflicts with ``model-openpi`` and the RoboTwin
-stack (pinned to ``4.51.3``); the component manifests declare those mutually
-exclusive, so ``rpent-install check`` rejects an environment that combines them.
+Molmo runs in its own Python environment because it requires
+``transformers>=4.57``, whereas OpenPI/Pi0.5 pins ``4.53.2`` and the RoboTwin
+stack pins ``4.51.3``.
 
-Install ``model-molmo`` into a separate environment; its dependencies include
-PyTorch and torchvision:
+Install ``model-molmo`` into a separate environment (pass
+``--torch-backend <CUDA_TAG>``, such as ``cu126`` or ``cu128``, if your GPU
+driver needs a specific PyTorch CUDA build; see
+:doc:`../get_started/installation`):
 
 .. code-block:: bash
 
    ./rpent-install.sh install model-molmo --venv .venv-molmo
-
-If your GPU or driver needs a specific CUDA build, pass ``--torch-backend``
-during installation, replacing ``<CUDA_TAG>`` with a compatible build such as
-``cu126`` or ``cu128`` (see the `PyTorch installation guide
-<https://pytorch.org/get-started/locally/>`_):
-
-.. code-block:: bash
-
-   ./rpent-install.sh install model-molmo --venv .venv-molmo \
-     --torch-backend <CUDA_TAG>
 
 Download ``allenai/Molmo2-8B`` from `Hugging Face
 <https://huggingface.co/allenai/Molmo2-8B>`_ or `ModelScope

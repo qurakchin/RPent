@@ -25,7 +25,7 @@ Create the LIBERO-PRO environment and activate it:
    ./rpent-install.sh install robot-libero --venv .venv-libero
    source .venv-libero/bin/activate
 
-The components pin Python, the RLinf revision, Pi0.5, SAM 3.0, and the LIBERO
+The components pin Python, the RLinf revision, Pi0.5, SAM3, and the LIBERO
 packages together. Pass ``--torch-backend <backend>`` (for example ``cu126`` or
 ``cu128``) if your driver needs a specific PyTorch CUDA build. See
 :doc:`installation` for every component, its install command, and diagnostics.
