@@ -39,7 +39,7 @@ pytest tests/unit_tests/rpent/cli/test_main_contracts.py -k xxx -x
 Supported GPU end-to-end suites run through `tests/e2e_tests/run_gpu_suite.sh` on a host with a dedicated NVIDIA GPU, EGL, and the target's assets/checkpoints (see [tests/README.md](tests/README.md)):
 
 ```bash
-bash tests/e2e_tests/run_gpu_suite.sh <libero-pro|robocasa|robotwin> /path/to/new-output-dir /path/to/new-venv-root
+bash tests/e2e_tests/run_gpu_suite.sh <target> /path/to/new-output-dir /path/to/new-venv-root
 ```
 
 Docs must build in both languages with no warnings. The docs check builds both trees the way Read the Docs does and checks the changed pages:
