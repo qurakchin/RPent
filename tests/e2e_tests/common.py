@@ -74,6 +74,7 @@ def fast_wam_launch_argv(prefix: str) -> list[str]:
     ]
 
 
+# The vLLM client profile joins RPent's leading system messages for Qwen's template.
 PLANNER_MODEL = "Qwen3.5-2B"
 
 
@@ -130,11 +131,13 @@ def run_policy_chain(
         "--planner",
         "api",
         "--model",
-        f"openai-chat:{PLANNER_MODEL}",
+        f"vllm:{PLANNER_MODEL}",
         "--max-turns",
         "64",
         "--max-tokens",
         "512",
+        "--reasoning-effort",
+        "none",
         "--record-trajectory",
         "--user-message",
         prompt,

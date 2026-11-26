@@ -69,7 +69,7 @@ def test_simulator_tool_coverage(robodojo_runtime_argv, monkeypatch):
             )
         ) as toolkit:
             planner = ApiAgentLoop(
-                model=build_api_model(f"openai-chat:{PLANNER_MODEL}", planner_url()),
+                model=build_api_model(f"vllm:{PLANNER_MODEL}", planner_url()),
                 dashboard_events=events,
                 max_tokens=512,
             )
