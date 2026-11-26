@@ -1,51 +1,23 @@
 Testing and CI
 ==============
 
-RPent verifies changes across four layers: offline CPU unit tests, repository layout checks, simulator environment builds (with or without cache), and GPU end-to-end tests. This page explains how to trigger CI on GitHub, how ``tests/`` is organized, what tests to add for a new robot or model, and how to run tests locally.
+GitHub runs the CPU unit tests and reports line coverage in the test logs.
+On same-repository PRs and pushes to ``main``, **Simulator CI** selects
+environment builds and GPU suites from the changed paths. For example,
+RLDX changes select RoboCasa. Shared planner changes select all seven suites.
+Documentation-only changes select none. The workflow log also lists selected targets for fork PRs.
 
-Trigger CI on GitHub
---------------------
+Each selected GPU job starts Qwen3.5-2B on the runner CPU and uses the GPU for
+the robot stack. RPent asks the model to call each advertised tool one at a time,
+then call ``finish``. The job uploads ``tool-coverage.json`` alongside the JUnit
+and server logs. Check the missing tools and failed calls there.
 
-.. list-table::
-   :header-rows: 1
-   :widths: 28 32 40
+On each Linux x86-64 runner host, run this command from the repository root
+to install the pinned llama.cpp binary, weights and vision projector.
 
-   * - Workflow
-     - Trigger
-     - Coverage
-   * - **Unit tests and layout**
-     - Automatic on push and PR
-     - Offline CPU unit tests, coverage, package check, and repository layout check
-   * - **Simulator environment builds**
-     - **Actions → Run workflow** or PR comment ``/ci-build``
-     - Fresh virtualenv installation per simulator component (default cached build, or cold install with ``no_cache`` / ``--no-cache``), plus ``rpent-install.sh doctor`` and ``rpent --help``
-   * - **Embodied GPU E2E**
-     - **Actions → Run workflow** or PR comment ``/ci-all`` / ``/ci-<target>``
-     - Clean environment installation plus simulator smoke, model component, and scripted CLI end-to-end tests
+.. code-block:: bash
 
-Simulator Environment Builds
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-PR comments require repository maintainer permissions.
-
-- **Manual**: Open **Actions → Simulator environment builds → Run workflow**, pick ``component`` (``all`` or one of ``robot-libero``, ``robot-libero_plus``, ``robot-robocasa``, ``robot-robotwin``, ``robot-robodojo``, ``robot-robolab``), and check ``no_cache`` for a cold install from scratch.
-- **PR comment**: Comment ``/ci-build`` (or ``/ci-build-all``) for all components, or ``/ci-build-<component>`` for one component. Append ``--no-cache`` for a cold install. Examples:
-
-  - ``/ci-build``
-  - ``/ci-build-robot-libero``
-  - ``/ci-build-robot-libero --no-cache``
-
-Embodied GPU E2E
-~~~~~~~~~~~~~~~~
-
-PR comments require repository maintainer permissions.
-
-- **Manual**: Open **Actions → Embodied GPU E2E → Run workflow** and pick ``target`` (``all``, ``libero``, ``libero-pro``, ``libero-plus``, ``robocasa``, ``robotwin``, ``robodojo``, or ``robolab``).
-- **PR comment**: Comment ``/ci-all`` for all simulator suites, or ``/ci-<target>`` for one suite. Examples:
-
-  - ``/ci-all``
-  - ``/ci-libero``
-  - ``/ci-robocasa``
+   bash tests/e2e_tests/provision_planner.sh /mnt/public/rpent_shared/models/ci-qwen35-2b
 
 Test Structure
 --------------
@@ -108,12 +80,11 @@ When adding a robot under ``robots/<name>/`` (and an optional simulator under ``
 
    - **Environment smoke** (``test_environment_smoke.py`` or an environment case in ``test_components.py``): start the simulator with assets and GPU/EGL only (no model weights), reset it, execute a basic action, read observations, and close cleanly.
    - **Model component** (``test_components.py``): send a real simulator observation to the model server, obtain a predicted action, and execute it.
-   - **Scripted CLI chain** (``test_policy_chain.py``): call ``run_scripted_policy_chain`` with the local scripted planner (no external LLM API required) to exercise the public CLI, verify saved outputs, and confirm all background processes exit.
+   - **Planner tool coverage** (``test_policy_chain.py``): call ``run_policy_chain`` with the local Qwen model to exercise the public CLI, verify saved outputs, and confirm all background processes exit.
 
 3. **CI registration**:
 
-   - Add a target to ``tests/e2e_tests/run_gpu_suite.sh`` and register it in the **Embodied GPU E2E** workflow.
-   - If the integration adds an installable ``robot-<name>`` component, also register it in the **Simulator environment builds** workflow.
+   - Add a target to ``tests/e2e_tests/run_gpu_suite.sh`` and map its install component to the suite in ``tests/tooling/ci_targets.py``.
 
 See :doc:`add_robot` for the full robot integration guide.
 
@@ -129,7 +100,7 @@ When adding an action model or perception model under ``components/models/<name>
 
 2. **GPU end-to-end cases** in each supported robot's ``tests/e2e_tests/<robot>/``:
 
-   - Add a model inference case in ``test_components.py`` and a scripted CLI case in ``test_policy_chain.py``.
+   - Add a model inference case in ``test_components.py`` and a planner tool coverage case in ``test_policy_chain.py``.
    - Guard model cases with ``require_model_path`` (or the model's interpreter/endpoint check) so missing checkpoints skip only the dependent cases rather than failing the simulator suite.
 
 3. **CI registration**:

@@ -43,7 +43,7 @@ import route  # noqa: E402
 
 PYPROJECT = "pyproject.toml"
 GPU_RUNNER = "tests/e2e_tests/run_gpu_suite.sh"
-GPU_WORKFLOW = ".github/workflows/embodied-gpu-e2e.yml"
+GPU_TARGETS = "tests/tooling/ci_targets.py"
 
 REQUIRED_EXPORTS = ("get_robot_spec", "get_toolkit")
 
@@ -302,11 +302,11 @@ def check_e2e_syntax(rel: str, root: Path | None = None) -> list[route.Finding]:
 
 
 def check_e2e_targets(root: Path | None = None) -> list[route.Finding]:
-    """Ensure embodied-gpu-e2e.yml targets match run_gpu_suite.sh case branches."""
+    """Ensure the impact selector and GPU runner expose the same suites."""
     base = root or route.REPO_ROOT
     runner_path = base / GPU_RUNNER
-    workflow_path = base / GPU_WORKFLOW
-    if not (runner_path.is_file() and workflow_path.is_file()):
+    selector = base / GPU_TARGETS
+    if not (runner_path.is_file() and selector.is_file()):
         return []
 
     runner_text = runner_path.read_text(encoding="utf-8")
@@ -321,42 +321,26 @@ def check_e2e_targets(root: Path | None = None) -> list[route.Finding]:
         else set()
     )
 
-    workflow_text = workflow_path.read_text(encoding="utf-8")
-    comment_targets = set(re.findall(r'"/ci-([a-z0-9][a-z0-9_-]*)"', workflow_text))
-
-    options_match = re.search(
-        r"options:\s*\n((?:\s+-\s+[a-z0-9][a-z0-9_-]*\s*\n)+)", workflow_text
-    )
-    dispatch_targets = (
-        set(re.findall(r"-\s+([a-z0-9][a-z0-9_-]*)", options_match.group(1)))
-        if options_match
-        else set()
-    )
-
-    findings: list[route.Finding] = []
-    if dispatch_targets and dispatch_targets != runner_targets:
-        findings.append(
-            route.Finding(
-                "major",
-                GPU_WORKFLOW,
-                None,
-                "robots/e2e-targets",
-                f"workflow_dispatch options {sorted(dispatch_targets)} differ from "
-                f"{GPU_RUNNER} targets {sorted(runner_targets)}",
+    suites = set()
+    for node in ast.parse(selector.read_text()).body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(target, ast.Name) and target.id == "SUITES"
+            for target in node.targets
+        ):
+            suites.update(
+                s for names in ast.literal_eval(node.value).values() for s in names
             )
+    if suites == runner_targets - {"all"}:
+        return []
+    return [
+        route.Finding(
+            "major",
+            GPU_TARGETS,
+            None,
+            "robots/e2e-targets",
+            f"selected suites {sorted(suites)} differ from {GPU_RUNNER} targets {sorted(runner_targets - {'all'})}",
         )
-    if comment_targets and comment_targets != runner_targets:
-        findings.append(
-            route.Finding(
-                "major",
-                GPU_WORKFLOW,
-                None,
-                "robots/e2e-targets",
-                f"/ci-* comment targets {sorted(comment_targets)} differ from "
-                f"{GPU_RUNNER} targets {sorted(runner_targets)}",
-            )
-        )
-    return findings
+    ]
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -395,7 +379,7 @@ def main(argv: list[str] | None = None) -> int:
     changed_paths = {c.path for c in selection.changes}
     if selection.all_lines or PYPROJECT in changed_paths:
         findings += check_packaging()
-    if selection.all_lines or {GPU_RUNNER, GPU_WORKFLOW} & changed_paths:
+    if selection.all_lines or {GPU_RUNNER, GPU_TARGETS} & changed_paths:
         findings += check_e2e_targets()
 
     return route.report("robots", findings)

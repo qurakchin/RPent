@@ -3,18 +3,9 @@ name: Embodied GPU E2E run
 on:
   workflow_call:
     inputs:
-      repository:
-        required: true
+      suites:
         type: string
-      revision:
         required: true
-        type: string
-      scope:
-        required: true
-        type: string
-      target:
-        required: true
-        type: string
 
 permissions:
   contents: read
@@ -25,12 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: ${{ fromJSON(inputs.target == 'all' && '["libero","libero-pro","libero-plus","robocasa","robotwin","robodojo","robolab"]' || format('[{0}]', toJSON(inputs.target))) }}
+        target: ${{ fromJSON(inputs.suites) }}
     runs-on: rpent-gpu
     timeout-minutes: 240
-    concurrency:
-      group: robot-gpu-${{ inputs.scope }}-${{ matrix.target }}
-      cancel-in-progress: true
     env:
       # LIBERO variants. Standard and Plus share a Pi0.5 checkpoint; Pro uses PI05_CHECKPOINT_PATH.
       LIBERO_ASSET_PATH: /mnt/public/rpent_shared/assets/libero-standard
@@ -60,10 +48,10 @@ jobs:
       # RoboDojo
       ROBODOJO_ASSETS_ROOT: /mnt/public/rpent_shared/assets/robodojo
       ROBODOJO_SIM_PYTHON: /mnt/public/rpent_shared/venvs/robodojo-isaacsim5.1-py311/bin/python
-      VPP2_MODEL_PATH: ""  # Temporarily unset; to be added later
-      RPENT_VPP2_PYTHON: ""  # Temporarily unset; to be added later
-      AWOMO05_MODEL_PATH: ""  # Temporarily unset; to be added later
-      RPENT_AWOMO05_PYTHON: ""  # Temporarily unset; to be added later
+      VPP2_MODEL_PATH: ${{ vars.VPP2_MODEL_PATH }}
+      RPENT_VPP2_PYTHON: /mnt/public/rpent_shared/venvs/vpp2/bin/python
+      AWOMO05_MODEL_PATH: ${{ vars.AWOMO05_MODEL_PATH }}
+      RPENT_AWOMO05_PYTHON: ${{ vars.RPENT_AWOMO05_PYTHON }}
 
       # RoboLab
       ROBOLAB_ASSETS_PATH: /mnt/public/rpent_shared/assets/robolab
@@ -89,8 +77,7 @@ jobs:
       - name: Checkout selected revision
         uses: actions/checkout@v7
         with:
-          repository: ${{ inputs.repository }}
-          ref: ${{ inputs.revision }}
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Run selected GPU suite
@@ -122,6 +109,7 @@ jobs:
             ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}.log
             ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/*-junit.xml
             ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/*server.log
+            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/tool-coverage.json
             ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/*-daemon-cleanup.txt
           if-no-files-found: ignore
 

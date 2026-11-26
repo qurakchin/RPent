@@ -26,7 +26,7 @@ import numpy as np
 
 from robots.robocasa.robot_spec import get_robot_spec
 from tests.e2e_tests.common import (
-    ScriptedToolCall,
+    ToolExample,
     array_summary,
     parse_runtime_args,
     prepare_suite,
@@ -34,7 +34,7 @@ from tests.e2e_tests.common import (
     require_camera_meta,
     require_depth,
     require_rgb,
-    run_scripted_policy_chain,
+    run_policy_chain,
     runtime_phase,
     selected_cuda_ordinal,
     synthetic_rgb,
@@ -167,7 +167,7 @@ def _rldx_checks(output_dir: Path, args: Namespace) -> dict[str, Any]:
 
 
 def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
-    return run_scripted_policy_chain(
+    return run_policy_chain(
         robot="robocasa",
         robot_argv=[
             "--task-name",
@@ -184,7 +184,7 @@ def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
             str(args.cuda_device),
         ],
         output_dir=output_dir / "policy-chain",
-        action=ScriptedToolCall(
+        action=ToolExample(
             "rldx_skill",
             {
                 "max_chunks": 1,

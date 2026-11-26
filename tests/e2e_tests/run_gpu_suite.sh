@@ -211,6 +211,7 @@ run_gpu_pytest() {
       trap cleanup EXIT HUP INT TERM
       wait "$session_id"
     ' bash "$session_file" \
+      bash "$repo_root/tests/e2e_tests/with_planner.sh" "$output_dir/$name-planner-server.log" \
       "$python" -m pytest -v -rs \
       --timeout="$pytest_timeout" \
       --basetemp="$output_dir/$name-pytest-tmp" \
@@ -221,6 +222,10 @@ run_gpu_pytest() {
   verify_test_session_cleanup "$name" "$session_file" || cleanup_status=$?
   if ((test_status != 0)); then
     return "$test_status"
+  fi
+  if [[ -z "$(find "$output_dir" -name tool-coverage.json -print -quit)" ]]; then
+    echo "$name did not execute a planner/tool coverage test; check skipped prerequisites" >&2
+    return 1
   fi
   return "$cleanup_status"
 }

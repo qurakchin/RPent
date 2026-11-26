@@ -1,0 +1,88 @@
+# Copyright 2026 The RPent Authors.
+"""Compare real model calls with the schemas RPent sent to the planner."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+
+def _images(value: Any) -> set[str]:
+    if isinstance(value, dict):
+        if str(value.get("media_type", "")).startswith("image/") and "data" in value:
+            return {json.dumps(value["data"], sort_keys=True)}
+        value = value.values()
+    elif not isinstance(value, list):
+        return set()
+    return {image for item in value for image in _images(item)}
+
+
+def inspect_trajectory(output_dir: Path, action: str) -> dict[str, Any]:
+    """Write a per-tool report even when a CLI run stopped early."""
+    expected = set()
+    executed = []
+    failures = []
+    calls = []
+    previous_images = set()
+    new_images = 0
+    after_action = False
+    files = list(output_dir.glob("trajectories/*/planners.jsonl"))
+    if len(files) != 1:
+        failures.append(f"expected one trajectory, found {len(files)}")
+    else:
+        with files[0].open() as records:
+            for turn, line in enumerate(records, 1):
+                record = json.loads(line)
+                request = (record["request"] or {}).get("data", {})
+                params = request.get("model_request_parameters", {})
+                for group in ("function_tools", "output_tools"):
+                    expected.update(t["name"] for t in params.get(group, []))
+                images = _images(request.get("messages", []))
+                if after_action:
+                    new_images += len(images - previous_images)
+                previous_images = images
+                tools = record["tool_calls"]
+                if record["status"] != "completed" or len(tools) != 1:
+                    failures.append(
+                        f"turn {turn}: {record['status']}, {len(tools)} tools"
+                    )
+                after_action = any(t["name"] == action for t in tools)
+                for tool in tools:
+                    name = tool["name"]
+                    calls.append(
+                        {
+                            "turn": turn,
+                            "name": name,
+                            "status": tool["status"],
+                            "arguments": tool["arguments"]["data"],
+                        }
+                    )
+                    if tool["origin"] == "model" and tool["status"] == "completed":
+                        executed.append(name)
+                    else:
+                        reason = (tool.get("raw_result") or {}).get("data", {})
+                        error = (
+                            reason.get("error") if isinstance(reason, dict) else None
+                        )
+                        if not error:
+                            error = (tool.get("missing") or {}).get("raw_result")
+                        calls[-1]["error"] = error
+                        failures.append(
+                            f"turn {turn}: {name} {tool['status']}: {error}"
+                        )
+    if not executed or executed[-1] != "finish" or action not in executed:
+        failures.append(f"expected {action} and a final finish")
+    missing = sorted(expected - set(executed))
+    report = {
+        "expected": sorted(expected),
+        "executed": executed,
+        "missing": missing,
+        "failures": failures,
+        "calls": calls,
+        "post_action_new_image_count": new_images,
+        "passed": bool(expected) and not (failures or missing),
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "tool-coverage.json").write_text(json.dumps(report, indent=2) + "\n")
+    return report

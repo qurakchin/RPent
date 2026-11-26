@@ -18,16 +18,16 @@ import os
 from pathlib import Path
 
 from tests.e2e_tests.common import (
-    ScriptedToolCall,
+    ToolExample,
     require_model_path,
-    run_scripted_policy_chain,
+    run_policy_chain,
 )
 
 
 def test_pi05_policy_chain() -> None:
     require_model_path("PI05_CHECKPOINT_PATH")
     output = Path(os.environ["RPENT_E2E_OUTPUT_DIR"]) / "policy-chain"
-    result = run_scripted_policy_chain(
+    result = run_policy_chain(
         robot="robolab",
         robot_argv=[
             "--task",
@@ -38,9 +38,9 @@ def test_pi05_policy_chain() -> None:
             os.environ["ROBOLAB_SIM_PYTHON"],
         ],
         output_dir=output,
-        action=ScriptedToolCall("pi05_act", {"steps": 1}),
+        action=ToolExample("pi05_act", {"steps": 1}),
         action_count_field="executed_steps",
-        before_action_calls=(ScriptedToolCall("view_env_state", {}),),
+        before_action_calls=(ToolExample("view_env_state", {}),),
         include_images=True,
     )
     assert result["simulator_action_count"] == 1

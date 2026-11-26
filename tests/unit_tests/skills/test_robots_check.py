@@ -111,22 +111,9 @@ def test_check_e2e_targets_catches_workflow_runner_drift(tmp_path):
         'case "$target" in\n  libero-pro)\n    ;;\n  robocasa)\n    ;;\nesac\n',
         encoding="utf-8",
     )
-    workflow = tmp_path / ".github" / "workflows" / "embodied-gpu-e2e.yml"
-    workflow.parent.mkdir(parents=True)
-    workflow.write_text(
-        """
-on:
-  workflow_dispatch:
-    inputs:
-      target:
-        options:
-          - libero-pro
-jobs:
-  comment-request:
-    if: contains(fromJSON('["/ci-libero-pro", "/ci-robotwin"]'), body)
-""",
-        encoding="utf-8",
-    )
+    selector = tmp_path / "tests/tooling/ci_targets.py"
+    selector.parent.mkdir()
+    selector.write_text('SUITES = {"robot-libero": ["libero-pro"]}\n')
     findings = robots_check["check_e2e_targets"](tmp_path)
-    assert len(findings) == 2
+    assert len(findings) == 1
     assert all(f.rule == "robots/e2e-targets" for f in findings)

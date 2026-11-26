@@ -440,7 +440,7 @@ JSON 产物应使用 ``write_json_atomic``，避免中断写入留下不完整�
 完整调用链测什么
 ~~~~~~~~~~~~~~~~
 
-组件测试通过后，复用 ``tests/e2e_tests/common.py`` 中的 ``run_scripted_policy_chain``，以固定 task/seed 和有限动作数运行公开 CLI。其中的本地 ``OfflinePlannerServer`` 会请求一个真实动作原语，再调用 ``finish``，无需外部 LLM API。环境和模型服务保持真实，不要 monkeypatch CLI 或 runtime 内部实现。
+组件测试通过后，使用 ``tests/e2e_tests/common.py`` 中的 ``run_policy_chain`` 以固定任务和随机种子运行公开 CLI。本地 Qwen 规划器逐个调用工具，``tool-coverage.json`` 记录哪些工具未被调用、哪些调用执行失败。测试使用真实仿真器和模型服务。
 
 检查至少执行了一个环境动作、transcript 记录了 ``finish``、``states.json`` 包含无错误的动作记录、生成了预期观测工件，以及自己启动的 daemon 全部退出。这种有界接入测试不要求任务成功。
 

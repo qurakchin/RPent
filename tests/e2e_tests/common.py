@@ -25,6 +25,7 @@ import time
 from argparse import ArgumentParser, Namespace
 from collections.abc import Iterator
 from contextlib import contextmanager
+from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
 from typing import Any
@@ -34,11 +35,15 @@ import pytest
 
 from rpent.dashboard.events import NullDashboardEventSink
 from rpent.robots.robot_spec import RobotSpec
-from tests.e2e_tests.offline_planner_server import (
-    OFFLINE_MODEL_NAME,
-    OfflinePlannerServer,
-    ScriptedToolCall,
-)
+from tests.e2e_tests.tool_coverage import inspect_trajectory
+
+
+@dataclass(frozen=True)
+class ToolExample:
+    """Bounded example arguments included in the model's smoke-test instruction."""
+
+    name: str
+    arguments: dict[str, Any]
 
 
 def require_model_path(variable: str, *, file: bool = False) -> Path:
@@ -69,17 +74,17 @@ def fast_wam_launch_argv(prefix: str) -> list[str]:
     ]
 
 
-def run_scripted_policy_chain(
+def run_policy_chain(
     *,
     robot: str,
     robot_argv: list[str],
     output_dir: Path,
-    action: ScriptedToolCall,
+    action: ToolExample,
     action_count_field: str,
-    before_action_calls: tuple[ScriptedToolCall, ...] = (),
+    before_action_calls: tuple[ToolExample, ...] = (),
     include_images: bool = False,
 ) -> dict[str, Any]:
-    """Run the public CLI against a deterministic loopback planner."""
+    """Exercise every advertised tool through the public CLI and local model."""
     memory_dir = output_dir.parent / "offline-memory"
     memory_dir.mkdir(parents=True, exist_ok=True)
     (memory_dir / "MEMORY.md").write_text(
@@ -92,18 +97,18 @@ def run_scripted_policy_chain(
         "# Offline GPU E2E memory\n\nNo task-specific guidance is provided.\n",
         encoding="utf-8",
     )
-    script = (
-        *before_action_calls,
-        action,
-        ScriptedToolCall(
-            "finish",
-            {
-                "status": "stuck",
-                "summary": "bounded GPU E2E completed one action call",
-            },
-        ),
+    model = "Qwen3.5-2B"
+    prompt = (
+        "Test the available tools in this simulator. Call every tool one at a "
+        "time, use its schema, and inspect the result before the next call. "
+        "Start with view_env_state. Use small valid actions. For file tools "
+        f"use {output_dir}/probe.txt (write it before reading it). "
+        "Use an observed image filename for read_image. If a tool fails, "
+        "continue with the remaining tools. Call finish last and summarize "
+        "the errors. The objective is tool coverage. "
+        "For these specific calls use the following bounded inputs: "
+        + json.dumps({t.name: t.arguments for t in (*before_action_calls, action)})
     )
-
     executable = Path(sys.executable).with_name("rpent")
     if not executable.is_file():
         raise RuntimeError(f"RPent console script not found: {executable}")
@@ -114,9 +119,14 @@ def run_scripted_policy_chain(
         "--planner",
         "api",
         "--model",
-        f"openai-chat:{OFFLINE_MODEL_NAME}",
+        f"openai-chat:{model}",
         "--max-turns",
-        str(len(script)),
+        "64",
+        "--max-tokens",
+        "512",
+        "--record-trajectory",
+        "--user-message",
+        prompt,
         *([] if include_images else ["--no-images"]),
         "--memory-profile",
         "local",
@@ -126,7 +136,7 @@ def run_scripted_policy_chain(
         str(output_dir),
         *robot_argv,
     ]
-    env = {**os.environ, "OPENAI_API_KEY": OFFLINE_MODEL_NAME}
+    env = {**os.environ, "OPENAI_API_KEY": "local"}
     # Keep the loopback planner reachable when the runner uses an HTTP proxy.
     no_proxy = ",".join(
         value
@@ -141,20 +151,19 @@ def run_scripted_policy_chain(
     env.update(NO_PROXY=no_proxy, no_proxy=no_proxy)
 
     repo_root = Path(__file__).resolve().parents[2]
-    with OfflinePlannerServer(script) as planner_server:
-        completed = subprocess.run(
-            [*command, "--base-url", planner_server.base_url],
-            cwd=repo_root,
-            env=env,
-            check=False,
-        )
-    if completed.returncode != 0:
+    base_url = os.environ.get("RPENT_E2E_PLANNER_URL", "http://127.0.0.1:18396/v1")
+    completed = subprocess.run(
+        [*command, "--base-url", base_url], cwd=repo_root, env=env, check=False
+    )
+    coverage = inspect_trajectory(output_dir, action.name)
+    if completed.returncode or not coverage["passed"]:
         raise RuntimeError(
-            f"scripted {robot} session failed with exit code {completed.returncode}"
+            f"{robot} planner exit={completed.returncode}, "
+            f"missing={coverage['missing']}, failures={coverage['failures']}. "
+            f"See {output_dir / 'tool-coverage.json'}"
         )
-    planner_server.assert_complete()
-    if include_images and not planner_server.image_digests[-1]:
-        raise RuntimeError("post-action planner request contained no images")
+    if include_images and not coverage["post_action_new_image_count"]:
+        raise RuntimeError("post-action planner request contained no new image")
 
     transcript_paths = list(output_dir.glob("transcript_*.json"))
     if len(transcript_paths) != 1:
@@ -163,8 +172,10 @@ def run_scripted_policy_chain(
         )
     transcript = json.loads(transcript_paths[0].read_text(encoding="utf-8"))
     finish = transcript.get("finish")
+    if transcript.get("error"):
+        raise RuntimeError(f"{robot} planner error: {transcript['error']}")
     if not isinstance(finish, dict) or finish.get("_finish") is not True:
-        raise RuntimeError(f"scripted {robot} session did not call finish")
+        raise RuntimeError(f"{robot} session did not call finish")
 
     state_path = output_dir / "states.json"
     state_manifest = json.loads(state_path.read_text(encoding="utf-8"))
@@ -174,26 +185,26 @@ def run_scripted_policy_chain(
         if (step.get("command") or {}).get("action") == action.name
     ]
     if not action_steps:
-        raise RuntimeError(f"scripted {robot} session did not record {action.name}")
+        raise RuntimeError(f"{robot} session did not record {action.name}")
     if any((step.get("result") or {}).get("error") for step in action_steps):
-        raise RuntimeError(f"scripted {robot} action recorded an error")
+        raise RuntimeError(f"{robot} action recorded an error")
     action_count = sum(
         int((step.get("result") or {}).get(action_count_field, 0))
         for step in action_steps
     )
     if action_count <= 0:
         raise RuntimeError(
-            f"scripted {robot} action executed no simulator steps "
+            f"{robot} action executed no simulator steps "
             f"({action_count_field}={action_count})"
         )
 
     return {
         "status": "passed",
         "definition": (
-            "offline planner -> public CLI -> toolkit -> action primitive "
+            "local model planner -> public CLI -> toolkit -> action primitive "
             "-> simulator action -> finish"
         ),
-        "planner": "offline-scripted",
+        "planner": model,
         "action_tool": action.name,
         "recorded_action_steps": len(action_steps),
         "simulator_action_count": action_count,
@@ -201,11 +212,8 @@ def run_scripted_policy_chain(
         "finish_status": finish.get("status"),
         "transcript": transcript_paths[0].name,
         "state_manifest": state_path.name,
-        "planner_image_counts": [len(items) for items in planner_server.image_digests],
-        "post_action_new_image_count": len(
-            set(planner_server.image_digests[-1])
-            - set(planner_server.image_digests[-2])
-        ),
+        "post_action_new_image_count": coverage["post_action_new_image_count"],
+        "tools_executed": coverage["executed"],
     }
 
 

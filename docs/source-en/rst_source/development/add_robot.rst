@@ -649,11 +649,9 @@ component; identify that coverage and test any new input/output adaptation.
 Complete Policy-chain Test
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-After component tests pass, use ``run_scripted_policy_chain`` from
-``tests/e2e_tests/common.py`` to run the public CLI with a fixed task/seed and
-bounded action count. Its local ``OfflinePlannerServer`` requests a real
-action primitive followed by ``finish``, without an external LLM API. Keep the
-environment and model services real; do not monkeypatch CLI or runtime internals.
+Run ``run_policy_chain`` from ``tests/e2e_tests/common.py`` with a fixed
+task and seed. The local Qwen planner calls the public CLI's tools one at
+a time against the real simulator and model services. Inspect ``tool-coverage.json`` for missing calls and execution errors.
 
 Check that at least one environment action was executed, ``finish`` was
 recorded in the transcript, ``states.json`` contains the action without

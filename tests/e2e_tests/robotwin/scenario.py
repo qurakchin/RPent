@@ -27,7 +27,7 @@ import numpy as np
 from components.sim.robotwin.contracts import ROBOTWIN_CAMERA_NAMES
 from robots.robotwin.robot_spec import get_robot_spec
 from tests.e2e_tests.common import (
-    ScriptedToolCall,
+    ToolExample,
     array_summary,
     parse_runtime_args,
     prepare_suite,
@@ -35,7 +35,7 @@ from tests.e2e_tests.common import (
     require_camera_meta,
     require_depth,
     require_rgb,
-    run_scripted_policy_chain,
+    run_policy_chain,
     runtime_phase,
     selected_cuda_ordinal,
     synthetic_rgb,
@@ -187,7 +187,7 @@ def _lingbot_checks(
 
 
 def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
-    return run_scripted_policy_chain(
+    return run_policy_chain(
         robot="robotwin",
         robot_argv=[
             "--task-name",
@@ -208,7 +208,7 @@ def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
             str(args.cuda_device),
         ],
         output_dir=output_dir / "policy-chain",
-        action=ScriptedToolCall("lingbot_act", {"chunks": 1, "use_length": 50}),
+        action=ToolExample("lingbot_act", {"chunks": 1, "use_length": 50}),
         action_count_field="executed_steps",
     )
 

@@ -17,9 +17,9 @@ import json
 import pytest
 
 from tests.e2e_tests.common import (
-    ScriptedToolCall,
+    ToolExample,
     publish_check,
-    run_scripted_policy_chain,
+    run_policy_chain,
 )
 from tests.e2e_tests.robotwin.scenario import RoboTwinScenario
 
@@ -31,11 +31,11 @@ def test_policy_chain(robotwin_scenario: RoboTwinScenario) -> None:
 
 @pytest.mark.timeout(1200)
 def test_wam_policy_chain(wam_argv, tmp_path, record_property) -> None:
-    result = run_scripted_policy_chain(
+    result = run_policy_chain(
         robot="robotwin",
         robot_argv=wam_argv,
         output_dir=tmp_path / "chain",
-        action=ScriptedToolCall("wam_act", {"max_chunks": 2}),
+        action=ToolExample("wam_act", {"max_chunks": 2}),
         action_count_field="executed_steps",
     )
     assert result["status"] == "passed"

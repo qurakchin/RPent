@@ -57,5 +57,5 @@ When `components` (`set[str] | None`) is passed by the Dashboard, start only the
 Supported GPU CI targets appear in three places that must stay in sync:
 
 1. `tests/e2e_tests/run_gpu_suite.sh`: `case "$target" in` branch plus usage line.
-2. `.github/workflows/embodied-gpu-e2e.yml`: `workflow_dispatch.inputs.target.options` and the `comment-request` `/ci-<target>` allowlist.
+2. `tests/tooling/ci_targets.py`: map the component to its simulator suites.
 3. `.github/workflows/embodied-gpu-e2e-run.yml`: runner environment variables pointing at shared `/workspace/dataset/...` checkpoints and assets.

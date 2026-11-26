@@ -26,11 +26,11 @@ from components.models.openpi.client import Pi05VLAClient
 from rpent.utils.daemon import ProcessDaemon, pick_free_port
 from rpent.utils.rpc import make_rpc_client, wait_for_ready
 from tests.e2e_tests.common import (
-    ScriptedToolCall,
+    ToolExample,
     array_summary,
     publish_check,
     require_array,
-    run_scripted_policy_chain,
+    run_policy_chain,
 )
 from tests.e2e_tests.libero.scenario import LiberoScenario
 
@@ -111,7 +111,7 @@ def test_apxinf_component(apxinf_endpoint: str, libero_scenario: LiberoScenario)
 def test_apxinf_policy_chain(apxinf_endpoint: str, libero_scenario: LiberoScenario):
     args = libero_scenario.args
     output = libero_scenario.output_dir / "apxinf-policy-chain"
-    result = run_scripted_policy_chain(
+    result = run_policy_chain(
         robot="libero",
         robot_argv=[
             "--suite",
@@ -130,7 +130,7 @@ def test_apxinf_policy_chain(apxinf_endpoint: str, libero_scenario: LiberoScenar
             apxinf_endpoint,
         ],
         output_dir=output,
-        action=ScriptedToolCall(
+        action=ToolExample(
             "pi0_doubled",
             {
                 "prompt": "perform one bounded action chunk for the current task",

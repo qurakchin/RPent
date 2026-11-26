@@ -26,7 +26,7 @@ import numpy as np
 
 from robots.libero.robot_spec import get_robot_spec
 from tests.e2e_tests.common import (
-    ScriptedToolCall,
+    ToolExample,
     array_summary,
     parse_runtime_args,
     prepare_suite,
@@ -34,7 +34,7 @@ from tests.e2e_tests.common import (
     require_camera_meta,
     require_depth,
     require_rgb,
-    run_scripted_policy_chain,
+    run_policy_chain,
     runtime_phase,
     selected_cuda_ordinal,
     synthetic_rgb,
@@ -235,7 +235,7 @@ def _sam3_check(output_dir: Path, args: Namespace) -> dict[str, Any]:
 
 
 def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
-    return run_scripted_policy_chain(
+    return run_policy_chain(
         robot="libero",
         robot_argv=[
             "--suite",
@@ -256,7 +256,7 @@ def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
             str(args.cuda_device),
         ],
         output_dir=output_dir / "policy-chain",
-        action=ScriptedToolCall(
+        action=ToolExample(
             "pi0_doubled",
             {
                 "prompt": "perform one bounded action chunk for the current task",

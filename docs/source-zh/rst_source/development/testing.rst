@@ -1,51 +1,15 @@
 测试与 CI
 =========
 
-RPent 的验证分为四层：离线 CPU 单元测试、仓库结构检查、仿真器环境构建（支持带缓存构建与从零冷安装）以及 GPU 端到端测试。本页介绍如何在 GitHub 上触发 CI、``tests/`` 的目录结构、接入新机器人或新模型时需要补充的测试，以及本地运行测试的方法。
+GitHub 自动运行 CPU 单元测试，测试日志中包含代码行覆盖率。同仓库 PR 更新或提交合入 ``main`` 时，**Simulator CI** 根据改动选择环境构建和 GPU 测试。例如，修改 RLDX 会触发 RoboCasa，修改共享规划器会触发全部七个套件，只改文档则跳过仿真测试。来自 fork 的 PR 可以在日志中查看目标清单；自托管机器执行本仓库分支的任务。
 
-在 GitHub 上触发 CI
--------------------
+每个 GPU 任务都会在 CPU 上启动 Qwen3.5-2B，GPU 用于仿真和机器人模型。RPent 要求模型每次调用一个工具，遍历当前环境提供的工具后调用 ``finish``。在 Actions 的测试产物中打开 ``tool-coverage.json`` 即可查看哪些工具未被调用、哪些调用执行失败，也可以下载 JUnit 报告和服务日志。
 
-.. list-table::
-   :header-rows: 1
-   :widths: 28 32 40
+首次配置 Linux x86-64 runner 时，在仓库根目录执行以下命令安装固定版本的 llama.cpp、模型权重和视觉投影器。
 
-   * - 工作流
-     - 触发方式
-     - 验证范围
-   * - **单元测试与结构检查**
-     - push 与 PR 自动触发
-     - 离线 CPU 单元测试、覆盖率、打包检查与目录结构检查
-   * - **仿真器环境构建**
-     - **Actions → Run workflow** 或 PR 评论 ``/ci-build``
-     - 在全新虚拟环境中安装各仿真组件（默认带缓存构建，加 ``no_cache`` / ``--no-cache`` 从零冷安装），并验证 ``rpent-install.sh doctor`` 与 ``rpent --help``
-   * - **具身 GPU 端到端测试**
-     - **Actions → Run workflow** 或 PR 评论 ``/ci-all`` / ``/ci-<target>``
-     - 干净安装并运行仿真冒烟、模型组件与完整 CLI 端到端测试
+.. code-block:: bash
 
-仿真器环境构建
-~~~~~~~~~~~~~~
-
-PR 评论触发需要仓库维护者权限。
-
-- **手动触发**：进入 **Actions → Simulator environment builds → Run workflow**，选择 ``component``\ （``all`` 或 ``robot-libero``、``robot-libero_plus``、``robot-robocasa``、``robot-robotwin``、``robot-robodojo``、``robot-robolab`` 之一），需要从零冷安装时勾选 ``no_cache``。
-- **PR 评论**：评论 ``/ci-build``\ （或 ``/ci-build-all``）构建全部组件，或 ``/ci-build-<component>`` 构建单个组件；需要从零冷安装时在后面加上 ``--no-cache``。示例：
-
-  - ``/ci-build``
-  - ``/ci-build-robot-libero``
-  - ``/ci-build-robot-libero --no-cache``
-
-具身 GPU 端到端测试
-~~~~~~~~~~~~~~~~~~~
-
-PR 评论触发需要仓库维护者权限。
-
-- **手动触发**：进入 **Actions → Embodied GPU E2E → Run workflow**，选择 ``target``\ （``all``、``libero``、``libero-pro``、``libero-plus``、``robocasa``、``robotwin``、``robodojo`` 或 ``robolab``）。
-- **PR 评论**：评论 ``/ci-all`` 运行全部仿真套件，或评论 ``/ci-<target>`` 运行单个套件。示例：
-
-  - ``/ci-all``
-  - ``/ci-libero``
-  - ``/ci-robocasa``
+   bash tests/e2e_tests/provision_planner.sh /mnt/public/rpent_shared/models/ci-qwen35-2b
 
 测试结构
 --------
@@ -108,12 +72,11 @@ PR 评论触发需要仓库维护者权限。
 
    - **环境冒烟**\ （``test_environment_smoke.py`` 或 ``test_components.py`` 中的环境用例）：仅依赖仿真资产与 GPU/EGL（不加载模型权重），验证环境启动、reset、基础动作执行、观测读取与正常关闭。
    - **模型组件**\ （``test_components.py``）：向模型服务发送真实仿真观测，获取预测动作并执行。
-   - **完整 CLI 调用链**\ （``test_policy_chain.py``）：调用 ``run_scripted_policy_chain``，配合本地脚本化规划器（无需外部 LLM API）验证公开 CLI、输出文件与后台进程退出。
+   - **规划器工具覆盖率**\ （``test_policy_chain.py``）：调用 ``run_policy_chain``，配合本地 Qwen 模型验证公开 CLI、输出文件与后台进程退出。
 
 3. **接入 CI**：
 
-   - 在 ``tests/e2e_tests/run_gpu_suite.sh`` 中新增 target，并注册到 **具身 GPU 端到端测试** 工作流。
-   - 如新增了可安装的 ``robot-<name>`` 组件，同步注册到 **仿真器环境构建** 工作流。
+   - 在 ``tests/e2e_tests/run_gpu_suite.sh`` 中新增 target，并在 ``tests/tooling/ci_targets.py`` 中关联安装组件与测试套件。
 
 完整的机器人接入步骤见 :doc:`add_robot`。
 

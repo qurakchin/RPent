@@ -1,5 +1,5 @@
 # Copyright 2026 The RPent Authors.
-"""Public CLI chain with a scripted planner and real RoboDojo runtime."""
+"""Public CLI chain with a local model planner and real RoboDojo runtime."""
 
 import json
 import os
@@ -8,10 +8,10 @@ from pathlib import Path
 import pytest
 
 from tests.e2e_tests.common import (
-    ScriptedToolCall,
+    ToolExample,
     publish_check,
     require_model_path,
-    run_scripted_policy_chain,
+    run_policy_chain,
 )
 
 pytestmark = [
@@ -28,20 +28,18 @@ pytestmark = [
 def test_policy_chain(control, vla_backend, robodojo_model_argv):
     require_model_path("SAM3_CHECKPOINT_PATH", file=True)
     if control == "primitive":
-        action = ScriptedToolCall(
-            "set_gripper", {"arm": "left", "val": 0.5, "steps": 2}
-        )
+        action = ToolExample("set_gripper", {"arm": "left", "val": 0.5, "steps": 2})
     else:
         arguments = {"chunks": 1}
         if vla_backend == "vpp2":
             arguments["instruction"] = "Pick up the pink bottle on the table"
-        action = ScriptedToolCall(f"{vla_backend}_act", arguments)
+        action = ToolExample(f"{vla_backend}_act", arguments)
     output = Path(os.environ["RPENT_E2E_OUTPUT_DIR"]) / (
         f"policy-chain-{action.name}"
         if vla_backend == "vpp2"
         else f"policy-chain-awomo05-{action.name}"
     )
-    result = run_scripted_policy_chain(
+    result = run_policy_chain(
         robot="robodojo",
         robot_argv=[
             "--task",
@@ -56,11 +54,11 @@ def test_policy_chain(control, vla_backend, robodojo_model_argv):
         action=action,
         action_count_field="executed_actions",
         before_action_calls=(
-            ScriptedToolCall("view_env_state", {"step": 0}),
-            ScriptedToolCall(
+            ToolExample("view_env_state", {"step": 0}),
+            ToolExample(
                 "segment", {"text_prompt": "the pink bottle on the table", "step": 0}
             ),
-            ScriptedToolCall(
+            ToolExample(
                 "sample_world_xyz", {"view": "head", "pixels": [[240, 320]], "step": 0}
             ),
         ),
@@ -84,6 +82,6 @@ def test_policy_chain(control, vla_backend, robodojo_model_argv):
     assert segment["found"] and segment["score"] >= 0.2, segment
     assert segment["step_idx"] == 0 and segment["camera"] == "cam_head"
     result["definition"] = (
-        f"scripted planner -> public CLI -> toolkit -> {action.name} -> finish"
+        f"local model planner -> public CLI -> toolkit -> {action.name} -> finish"
     )
     publish_check(f"robodojo_{action.name}_policy_chain", result)

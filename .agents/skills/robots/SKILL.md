@@ -22,7 +22,7 @@ Each concrete robot integration lives under `robots/<robot>/` and plugs into RPe
 3. **Keep package imports lazy.** `robots/<robot>/__init__.py` and `robot_spec.py` must not import simulator, VLA, perception, or hardware SDK packages (`torch`, `mujoco`, `robosuite`, `libero`, `openpi`, `rlinf`, `sam3`, `isaacsim`, `curobo`, `pyrealsense2`, `franky_control`, `cv2`, `transformers`) at module top level. `import rpent`, `enumerate_robots()`, and `rpent --help` must work with only base dependencies.
 4. **Make daemon ownership explicit.** Spawn and wait for owned subprocesses through `try_spawn_server` and `try_wait_server`, roll back earlier daemons on startup failure via `stop_owned_daemons`, handle Dashboard component subsets when supported, and never terminate borrowed external endpoints.
 5. **Pin component dependencies cleanly.** Put integration-only dependencies in `component.toml` (`schema = 2`) under `robots/<robot>/` or `components/{sim,models,tools,infra}/<name>/`. Pin git dependencies to an explicit commit SHA, version tag, or integration/release branch (`@<ref>`). Declare mutually incompatible components in `env_conflicts`, and keep component-local resolver overrides in `overrides` (e.g. `components/sim/robodojo/requirements/robodojo-override.txt`). Verify with `rpent-install check --all` and `tests/tooling/run.sh layout`.
-6. **Keep E2E targets aligned.** Adding a directory under `tests/e2e_tests/<robot>/` does not wire it into GPU CI. When adding a new CI target, update `tests/e2e_tests/run_gpu_suite.sh`, `.github/workflows/embodied-gpu-e2e.yml` (`options` and `/ci-*`), and `.github/workflows/embodied-gpu-e2e-run.yml` together, and document the target in [Testing and CI](https://rpent.readthedocs.io/en/latest/rst_source/development/testing.html) and its prerequisites in the simulator guide.
+6. **Keep E2E targets aligned.** Adding a directory under `tests/e2e_tests/<robot>/` does not wire it into GPU CI. When adding a new CI target, update `tests/e2e_tests/run_gpu_suite.sh`, `tests/tooling/ci_targets.py` (component-to-suite mapping), and `.github/workflows/embodied-gpu-e2e-run.yml` together, and document the target in [Testing and CI](https://rpent.readthedocs.io/en/latest/rst_source/development/testing.html) and its prerequisites in the simulator guide.
 
 ## Write
 
@@ -51,7 +51,7 @@ Findings use the shared format of [README.md](../README.md#findings):
 | `robots/lazy-import` | major | a top-level import of an optional simulator, VLA, perception, or hardware SDK package in `robots/<name>/__init__.py` or `robot_spec.py` |
 | `robots/packaging` | major | `pyproject.toml` issues: `[tool.uv] conflicts` referencing an unknown extra, unpinned git dependencies in extras, or missing `robots`/`robots.*` package discovery |
 | `robots/e2e-syntax` | critical | a changed shell script under `tests/e2e_tests/` that fails `bash -n` |
-| `robots/e2e-targets` | major | drift between targets in `.github/workflows/embodied-gpu-e2e.yml` (`options` / `/ci-*`) and `case "$target"` in `tests/e2e_tests/run_gpu_suite.sh` |
+| `robots/e2e-targets` | major | drift between suites in `tests/tooling/ci_targets.py` and `case "$target"` in `tests/e2e_tests/run_gpu_suite.sh` |
 
 Then judge what the script cannot:
 

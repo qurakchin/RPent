@@ -185,6 +185,9 @@ def _build_argparser() -> argparse.ArgumentParser:
             "one of them is an error rather than a silent no-op."
         ),
     )
+    ap.add_argument(
+        "--user-message", help="Opening instruction for the planner session."
+    )
     ap.add_argument("--max-turns", type=int, default=100)
     ap.add_argument("--max-tokens", type=int, default=8192)
     ap.add_argument(
@@ -622,7 +625,7 @@ def main() -> int:
     )
     prompt_bundle = robot_spec.prompts
     prompt_vars = {**prompt_vars, "output_dir": output_dir}
-    user_msg = prompt_bundle.render(
+    user_msg = args.user_message or prompt_bundle.render(
         "user",
         variables=prompt_vars,
     )
@@ -695,7 +698,9 @@ def main() -> int:
             # re-render it once the connected runtime has reported its capabilities.
             # The interactive reader keeps the earlier render, which is only the
             # editable default.
-            user_msg = prompt_bundle.render("user", variables=prompt_vars)
+            user_msg = args.user_message or prompt_bundle.render(
+                "user", variables=prompt_vars
+            )
         system_prompt = prompt_bundle.render("system", variables=prompt_vars)
     except BaseException:
         # The agent-loop ``finally`` below stops the daemons. A prompt or hook
