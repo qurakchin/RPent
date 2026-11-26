@@ -17,7 +17,7 @@ Install
 Install RPent on both Linux control nodes with matching code, Python, Ray and
 RLinf versions. Nodes running VLA or SAM3 locally need an NVIDIA GPU.
 Install ``robot-dual_franka`` into its own environment; it includes both Franka
-arms, local SAM3, and their dependencies:
+arms, local SAM 3.0, and their dependencies:
 
 .. code-block:: bash
 

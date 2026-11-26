@@ -148,7 +148,11 @@ class GuidedPlannerProxy:
             (idx for idx, msg in enumerate(rest) if msg.get("role") == "assistant"),
             default=None,
         )
-        tail = [dict(msg) for msg in rest[last_assistant:]] if last_assistant is not None else []
+        tail = (
+            [dict(msg) for msg in rest[last_assistant:]]
+            if last_assistant is not None
+            else []
+        )
         if tail and tail[-1].get("role") == "user":
             content = tail[-1].get("content")
             if isinstance(content, list):

@@ -80,19 +80,19 @@ RoboDojo
 --------------
 
 NVIDIA 驱动版本建议参考 `Isaac Sim 5.1 官方系统要求 <https://docs.isaacsim.omniverse.nvidia.com/5.1.0/installation/requirements.html>`_。\
-宿主机还需具备构建 cuRobo 所需的 CUDA toolkit/NVCC 和编译工具链。创建 ``robot-robodojo`` 环境：
+宿主机还需具备构建 cuRobo 所需的 CUDA toolkit/NVCC 和编译工具链。安装 ``robot-robodojo``；它的清单声明了调和 Isaac Sim 固定版本与 agent 依赖栈的依赖覆盖文件：
 
 .. code-block:: bash
 
    ./rpent-install.sh install robot-robodojo --venv .venv-robodojo
    source .venv-robodojo/bin/activate
 
-该命令会安装 RoboDojo 仿真运行时、SAM3 与 Pi0.5 VLA 依赖。
+该组件闭包安装 RoboDojo 运行时、SAM 3.0 和 Pi0.5。
 
 .. dropdown:: Blackwell GPU 安装
 
    Blackwell GPU 需要 CUDA 12.8 版 PyTorch。本项目固定的 PyTorch 2.7.0 也提供 CUDA 12.6 构建，\
-   但该构建不支持 Blackwell。使用这类 GPU 首次安装时，请传入 ``--torch-backend cu128``\ （或先导出 ``UV_TORCH_BACKEND=cu128``）：
+   但该构建不支持 Blackwell。使用这类 GPU 首次安装时，请传入 ``--torch-backend cu128``（或先导出 ``UV_TORCH_BACKEND=cu128``）：
 
    .. code-block:: bash
 

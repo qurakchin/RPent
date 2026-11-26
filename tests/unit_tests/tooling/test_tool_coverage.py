@@ -98,7 +98,9 @@ def test_guided_proxy_forwards_rewritten_chat_completion(tmp_path):
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length))
             seen.append(body)
-            reply = json.dumps({"choices": [{"message": {"role": "assistant"}}]}).encode()
+            reply = json.dumps(
+                {"choices": [{"message": {"role": "assistant"}}]}
+            ).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(reply)))

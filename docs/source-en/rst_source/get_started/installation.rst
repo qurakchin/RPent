@@ -17,9 +17,11 @@ Requirements
 Common Environments
 -------------------
 
-Installing a ``robot-*`` component pulls in the planner layer, tools,
-simulator, and required model services into one virtual environment. Check each
-platform's guide for extra system prerequisites or asset downloads.
+Each RPent component lives in a directory with a ``component.toml`` manifest
+(``robots/<name>/`` for robots, ``components/{sim,models,tools,infra}/<name>/``
+for shared services and test stacks). Installing a ``robot-*`` component pulls
+in the planner layer, tools, simulator, and required model services into one
+virtual environment.
 
 .. list-table::
    :header-rows: 1
@@ -55,31 +57,18 @@ platform's guide for extra system prerequisites or asset downloads.
    * - YAM (control machine)
      - ``./rpent-install.sh install robot-yam --venv .venv-yam-real``
      - 3.11 · :doc:`../real_world_robots/yam`
-
-.. dropdown:: Standalone Model and Developer Environments
-
-   .. list-table::
-      :header-rows: 1
-      :widths: 20 46 34
-
-      * - Environment
-        - Install command
-        - Python & guide
-      * - Standalone Pi0.5 VLA
-        - ``./rpent-install.sh install model-openpi infra-rlinf --venv .venv-openpi``
-        - 3.12 · :doc:`../guides/advanced_deployment`
-      * - Standalone Molmo
-        - ``./rpent-install.sh install model-molmo --venv .venv-molmo``
-        - 3.12 · :doc:`../guides/flash`
-      * - Minimal core
-        - ``./rpent-install.sh install infra-minimal --venv .venv-minimal``
-        - 3.12 · CLI & discovery check
-      * - Development tools
-        - ``./rpent-install.sh install infra-dev --venv .venv-dev``
-        - 3.12 · Lint & test tools
-      * - Full unit test suite
-        - ``./rpent-install.sh install infra-unit_cpu --venv .venv-unit-cpu``
-        - 3.12 · Adds CPU Torch for CI tests
+   * - Standalone Pi0.5 VLA
+     - ``./rpent-install.sh install model-openpi infra-rlinf --venv .venv-openpi``
+     - 3.12 · :doc:`../guides/advanced_deployment`
+   * - Standalone Molmo
+     - ``./rpent-install.sh install model-molmo --venv .venv-molmo``
+     - 3.12 · :doc:`../guides/flash`
+   * - Minimal core
+     - ``./rpent-install.sh install infra-minimal --venv .venv-minimal``
+     - 3.12 · CLI & discovery check
+   * - Development / unit tests
+     - ``./rpent-install.sh install infra-dev --venv .venv-dev``
+     - 3.12 · ``infra-unit_cpu`` adds CPU Torch
 
 Install an Environment
 ----------------------
@@ -95,10 +84,8 @@ and create a virtual environment:
 Once activated, ``rpent-install`` is available directly inside the environment.
 Pass multiple component names to compose one environment (for example,
 ``model-openpi infra-rlinf`` for a standalone Pi0.5 VLA host, or
-``robot-libero infra-dev`` for development with test tools). Pass
-``--python <version>`` (such as ``3.11``) to choose a specific supported Python
-version, or ``--dry-run`` to inspect the generated requirements without
-installing.
+``robot-libero infra-dev`` for development with test tools). Pass ``--dry-run``
+to inspect the generated requirements without installing.
 
 **PyPI Mirrors and CUDA PyTorch Backends**
 
@@ -174,22 +161,26 @@ You can also set ``UV_INDEX_URL``, ``UV_DEFAULT_INDEX``, or
      Harbor in :doc:`../simulators/efe`).
    - **PyPI wheel vs. checkout:** ``pip install rpent`` installs the core
      runtime only (``rpent[planner]`` adds planner adapters and the dashboard)
-     without robot integrations or simulator/model components. Run robots from a
-     source checkout built with ``./rpent-install.sh``.
+     without ``robots/`` or ``components/``. Run robots from a source checkout
+     built with ``./rpent-install.sh``.
 
-.. dropdown:: Contributor Tools: List and Validate Components
+List and Check Components
+-------------------------
 
-   Inspect all available components and validate manifests before installing:
+Inspect all available components and validate manifests before installing:
 
-   .. code-block:: bash
+.. code-block:: bash
 
-      ./rpent-install.sh list
-      ./rpent-install.sh check --all
+   ./rpent-install.sh list
+   ./rpent-install.sh check --all
 
-   ``check`` computes each component's dependency set without downloading
-   packages, verifying Python ranges, exact-pin conflicts, and mutual-exclusion
-   rules. Passing several component names checks whether they can share one
-   environment.
+``check`` computes each component's dependency closure without downloading
+packages, verifying Python ranges, exact-pin conflicts, and ``env_conflicts``.
+Across a closure, ``extra-index-urls`` are unioned, while conflicting
+``index-url`` or ``index-strategy`` declarations are rejected. Passing several
+component names checks whether they can share one environment.
+
+.. dropdown:: Dependency Resolution Check (``check --resolve``)
 
    Add ``--resolve`` to run ``uv pip compile`` against Linux ``x86_64``
    (default ``manylinux_2_31``, or ``manylinux_2_35`` when required by a

@@ -18,7 +18,7 @@ RPent 通过 RLinf 的机器人接口控制 YAM 双臂系统。任务视频见 :
 安装
 ----
 
-运行环境使用 Linux、Python 3.11 与 `uv <https://docs.astral.sh/uv/getting-started/installation/>`_\ （镜像与后端参数见 :doc:`../get_started/installation`）。本指南按两台机器部署：
+运行环境使用 Linux、Python 3.11。本指南按两台机器部署：
 
 * **控制机**：连接双臂的 CAN 接口和三路 RealSense 相机，运行 ENV 服务及 RPent。
 * **推理机**：使用 NVIDIA GPU 运行 Pi0.5 VLA 服务。

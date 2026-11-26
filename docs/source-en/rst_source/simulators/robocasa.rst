@@ -91,13 +91,26 @@ range:
    ./rpent-install.sh install robot-robocasa --venv .venv-robocasa
    source .venv-robocasa/bin/activate
 
-This command installs a CUDA-enabled Torch and torchvision pair; RLDX
+The component closure installs a CUDA-enabled Torch and torchvision pair; RLDX
 requires Torch >= 2.7 and torchvision >= 0.22. If your driver needs a different
-build, pass ``--torch-backend`` (see :doc:`../get_started/installation`) or
-reinstall the matching pair with ``uv pip install`` using the
+build, reinstall the matching pair with ``uv pip install`` using the
 `PyTorch instructions <https://pytorch.org/get-started/locally/>`_.
 
-The command installs the ``rpent_v0.2`` source branches of RoboCasa, RLDX, and
+The :ref:`environment checks <environment-smoke-tests>` need the test tools
+that ``infra-dev`` adds, so they use a second environment:
+``./rpent-install.sh install robot-robocasa infra-dev --venv .venv-robocasa-dev``.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Environment
+     - Components
+     - Assets
+   * - RoboCasa365
+     - ``robot-robocasa``, ``sim-robocasa``, ``model-rldx``
+     - ``robocasa-download-assets`` (command below)
+
+The components install the ``rpent_v0.2`` source branches of RoboCasa, RLDX, and
 Robosuite. Do not also install ``rlinf-robocasa365``, which provides the same
 import package.
 
@@ -534,11 +547,9 @@ Expand the details below for task names, evaluation settings and score reference
 Environment Checks
 ------------------
 
-Check the simulator first, then VLA inference. Both need test tools from
-``infra-dev`` and working GPU/EGL; create ``.venv-robocasa-dev`` once with
-``./rpent-install.sh install robot-robocasa infra-dev --venv .venv-robocasa-dev``
-and activate it before running the commands below. Skipped tests are not
-passes, and these checks do not produce leaderboard scores.
+Check the simulator first, then VLA inference. Both run in the
+``.venv-robocasa-dev`` environment and need working GPU/EGL. Skipped tests are
+not passes, and these checks do not produce leaderboard scores.
 
 Simulator Check
 ~~~~~~~~~~~~~~~
@@ -626,15 +637,15 @@ Downloads and Assets
 Startup and Inference
 ~~~~~~~~~~~~~~~~~~~~~
 
-- **Missing RLDX interfaces in an old environment:** rebuild the environment
-  with ``./rpent-install.sh install robot-robocasa --venv .venv-robocasa --force``
-  so ``rlinf-rldx`` is reinstalled from the current branch. Older PyPI wheels
-  can lack required interfaces even with the same version number.
+- **Missing RLDX interfaces in an old environment:** rerun
+  ``./rpent-install.sh install robot-robocasa --venv .venv-robocasa``, then reinstall ``rlinf-rldx`` in the
+  environment. Older PyPI wheels can lack required interfaces even with the same
+  version number.
 - **Missing navigation camera:** if the error names ``mobilebase0_navview``,
-  rebuild with ``./rpent-install.sh install robot-robocasa --venv .venv-robocasa --force``
-  to update Robosuite rather than patching XML.
+  rerun ``./rpent-install.sh install robot-robocasa --venv .venv-robocasa`` to update Robosuite rather than
+  patching XML.
 - **Directory permission errors:** use the source dependencies installed by
-  ``robot-robocasa``; XML conversion should write temporary files. Set
+  ``sim-robocasa``; XML conversion should write temporary files. Set
   ``NUMBA_CACHE_DIR`` to a writable directory without changing package permissions.
 - **CUDA/EGL unavailable:** select Torch/torchvision for your machine, then run
   the :ref:`environment checks <environment-smoke-tests>` to verify GPU operations
