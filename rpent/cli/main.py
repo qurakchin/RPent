@@ -185,6 +185,7 @@ def _build_argparser() -> argparse.ArgumentParser:
             "one of them is an error rather than a silent no-op."
         ),
     )
+    ap.add_argument("--system-prompt", help="Instructions for the planner role.")
     ap.add_argument(
         "--user-message", help="Opening instruction for the planner session."
     )
@@ -381,10 +382,11 @@ def _start_continuation_session(
     prompt_vars,
     session_number: int,
     session_max: int,
+    planner_factory,
 ):
     """Build a fresh planner and prompts for an exploration handoff."""
     logger.info("=== handing off to agent %d/%d ===", session_number, session_max)
-    planner = build_planner(
+    planner = planner_factory(
         args.planner,
         output_dir=output_dir,
         recipe_tag=recipe_tag,
@@ -400,7 +402,7 @@ def _start_continuation_session(
         no_images=args.no_images,
         interactive=args.tui,
     )
-    system_prompt = prompt_bundle.render(
+    system_prompt = args.system_prompt or prompt_bundle.render(
         "system",
         variables={
             **prompt_vars,
@@ -421,7 +423,8 @@ def _start_continuation_session(
     return planner, system_prompt, session_message
 
 
-def main() -> int:
+def main(*, planner_factory: Callable | None = None) -> int:
+    planner_factory = planner_factory or build_planner
     parser = _build_argparser()
     help_requested = "-h" in sys.argv or "--help" in sys.argv
     robot_requested = any(
@@ -606,7 +609,7 @@ def main() -> int:
 
     dashboard_events = NullDashboardEventSink()
 
-    planner = build_planner(
+    planner = planner_factory(
         args.planner,
         output_dir=output_dir,
         recipe_tag=recipe_tag,
@@ -701,7 +704,9 @@ def main() -> int:
             user_msg = args.user_message or prompt_bundle.render(
                 "user", variables=prompt_vars
             )
-        system_prompt = prompt_bundle.render("system", variables=prompt_vars)
+        system_prompt = args.system_prompt or prompt_bundle.render(
+            "system", variables=prompt_vars
+        )
     except BaseException:
         # The agent-loop ``finally`` below stops the daemons. A prompt or hook
         # failure happens before it and must not leak the runtime.
@@ -748,6 +753,7 @@ def main() -> int:
                     prompt_vars=prompt_vars,
                     session_number=session_number,
                     session_max=sessions,
+                    planner_factory=planner_factory,
                 )
             state_output_dir = output_dir
             if getattr(args, "explore", False):

@@ -65,6 +65,7 @@ jobs:
 
       # Shared dependency and model caches
       UV_CACHE_DIR: /mnt/public/rpent_shared/cache/uv
+      UV_LOCK_TIMEOUT: "5400"  # Allow a concurrent cold download the full install budget.
       UV_LINK_MODE: symlink
       UV_PYTHON_INSTALL_DIR: /mnt/public/rpent_shared/python
       UV_TORCH_BACKEND: auto

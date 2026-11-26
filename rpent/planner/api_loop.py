@@ -114,6 +114,7 @@ class ApiAgentLoop(Planner):
             raise ValueError(f"unsupported reasoning effort: {reasoning_effort}")
         if max_tokens < 1 or timeout_s <= 0:
             raise ValueError("max_tokens and timeout_s must be positive")
+        self.capabilities: tuple[AbstractCapability, ...] = ()
         self.model = model
         self.dashboard_events = dashboard_events
         self.max_tokens = max_tokens
@@ -197,6 +198,7 @@ class ApiAgentLoop(Planner):
                     False if self.reasoning_effort == "none" else self.reasoning_effort
                 ),
                 session,
+                *self.capabilities,
             ],
         )
         if interaction is not None:

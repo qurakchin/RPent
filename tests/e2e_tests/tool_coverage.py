@@ -62,11 +62,20 @@ def inspect_trajectory(output_dir: Path, action: str) -> dict[str, Any]:
                         executed.append(name)
                     else:
                         reason = (tool.get("raw_result") or {}).get("data", {})
+                        if isinstance(reason, dict):
+                            reason = reason.get("data", reason)
                         error = (
-                            reason.get("error") if isinstance(reason, dict) else None
+                            reason.get("error") if isinstance(reason, dict) else reason
                         )
                         if not error:
                             error = (tool.get("missing") or {}).get("raw_result")
+                        if not error:
+                            feedback = (tool.get("feedback") or {}).get("data", {})
+                            error = (
+                                feedback.get("return_value")
+                                if isinstance(feedback, dict)
+                                else feedback
+                            )
                         calls[-1]["error"] = error
                         failures.append(
                             f"turn {turn}: {name} {tool['status']}: {error}"

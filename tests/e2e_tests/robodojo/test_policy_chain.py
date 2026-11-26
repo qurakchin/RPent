@@ -17,6 +17,7 @@ from rpent.planner.base import build_api_model
 from rpent.session.planner_capture import end_planner_task, start_planner_task
 from tests.e2e_tests.common import (
     PLANNER_MODEL,
+    TOOL_TEST_ROLE,
     ToolExample,
     parse_runtime_args,
     planner_url,
@@ -26,6 +27,7 @@ from tests.e2e_tests.common import (
     runtime_phase,
     tool_test_prompt,
 )
+from tests.e2e_tests.planner_cli import ExerciseTools
 from tests.e2e_tests.tool_coverage import inspect_trajectory
 
 pytestmark = [
@@ -73,6 +75,7 @@ def test_simulator_tool_coverage(robodojo_runtime_argv, monkeypatch):
                 dashboard_events=events,
                 max_tokens=512,
             )
+            planner.capabilities = (ExerciseTools(),)
             prompt = tool_test_prompt(
                 output,
                 ToolExample("set_gripper", {"arm": "left", "val": 0.5, "steps": 2}),
@@ -83,7 +86,7 @@ def test_simulator_tool_coverage(robodojo_runtime_argv, monkeypatch):
                 config={"seed": 0, "model": PLANNER_MODEL},
             )
             result = planner.solve(
-                system_prompt="Test the RoboDojo simulator tools.",
+                system_prompt=TOOL_TEST_ROLE,
                 user_message=prompt,
                 toolkit=toolkit,
                 max_turns=64,

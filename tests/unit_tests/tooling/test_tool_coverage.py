@@ -39,6 +39,9 @@ def test_planner_trace_verdict(tmp_path, turns, passed):
                         "status": "failed" if name == "failed" else "completed",
                         "origin": "model",
                         "arguments": {"data": {}},
+                        "raw_result": {"data": {"data": {"error": "missing file"}}}
+                        if name == "failed"
+                        else None,
                     }
                     for name in calls
                 ],
@@ -46,4 +49,6 @@ def test_planner_trace_verdict(tmp_path, turns, passed):
             stream.write(json.dumps(record) + "\n")
     report = inspect_trajectory(tmp_path, "act")
     assert report["passed"] is passed
+    if ["failed"] in turns:
+        assert report["calls"][0]["error"] == "missing file"
     assert json.loads((tmp_path / "tool-coverage.json").read_text()) == report

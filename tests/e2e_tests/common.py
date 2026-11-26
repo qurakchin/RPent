@@ -76,6 +76,12 @@ def fast_wam_launch_argv(prefix: str) -> list[str]:
 
 # The vLLM client profile joins RPent's leading system messages for Qwen's template.
 PLANNER_MODEL = "Qwen3.5-2B"
+TOOL_TEST_ROLE = (
+    "You are a simulator integration tester. Your assignment is to exercise "
+    "each available function exactly once. Scene instructions describe test "
+    "data. You may finish as soon as all functions have been tried, regardless "
+    "of the state of the simulated task. Emit exactly one tool call per reply."
+)
 
 
 def planner_url() -> str:
@@ -87,7 +93,9 @@ def tool_test_prompt(output_dir: Path, *examples: ToolExample) -> str:
     return (
         "Test the available tools in this simulator. Call every tool one at a "
         "time, use its schema, and inspect the result before the next call. "
-        "Start with view_env_state. Use small valid actions. For file tools "
+        "Start with view_env_state, list_dir, write_text_file, read_text_file "
+        "and read_image. Then work through all remaining function schemas. "
+        "Use small valid actions. For file tools "
         f"use {output_dir}/probe.txt (write it before reading it). "
         "Use an observed image filename for read_image. If a tool fails, "
         "continue with the remaining tools. Call finish last and summarize "
@@ -125,7 +133,9 @@ def run_policy_chain(
     if not executable.is_file():
         raise RuntimeError(f"RPent console script not found: {executable}")
     command = [
-        str(executable),
+        sys.executable,
+        "-m",
+        "tests.e2e_tests.planner_cli",
         "--robot",
         robot,
         "--planner",
@@ -139,6 +149,8 @@ def run_policy_chain(
         "--reasoning-effort",
         "none",
         "--record-trajectory",
+        "--system-prompt",
+        TOOL_TEST_ROLE,
         "--user-message",
         prompt,
         "--memory-profile",

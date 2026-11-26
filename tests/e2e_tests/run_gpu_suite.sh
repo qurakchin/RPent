@@ -234,7 +234,7 @@ run_gpu_pytest() {
 # no installed CLI yet, so the launcher bootstraps it in a throwaway environment;
 # the installer then selects the target Python from the component manifest.
 run_rpent_install() {
-  timeout --foreground --kill-after=2m "$install_timeout" \
+  timeout --kill-after=2m "$install_timeout" \
     "$repo_root/rpent-install.sh" "$@"
 }
 
@@ -243,7 +243,7 @@ install_test_runner() {
   # The test runner is the suite's own tool, not part of the environment under
   # test: the venv is deleted after the run, so no fingerprint attests these
   # packages, and a pin here would only change how the suite is driven.
-  timeout --foreground --kill-after=2m "$install_timeout" \
+  timeout --kill-after=2m "$install_timeout" \
     uv pip install --python "$python" pytest pytest-timeout
 }
 
@@ -284,10 +284,10 @@ run_libero() {
     echo "Expected $package in $venv_dir" >&2
     return 1
   fi
-  timeout --foreground --kill-after=2m "$install_timeout" uv pip install \
+  timeout --kill-after=2m "$install_timeout" uv pip install \
     --python "$venv_dir/bin/python" --link-mode copy \
     --reinstall-package "$package" --no-deps "$requirement"
-  timeout --foreground --kill-after=2m "$install_timeout" \
+  timeout --kill-after=2m "$install_timeout" \
     "$venv_dir/bin/$downloader" --link "${!asset_var}"
   run_gpu_pytest "$name" "$venv_dir/bin/python" "$@"
 }

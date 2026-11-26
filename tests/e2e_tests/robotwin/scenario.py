@@ -196,8 +196,9 @@ def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
             str(args.seed),
             "--task-config",
             args.task_config,
+            # Several independent motion tools share this test episode.
             "--max-episode-steps",
-            str(args.max_episode_steps),
+            "1024",
             "--robotwin-assets-path",
             args.robotwin_assets_path,
             "--am-checkpoint",

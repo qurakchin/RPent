@@ -244,8 +244,9 @@ def _policy_chain(output_dir: Path, args: Namespace) -> dict[str, Any]:
             str(args.task),
             "--seed",
             str(args.seed),
+            # Several independent motion tools share this test episode.
             "--max-episode-steps",
-            str(args.max_episode_steps),
+            "1024",
             "--libero-type",
             args.libero_type,
             "--env-cuda-device",
