@@ -238,8 +238,19 @@ run_rpent_install() {
   if [[ -z "${UV_FIND_LINKS:-}" && -n "${UV_CACHE_DIR:-}" && -d "$UV_CACHE_DIR/wheelhouse" ]]; then
     export UV_FIND_LINKS="$UV_CACHE_DIR/wheelhouse"
   fi
-  timeout --kill-after=2m "$install_timeout" \
-    "$repo_root/rpent-install.sh" "$@"
+  if [[ -n "${RPENT_GITHUB_MIRROR:-}" ]]; then
+    local mirror=${RPENT_GITHUB_MIRROR%/}
+    local count=${GIT_CONFIG_COUNT:-0}
+    env \
+      "GIT_CONFIG_COUNT=$((count + 1))" \
+      "GIT_CONFIG_KEY_${count}=url.${mirror}/https://github.com/.insteadOf" \
+      "GIT_CONFIG_VALUE_${count}=https://github.com/" \
+      timeout --kill-after=2m "$install_timeout" \
+      "$repo_root/rpent-install.sh" "$@"
+  else
+    timeout --kill-after=2m "$install_timeout" \
+      "$repo_root/rpent-install.sh" "$@"
+  fi
 }
 
 install_test_runner() {
