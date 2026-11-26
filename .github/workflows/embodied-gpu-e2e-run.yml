@@ -11,12 +11,8 @@ permissions:
   contents: read
 
 jobs:
-  gpu-suite:
-    name: GPU E2E (${{ matrix.target }})
-    strategy:
-      fail-fast: false
-      matrix:
-        target: ${{ fromJSON(inputs.suites) }}
+  e2e:
+    name: GPU E2E
     runs-on: rpent-gpu
     timeout-minutes: 240
     env:
@@ -24,7 +20,7 @@ jobs:
       RPENT_SHARED_ROOT: /mnt/public/rpent_shared
 
       # Shared runner and rendering settings (CUDA_VISIBLE_DEVICES comes from each runner's .env)
-      SUITE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.target }}
+      E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
       MUJOCO_GL: egl
       PYOPENGL_PLATFORM: egl
 
@@ -43,37 +39,139 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Run selected GPU suite
+      - name: Run selected GPU suites
         timeout-minutes: 225
         shell: bash
         env:
-          TARGET: ${{ matrix.target }}
+          SUITES_JSON: ${{ inputs.suites }}
           RPENT_INSTALL_TIMEOUT: 90m
           RPENT_TEST_TIMEOUT: 120m
           RPENT_GPU_PYTEST_TIMEOUT_SECONDS: "2400"
         run: |
-          output_dir="$RUNNER_TEMP/rpent-gpu-$SUITE_ID"
-          {
-            echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
-            uv --version
-            uv cache dir
-            uv python dir
-            bash tests/e2e_tests/run_gpu_suite.sh \
-              "$TARGET" "$output_dir" \
-              "$RUNNER_TEMP/rpent-venvs-$SUITE_ID"
-          } 2>&1 | tee "$output_dir.log"
+          set -euo pipefail
+          run_dir="$RUNNER_TEMP/rpent-gpu-$E2E_RUN_ID"
+          venv_dir="$RUNNER_TEMP/rpent-venvs-$E2E_RUN_ID"
+          mkdir -p "$run_dir" "$venv_dir"
+          echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<unset>}"
+          uv --version
+          uv cache dir
+          uv python dir
+          python3 - "$run_dir" "$venv_dir" <<'PY'
+          import concurrent.futures
+          import json
+          import os
+          import queue
+          import subprocess
+          import sys
+          import time
+          from pathlib import Path
+
+          run_dir = Path(sys.argv[1])
+          venv_dir = Path(sys.argv[2])
+          suites = json.loads(os.environ["SUITES_JSON"])
+          raw_gpus = os.environ.get("CUDA_VISIBLE_DEVICES", "").strip()
+          gpus = [g.strip() for g in raw_gpus.split(",") if g.strip().isdecimal()]
+          if not gpus:
+              raise SystemExit(f"CUDA_VISIBLE_DEVICES must list at least one numeric GPU: {raw_gpus!r}")
+
+          gpu_pool: queue.Queue[str] = queue.Queue()
+          for g in gpus:
+              gpu_pool.put(g)
+
+          def summarize_coverage(suite_dir: Path) -> str:
+              files = sorted(suite_dir.rglob("tool-coverage.json"))
+              if not files:
+                  return "none"
+              parts = []
+              for f in files:
+                  try:
+                      data = json.loads(f.read_text(encoding="utf-8"))
+                      missing = len(data.get("missing") or [])
+                      failed = len(data.get("failures") or [])
+                      executed = len(data.get("executed") or [])
+                      label = f.parent.name
+                      parts.append(f"{label}: {executed} ok, {missing} miss, {failed} err")
+                  except Exception:
+                      parts.append(f"{f.parent.name}: unreadable")
+              return "; ".join(parts)
+
+          def run_one(suite: str) -> dict:
+              gpu = gpu_pool.get()
+              t0 = time.monotonic()
+              log_path = run_dir / f"{suite}.log"
+              suite_out = run_dir / suite
+              suite_venv = venv_dir / suite
+              env = {**os.environ, "CUDA_VISIBLE_DEVICES": gpu}
+              cmd = [
+                  "bash",
+                  "tests/e2e_tests/run_gpu_suite.sh",
+                  suite,
+                  str(suite_out),
+                  str(suite_venv),
+              ]
+              try:
+                  with log_path.open("w", encoding="utf-8") as log_file:
+                      proc = subprocess.run(cmd, env=env, stdout=log_file, stderr=subprocess.STDOUT, check=False)
+              finally:
+                  gpu_pool.put(gpu)
+              dt = int(time.monotonic() - t0)
+              return {
+                  "suite": suite,
+                  "gpu": gpu,
+                  "rc": proc.returncode,
+                  "duration": dt,
+                  "coverage": summarize_coverage(suite_out),
+                  "log": log_path,
+              }
+
+          results = []
+          with concurrent.futures.ThreadPoolExecutor(max_workers=min(len(gpus), len(suites))) as pool:
+              futs = {pool.submit(run_one, s): s for s in suites}
+              for fut in concurrent.futures.as_completed(futs):
+                  res = fut.result()
+                  results.append(res)
+                  status = "PASSED" if res["rc"] == 0 else f"FAILED (rc={res['rc']})"
+                  print(
+                      f"[e2e:{res['suite']}] GPU {res['gpu']} {status} in {res['duration']}s ({res['coverage']})",
+                      flush=True,
+                  )
+                  if res["rc"] != 0:
+                      tail = res["log"].read_text(encoding="utf-8", errors="replace").splitlines()[-80:]
+                      print(f"--- tail of {res['suite']}.log ---", flush=True)
+                      print("\n".join(tail), flush=True)
+
+          by_name = {r["suite"]: r for r in results}
+          ordered = [by_name[s] for s in suites]
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              lines = [
+                  "### Embodied GPU E2E",
+                  "",
+                  "| Suite | GPU | Status | Duration | Tool Coverage |",
+                  "| --- | --- | --- | --- | --- |",
+              ]
+              for r in ordered:
+                  badge = "passed" if r["rc"] == 0 else f"failed (rc={r['rc']})"
+                  lines.append(
+                      f"| `{r['suite']}` | `{r['gpu']}` | {badge} | {r['duration']}s | {r['coverage']} |"
+                  )
+              Path(summary).open("a", encoding="utf-8").write("\n".join(lines) + "\n")
+
+          if any(r["rc"] != 0 for r in ordered):
+              raise SystemExit(1)
+          PY
 
       - name: Upload suite diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: gpu-e2e-${{ matrix.target }}-${{ github.run_attempt }}
+          name: gpu-e2e-${{ github.run_attempt }}
           path: |
-            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}.log
-            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/*-junit.xml
-            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/*server.log
-            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/tool-coverage.json
-            ${{ runner.temp }}/rpent-gpu-${{ env.SUITE_ID }}/**/*-daemon-cleanup.txt
+            ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/*.log
+            ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/**/*-junit.xml
+            ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/**/*server.log
+            ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/**/tool-coverage.json
+            ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/**/*-daemon-cleanup.txt
           if-no-files-found: ignore
 
       - name: Clean up
@@ -81,10 +179,9 @@ jobs:
         shell: bash
         run: |
           for path in \
-            "$RUNNER_TEMP/rpent-gpu-$SUITE_ID" \
-            "$RUNNER_TEMP/rpent-venvs-$SUITE_ID"; do
+            "$RUNNER_TEMP/rpent-gpu-$E2E_RUN_ID" \
+            "$RUNNER_TEMP/rpent-venvs-$E2E_RUN_ID"; do
             if [[ -d "$path" ]]; then
               find "$path" -depth -delete
             fi
           done
-          rm -f "$RUNNER_TEMP/rpent-gpu-$SUITE_ID.log"

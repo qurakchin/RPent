@@ -100,9 +100,6 @@ def targets(paths: list[str], root: Path) -> tuple[list[str], list[str]]:
             "MANIFEST.in",
             "rpent-install.sh",
             "tests/tooling/ci_targets.py",
-            "tooling/test_ci_targets.py",
-            "tooling/test_tool_coverage.py",
-            "tooling/test_suite_config.py",
         }:
             selected.update(suites_map)
     builds = [component for component in suites_map if component in selected]

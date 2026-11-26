@@ -12,51 +12,102 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.component }}
+    name: Build environments
     runs-on: rpent-build
-    timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        component: ${{ fromJSON(inputs.components) }}
+    timeout-minutes: 180
     env:
       UV_CACHE_DIR: /mnt/public/rpent_shared/cache/uv
       UV_LOCK_TIMEOUT: "5400"  # Allow a concurrent cold download the full install budget.
       UV_PYTHON_INSTALL_DIR: /mnt/public/rpent_shared/python
       UV_TORCH_BACKEND: auto
-      BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.component }}
+      BUILD_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
 
-      - name: Build a new environment
+      - name: Build selected environments
+        timeout-minutes: 165
         shell: bash
         env:
-          COMPONENT: ${{ matrix.component }}
+          COMPONENTS_JSON: ${{ inputs.components }}
           RPENT_INSTALL_TIMEOUT: 90m
+          RPENT_BUILD_PARALLELISM: "2"
         run: |
           set -euo pipefail
-          run_dir="$RUNNER_TEMP/rpent-build-$BUILD_ID"
-          {
-            echo "Component: $COMPONENT"
-            git rev-parse HEAD
-            uv --version
-            uv cache dir
-            uv python dir
-            time bash tests/e2e_tests/run_gpu_suite.sh \
-              "build:$COMPONENT" "$run_dir" "$RUNNER_TEMP/rpent-build-venv-$BUILD_ID"
-          } 2>&1 | tee "$RUNNER_TEMP/rpent-build-$BUILD_ID.log"
+          run_dir="$RUNNER_TEMP/rpent-build-$BUILD_RUN_ID"
+          venv_dir="$RUNNER_TEMP/rpent-build-venvs-$BUILD_RUN_ID"
+          mkdir -p "$run_dir" "$venv_dir"
+          python3 - "$run_dir" "$venv_dir" <<'PY'
+          import concurrent.futures
+          import json
+          import os
+          import subprocess
+          import sys
+          import time
+          from pathlib import Path
 
-      - name: Upload build log and fingerprint
+          run_dir = Path(sys.argv[1])
+          venv_dir = Path(sys.argv[2])
+          components = json.loads(os.environ["COMPONENTS_JSON"])
+          max_workers = max(1, min(int(os.environ.get("RPENT_BUILD_PARALLELISM", "2")), len(components)))
+
+          def run_one(component: str) -> dict:
+              t0 = time.monotonic()
+              log_path = run_dir / f"{component}.log"
+              cmd = [
+                  "bash",
+                  "tests/e2e_tests/run_gpu_suite.sh",
+                  f"build:{component}",
+                  str(run_dir / component),
+                  str(venv_dir / component),
+              ]
+              with log_path.open("w", encoding="utf-8") as log_file:
+                  proc = subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT, check=False)
+              dt = int(time.monotonic() - t0)
+              return {"component": component, "rc": proc.returncode, "duration": dt, "log": log_path}
+
+          results = []
+          with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+              futs = {pool.submit(run_one, c): c for c in components}
+              for fut in concurrent.futures.as_completed(futs):
+                  res = fut.result()
+                  results.append(res)
+                  status = "PASSED" if res["rc"] == 0 else f"FAILED (rc={res['rc']})"
+                  print(f"[build:{res['component']}] {status} in {res['duration']}s", flush=True)
+                  if res["rc"] != 0:
+                      tail = res["log"].read_text(encoding="utf-8", errors="replace").splitlines()[-60:]
+                      print(f"--- tail of {res['component']}.log ---", flush=True)
+                      print("\n".join(tail), flush=True)
+
+          by_name = {r["component"]: r for r in results}
+          ordered = [by_name[c] for c in components]
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if summary:
+              lines = [
+                  "### Simulator Environment Builds",
+                  "",
+                  "| Component | Status | Duration |",
+                  "| --- | --- | --- |",
+              ]
+              for r in ordered:
+                  badge = "passed" if r["rc"] == 0 else f"failed (rc={r['rc']})"
+                  lines.append(f"| `{r['component']}` | {badge} | {r['duration']}s |")
+              Path(summary).open("a", encoding="utf-8").write("\n".join(lines) + "\n")
+
+          if any(r["rc"] != 0 for r in ordered):
+              raise SystemExit(1)
+          PY
+
+      - name: Upload build logs and fingerprints
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: build-${{ matrix.component }}
+          name: build-environments-${{ github.run_attempt }}
           path: |
-            ${{ runner.temp }}/rpent-build-${{ env.BUILD_ID }}.log
-            ${{ runner.temp }}/rpent-build-${{ env.BUILD_ID }}/rpent-install.json
+            ${{ runner.temp }}/rpent-build-${{ env.BUILD_RUN_ID }}/*.log
+            ${{ runner.temp }}/rpent-build-${{ env.BUILD_RUN_ID }}/*/rpent-install.json
           if-no-files-found: ignore
 
       - name: Clean up
@@ -64,10 +115,9 @@ jobs:
         shell: bash
         run: |
           for directory in \
-            "$RUNNER_TEMP/rpent-build-$BUILD_ID" \
-            "$RUNNER_TEMP/rpent-build-venv-$BUILD_ID"; do
+            "$RUNNER_TEMP/rpent-build-$BUILD_RUN_ID" \
+            "$RUNNER_TEMP/rpent-build-venvs-$BUILD_RUN_ID"; do
             if [[ -d "$directory" ]]; then
               find "$directory" -depth -delete
             fi
           done
-          rm -f "$RUNNER_TEMP/rpent-build-$BUILD_ID.log"
