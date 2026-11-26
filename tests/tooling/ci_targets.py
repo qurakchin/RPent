@@ -14,36 +14,43 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
-SUITES = {
-    "robot-libero": ["libero", "libero-pro"],
-    "robot-libero_plus": ["libero-plus"],
-    "robot-robocasa": ["robocasa"],
-    "robot-robotwin": ["robotwin"],
-    "robot-robodojo": ["robodojo"],
-    "robot-robolab": ["robolab"],
-}
-# Runtime integrations that also exercise an optional external model service.
-OPTIONAL = {
-    "apxinf": {"robot-libero"},
-    "cosmos_policy": {"robot-libero"},
-    "cosmos3": {"robot-libero"},
-    "fast_wam": {"robot-libero", "robot-robotwin"},
-    "uniwam": {"robot-libero", "robot-robotwin"},
-    "xpolicylab": {"robot-robodojo"},
-}
+
+def load_suite_maps(
+    root: Path,
+) -> tuple[dict[str, list[str]], dict[str, set[str]], dict[str, str]]:
+    """Discover component->suites, optional_model->components, and suite->component."""
+    suites_by_component: dict[str, list[str]] = {}
+    optional_by_model: dict[str, set[str]] = {}
+    component_by_suite: dict[str, str] = {}
+    suites_dir = root / "tests/e2e_tests/suites"
+    if suites_dir.is_dir():
+        for path in sorted(suites_dir.glob("*.toml"), key=lambda p: p.stem):
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+            suite_name = path.stem
+            component = data["component"]
+            suites_by_component.setdefault(component, []).append(suite_name)
+            component_by_suite[suite_name] = component
+            for model in data.get("optional_models", []):
+                optional_by_model.setdefault(model, set()).add(component)
+    return suites_by_component, optional_by_model, component_by_suite
+
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+SUITES, OPTIONAL, _ = load_suite_maps(_REPO_ROOT)
 
 
 def targets(paths: list[str], root: Path) -> tuple[list[str], list[str]]:
     """Map shared code to all suites and component code to its consumers."""
+    suites_map, optional_map, suite_to_component = load_suite_maps(root)
     manifests = {}
     owners = {}
     for pattern in ("robots/*/component.toml", "components/*/*/component.toml"):
         for path in root.glob(pattern):
-            manifest = tomllib.loads(path.read_text())
+            manifest = tomllib.loads(path.read_text(encoding="utf-8"))
             owners[path.parent.relative_to(root).as_posix()] = manifest["name"]
             manifests[manifest["name"]] = manifest.get("requires", [])
-    users = {}
-    for robot in SUITES:
+    users: dict[str, set[str]] = {}
+    for robot in suites_map:
         pending = [robot]
         seen = set()
         while pending:
@@ -53,16 +60,21 @@ def targets(paths: list[str], root: Path) -> tuple[list[str], list[str]]:
                 users.setdefault(name, set()).add(robot)
                 pending.extend(manifests.get(name, []))
 
-    selected = set()
+    selected: set[str] = set()
     for filename in paths:
         name = filename.removeprefix("tests/unit_tests/")
-        parts = name.split("/")
         if (
             name.startswith(("docs/", ".agents/", ".claude/"))
             or name.endswith((".md", ".rst"))
             and not name.startswith(("robots/", "rpent/", "components/"))
         ):
             continue
+        if name.startswith("tests/e2e_tests/suites/") and name.endswith(".toml"):
+            suite_stem = Path(name).stem
+            if suite_stem in suite_to_component:
+                selected.add(suite_to_component[suite_stem])
+                continue
+        parts = name.split("/")
         if name.startswith("tests/e2e_tests/") and len(parts) > 3:
             name = "robots/" + parts[2] + "/" + "/".join(parts[3:])
         component = next(
@@ -73,7 +85,7 @@ def targets(paths: list[str], root: Path) -> tuple[list[str], list[str]]:
             if component in {"robots/libero", "components/sim/libero"}:
                 selected.add("robot-libero_plus")
             if component.startswith("components/models/"):
-                selected.update(OPTIONAL.get(component.split("/")[-1], ()))
+                selected.update(optional_map.get(component.split("/")[-1], ()))
         elif name.startswith(
             (
                 "rpent/",
@@ -90,10 +102,11 @@ def targets(paths: list[str], root: Path) -> tuple[list[str], list[str]]:
             "tests/tooling/ci_targets.py",
             "tooling/test_ci_targets.py",
             "tooling/test_tool_coverage.py",
+            "tooling/test_suite_config.py",
         }:
-            selected.update(SUITES)
-    builds = [component for component in SUITES if component in selected]
-    return builds, [suite for component in builds for suite in SUITES[component]]
+            selected.update(suites_map)
+    builds = [component for component in suites_map if component in selected]
+    return builds, [suite for component in builds for suite in suites_map[component]]
 
 
 if __name__ == "__main__":
@@ -106,7 +119,7 @@ if __name__ == "__main__":
     else:
         paths = ["rpent-install.sh"]
     builds, suites = targets(paths, Path.cwd())
-    with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
         for label, values in (("builds", builds), ("suites", suites)):
             print(f"{label}={json.dumps(values)}", file=output)
             print(f"{label}: {', '.join(values) or 'none'}")

@@ -302,45 +302,58 @@ def check_e2e_syntax(rel: str, root: Path | None = None) -> list[route.Finding]:
 
 
 def check_e2e_targets(root: Path | None = None) -> list[route.Finding]:
-    """Ensure the impact selector and GPU runner expose the same suites."""
+    """Validate declarative E2E suite TOMLs under tests/e2e_tests/suites/."""
+    if tomllib is None:
+        return []
     base = root or route.REPO_ROOT
-    runner_path = base / GPU_RUNNER
-    selector = base / GPU_TARGETS
-    if not (runner_path.is_file() and selector.is_file()):
+    suites_dir = base / "tests/e2e_tests/suites"
+    if not suites_dir.is_dir():
         return []
 
-    runner_text = runner_path.read_text(encoding="utf-8")
-    case_block = runner_text.split('case "$target" in', 1)
-    runner_targets = (
-        set(
-            re.findall(
-                r"^\s{2}([a-z0-9][a-z0-9_-]*)\)\s*$", case_block[1], re.MULTILINE
+    findings: list[route.Finding] = []
+    toml_files = sorted(suites_dir.glob("*.toml"))
+    if not toml_files:
+        findings.append(
+            route.Finding(
+                "major",
+                "tests/e2e_tests/suites",
+                None,
+                "robots/e2e-targets",
+                "no declarative E2E suite *.toml files found",
             )
         )
-        if len(case_block) == 2
-        else set()
-    )
+        return findings
 
-    suites = set()
-    for node in ast.parse(selector.read_text()).body:
-        if isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == "SUITES"
-            for target in node.targets
-        ):
-            suites.update(
-                s for names in ast.literal_eval(node.value).values() for s in names
+    for path in toml_files:
+        rel = path.relative_to(base).as_posix()
+        try:
+            data = tomllib.loads(path.read_text(encoding="utf-8"))
+        except Exception as exc:  # noqa: BLE001
+            findings.append(
+                route.Finding("critical", rel, None, "robots/e2e-targets", str(exc))
             )
-    if suites == runner_targets - {"all"}:
-        return []
-    return [
-        route.Finding(
-            "major",
-            GPU_TARGETS,
-            None,
-            "robots/e2e-targets",
-            f"selected suites {sorted(suites)} differ from {GPU_RUNNER} targets {sorted(runner_targets - {'all'})}",
-        )
-    ]
+            continue
+        if not data.get("component"):
+            findings.append(
+                route.Finding(
+                    "major",
+                    rel,
+                    None,
+                    "robots/e2e-targets",
+                    "suite TOML is missing required 'component' field",
+                )
+            )
+        if not data.get("cases"):
+            findings.append(
+                route.Finding(
+                    "major",
+                    rel,
+                    None,
+                    "robots/e2e-targets",
+                    "suite TOML must define at least one [[cases]] entry",
+                )
+            )
+    return findings
 
 
 def main(argv: list[str] | None = None) -> int:

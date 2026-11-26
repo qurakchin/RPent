@@ -20,43 +20,8 @@ jobs:
     runs-on: rpent-gpu
     timeout-minutes: 240
     env:
-      # LIBERO variants. Standard and Plus share a Pi0.5 checkpoint; Pro uses PI05_CHECKPOINT_PATH.
-      LIBERO_ASSET_PATH: /mnt/public/rpent_shared/assets/libero-standard
-      LIBERO_PLUS_ASSET_PATH: /mnt/public/rpent_shared/assets/libero-plus
-      LIBERO_PRO_ASSET_PATH: /mnt/public/rpent_shared/assets/libero-pro
-      LIBERO_STANDARD_CHECKPOINT_PATH: /mnt/public/rpent_shared/models/RLinf-Pi05-LIBERO-SFT
-      PI05_CHECKPOINT_PATH: /mnt/public/rpent_shared/models/RLinf-Pi05-LIBERO-130-fullshot-SFT
-      RPENT_FAST_WAM_CHECKPOINT: /mnt/public/rpent_shared/models/fastwam/libero_uncond_2cam224.pt
-      RPENT_FAST_WAM_DATASET_STATS: /mnt/public/rpent_shared/models/fastwam/libero_uncond_2cam224_dataset_stats.json
-      RPENT_FAST_WAM_PYTHON: ""  # Temporarily unset; to be added later
-      RPENT_FAST_WAM_CONFIG: ""  # Temporarily unset; to be added later
-      RPENT_COSMOS_ENDPOINT: ""  # Temporarily unset; to be added later
-      RPENT_COSMOS3_ENDPOINT: ""  # Temporarily unset; to be added later
-
-      # RoboCasa
-      ROBOCASA_ASSETS_PATH: /mnt/public/rpent_shared/assets/robocasa-kitchen
-      RLDX_MODEL_PATH: /mnt/public/rpent_shared/models/RLDX-1-FT-RC365
-
-      # RoboTwin
-      ROBOTWIN_ASSETS_PATH: /mnt/public/rpent_shared/assets/robotwin
-      LINGBOT_MODEL_PATH: /mnt/public/rpent_shared/models/LingBot-VLA-RoboTwin-EEF-ckpt1500
-      RPENT_FAST_WAM_ROBOTWIN_CHECKPOINT: /mnt/public/rpent_shared/models/fastwam/robotwin_uncond_3cam_384.pt
-      RPENT_FAST_WAM_ROBOTWIN_DATASET_STATS: /mnt/public/rpent_shared/models/fastwam/robotwin_uncond_3cam_384_dataset_stats.json
-      RPENT_FAST_WAM_ROBOTWIN_PYTHON: ""  # Temporarily unset; to be added later
-      RPENT_FAST_WAM_ROBOTWIN_CONFIG: ""  # Temporarily unset; to be added later
-
-      # RoboDojo
-      ROBODOJO_ASSETS_ROOT: /mnt/public/rpent_shared/assets/robodojo
-      ROBODOJO_SIM_PYTHON: /mnt/public/rpent_shared/venvs/robodojo-isaacsim5.1-py311/bin/python
-      VPP2_MODEL_PATH: ${{ vars.VPP2_MODEL_PATH }}
-      RPENT_VPP2_PYTHON: /mnt/public/rpent_shared/venvs/vpp2/bin/python
-      AWOMO05_MODEL_PATH: ${{ vars.AWOMO05_MODEL_PATH }}
-      RPENT_AWOMO05_PYTHON: ${{ vars.RPENT_AWOMO05_PYTHON }}
-
-      # RoboLab
-      ROBOLAB_ASSETS_PATH: /mnt/public/rpent_shared/assets/robolab
-      ROBOLAB_SIM_PYTHON: /mnt/public/rpent_shared/venvs/robolab-sim/bin/python
-      ROBOLAB_CHECKPOINT_PATH: /mnt/public/rpent_shared/models/RLinf-Pi05-RoboLab-droid-jointpos
+      # Shared resource root consumed by tests/e2e_tests/suites/*.toml
+      RPENT_SHARED_ROOT: /mnt/public/rpent_shared
 
       # Shared runner and rendering settings (CUDA_VISIBLE_DEVICES comes from each runner's .env)
       SUITE_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.target }}
@@ -71,9 +36,6 @@ jobs:
       UV_TORCH_BACKEND: auto
       HF_HUB_CACHE: /mnt/public/rpent_shared/models/huggingface/hub
       OPENPI_DATA_HOME: /mnt/public/rpent_shared/models/openpi
-
-      # Shared
-      SAM3_CHECKPOINT_PATH: /mnt/public/rpent_shared/models/sam3/sam3.pt
     steps:
       - name: Checkout selected revision
         uses: actions/checkout@v7

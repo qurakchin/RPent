@@ -1,5 +1,5 @@
 # Copyright 2026 The RPent Authors.
-"""Compare real model calls with the schemas RPent sent to the planner."""
+"""Compare planner tool calls with the schemas RPent advertised."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def _images(value: Any) -> set[str]:
     return {image for item in value for image in _images(item)}
 
 
-def inspect_trajectory(output_dir: Path, action: str) -> dict[str, Any]:
+def inspect_trajectory(output_dir: Path, action: str | None = None) -> dict[str, Any]:
     """Write a per-tool report even when a CLI run stopped early."""
     inventory = output_dir / "tool-inventory.json"
     expected = set(json.loads(inventory.read_text())) if inventory.is_file() else set()
@@ -48,7 +48,9 @@ def inspect_trajectory(output_dir: Path, action: str) -> dict[str, Any]:
                     failures.append(
                         f"turn {turn}: {record['status']}, {len(tools)} tools"
                     )
-                after_action = any(t["name"] == action for t in tools)
+                after_action = (
+                    any(t["name"] == action for t in tools) if action else False
+                )
                 for tool in tools:
                     name = tool["name"]
                     calls.append(
@@ -81,8 +83,9 @@ def inspect_trajectory(output_dir: Path, action: str) -> dict[str, Any]:
                         failures.append(
                             f"turn {turn}: {name} {tool['status']}: {error}"
                         )
-    if not executed or executed[-1] != "finish" or action not in executed:
-        failures.append(f"expected {action} and a final finish")
+    if not executed or executed[-1] != "finish" or (action and action not in executed):
+        expected_desc = f"{action} and a final finish" if action else "a final finish"
+        failures.append(f"expected {expected_desc}")
     missing = sorted(expected - set(executed))
     report = {
         "expected": sorted(expected),

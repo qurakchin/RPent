@@ -31,7 +31,7 @@ Test Structure
    * - ``tests/tooling/``
      - Standalone scripts that validate repository layout, ``component.toml`` manifests, and import boundaries before any Python environment is installed.
    * - ``tests/e2e_tests/``
-     - GPU end-to-end tests that start real simulators and model servers, together with shared helpers (``common.py``) and the clean-environment runner (``run_gpu_suite.sh``).
+     - Declarative GPU end-to-end suites under ``suites/*.toml`` driven by a shared runner (``run_gpu_suite.sh``) that exercises every advertised tool through the public CLI.
 
 Unit test directories mirror the source tree:
 
@@ -72,15 +72,10 @@ When adding a robot under ``robots/<name>/`` (and an optional simulator under ``
    - Verify CLI execution, local RPC communication, and child-process cleanup using lightweight local test servers instead of real simulators or models.
    - Run ``./tests/tooling/run.sh layout`` and ``tests/unit_tests/installs/`` to verify ``component.toml`` and import boundaries.
 
-2. **GPU end-to-end tests** under ``tests/e2e_tests/<name>/`` (reusing helpers in ``tests/e2e_tests/common.py``):
+2. **GPU end-to-end suite** under ``tests/e2e_tests/suites/<name>.toml``:
 
-   - **Environment smoke** (``test_environment_smoke.py`` or an environment case in ``test_components.py``): start the simulator with assets and GPU/EGL only (no model weights), reset it, execute a basic action, read observations, and close cleanly.
-   - **Model component** (``test_components.py``): send a real simulator observation to the model server, obtain a predicted action, and execute it.
-   - **Planner tool coverage** (``test_policy_chain.py``): call ``run_policy_chain`` with the local Qwen model to exercise the public CLI, verify saved outputs, and confirm all background processes exit.
-
-3. **CI registration**:
-
-   - Add a target to ``tests/e2e_tests/run_gpu_suite.sh`` and map its install component to the suite in ``tests/tooling/ci_targets.py``.
+   - Declare the install component, shared asset/model paths, and one or more ``[[cases]]`` entries (one per action-model backend).
+   - CI automatically discovers every ``suites/*.toml`` file and runs all advertised tools through the public CLI.
 
 See :doc:`add_robot` for the full robot integration guide.
 
@@ -94,14 +89,10 @@ When adding an action model or perception model under ``components/models/<name>
    - Verify configuration validation, startup arguments, and observation/action format conversion.
    - Verify local HTTP/socket communication with a lightweight test backend, including session isolation, reset, error handling, and worker shutdown.
 
-2. **GPU end-to-end cases** in each supported robot's ``tests/e2e_tests/<robot>/``:
+2. **GPU end-to-end case** in each supported robot's ``tests/e2e_tests/suites/<robot>.toml``:
 
-   - Add a model inference case in ``test_components.py`` and a planner tool coverage case in ``test_policy_chain.py``.
-   - Guard model cases with ``require_model_path`` (or the model's interpreter/endpoint check) so missing checkpoints skip only the dependent cases rather than failing the simulator suite.
-
-3. **CI registration**:
-
-   - Add the model's checkpoint, interpreter, or endpoint environment variables to the **Embodied GPU E2E** workflow (leave unavailable paths empty so CI skips only dependent cases).
+   - Add a ``[[cases]]`` entry with the backend's CLI arguments and relative resource paths under the shared root.
+   - Missing checkpoints, interpreters, or endpoints automatically skip only that case without failing the rest of the suite.
 
 See :doc:`add_action_model` for the full action-model integration guide.
 
@@ -141,4 +132,4 @@ On a host with a dedicated NVIDIA GPU, EGL, and the target's assets and checkpoi
      /path/to/new-output-dir \
      /path/to/new-venv-root
 
-In an already-installed robot environment, run a single test file or filter directly with ``pytest tests/e2e_tests/<robot> -v -k <expression>``.
+In an already-installed robot environment, run a single suite or case directly with ``RPENT_E2E_SUITE=<target> pytest tests/e2e_tests/test_suites.py -v -k <expression>``.

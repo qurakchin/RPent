@@ -24,7 +24,7 @@ GitHub 自动运行 CPU 单元测试，测试日志中包含代码行覆盖率�
    * - ``tests/tooling/``
      - 独立检查脚本，无需安装 Python 环境即可运行，用于校验目录结构、``component.toml`` 依赖清单与模块导入边界。
    * - ``tests/e2e_tests/``
-     - GPU 端到端测试，启动真实仿真器与模型服务，包含公共辅助函数（``common.py``）与干净环境运行脚本（``run_gpu_suite.sh``）。
+     - 声明式 GPU 端到端测试套件（``suites/*.toml``）与通用运行脚本（``run_gpu_suite.sh``），通过公开 CLI 依次覆盖当前环境暴露的全部工具。
 
 单元测试目录与源码目录保持对应：
 
@@ -65,36 +65,27 @@ GitHub 自动运行 CPU 单元测试，测试日志中包含代码行覆盖率�
    - 使用轻量级本地测试服务替代真实仿真器与模型，验证 CLI 执行、本地 RPC 通信与子进程正常退出。
    - 运行 ``./tests/tooling/run.sh layout`` 与 ``tests/unit_tests/installs/``，确认 ``component.toml`` 与导入边界通过校验。
 
-2. **GPU 端到端测试**\ （位于 ``tests/e2e_tests/<name>/``，复用 ``tests/e2e_tests/common.py``）：
+2. **GPU 端到端套件**\ （位于 ``tests/e2e_tests/suites/<name>.toml``）：
 
-   - **环境冒烟**\ （``test_environment_smoke.py`` 或 ``test_components.py`` 中的环境用例）：仅依赖仿真资产与 GPU/EGL（不加载模型权重），验证环境启动、reset、基础动作执行、观测读取与正常关闭。
-   - **模型组件**\ （``test_components.py``）：向模型服务发送真实仿真观测，获取预测动作并执行。
-   - **规划器工具覆盖率**\ （``test_policy_chain.py``）：调用 ``run_policy_chain``，配合本地 Qwen 模型验证公开 CLI、输出文件与后台进程退出。
-
-3. **接入 CI**：
-
-   - 在 ``tests/e2e_tests/run_gpu_suite.sh`` 中新增 target，并在 ``tests/tooling/ci_targets.py`` 中关联安装组件与测试套件。
+   - 声明安装组件、共享资产与权重路径，以及一条或多条 ``[[cases]]``\ （每个动作模型后端对应一条用例）。
+   - CI 会自动发现 ``suites/*.toml``，无需修改运行脚本或工作流配置。
 
 完整的机器人接入步骤见 :doc:`add_robot`。
 
 接入新模型
 ~~~~~~~~~~
 
-在 ``components/models/<name>/`` 下新增动作模型或感知模型时，需补充以下三部分：
+在 ``components/models/<name>/`` 下新增动作模型或感知模型时，需补充以下两部分：
 
 1. **离线 CPU 单元测试**\ （位于 ``tests/unit_tests/components/models/``，特定机器人的适配逻辑位于 ``tests/unit_tests/robots/<robot>/``）：
 
    - 验证配置校验、启动参数检查，以及 RPent 物理量与模型输入输出之间的格式转换。
    - 使用轻量级测试后端验证本地 HTTP/socket 通信，包括多会话隔离、reset、错误处理与 worker 正常退出。
 
-2. **GPU 端到端用例**\ （加入对应机器人的 ``tests/e2e_tests/<robot>/``）：
+2. **GPU 端到端用例**\ （加入对应机器人的 ``tests/e2e_tests/suites/<robot>.toml``）：
 
-   - 在 ``test_components.py`` 中补充真实推理与执行用例，在 ``test_policy_chain.py`` 中补充完整 CLI 调用链用例。
-   - 使用 ``require_model_path``\ （或对应的解释器、endpoint 检查）守卫模型用例，缺少权重时仅跳过对应模型的用例，不影响整个仿真套件。
-
-3. **接入 CI**：
-
-   - 在 **具身 GPU 端到端测试** 工作流中配置该模型的权重、解释器或 endpoint 环境变量（暂缺的资源置为空字符串，使 CI 仅跳过对应用例）。
+   - 新增一条 ``[[cases]]``，填写该后端的 CLI 参数与共享目录下的资源相对路径。
+   - 缺少权重、解释器或 endpoint 时会自动跳过对应用例，不影响同套件内其他用例。
 
 完整的动作模型接入步骤见 :doc:`add_action_model`。
 
@@ -134,4 +125,4 @@ GitHub 自动运行 CPU 单元测试，测试日志中包含代码行覆盖率�
      /path/to/new-output-dir \
      /path/to/new-venv-root
 
-在已安装环境的机器上调试单个文件或用例时，可直接运行 ``pytest tests/e2e_tests/<robot> -v -k <expression>``。
+在已安装环境的机器上调试单个套件或用例时，可直接运行 ``RPENT_E2E_SUITE=<target> pytest tests/e2e_tests/test_suites.py -v -k <expression>``。
