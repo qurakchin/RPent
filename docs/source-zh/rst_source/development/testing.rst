@@ -74,12 +74,12 @@ GitHub 自动运行 CPU 单元测试，并在日志中输出代码行覆盖率�
 
         * - 字段
           - 说明
-        * - ``component``、``robot``
-          - 套件安装的组件名（必填，如 ``robot-robocasa``）；``robot`` 默认与文件名一致，仅当同一机器人拆分为多个套件时显式指定。
+        * - ``component``
+          - 套件安装的组件名（必填，如 ``robot-robocasa``）。
         * - ``base_args``、``env``
           - 套件内所有用例共用的默认 CLI 参数与环境变量（外部已导出的环境变量优先级高于 ``env``）。
         * - ``[setup]``
-          - 可选安装后处理，如 ``materialize_pkgs``\ （将共享缓存软链实体化）、``reinstall_copy_pkg`` 与 ``post_install_cmd``。
+          - 可选安装后处理，用于处理特殊环境的安装收尾：``materialize_pkgs`` 将指定包指向共享缓存的软链实体化为真实文件（适用于 Isaac Sim 等按 ``realpath(__file__)`` 查找相邻扩展的包）；``reinstall_copy_pkg`` 以拷贝模式重装指定包（适用于需要往包目录内写入或链接资产的包，如 LIBERO）；``post_install_cmd`` 在安装完成后执行一次性命令（如链接共享资产或通过 ``{python}`` 挂载可编辑依赖）。
         * - ``[[cases]]``
           - 测试用例列表（每个动作模型后端一条），通过 ``name``、``args``、``env`` 配置；需要按需拉起外部服务时可附加 ``[cases.sidecar]``。
         * - ``action_tool``、``action_count_field``

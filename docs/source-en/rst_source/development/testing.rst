@@ -79,12 +79,12 @@ When adding a robot under ``robots/<name>/`` (and an optional simulator under ``
 
         * - Field
           - Meaning
-        * - ``component``, ``robot``
-          - Install component name (required, e.g. ``robot-robocasa``). ``robot`` defaults to the file stem and is only needed when one robot spans multiple suites.
+        * - ``component``
+          - Install component name (required, e.g. ``robot-robocasa``).
         * - ``base_args``, ``env``
           - Shared default CLI flags and environment variables for all cases in the suite (already-exported external env vars take precedence over ``env``).
         * - ``[setup]``
-          - Optional post-install hooks such as ``materialize_pkgs`` (replace cache symlinks with real files), ``reinstall_copy_pkg``, and ``post_install_cmd``.
+          - Optional post-install hooks for environments with special layout needs: ``materialize_pkgs`` replaces cache symlinks in the listed packages with real files (needed by packages such as Isaac Sim that locate sibling extensions via ``realpath(__file__)``); ``reinstall_copy_pkg`` reinstalls a package in copy mode so post-install steps can write or link assets inside its package directory (e.g. LIBERO); ``post_install_cmd`` runs a one-off command after installation (such as linking shared assets or installing editable dependencies with ``{python}``).
         * - ``[[cases]]``
           - Case list (one per action-model backend) with ``name``, ``args``, and ``env``; attach ``[cases.sidecar]`` when a case needs an ephemeral local service.
         * - ``action_tool``, ``action_count_field``
