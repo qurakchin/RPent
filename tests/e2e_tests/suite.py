@@ -79,11 +79,16 @@ def resolve_value(
     shared: str,
     output_dir: str = "",
     gpu: str = "0",
+    python: str = "",
     environ: Mapping[str, str] | None = None,
 ) -> str:
-    """Resolve placeholders ({output_dir}, {gpu}, {env:VAR}) and shared paths."""
+    """Resolve placeholders ({output_dir}, {gpu}, {python}, {env:VAR}) and shared paths."""
     env = os.environ if environ is None else environ
-    text = value.replace("{output_dir}", output_dir).replace("{gpu}", gpu)
+    text = (
+        value.replace("{output_dir}", output_dir)
+        .replace("{gpu}", gpu)
+        .replace("{python}", python)
+    )
     text = _ENV_PLACEHOLDER.sub(lambda m: env.get(m.group(1), ""), text)
     if text.startswith(_SHARED_PREFIXES):
         return f"{shared}/{text}"
@@ -217,7 +222,7 @@ def resolve_case(
     }
 
 
-def _print_shell_meta(suite_name: str, output_dir: str) -> None:
+def _print_shell_meta(suite_name: str, output_dir: str, python: str = "") -> None:
     suite = load_suite(suite_name)
     shared = shared_root()
     setup = suite.get("setup") or {}
@@ -225,8 +230,13 @@ def _print_shell_meta(suite_name: str, output_dir: str) -> None:
     print(f"SUITE_COMPONENT={shlex.quote(suite['component'])}")
     print(f"SUITE_REINSTALL_PKG={shlex.quote(setup.get('reinstall_copy_pkg', ''))}")
 
+    materialize = [str(p) for p in (setup.get("materialize_pkgs") or [])]
+    print(
+        "SUITE_MATERIALIZE_PKGS=(" + " ".join(shlex.quote(p) for p in materialize) + ")"
+    )
+
     post_cmd = [
-        resolve_value(p, shared=shared, output_dir=output_dir)
+        resolve_value(p, shared=shared, output_dir=output_dir, python=python)
         for p in (setup.get("post_install_cmd") or [])
     ]
     print("SUITE_POST_INSTALL_CMD=(" + " ".join(shlex.quote(p) for p in post_cmd) + ")")
@@ -236,7 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     args = sys.argv[1:] if argv is None else argv
     if not args:
         print(
-            "Usage: suite.py <list|shell-meta <suite> <output_dir>>",
+            "Usage: suite.py <list|shell-meta <suite> <output_dir> [python]>",
             file=sys.stderr,
         )
         return 2
@@ -245,8 +255,8 @@ def main(argv: list[str] | None = None) -> int:
         for name in discover_suites():
             print(name)
         return 0
-    if cmd == "shell-meta" and len(args) == 3:
-        _print_shell_meta(args[1], args[2])
+    if cmd == "shell-meta" and len(args) in (3, 4):
+        _print_shell_meta(args[1], args[2], args[3] if len(args) == 4 else "")
         return 0
     print(f"Unknown command: {' '.join(args)}", file=sys.stderr)
     return 2

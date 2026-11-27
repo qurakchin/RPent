@@ -2,9 +2,17 @@ component = "robot-robodojo"
 optional_models = ["xpolicylab"]
 base_args = [
   "--task", "put_bottles_into_dustbin", "--seed", "0", "--layout", "0",
-  "--sim-python", "venvs/robodojo-isaacsim5.1-py311/bin/python",
 ]
 env = { ROBODOJO_ASSETS_ROOT = "assets/robodojo", OMNI_KIT_ACCEPT_EULA = "YES", SAM3_CHECKPOINT_PATH = "models/sam3/sam3.pt" }
+
+[setup]
+materialize_pkgs = ["isaacsim-kernel"]
+post_install_cmd = [
+  "uv", "pip", "install", "--python", "{python}", "--no-deps",
+  "-e", "assets/robodojo-isaaclab/source/isaaclab",
+  "-e", "assets/robodojo-isaaclab/source/isaaclab_assets",
+  "-e", "assets/robodojo-isaaclab/source/isaaclab_tasks",
+]
 
 [tool_args]
 view_env_state = { step = 0 }

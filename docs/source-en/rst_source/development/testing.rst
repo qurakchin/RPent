@@ -68,34 +68,35 @@ When adding a robot under ``robots/<name>/`` (and an optional simulator under ``
    - Verify CLI execution, local RPC communication, and child-process cleanup using lightweight local test servers instead of real simulators or models.
    - Run ``./tests/tooling/run.sh layout`` and ``tests/unit_tests/installs/`` to verify ``component.toml`` and import boundaries.
 
-2. **GPU end-to-end suite** under ``tests/e2e_tests/suites/<name>.toml``:
+2. **GPU end-to-end suite** under ``tests/e2e_tests/suites/<name>.toml`` (see ``tests/e2e_tests/suites/robocasa.toml`` or ``libero.toml`` for complete examples):
 
-   - Declare the install component, shared asset/model paths, and one or more ``[[cases]]`` entries (one per action-model backend).
-   - CI automatically discovers every ``suites/*.toml`` file and runs all advertised tools through the public CLI.
+   - CI automatically discovers every ``suites/*.toml`` file; no workflow or script edits are needed.
+   - **Common fields**:
 
-   For example, ``tests/e2e_tests/suites/robocasa.toml``:
+     .. list-table::
+        :header-rows: 1
+        :widths: 28 72
 
-   .. code-block:: toml
+        * - Field
+          - Meaning
+        * - ``component``, ``robot``
+          - Install component name (required, e.g. ``robot-robocasa``). ``robot`` defaults to the file stem and is only needed when one robot spans multiple suites.
+        * - ``base_args``, ``env``
+          - Shared default CLI flags and environment variables for all cases in the suite (already-exported external env vars take precedence over ``env``).
+        * - ``[setup]``
+          - Optional post-install hooks such as ``materialize_pkgs`` (replace cache symlinks with real files), ``reinstall_copy_pkg``, and ``post_install_cmd``.
+        * - ``[[cases]]``
+          - Case list (one per action-model backend) with ``name``, ``args``, and ``env``; attach ``[cases.sidecar]`` when a case needs an ephemeral local service.
+        * - ``action_tool``, ``action_count_field``
+          - Optional action checks: the primary action tool that must succeed in ``states.json``, and the result field whose sum must be ``> 0``.
+        * - ``require_post_action_image``, ``tool_args``
+          - Optional: when ``true``, requires a new rendered image on the turn after ``action_tool``; ``tool_args`` overrides auto-generated minimal schema arguments.
 
-      component = "robot-robocasa"
-      env = { ROBOCASA_ASSETS_PATH = "assets/robocasa-kitchen" }
+   - **Path resolution and skip rules**:
 
-      [[cases]]
-      name = "rldx"
-      args = [
-        "--task-name", "OpenDrawer", "--split", "target", "--seed", "0",
-        "--am-checkpoint", "models/RLDX-1-FT-RC365",
-        "--env-cuda-device", "{gpu}", "--vla-cuda-device", "{gpu}",
-      ]
-      action_tool = "rldx_skill"
-      action_count_field = "executed_steps"
-      tool_args = { rldx_skill = { max_chunks = 1, language_instruction = "open the drawer" } }
-
-   Key TOML conventions:
-
-   - **Paths and placeholders**: Any value in ``env`` or ``args`` starting with ``assets/``, ``models/``, or ``venvs/`` is resolved under ``RPENT_SHARED_ROOT`` (default ``/mnt/public/rpent_shared``). ``{gpu}``, ``{output_dir}``, and ``{env:VAR}`` expand at runtime, and already-set external environment variables override defaults in ``env``.
-   - **Automatic skips**: A case is skipped if any resolved shared path does not exist. Setting a path to ``""`` does not skip the case; it passes an empty string to the CLI. If every case in a suite is skipped, the suite fails.
-   - **Action verification (optional)**: ``action_tool`` names the primary action tool that must succeed in ``states.json``; ``action_count_field`` names the result field whose sum must be ``> 0`` (confirming simulator steps advanced); ``require_post_action_image = true`` checks that the next planner turn receives a new image; ``tool_args`` overrides auto-generated minimal schema arguments for specific tools.
+     - Values in ``env``, ``args``, and ``[cases.sidecar]`` starting with ``assets/``, ``models/``, or ``venvs/`` resolve under ``RPENT_SHARED_ROOT`` (default ``/mnt/public/rpent_shared``).
+     - Placeholders ``{gpu}``, ``{output_dir}``, ``{env:VAR}``, and ``{sidecar_endpoint}`` expand at runtime.
+     - Missing resolved shared paths or unset ``require_env`` skip only that case. Do not use ``""`` to skip a path (empty strings are passed verbatim to the CLI). A suite fails if every case is skipped.
 
 See :doc:`add_robot` for the full robot integration guide.
 

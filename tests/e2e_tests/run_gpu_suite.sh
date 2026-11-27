@@ -237,20 +237,48 @@ install_test_runner() {
     uv pip install --python "$python" pytest pytest-timeout
 }
 
+materialize_package_files() {
+  local python=$1
+  shift
+  "$python" - "$@" <<'PY'
+import importlib.metadata
+import os
+import shutil
+import sys
+from pathlib import Path
+
+for pkg in sys.argv[1:]:
+    dist = importlib.metadata.distribution(pkg)
+    for rel in dist.files or ():
+        path = Path(dist.locate_file(rel))
+        if path.is_symlink():
+            target = path.resolve()
+            if target.is_file():
+                tmp = path.with_name(f".{path.name}.materialize.{os.getpid()}")
+                shutil.copy2(target, tmp)
+                os.replace(tmp, path)
+PY
+}
+
 run_declarative_suite() {
   local name=$1
   local venv_dir="$venv_root/$name"
   local SUITE_COMPONENT=""
   local SUITE_REINSTALL_PKG=""
+  local -a SUITE_MATERIALIZE_PKGS=()
   local -a SUITE_POST_INSTALL_CMD=()
 
-  eval "$(python3 "$repo_root/tests/e2e_tests/suite.py" shell-meta "$name" "$output_dir")"
+  eval "$(python3 "$repo_root/tests/e2e_tests/suite.py" shell-meta "$name" "$output_dir" "$venv_dir/bin/python")"
 
   run_rpent_install install "$SUITE_COMPONENT" --venv "$venv_dir"
   cp "$venv_dir/rpent-install.json" "$output_dir/"
   run_rpent_install doctor --venv "$venv_dir"
   "$venv_dir/bin/rpent" --help >/dev/null
   install_test_runner "$venv_dir/bin/python"
+
+  if ((${#SUITE_MATERIALIZE_PKGS[@]} > 0)); then
+    materialize_package_files "$venv_dir/bin/python" "${SUITE_MATERIALIZE_PKGS[@]}"
+  fi
 
   if [[ -n "$SUITE_REINSTALL_PKG" ]]; then
     local requirement

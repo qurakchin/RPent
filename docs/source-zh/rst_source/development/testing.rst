@@ -63,34 +63,35 @@ GitHub 自动运行 CPU 单元测试，并在日志中输出代码行覆盖率�
    - 使用轻量级本地测试服务替代真实仿真器与模型，验证 CLI 执行、本地 RPC 通信与子进程正常退出。
    - 运行 ``./tests/tooling/run.sh layout`` 与 ``tests/unit_tests/installs/``，确认 ``component.toml`` 与导入边界通过校验。
 
-2. **GPU 端到端套件**\ （位于 ``tests/e2e_tests/suites/<name>.toml``）：
+2. **GPU 端到端套件**\ （位于 ``tests/e2e_tests/suites/<name>.toml``，完整写法可参考 ``tests/e2e_tests/suites/robocasa.toml`` 或 ``libero.toml``）：
 
-   - 声明安装组件、共享资产与权重路径，以及一条或多条 ``[[cases]]``\ （每个动作模型后端对应一条用例）。
    - CI 会自动发现 ``suites/*.toml``，无需修改运行脚本或工作流配置。
+   - **常用字段**：
 
-   例如 ``tests/e2e_tests/suites/robocasa.toml``：
+     .. list-table::
+        :header-rows: 1
+        :widths: 28 72
 
-   .. code-block:: toml
+        * - 字段
+          - 说明
+        * - ``component``、``robot``
+          - 套件安装的组件名（必填，如 ``robot-robocasa``）；``robot`` 默认与文件名一致，仅当同一机器人拆分为多个套件时显式指定。
+        * - ``base_args``、``env``
+          - 套件内所有用例共用的默认 CLI 参数与环境变量（外部已导出的环境变量优先级高于 ``env``）。
+        * - ``[setup]``
+          - 可选安装后处理，如 ``materialize_pkgs``\ （将共享缓存软链实体化）、``reinstall_copy_pkg`` 与 ``post_install_cmd``。
+        * - ``[[cases]]``
+          - 测试用例列表（每个动作模型后端一条），通过 ``name``、``args``、``env`` 配置；需要按需拉起外部服务时可附加 ``[cases.sidecar]``。
+        * - ``action_tool``、``action_count_field``
+          - 可选动作验收：指定必须在 ``states.json`` 中成功记录的核心动作工具名，以及返回结果中累加值必须 ``> 0`` 的步数/块数字段。
+        * - ``require_post_action_image``、``tool_args``
+          - 可选：设为 ``true`` 时断言动作执行后下一轮请求包含新图像；``tool_args`` 覆盖按 Schema 自动生成的最小参数。
 
-      component = "robot-robocasa"
-      env = { ROBOCASA_ASSETS_PATH = "assets/robocasa-kitchen" }
+   - **路径展开与跳过约定**：
 
-      [[cases]]
-      name = "rldx"
-      args = [
-        "--task-name", "OpenDrawer", "--split", "target", "--seed", "0",
-        "--am-checkpoint", "models/RLDX-1-FT-RC365",
-        "--env-cuda-device", "{gpu}", "--vla-cuda-device", "{gpu}",
-      ]
-      action_tool = "rldx_skill"
-      action_count_field = "executed_steps"
-      tool_args = { rldx_skill = { max_chunks = 1, language_instruction = "open the drawer" } }
-
-   常用字段与路径约定：
-
-   - **路径展开与占位符**：``env`` 和 ``args`` 中以 ``assets/``、``models/`` 或 ``venvs/`` 开头的相对路径会自动拼接到 ``RPENT_SHARED_ROOT``\ （默认 ``/mnt/public/rpent_shared``）下；``{gpu}``、``{output_dir}`` 和 ``{env:VAR}`` 会在运行时展开，外部已导出的环境变量优先级高于 ``env`` 默认值。
-   - **自动跳过规则**：解析后的共享路径不存在时，该用例会自动 ``skip``。注意不能通过把路径留空（``""``）来跳过，空字符串会直接传给 CLI；若整套套件中所有用例都被跳过，则该套件判失败。
-   - **动作验收字段（均可选）**：``action_tool`` 指定必须在 ``states.json`` 中成功记录的核心动作工具名；``action_count_field`` 指定其返回结果中累加值必须 ``> 0`` 的步数/块数字段名；``require_post_action_image = true`` 断言动作执行后的下一轮请求必须包含新渲染图像；``tool_args`` 用于覆盖按 Schema 自动生成的最小参数。
+     - ``env``、``args`` 及 ``[cases.sidecar]`` 中以 ``assets/``、``models/`` 或 ``venvs/`` 开头的相对路径会自动拼接到 ``RPENT_SHARED_ROOT``\ （默认 ``/mnt/public/rpent_shared``）下。
+     - 运行时自动展开 ``{gpu}``、``{output_dir}``、``{env:VAR}`` 与 ``{sidecar_endpoint}`` 占位符。
+     - 解析后的共享路径不存在或 ``require_env`` 未设置时，自动跳过该用例；不要用空字符串 ``""`` 占位，否则会原样传给 CLI。若整套套件中所有用例都被跳过，则该套件判失败。
 
 完整的机器人接入步骤见 :doc:`add_robot`。
 
