@@ -63,15 +63,13 @@ GitHub 自动运行 CPU 单元测试，并在日志中输出代码行覆盖率�
    - 使用轻量级本地测试服务替代真实仿真器与模型，验证 CLI 执行、本地 RPC 通信与子进程正常退出。
    - 运行 ``./tests/tooling/run.sh layout`` 与 ``tests/unit_tests/installs/``，确认 ``component.toml`` 与导入边界通过校验。
 
-2. **GPU 端到端套件**\ （新增 ``tests/e2e_tests/suites/<name>.toml``，写法可参考同目录下的 ``robocasa.toml`` 或 ``libero.toml``）：
+2. **GPU 端到端套件**\ （新增 ``tests/e2e_tests/suites/<name>.toml``，参考同目录的 ``robocasa.toml`` 或 ``libero.toml``）：
 
-   CI 会自动发现 ``suites/*.toml``，无需修改脚本或工作流。按需填写以下配置即可：
+   CI 会自动发现 ``suites/*.toml``，无需修改脚本或工作流：
 
-   - **必填项**：设置 ``component`` 指定要安装的组件名（如 ``robot-robocasa``），并在 ``[[cases]]`` 中为每个动作模型后端添加一条用例（写明 ``name`` 与启动该后端所需的 ``args``）。
-   - **共用参数与环境变量**：多个用例共用的参数放到 ``base_args``，默认环境变量放到 ``env``\ （外部已导出的环境变量会覆盖默认值）。
-   - **路径与跳过**：在配置中直接写 ``assets/...``、``models/...`` 或 ``venvs/...`` 相对路径即可，运行时会自动定位到共享资源目录；需要指定卡号时用 ``{gpu}`` 占位。若某条用例依赖的路径不存在，该用例会自动跳过（所有用例都被跳过时套件会报错）。
-   - **动作验收（建议填写）**：设置 ``action_tool``\ （主动作工具名）和 ``action_count_field``\ （步数或块数字段），用于确认动作真的在仿真里执行；如果动作后必须产生新图像，可加 ``require_post_action_image = true``；如果某些工具需要特定示例参数才能正常调用，在 ``tool_args`` 中指定。
-   - **特殊安装或外部服务（按需）**：安装后若需额外链接资产或挂载依赖，在 ``[setup]`` 中配置 ``post_install_cmd``\ （需要把包文件从共享缓存拷贝为真实文件时再配合 ``materialize_pkgs`` 或 ``reinstall_copy_pkg``）；如果某个后端需要先拉起本地服务再通过 endpoint 连接，在用例下配置 ``[cases.sidecar]``。
+   - 填写 ``component`` 指定安装组件，并在 ``[[cases]]`` 中为每个动作模型后端写一条用例（共用参数和环境变量放 ``base_args`` / ``env``）。
+   - 资产、权重和解释器直接写 ``assets/...``、``models/...``、``venvs/...`` 相对路径，卡号用 ``{gpu}`` 占位；路径缺失时自动跳过该用例。
+   - 推荐填 ``action_tool`` 与 ``action_count_field`` 验证动作真正执行；有特殊安装收尾或独立服务需求时，再按需补充 ``[setup]`` 或 ``[cases.sidecar]``。
 
 完整的机器人接入步骤见 :doc:`add_robot`。
 

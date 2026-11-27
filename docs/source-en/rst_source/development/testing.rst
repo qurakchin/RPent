@@ -68,15 +68,13 @@ When adding a robot under ``robots/<name>/`` (and an optional simulator under ``
    - Verify CLI execution, local RPC communication, and child-process cleanup using lightweight local test servers instead of real simulators or models.
    - Run ``./tests/tooling/run.sh layout`` and ``tests/unit_tests/installs/`` to verify ``component.toml`` and import boundaries.
 
-2. **GPU end-to-end suite** (add ``tests/e2e_tests/suites/<name>.toml``; see ``robocasa.toml`` or ``libero.toml`` in the same directory for examples):
+2. **GPU end-to-end suite** (add ``tests/e2e_tests/suites/<name>.toml``; see ``robocasa.toml`` or ``libero.toml`` in the same directory):
 
-   CI discovers ``suites/*.toml`` automatically without workflow or script changes. Fill in the fields you need:
+   CI discovers ``suites/*.toml`` automatically without workflow or script edits:
 
-   - **Required**: Set ``component`` to the install component name (for example ``robot-robocasa``), and add one ``[[cases]]`` entry per action-model backend with its ``name`` and CLI ``args``.
-   - **Shared options**: Put flags shared across cases in ``base_args`` and default environment variables in ``env`` (already-exported environment variables override defaults).
-   - **Paths and skips**: Write relative paths under ``assets/``, ``models/``, or ``venvs/``; they resolve automatically against the shared resource root, and ``{gpu}`` expands to the selected GPU index. A case is skipped automatically if any of its required paths is missing (the suite fails if every case is skipped).
-   - **Action checks (recommended)**: Set ``action_tool`` and ``action_count_field`` to confirm real simulator steps ran; set ``require_post_action_image = true`` when the next turn must receive a new image; use ``tool_args`` when specific tools need concrete sample arguments.
-   - **Special setup or external services (when needed)**: Use ``[setup]`` (``post_install_cmd``, plus ``materialize_pkgs`` or ``reinstall_copy_pkg`` when package files must be copied out of the shared cache) for post-install asset linking or editable dependencies, and ``[cases.sidecar]`` when a case must launch a local service before connecting via an endpoint.
+   - Set ``component`` to the install component and add one ``[[cases]]`` entry per action-model backend (put shared flags and defaults in ``base_args`` / ``env``).
+   - Write relative ``assets/...``, ``models/...``, and ``venvs/...`` paths and use ``{gpu}`` for the GPU index; missing paths skip that case automatically.
+   - Set ``action_tool`` and ``action_count_field`` to verify real simulator steps ran; add ``[setup]`` or ``[cases.sidecar]`` only when special post-install steps or a local service are needed.
 
 See :doc:`add_robot` for the full robot integration guide.
 
