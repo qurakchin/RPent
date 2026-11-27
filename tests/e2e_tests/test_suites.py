@@ -84,6 +84,7 @@ def test_suite_case(
             action_tool=resolved["action_tool"],
             action_count_field=resolved["action_count_field"],
             tool_args=resolved["tool_args"],
+            skip_tools=resolved["skip_tools"],
             require_post_action_image=resolved["require_post_action_image"],
         )
     assert result["status"] == "passed"

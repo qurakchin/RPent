@@ -99,14 +99,20 @@ class ToolTraversalPolicy:
         *,
         output_dir: Path,
         examples: dict[str, dict[str, Any]] | None = None,
+        skip_tools: list[str] | set[str] | tuple[str, ...] | None = None,
     ) -> None:
         self._output_dir = Path(output_dir)
         self._examples = dict(examples or {})
+        self._skip = set(skip_tools or ())
         self._requested: set[str] = set()
 
     def next_call(self, tools: list[Any]) -> tuple[str, dict[str, Any]] | None:
         """Pick the next uncalled ToolDefinition and return ``(name, args)``."""
-        available = {tool.name: tool.parameters_json_schema or {} for tool in tools}
+        available = {
+            tool.name: tool.parameters_json_schema or {}
+            for tool in tools
+            if tool.name not in self._skip
+        }
         if not available:
             return None
         if not self._requested:
@@ -162,12 +168,15 @@ def build_tool_walker_model(
     *,
     output_dir: Path,
     examples: dict[str, dict[str, Any]] | None = None,
+    skip_tools: list[str] | set[str] | tuple[str, ...] | None = None,
 ) -> Any:
     """Return a pydantic_ai FunctionModel backed by ``ToolTraversalPolicy``."""
     from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart
     from pydantic_ai.models.function import DeltaToolCall, FunctionModel
 
-    policy = ToolTraversalPolicy(output_dir=output_dir, examples=examples)
+    policy = ToolTraversalPolicy(
+        output_dir=output_dir, examples=examples, skip_tools=skip_tools
+    )
 
     def _call(_messages: Any, info: Any) -> ModelResponse:
         choice = policy.next_call([*info.function_tools, *info.output_tools])
@@ -199,6 +208,7 @@ def run_case(
     action_tool: str | None = None,
     action_count_field: str | None = None,
     tool_args: dict[str, dict[str, Any]] | None = None,
+    skip_tools: list[str] | None = None,
     require_post_action_image: bool = False,
 ) -> dict[str, Any]:
     """Exercise every advertised tool via ``rpent.cli.main`` and ``FunctionModel``."""
@@ -241,7 +251,7 @@ def run_case(
             "-m",
             "tests.e2e_tests.runner",
             str(output_dir),
-            json.dumps(tool_args or {}),
+            json.dumps({"examples": tool_args or {}, "skip_tools": skip_tools or []}),
             "--",
             *rpent_argv,
         ],
@@ -249,7 +259,7 @@ def run_case(
         env=os.environ.copy(),
         check=False,
     )
-    coverage = inspect_trajectory(output_dir, action_tool)
+    coverage = inspect_trajectory(output_dir, action_tool, skip_tools=skip_tools)
     if completed.returncode or not coverage["passed"]:
         raise RuntimeError(
             f"{robot} planner exit={completed.returncode}, "
@@ -354,7 +364,13 @@ def main(argv: list[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     sep = raw.index("--")
     output_dir = Path(raw[0])
-    examples = json.loads(raw[1]) if sep > 1 else {}
+    payload = json.loads(raw[1]) if sep > 1 else {}
+    if isinstance(payload, dict) and "examples" in payload:
+        examples = payload.get("examples") or {}
+        skip_tools = payload.get("skip_tools") or []
+    else:
+        examples = payload
+        skip_tools = []
     rpent_argv = raw[sep + 1 :]
 
     import rpent.planner.base as planner_base
@@ -363,6 +379,7 @@ def main(argv: list[str] | None = None) -> int:
     planner_base.build_api_model = lambda *_a, **_kw: build_tool_walker_model(
         output_dir=output_dir,
         examples=examples,
+        skip_tools=skip_tools,
     )
     sys.argv = ["rpent", *rpent_argv]
     rpent_main.main()

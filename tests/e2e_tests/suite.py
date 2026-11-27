@@ -217,6 +217,9 @@ def resolve_case(
             **(suite.get("tool_args") or {}),
             **(case.get("tool_args") or {}),
         },
+        "skip_tools": sorted(
+            {*(suite.get("skip_tools") or ()), *(case.get("skip_tools") or ())}
+        ),
         "require_post_action_image": bool(case.get("require_post_action_image", False)),
         "missing": missing,
     }
