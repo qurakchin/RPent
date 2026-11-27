@@ -21,3 +21,15 @@ env = { PI05_CHECKPOINT_PATH = "models/RLinf-Pi05-LIBERO-130-fullshot-SFT" }
 action_tool = "pi0_doubled"
 action_count_field = "chunks_used"
 tool_args = { pi0_doubled = { prompt = "perform one bounded action chunk for the current task", max_chunks = 1 } }
+
+[[cases]]
+name = "apxinf"
+require_env = ["RPENT_APXINF_ENDPOINT"]
+args = [
+  "--env-cuda-device", "{gpu}",
+  "--sam3-cuda-device", "{gpu}",
+  "--vla-endpoint", "{env:RPENT_APXINF_ENDPOINT}",
+]
+action_tool = "pi0_doubled"
+action_count_field = "chunks_used"
+tool_args = { pi0_doubled = { prompt = "perform one bounded action chunk for the current task", max_chunks = 1 } }
