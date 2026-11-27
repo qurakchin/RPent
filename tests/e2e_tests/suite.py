@@ -152,7 +152,6 @@ def resolve_case(
                 "cmd": sidecar_cmd,
                 "env": sidecar_env,
                 "endpoint": str(raw_sidecar.get("endpoint", "http://127.0.0.1:{port}")),
-                "ready_url": raw_sidecar.get("ready_url"),
                 "ready_timeout_s": int(raw_sidecar.get("ready_timeout_s", 300)),
             }
 

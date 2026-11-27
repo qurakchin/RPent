@@ -18,12 +18,8 @@ from __future__ import annotations
 
 import json
 import os
-import socket
 import subprocess
 import sys
-import time
-import urllib.error
-import urllib.request
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -312,95 +308,40 @@ def run_case(
     }
 
 
-def _free_loopback_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
-
-
-def _sidecar_is_ready(port: int, ready_url: str | None) -> bool:
-    if ready_url:
-        try:
-            with urllib.request.urlopen(ready_url, timeout=1.0) as resp:
-                return resp.status < 500
-        except urllib.error.HTTPError as exc:
-            return exc.code < 500
-        except OSError:
-            return False
-    try:
-        with socket.create_connection(("127.0.0.1", port), timeout=1.0):
-            return True
-    except OSError:
-        return False
-
-
 @contextmanager
 def run_sidecar(
     sidecar: dict[str, Any],
     *,
     output_dir: Path,
 ) -> Iterator[str]:
-    """Launch an ephemeral per-case sidecar server and tear it down on exit."""
-    port = _free_loopback_port()
-    port_str = str(port)
-    cmd = [token.replace("{port}", port_str) for token in sidecar["cmd"]]
-    endpoint = str(sidecar["endpoint"]).replace("{port}", port_str)
-    ready_url = (
-        str(sidecar["ready_url"]).replace("{port}", port_str)
-        if sidecar.get("ready_url")
-        else None
+    """Launch an ephemeral per-case sidecar via ProcessDaemon and stop it on exit."""
+    from rpent.utils.daemon import ProcessDaemon, pick_free_port
+    from rpent.utils.rpc import make_rpc_client, wait_for_ready
+
+    port = str(pick_free_port())
+    cmd = [token.replace("{port}", port) for token in sidecar["cmd"]]
+    endpoint = str(sidecar.get("endpoint", "http://127.0.0.1:{port}")).replace(
+        "{port}", port
     )
-    timeout_s = float(sidecar.get("ready_timeout_s", 300))
-
     output_dir.mkdir(parents=True, exist_ok=True)
-    log_path = output_dir / "sidecar-server.log"
-    repo_root = Path(__file__).resolve().parents[2]
-    proc_env = {**os.environ, **(sidecar.get("env") or {})}
-
-    with log_path.open("w", encoding="utf-8") as log_file:
-        proc = subprocess.Popen(
-            cmd,
-            cwd=repo_root,
-            env=proc_env,
-            stdin=subprocess.PIPE,
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
+    daemon = ProcessDaemon(
+        "sidecar",
+        cmd,
+        env_overrides=sidecar.get("env") or None,
+        log_path=str(output_dir / "sidecar-server.log"),
+    )
+    client = make_rpc_client(endpoint)
+    try:
+        daemon.start()
+        wait_for_ready(
+            client,
+            timeout_s=float(sidecar.get("ready_timeout_s", 300)),
+            daemon=daemon,
         )
-        try:
-            deadline = time.monotonic() + timeout_s
-            while time.monotonic() < deadline:
-                rc = proc.poll()
-                if rc is not None:
-                    log_file.flush()
-                    tail = "\n".join(
-                        log_path.read_text(
-                            encoding="utf-8", errors="replace"
-                        ).splitlines()[-40:]
-                    )
-                    raise RuntimeError(
-                        f"Sidecar exited early (rc={rc}); see {log_path}:\n{tail}"
-                    )
-                if _sidecar_is_ready(port, ready_url):
-                    break
-                time.sleep(0.5)
-            else:
-                raise RuntimeError(
-                    f"Sidecar did not become ready within {timeout_s:.0f}s; see {log_path}"
-                )
-            yield endpoint
-        finally:
-            if proc.stdin is not None:
-                try:
-                    proc.stdin.close()
-                except OSError:
-                    pass
-            if proc.poll() is None:
-                proc.terminate()
-                try:
-                    proc.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    proc.wait(timeout=5)
+        yield endpoint
+    finally:
+        client.close()
+        daemon.stop()
 
 
 def publish_check(name: str, result: dict[str, Any]) -> None:
