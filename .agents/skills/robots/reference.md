@@ -54,4 +54,4 @@ When `components` (`set[str] | None`) is passed by the Dashboard, start only the
 
 ## 4. Declarative GPU E2E suites
 
-Add a single file `tests/e2e_tests/suites/<suite>.toml` declaring `component`, optional `env`/`base_args`/`[setup]`/`[tool_args]`, and one `[[cases]]` entry per action-model backend. `tests/e2e_tests/run_gpu_suite.sh`, `tests/tooling/ci_targets.py`, and `.github/workflows/embodied-gpu-e2e-run.yml` discover all `suites/*.toml` files automatically.
+Add a single file `tests/e2e_tests/suites/<suite>.toml` declaring `component`, optional `env`/`base_args`/`[setup]`/`[tool_args]`, and one `[[cases]]` entry per action-model backend. `tests/e2e_tests/run_gpu_suite.sh`, `tests/tooling/ci_targets.py`, and `.github/workflows/embodied-gpu-e2e.yml` discover all `suites/*.toml` files automatically.
