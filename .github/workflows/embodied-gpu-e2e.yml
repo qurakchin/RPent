@@ -45,3 +45,25 @@ jobs:
     uses: ./.github/workflows/embodied-gpu-e2e-run.yml
     with:
       suites: ${{ needs.select.outputs.suites }}
+
+  # Single stable status check for branch rulesets.
+  simulator-ci:
+    name: simulator-ci
+    if: always()
+    needs: [select, build, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require simulator checks to pass
+        run: |
+          failed=0
+          for result in 'select:${{ needs.select.result }}' \
+                        'build:${{ needs.build.result }}' \
+                        'e2e:${{ needs.e2e.result }}'; do
+            echo "check result: $result"
+            case "${result#*:}" in
+              success|skipped) ;;
+              *) echo "::error::$result did not succeed"; failed=1 ;;
+            esac
+          done
+          exit "$failed"
