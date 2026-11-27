@@ -68,35 +68,15 @@ When adding a robot under ``robots/<name>/`` (and an optional simulator under ``
    - Verify CLI execution, local RPC communication, and child-process cleanup using lightweight local test servers instead of real simulators or models.
    - Run ``./tests/tooling/run.sh layout`` and ``tests/unit_tests/installs/`` to verify ``component.toml`` and import boundaries.
 
-2. **GPU end-to-end suite** under ``tests/e2e_tests/suites/<name>.toml`` (see ``tests/e2e_tests/suites/robocasa.toml`` or ``libero.toml`` for complete examples):
+2. **GPU end-to-end suite** (add ``tests/e2e_tests/suites/<name>.toml``; see ``robocasa.toml`` or ``libero.toml`` in the same directory for examples):
 
-   - CI automatically discovers every ``suites/*.toml`` file; no workflow or script edits are needed.
-   - **Common fields**:
+   CI discovers ``suites/*.toml`` automatically without workflow or script changes. Fill in the fields you need:
 
-     .. list-table::
-        :header-rows: 1
-        :widths: 28 72
-
-        * - Field
-          - Meaning
-        * - ``component``
-          - Install component name (required, e.g. ``robot-robocasa``).
-        * - ``base_args``, ``env``
-          - Shared default CLI flags and environment variables for all cases in the suite (already-exported external env vars take precedence over ``env``).
-        * - ``[setup]``
-          - Optional post-install hooks for environments with special layout needs: ``materialize_pkgs`` replaces cache symlinks in the listed packages with real files (needed by packages such as Isaac Sim that locate sibling extensions via ``realpath(__file__)``); ``reinstall_copy_pkg`` reinstalls a package in copy mode so post-install steps can write or link assets inside its package directory (e.g. LIBERO); ``post_install_cmd`` runs a one-off command after installation (such as linking shared assets or installing editable dependencies with ``{python}``).
-        * - ``[[cases]]``
-          - Case list (one per action-model backend) with ``name``, ``args``, and ``env``; attach ``[cases.sidecar]`` when a case needs an ephemeral local service.
-        * - ``action_tool``, ``action_count_field``
-          - Optional action checks: the primary action tool that must succeed in ``states.json``, and the result field whose sum must be ``> 0``.
-        * - ``require_post_action_image``, ``tool_args``
-          - Optional: when ``true``, requires a new rendered image on the turn after ``action_tool``; ``tool_args`` overrides auto-generated minimal schema arguments.
-
-   - **Path resolution and skip rules**:
-
-     - Values in ``env``, ``args``, and ``[cases.sidecar]`` starting with ``assets/``, ``models/``, or ``venvs/`` resolve under ``RPENT_SHARED_ROOT`` (default ``/mnt/public/rpent_shared``).
-     - Placeholders ``{gpu}``, ``{output_dir}``, ``{env:VAR}``, and ``{sidecar_endpoint}`` expand at runtime.
-     - Missing resolved shared paths or unset ``require_env`` skip only that case. Do not use ``""`` to skip a path (empty strings are passed verbatim to the CLI). A suite fails if every case is skipped.
+   - **Required**: Set ``component`` to the install component name (for example ``robot-robocasa``), and add one ``[[cases]]`` entry per action-model backend with its ``name`` and CLI ``args``.
+   - **Shared options**: Put flags shared across cases in ``base_args`` and default environment variables in ``env`` (already-exported environment variables override defaults).
+   - **Paths and skips**: Write relative paths under ``assets/``, ``models/``, or ``venvs/``; they resolve automatically against the shared resource root, and ``{gpu}`` expands to the selected GPU index. A case is skipped automatically if any of its required paths is missing (the suite fails if every case is skipped).
+   - **Action checks (recommended)**: Set ``action_tool`` and ``action_count_field`` to confirm real simulator steps ran; set ``require_post_action_image = true`` when the next turn must receive a new image; use ``tool_args`` when specific tools need concrete sample arguments.
+   - **Special setup or external services (when needed)**: Use ``[setup]`` (``post_install_cmd``, plus ``materialize_pkgs`` or ``reinstall_copy_pkg`` when package files must be copied out of the shared cache) for post-install asset linking or editable dependencies, and ``[cases.sidecar]`` when a case must launch a local service before connecting via an endpoint.
 
 See :doc:`add_robot` for the full robot integration guide.
 

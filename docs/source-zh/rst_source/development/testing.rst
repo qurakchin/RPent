@@ -63,35 +63,15 @@ GitHub 自动运行 CPU 单元测试，并在日志中输出代码行覆盖率�
    - 使用轻量级本地测试服务替代真实仿真器与模型，验证 CLI 执行、本地 RPC 通信与子进程正常退出。
    - 运行 ``./tests/tooling/run.sh layout`` 与 ``tests/unit_tests/installs/``，确认 ``component.toml`` 与导入边界通过校验。
 
-2. **GPU 端到端套件**\ （位于 ``tests/e2e_tests/suites/<name>.toml``，完整写法可参考 ``tests/e2e_tests/suites/robocasa.toml`` 或 ``libero.toml``）：
+2. **GPU 端到端套件**\ （新增 ``tests/e2e_tests/suites/<name>.toml``，写法可参考同目录下的 ``robocasa.toml`` 或 ``libero.toml``）：
 
-   - CI 会自动发现 ``suites/*.toml``，无需修改运行脚本或工作流配置。
-   - **常用字段**：
+   CI 会自动发现 ``suites/*.toml``，无需修改脚本或工作流。按需填写以下配置即可：
 
-     .. list-table::
-        :header-rows: 1
-        :widths: 28 72
-
-        * - 字段
-          - 说明
-        * - ``component``
-          - 套件安装的组件名（必填，如 ``robot-robocasa``）。
-        * - ``base_args``、``env``
-          - 套件内所有用例共用的默认 CLI 参数与环境变量（外部已导出的环境变量优先级高于 ``env``）。
-        * - ``[setup]``
-          - 可选安装后处理，用于处理特殊环境的安装收尾：``materialize_pkgs`` 将指定包指向共享缓存的软链实体化为真实文件（适用于 Isaac Sim 等按 ``realpath(__file__)`` 查找相邻扩展的包）；``reinstall_copy_pkg`` 以拷贝模式重装指定包（适用于需要往包目录内写入或链接资产的包，如 LIBERO）；``post_install_cmd`` 在安装完成后执行一次性命令（如链接共享资产或通过 ``{python}`` 挂载可编辑依赖）。
-        * - ``[[cases]]``
-          - 测试用例列表（每个动作模型后端一条），通过 ``name``、``args``、``env`` 配置；需要按需拉起外部服务时可附加 ``[cases.sidecar]``。
-        * - ``action_tool``、``action_count_field``
-          - 可选动作验收：指定必须在 ``states.json`` 中成功记录的核心动作工具名，以及返回结果中累加值必须 ``> 0`` 的步数/块数字段。
-        * - ``require_post_action_image``、``tool_args``
-          - 可选：设为 ``true`` 时断言动作执行后下一轮请求包含新图像；``tool_args`` 覆盖按 Schema 自动生成的最小参数。
-
-   - **路径展开与跳过约定**：
-
-     - ``env``、``args`` 及 ``[cases.sidecar]`` 中以 ``assets/``、``models/`` 或 ``venvs/`` 开头的相对路径会自动拼接到 ``RPENT_SHARED_ROOT``\ （默认 ``/mnt/public/rpent_shared``）下。
-     - 运行时自动展开 ``{gpu}``、``{output_dir}``、``{env:VAR}`` 与 ``{sidecar_endpoint}`` 占位符。
-     - 解析后的共享路径不存在或 ``require_env`` 未设置时，自动跳过该用例；不要用空字符串 ``""`` 占位，否则会原样传给 CLI。若整套套件中所有用例都被跳过，则该套件判失败。
+   - **必填项**：设置 ``component`` 指定要安装的组件名（如 ``robot-robocasa``），并在 ``[[cases]]`` 中为每个动作模型后端添加一条用例（写明 ``name`` 与启动该后端所需的 ``args``）。
+   - **共用参数与环境变量**：多个用例共用的参数放到 ``base_args``，默认环境变量放到 ``env``\ （外部已导出的环境变量会覆盖默认值）。
+   - **路径与跳过**：在配置中直接写 ``assets/...``、``models/...`` 或 ``venvs/...`` 相对路径即可，运行时会自动定位到共享资源目录；需要指定卡号时用 ``{gpu}`` 占位。若某条用例依赖的路径不存在，该用例会自动跳过（所有用例都被跳过时套件会报错）。
+   - **动作验收（建议填写）**：设置 ``action_tool``\ （主动作工具名）和 ``action_count_field``\ （步数或块数字段），用于确认动作真的在仿真里执行；如果动作后必须产生新图像，可加 ``require_post_action_image = true``；如果某些工具需要特定示例参数才能正常调用，在 ``tool_args`` 中指定。
+   - **特殊安装或外部服务（按需）**：安装后若需额外链接资产或挂载依赖，在 ``[setup]`` 中配置 ``post_install_cmd``\ （需要把包文件从共享缓存拷贝为真实文件时再配合 ``materialize_pkgs`` 或 ``reinstall_copy_pkg``）；如果某个后端需要先拉起本地服务再通过 endpoint 连接，在用例下配置 ``[cases.sidecar]``。
 
 完整的机器人接入步骤见 :doc:`add_robot`。
 
