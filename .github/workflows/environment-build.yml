@@ -38,67 +38,7 @@ jobs:
           set -euo pipefail
           run_dir="$RUNNER_TEMP/rpent-build-$BUILD_RUN_ID"
           venv_dir="$RUNNER_TEMP/rpent-build-venvs-$BUILD_RUN_ID"
-          mkdir -p "$run_dir" "$venv_dir"
-          python3 - "$run_dir" "$venv_dir" <<'PY'
-          import concurrent.futures
-          import json
-          import os
-          import subprocess
-          import sys
-          import time
-          from pathlib import Path
-
-          run_dir = Path(sys.argv[1])
-          venv_dir = Path(sys.argv[2])
-          components = json.loads(os.environ["COMPONENTS_JSON"])
-          max_workers = max(1, min(int(os.environ.get("RPENT_BUILD_PARALLELISM", "2")), len(components)))
-
-          def run_one(component: str) -> dict:
-              t0 = time.monotonic()
-              log_path = run_dir / f"{component}.log"
-              cmd = [
-                  "bash",
-                  "tests/e2e_tests/run_gpu_suite.sh",
-                  f"build:{component}",
-                  str(run_dir / component),
-                  str(venv_dir / component),
-              ]
-              with log_path.open("w", encoding="utf-8") as log_file:
-                  proc = subprocess.run(cmd, stdout=log_file, stderr=subprocess.STDOUT, check=False)
-              dt = int(time.monotonic() - t0)
-              return {"component": component, "rc": proc.returncode, "duration": dt, "log": log_path}
-
-          results = []
-          with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-              futs = {pool.submit(run_one, c): c for c in components}
-              for fut in concurrent.futures.as_completed(futs):
-                  res = fut.result()
-                  results.append(res)
-                  status = "PASSED" if res["rc"] == 0 else f"FAILED (rc={res['rc']})"
-                  print(f"[build:{res['component']}] {status} in {res['duration']}s", flush=True)
-                  if res["rc"] != 0:
-                      tail = res["log"].read_text(encoding="utf-8", errors="replace").splitlines()[-60:]
-                      print(f"--- tail of {res['component']}.log ---", flush=True)
-                      print("\n".join(tail), flush=True)
-
-          by_name = {r["component"]: r for r in results}
-          ordered = [by_name[c] for c in components]
-          summary = os.environ.get("GITHUB_STEP_SUMMARY")
-          if summary:
-              lines = [
-                  "### Simulator Environment Builds",
-                  "",
-                  "| Component | Status | Duration |",
-                  "| --- | --- | --- |",
-              ]
-              for r in ordered:
-                  badge = "passed" if r["rc"] == 0 else f"failed (rc={r['rc']})"
-                  lines.append(f"| `{r['component']}` | {badge} | {r['duration']}s |")
-              Path(summary).open("a", encoding="utf-8").write("\n".join(lines) + "\n")
-
-          if any(r["rc"] != 0 for r in ordered):
-              raise SystemExit(1)
-          PY
+          python3 tests/tooling/run_ci_jobs.py build "$run_dir" "$venv_dir"
 
       - name: Upload build logs and fingerprints
         if: always()

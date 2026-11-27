@@ -2,7 +2,7 @@ name: Simulator CI
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, ready_for_review, labeled]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
   push:
     branches: [main]
 
@@ -16,6 +16,7 @@ concurrency:
 jobs:
   select:
     name: Select affected simulator targets
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     outputs:
       builds: ${{ steps.targets.outputs.builds }}
@@ -33,24 +34,14 @@ jobs:
 
   build:
     needs: select
-    if: >-
-      needs.select.outputs.builds != '[]' &&
-      (
-        github.event_name == 'push' ||
-        (!github.event.pull_request.draft && contains(github.event.pull_request.labels.*.name, 'run-ci'))
-      )
+    if: needs.select.outputs.builds != '[]'
     uses: ./.github/workflows/environment-build.yml
     with:
       components: ${{ needs.select.outputs.builds }}
 
   e2e:
     needs: select
-    if: >-
-      needs.select.outputs.suites != '[]' &&
-      (
-        github.event_name == 'push' ||
-        (!github.event.pull_request.draft && contains(github.event.pull_request.labels.*.name, 'run-ci'))
-      )
+    if: needs.select.outputs.suites != '[]'
     uses: ./.github/workflows/embodied-gpu-e2e-run.yml
     with:
       suites: ${{ needs.select.outputs.suites }}
