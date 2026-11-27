@@ -102,15 +102,19 @@ LIBERO 使用 ``--suite``、``--task``、``--seed`` 和 ``--libero-type`` 选择
 
 ``--env-endpoint``、``--am-endpoint`` 和 LIBERO 的 ``--sam3-endpoint`` 分别连接已有的环境、动作模型（VLA 或 WAM）和 SAM3 服务。RPent RPC 地址格式为 ``[protocol://]host:port``，默认协议为 ``http``；LingBot 使用原生 WebSocket，见 :doc:`../simulators/robotwin`。GPU 分配和远程服务见 :doc:`advanced_deployment`。
 
-``--am-backend`` 选择当前平台支持的一个动作模型；LIBERO 默认使用 ``pi05``，RoboTwin 支持 ``lingbot``（默认）、``fast-wam`` 和 ``uniwam``。VLA 和 WAM 共用 ``--am-endpoint`` 连接已有服务，共用 ``--am-checkpoint``、``--am-python``、``--am-root`` 和 ``--am-cuda-device`` 配置本地部署。使用 endpoint 时，显式传入本地部署参数会报错。
+``--am-backend`` 选择当前平台支持的一个动作模型；LIBERO 默认使用 ``pi05``，RoboTwin 支持 ``lingbot``\ （默认）、``fast-wam`` 和 ``uniwam``。VLA 和 WAM 共用 ``--am-endpoint`` 连接已有服务，共用 ``--am-checkpoint``、``--am-python``、``--am-root`` 和 ``--am-cuda-device`` 配置本地部署。使用 endpoint 时，显式传入本地部署参数会报错。
 
-``--am-checkpoint`` 按后端要求提供本地权重或服务模型标识；UniWAM 使用 :doc:`../simulators/robotwin` 中说明的资源根目录。``--am-python`` 指定已准备好的模型解释器，VLA 默认使用当前解释器；``--am-root`` 指定工作目录，默认使用 RPent 仓库目录，Cosmos Policy 则要求其源码目录。Franka 和 YAM 仅提供外部服务连接。
+``--am-checkpoint`` 按后端要求提供本地权重或服务模型标识；UniWAM 使用 :doc:`../simulators/robotwin` 中说明的资源根目录。``--am-python`` 指定已准备好的模型解释器，VLA 默认使用当前解释器；``--am-root`` 指定工作目录，默认使用 RPent 仓库目录，Cosmos Policy 则要求其源码目录。单臂 Franka 和 YAM 仅支持连接外部 VLA 服务。
 
-Cosmos Policy、Cosmos3 和 Fast-WAM 采用 ``local`` 记忆模式并注册记忆文件工具，默认目录按后端区分，可通过 ``--memory-dir`` 指定目录；目前不支持 HF 记忆、Flash 和探索模式。UniWAM 保留 RoboTwin 的探索和 memory 选择，见 :doc:`../simulators/robotwin`。模型启动参数及支持的组合见 :doc:`../development/add_action_model`。
+Cosmos Policy、Cosmos3 和 Fast-WAM 采用 ``local`` 记忆模式并注册记忆文件工具，默认目录按后端区分，可通过 ``--memory-dir`` 指定目录；这些后端不支持 HF 记忆、Flash 和探索模式。UniWAM 保留 RoboTwin 的探索和 memory 选择，见 :doc:`../simulators/robotwin`。模型启动参数及支持的组合见 :doc:`../development/add_action_model`。
 
-``--predict-future`` 在本地部署时开启未来状态和价值输出，目前仅 Cosmos Policy 支持，其他后端会拒绝此参数。使用 ``--am-endpoint`` 连接已有服务时，应在启动 worker 时配置。RPent 尚不利用这些输出进行规划。
+``--predict-future`` 在本地部署时开启未来状态和价值输出，仅 Cosmos Policy 支持，其他后端会拒绝此参数。使用 ``--am-endpoint`` 连接已有服务时，应在启动 worker 时配置。RPent 规划器尚未消费这些输出。
 
-``--am-cuda-device`` 独立选择本地模型的 GPU。LIBERO、RoboTwin、RoboCasa、RoboDojo 和 dual-Franka 支持本地模型部署；外部模型服务的 GPU 在部署时选择。LIBERO、RoboTwin、RoboCasa、RoboDojo 使用 ``--env-cuda-device`` 选择环境 GPU。LIBERO、RoboDojo 和 dual-Franka 使用 ``--sam3-cuda-device`` 选择本地 SAM3 的 GPU。
+本地服务可按需指定独立 GPU：
+
+- ``--am-cuda-device``：选择本地动作模型的 GPU（适用于 LIBERO、RoboTwin、RoboCasa、RoboDojo 和 dual-Franka；外部模型服务的 GPU 在部署时指定）。
+- ``--env-cuda-device``：选择本地仿真环境的 GPU（适用于 LIBERO、RoboTwin、RoboCasa、RoboDojo）。
+- ``--sam3-cuda-device``：选择本地 SAM3 的 GPU（适用于 LIBERO、RoboDojo 和 dual-Franka）。
 
 显存允许时，各服务可共用同一张 GPU。连接外部 endpoint 时，设备由该服务启动时的配置决定。
 

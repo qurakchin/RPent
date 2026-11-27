@@ -85,16 +85,12 @@ VLA 启动函数也使用 ``AMConfig.spawn_worker()``。平台保留各自的服
 
 1. **编写模型服务端**\ （``components/models/<name>/server.py``）：该进程只持有模型权重和 CUDA 上下文。模型包同时需要 ``component.toml`` 清单。继承 :class:`rpent.components.models.facade.BaseVLAFacade`，实现 ``predict``，并通过扩展 ``_register_rpc`` 注册其他模型 RPC：
 
-   - 默认传输方式为 **HTTP**，通过 ``POST /call`` 传输 JSON，适合
-     LIBERO/Pi0.5 使用的扁平 ``image + state`` 数据。
-   - 当观测数据包含多帧历史信息或采用嵌套数据结构时，可以切换到
-     **socket RPC**\ （``--transport socket``），避免重复进行 JSON 编码。
+   - 默认传输方式为 **HTTP**，通过 ``POST /call`` 传输 JSON，适合 LIBERO/Pi0.5 使用的扁平 ``image + state`` 数据。
+   - 观测数据包含多帧历史信息或采用嵌套数据结构时，可以切换到 **socket RPC**\ （``--transport socket``），避免重复做 JSON 编码。
 
    ``BaseVLAFacade`` 会注册 ``vla.predict`` 并串行化模型调用。构造时传入 ``model_meta=...`` 还会注册只读的 ``vla.get_model_meta`` 路由，元数据字段由具体模型定义。继承的 ``RpcFacade.serve`` 负责绑定传输层、处理 ``healthz`` 和 ``shutdown``、检测父进程退出并清理资源。
 
-2. **编写 model client。** 继承
-   :class:`rpent.components.models.client.BaseVLAClient`；它已经提供
-   公共的 ``vla.predict`` 调用，子类只需增加环境专用的输入 / 输出适配。 LIBERO 的实现可参考 ``components.models.openpi.client.Pi05VLAClient``。
+2. **编写 model client。** 继承 :class:`rpent.components.models.client.BaseVLAClient`；它已经提供公共的 ``vla.predict`` 调用，子类按需补充环境专用的输入 / 输出适配。LIBERO 的实现可参考 ``components.models.openpi.client.Pi05VLAClient``。
 
 3. **在 primitives 中添加方法。** 在当前机器人的 primitives 类中调用 model client，将其返回的动作块交给环境执行，并返回 ``ToolResult``。 model client 的接口是
    :meth:`components.models.openpi.client.Pi05VLAClient.predict`，
@@ -214,7 +210,7 @@ checkpoint 目录包含 ``Cosmos-Policy-LIBERO-Predict2-2B.pt``、``libero_datas
      --config /path/to/worker.yaml --dataset-stats /path/to/dataset_stats.json \
      --port 8117
 
-LIBERO worker 的模型环境需要安装 RLinf ``release/v0.4`` 的 Fast-WAM 接入，以及其 ``requirements/install.sh`` 指定的 Fast-WAM 版本（目前为 ``45d8e1458921d83f8ad6cf9ce993d371208dabd0``）。在 RLinf 仓库执行 ``bash requirements/install.sh embodied --model fastwam`` 配套安装；其他 Fast-WAM 版本的 VAE 接口可能不兼容。worker 调用 RLinf 的 ``get_model`` 和 ``predict_action_batch``，图像缩放与拼接、状态归一化、推理及 LIBERO 动作还原均由 RLinf 负责。RPent 只将物理观测映射到 RLinf 输入字段，并从返回动作中移除单环境 batch 维度。RLinf 的该策略尚不支持 RoboTwin 的三相机/qpos14 接口，因此 RoboTwin 保留官方 Fast-WAM 推理路径。
+LIBERO worker 的模型环境需要安装 RLinf ``release/v0.4`` 的 Fast-WAM 接入，以及其 ``requirements/install.sh`` 指定的 Fast-WAM 版本（已验证版本为 ``45d8e1458921d83f8ad6cf9ce993d371208dabd0``）。在 RLinf 仓库执行 ``bash requirements/install.sh embodied --model fastwam`` 配套安装；其他 Fast-WAM 版本的 VAE 接口可能不兼容。worker 调用 RLinf 的 ``get_model`` 和 ``predict_action_batch``，图像缩放与拼接、状态归一化、推理及 LIBERO 动作还原均由 RLinf 负责。RPent 只将物理观测映射到 RLinf 输入字段，并从返回动作中移除单环境 batch 维度。RLinf 的该策略尚不支持 RoboTwin 的三相机/qpos14 接口，因此 RoboTwin 保留官方 Fast-WAM 推理路径。
 
 LIBERO 直接使用 RLinf 原生模型 YAML。RPent 从部署参数填入 checkpoint 和统计文件路径，由 RLinf 组合官方模型与 processor 配置并解析推理选项。例如：
 

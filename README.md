@@ -21,7 +21,7 @@
   <sub>RPent: Agentic Infrastructure for the Physical World</sub>
 </h1>
 
-**RPent (Recursive Physical Agent)** is an open framework for building embodied agents that continuously evolve through recursive interaction with the physical world. Rather than prescribing a single foundation model, RPent provides a recursive agent framework that harnesses heterogeneous intelligence, including perception, reasoning, memory, execution, and self-evolution, into a unified physical agent. Through continuous interaction, reflection, and adaptation, RPent enables physical agents to acquire new capabilities and evolve beyond their initial design. We build RPent upon a foundation of **service-oriented**, **standardized**, and **composable** design principles, ensuring the framework remains highly extensible.
+**RPent (Recursive Physical Agent)** is an open framework for embodied agents that improve through recursive interaction with the physical world. Rather than prescribing a single foundation model, RPent integrates perception, reasoning, memory, execution, and self-evolution into one architecture so agents acquire new capabilities through interaction and reflection. Designed around **service-oriented**, **standardized**, and **composable** principles, it is straightforward to extend across simulators, models, and real robots.
 
 <div align="center">
   <img src="https://github.com/RLinf/misc/raw/main/pic/rpent_framework.png" alt="RPent framework"/>

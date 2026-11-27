@@ -143,7 +143,7 @@ VLA 配置
 
 部署到不同真机时，建议单独采集数据并重新训练模型。
 
-VLA 服务使用 ``pi05_yam_joint`` 配置，相机顺序为 ``top/left/right``，每次调用执行前 5 步动作。
+VLA 服务使用 ``pi05_yam_joint`` 配置并每次执行前 5 步动作，输入相机顺序固定为 ``top/left/right``；配置相机或替换自定义模型时需保持一致。
 
 .. _yam-training:
 
@@ -341,9 +341,7 @@ Codex 配置
 
 YAM 提供 ``view_env_state``、``sample_world_xyz``、``query_world_map``、``render``、``status``，以及 ``move_to``、``rotate_wrist``、``set_gripper``、``release``。连接 VLA 后还提供 ``pi05_act``。
 
-基本动作通过 ``arm=left/right`` 选择一条机械臂。``move_to`` 的 xyz 单位为米，坐标系为 ``left_base``，四元数顺序为 wxyz；``rotate_wrist`` 使用角度；夹爪 ``val=0`` 闭合、``val=1`` 打开。
-
-开合夹爪使用 ``set_gripper`` 或 ``release``。
+基本动作通过 ``arm=left/right`` 选择一条机械臂。``move_to`` 的 xyz 单位为米，坐标系为 ``left_base``，四元数顺序为 wxyz；``rotate_wrist`` 使用角度；夹爪 ``val=0`` 闭合、``val=1`` 打开，指定开合值用 ``set_gripper``，直接松开用 ``release``。
 
 .. _yam-exploration:
 

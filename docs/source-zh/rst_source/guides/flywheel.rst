@@ -7,19 +7,19 @@ RPent 数据飞轮用于记录从任务规划到动作执行的轨迹，并从�
 
 使用 ``api``、``claude_code`` 或 ``codex`` 规划器时，开启 ``--record-trajectory`` 可记录视觉语言模型（VLM）的请求、回复、工具调用及其结果。在支持动作采集的环境中，还会记录视觉语言动作模型（VLA）的子任务指令、实际执行的动作及对应的观测。
 
-``rpent-flywheel`` 目前仅支持导出 VLA 训练数据，可将成功轨迹中的 VLA 样本导出为 LeRobot 数据集，供 RLinf 进行监督微调。在本次对照评测中，微调后 RPent 在 LIBERO-PRO 上的任务成功率从 70% 升至 73%，在 RoboTwin 上从 48% 升至 72%。
+``rpent-flywheel`` 仅支持导出 VLA 训练数据，可将成功轨迹中的 VLA 样本导出为 LeRobot 数据集，供 RLinf 监督微调。在本次对照评测中，微调后 RPent 在 LIBERO-PRO 上的任务成功率从 70% 升至 73%，在 RoboTwin 上从 48% 升至 72%。
 
 安装
 ----
 
 以下示例使用 LIBERO-PRO。环境准备见 :doc:`../get_started/installation`，仿真资源下载见 :doc:`../get_started/quickstart`，API 认证配置见 :doc:`configure_planner`。``robot-libero`` 已包含 ``tool-flywheel``，按安装页安装的 LIBERO 环境自带导出器。
 
-``./rpent-install.sh install tool-flywheel --venv .venv-flywheel`` 只创建带导出工具的环境，不会一并安装仿真器。
+若只需在无仿真器的机器上导出已有轨迹，可用 ``./rpent-install.sh install tool-flywheel --venv .venv-flywheel`` 创建仅含导出器的独立环境。
 
 采集轨迹
 --------
 
-采集默认关闭。用 ``--planner claude_code`` 采集轨迹时，需要 ``claude-agent-sdk 0.2.154+`` 和 ``Claude Code 2.1.274+``。LIBERO、RoboCasa365、RoboTwin 和 RoboDojo 仅在评测模式下采集实际执行的动作及观测。
+轨迹采集默认关闭，需通过 ``--record-trajectory`` 按次开启。开始前注意两条限制：使用 ``--planner claude_code`` 采集时，需要 ``claude-agent-sdk 0.2.154+`` 和 ``Claude Code 2.1.274+``；LIBERO、RoboCasa365、RoboTwin 和 RoboDojo 仅在评测模式下记录实际执行的动作与观测。
 
 开启采集并指定运行目录：
 
@@ -39,7 +39,7 @@ RPent 数据飞轮用于记录从任务规划到动作执行的轨迹，并从�
 轨迹数据格式
 ------------
 
-以下是轨迹的目录结构及相关文件的数据格式
+以下是轨迹目录结构与各文件的数据格式：
 
 .. code-block:: text
 

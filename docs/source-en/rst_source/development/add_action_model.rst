@@ -237,12 +237,11 @@ at that boundary. These backends require different checkpoints.
    ``predict_native`` and ``decode`` in that order. Implement the three methods
    and keep whatever checkpoint state they need on the instance.
 2. Register each supported platform in the model's ``ADAPTERS`` mapping. Each
-   entry declares checkpoint
-   identity, camera/state requirements, native control and executable chunk size.
-   Declare ``joint_target_history_shape`` if the model requires executed joint targets,
-   and validate the checkpoint's history settings at startup.
-   Encode physical observations into model inputs; decode predictions into the
-   declared platform action format.
+   entry declares checkpoint identity, camera/state requirements, native control
+   and executable chunk size. Declare ``joint_target_history_shape`` if the
+   model requires executed joint targets, and validate the checkpoint's history
+   settings at startup. Encode physical observations into model inputs; decode
+   predictions into the declared platform action format.
 3. Reuse a platform's ``wam_client.py`` when its observation and control
    contracts fit. ``BaseWAMClient`` fetches ``wam.get_model_meta`` once at
    initialization; the platform checks control compatibility before executing
@@ -358,8 +357,8 @@ uncached instructions; otherwise the official runtime handles uncached text.
 For Fast-WAM, use its provisioned environment:
 
 The LIBERO worker requires RLinf's ``release/v0.4`` Fast-WAM integration and
-the Fast-WAM revision selected by RLinf's ``requirements/install.sh`` (currently
-``45d8e1458921d83f8ad6cf9ce993d371208dabd0``). Prepare these together using
+the Fast-WAM revision selected by RLinf's ``requirements/install.sh`` (verified
+with ``45d8e1458921d83f8ad6cf9ce993d371208dabd0``). Prepare these together using
 RLinf's ``bash requirements/install.sh embodied --model fastwam``; arbitrary
 Fast-WAM revisions can have incompatible VAE interfaces.
 It calls RLinf's ``get_model`` and ``predict_action_batch``;

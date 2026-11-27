@@ -88,9 +88,14 @@
    ./rpent-install.sh install robot-libero --venv .venv-libero
    source .venv-libero/bin/activate
 
-激活环境后即可直接运行 ``rpent-install``。一次传入多个组件可组合安装，例如 ``model-openpi infra-rlinf`` 用于独立 VLA 主机，``robot-libero infra-dev`` 用于开发测试。传入 ``--python <版本>``\ （如 ``3.11``）可指定 Python 版本；加上 ``--dry-run`` 只输出依赖清单，不执行安装。
+激活环境后即可直接运行 ``rpent-install``：
 
-**PyPI 镜像与 CUDA PyTorch 后端**
+- **组合安装**：一次传入多个组件名即可共用同一环境（例如 ``model-openpi infra-rlinf`` 用于独立 VLA 主机，``robot-libero infra-dev`` 用于开发测试）。
+- **指定 Python 版本**：传入 ``--python <版本>``\ （如 ``3.11``）选择目标组件支持的 Python 版本。
+- **预览依赖**：加上 ``--dry-run`` 只输出解析后的依赖清单，不执行安装。
+
+PyPI 镜像与 CUDA PyTorch 后端
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 可通过 ``--index-url`` 指定 PyPI 镜像，或通过 ``--torch-backend`` 选择 PyTorch 构建后端（如 ``auto``、``cpu``、``cu124``、``cu126``、``cu128``）：
 

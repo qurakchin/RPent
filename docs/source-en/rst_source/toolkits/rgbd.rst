@@ -89,8 +89,7 @@ the tools on the robot's toolkit.
 .. dropdown:: Observation adapter contract and registration example
 
    For a simulator or a real robot, implement ``get_observation(camera=..., step=...)``
-   on the platform's observation adapter. The method returns a
-   ``components.tools.rgbd.observation.GeometryObservation`` containing the RGB image and its
+   on the platform's observation adapter to return the RGB image and its
    3D data for that camera and step. The adapter can supply an
    aligned world XYZ map giving each pixel's surface coordinates in metres, or an
    aligned optical-axis depth map in metres together with the camera intrinsics
@@ -105,8 +104,8 @@ the tools on the robot's toolkit.
    in the same world frame.
 
    Before registering tools with the platform's ``toolkit``, prepare the observation
-   adapter ``observations``, the current session's state object ``state`` (an
-   ``EnvState`` instance), and an initialized segmentation client ``segmenter``.
+   adapter ``observations``, the current session's environment state ``state``,
+   and an initialized segmentation client ``segmenter``.
 
    The example below registers ``back_project`` and ``segment`` when the platform
    initializes its ``toolkit``, so the planner can call them during a task. To use
@@ -133,8 +132,9 @@ the tools on the robot's toolkit.
               grounder=grounder, check_cancelled=toolkit.raise_if_cancelled,
           )
           toolkit.add_tool(geometry.geometry)
+          # When reusing the same instance across episodes whose step numbers restart,
+          # call geometry.reset_cache() at the start of each new episode.
 
    ``geometry`` caches measurement results for the current observation step. If
    you reuse the same geometry tool instance across episodes and step numbers
-   restart, call ``geometry.reset_cache()`` at the start of each new episode to
-   clear the cache.
+   restart, clear its cache at the start of each new episode.

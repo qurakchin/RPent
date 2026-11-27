@@ -16,7 +16,7 @@ The runner prepares the task and its services before handing control to the
 planner. During execution, each tool result supplies the observations used for
 the next decision. The sequence below follows one run from CLI setup to cleanup.
 
-1. The CLI reads shared arguments, loads the environment selected by ``--robot``, and registers and validates its arguments.
+1. The CLI (``rpent/cli/main.py``) reads shared arguments, loads the environment selected by ``--robot``, and registers and validates its arguments.
 2. ``parse_config`` creates a ``RunConfig`` with the task, output directory, and prompt variables.
 3. The runner synchronizes or uses local memory according to the profile, constructs the planner, and renders prompts.
 4. ``init_runtime`` starts or connects to services and returns runtime inputs and owned processes; ``get_toolkit`` creates tools and their memory manager.
@@ -24,7 +24,7 @@ the next decision. The sequence below follows one run from CLI setup to cleanup.
 6. Action tools call a VLA or scripted motion. The environment records updated state and observations for the next planning turn.
 7. ``finish``, a run limit, or an error ends planning. The runner saves the transcript, finalizes recordings, and cleans up. Environments that publish evaluation artifacts use their finalization hook.
 
-``finish`` marks the end of planning; success comes from the environment or a real-robot operator. See each environment guide for its criterion. The main entry point is ``rpent/cli/main.py``.
+``finish`` marks the end of planning; task success comes from the environment or a real-robot operator (see each environment guide for its criterion).
 
 Component Responsibilities
 --------------------------
@@ -58,10 +58,10 @@ Repository Layout
 
 Shared execution, contracts, and model bases live under ``rpent/``. Each
 package under ``robots/`` supplies the environment-specific implementation
-described above. Installable components that are not robots live under
-``components/``; every component is one directory holding its
-``component.toml``, and the infrastructure components under
-``components/infra/`` contribute that manifest alone.
+described above. Shared installable simulators, model services, tools, and
+infrastructure manifests live under ``components/``: each component is a
+self-contained directory with a ``component.toml`` manifest, and components
+under ``components/infra/`` provide only that manifest without source code.
 
 Import boundaries are enforced by ``tests/tooling/layout.py`` along the layer
 order ``robots/`` → ``components/models/`` → ``components/sim/`` → ``rpent/``:

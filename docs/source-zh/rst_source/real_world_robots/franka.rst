@@ -47,7 +47,7 @@ RPent 会直接加载这些 YAML 文件：在机器人配置的 ``perception.cal
 
 仓库中给出的值是开发默认值，在启用机械臂运动前必须逐项核对：
 
-* ``robots/franka/config/example.yaml``，包含机器人身份（机器人 IP、相机序列号、夹爪）、工作空间几何（目标/复位位姿、安全边界）和 easy_handeye YAML 映射（见上方标定说明）。示例设置 ``backend: franky`` 和 ``realtime_config: ignore``。如果需要强制 RPent 在 PREEMPT_RT 内核上运行，可将 ``realtime_config`` 改为 ``enforce``，此时若 RPent 无法获得实时保证，将拒绝启动。
+* ``robots/franka/config/example.yaml``，包含机器人身份（机器人 IP、相机序列号、夹爪）、工作空间几何（目标/复位位姿、安全边界）和 easy_handeye YAML 映射（见上方标定说明）。示例设置 ``backend: franky`` 和 ``realtime_config: ignore``。在 PREEMPT_RT 内核上，可将 ``realtime_config`` 改为 ``enforce``；无法获得实时保证时，RPent 会拒绝启动。
 
 RPent 会把这份机器人配置转换成内部的 RLinf cluster 和环境对象。如需改用其他文件，请传入 ``--robot-config /path/to/robot_config.yaml``。
 
@@ -83,12 +83,12 @@ Ray 在启动时会捕获环境变量，因此必须先设置 node rank 再启�
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
-RPent 会使用当前解释器启动 ``robots/franka/env_server.py``：加载机器人配置、生成内部的 RLinf 适配器配置、连接 Ray、等待 ``healthz``，并将初始状态记录为第 ``0`` 步。
+RPent 会使用当前解释器启动 Franka 环境服务：加载机器人配置、生成内部的 RLinf 适配器配置、连接 Ray、等待 ``healthz``，并将初始状态记录为第 ``0`` 步。
 
 VLA 抓取演示
 -------------
 
-RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vla_grasp`` 工具。当前单臂 Franka 需要兼容的外部 VLA 服务，其观测布局、动作布局、checkpoint 和归一化统计必须与 Franka 训练配置一致：
+RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vla_grasp`` 工具。单臂 Franka 需要兼容的外部 VLA 服务，其观测布局、动作布局、checkpoint 和归一化统计必须与 Franka 训练配置一致：
 
 .. code-block:: bash
 
@@ -97,7 +97,7 @@ RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vl
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
-目前 VLA 服务需要单独部署。若未设置 ``--am-endpoint``，解析式运动和夹爪工具仍然可用，但 ``vla_grasp`` 会抛出运行时错误。
+VLA 服务需要单独部署。若未设置 ``--am-endpoint``，解析式运动和夹爪工具仍然可用，但 ``vla_grasp`` 会抛出运行时错误。
 
 工具与状态产物
 --------------
@@ -141,13 +141,11 @@ Franka Flash 任务卡
      --run-dir /path/to/successful-run --annotations annotations.json \
      --molmo-endpoint http://localhost:9000 --destination plan.json
 
-按提示确认原始操作成功。生成器拒绝不支持的命令，且不会覆盖已有目标文件。
-新记录保存 ``recording_fingerprint.json``，包含机器人配置及标定文件的哈希。
-生成器在定位锚点前拒绝缺少指纹或录制后配置、标定发生变化的记录；此时需重新录制，
-没有来源指纹的旧记录不能使用。回放仍检查任务卡与当前文件是否一致。
-已知观察、确认记录及初始确认的场景重置不进入任务卡；任务动作之后的重置会被拒绝，
-避免拼接不同尝试。
-双臂改用 ``--robot dual_franka --task dual_franka_t0``。
+按提示确认原始操作成功。生成器拒绝不支持的命令，且不会覆盖已有目标文件。双臂改用 ``--robot dual_franka --task dual_franka_t0``。
+
+新记录保存 ``recording_fingerprint.json``，包含机器人配置及标定文件的哈希。生成器在定位锚点前会拒绝缺少指纹或配置、标定已变更的记录；此时需重新录制。回放也会校验任务卡与当前文件是否一致。
+
+观测记录、确认记录与初始场景重置不会写入任务卡；任务动作之后的重置会被拒绝，避免拼接不同尝试。
 
 在独立操作员终端中回放：
 
@@ -202,7 +200,7 @@ Flash 模式加入大模型 Agent 介入选点
 需要更换模型端点时，可增加 ``--grounding-agent-base-url``。
 
 
-Codex 复用已有的模型/provider 配置和文件登录，来加载介入的agent，不加载用户的 MCP 和插件。
+Codex 复用已有的模型/provider 配置和文件登录来运行介入 Agent，不加载用户的 MCP 和插件。
 如果检测到启用的 MCP，发送图片前会停止请求。若登录凭据只保存在系统钥匙串中，
 请改用文件登录或设置 ``CODEX_API_KEY``。
 

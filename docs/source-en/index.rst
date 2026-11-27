@@ -7,7 +7,7 @@ Welcome to RPent
    :alt: RPent
    :class: rpent-home-logo
 
-RPent (Recursive Physical Agent) is an open-source framework for building embodied agents that continually evolve through recursive interaction with the physical world. It supports different foundation models and integrates perception, reasoning, memory, execution, and self-evolution in a unified agent framework. Through ongoing interaction, agents reflect on and adjust their behavior, accumulate experience, and develop new capabilities beyond their initial design.
+**RPent (Recursive Physical Agent)** is an open-source framework for embodied agents that improve through recursive interaction with the physical world. Rather than prescribing a single foundation model, it integrates perception, reasoning, memory, execution, and self-evolution into one architecture, using reusable services and unified interfaces across simulators and real robots.
 
 .. grid:: 1 1 2 2
    :gutter: 3

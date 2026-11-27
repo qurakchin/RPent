@@ -190,7 +190,11 @@ WAM 评测
      --am-endpoint http://127.0.0.1:8116 --memory-profile local \
      --planner api --model <planner-model>
 
-Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-Pro 需在 Pro 环境中选择 Pro suite 并指定 ``--libero-type pro``。WAM 不支持 LIBERO-Plus、Flash 和探索。WAM 必须启用本地记忆管理器和文件工具，默认目录按后端区分，语料允许为空；可通过 ``--memory-dir`` 指定兼容的本地语料，目前不支持 HF 记忆。``wam_act(prompt=None, max_chunks=1)`` 替换 Pi0.5 工具，每次执行 1 至 4 个 chunk，每个 chunk 前重新获取观测。每个 chunk 的动作数由 worker 的 ``chunk_size`` 元数据声明。prompt 仅覆盖本次调用，chunk 预算不指定在 chunk 内的哪一步停止。
+Fast-WAM 使用 ``--am-backend fast-wam`` 及其 worker 地址。LIBERO-Pro 需在 Pro 环境中选择 Pro suite 并指定 ``--libero-type pro``。WAM 不支持 LIBERO-Plus、Flash 和探索模式。
+
+WAM 必须启用本地记忆管理器和文件工具，默认目录按后端区分，语料允许为空。可通过 ``--memory-dir`` 指定兼容的本地语料，不支持 HF 记忆。
+
+``wam_act(prompt=None, max_chunks=1)`` 替换 Pi0.5 工具，每次执行 1 至 4 个 chunk，每个 chunk 前重新获取观测。每个 chunk 的动作数由 worker 的 ``chunk_size`` 元数据声明；prompt 仅覆盖本次调用，chunk 预算不指定在 chunk 内的哪一步停止。
 
 查看结果
 ------------
@@ -247,10 +251,10 @@ Long 结果使用 `reproduce/libero <https://github.com/RLinf/RPent/tree/reprodu
 
 LIBERO 将仿真和模型推理分别放在独立服务器中运行，工具集通过对应客户端执行规划器的请求。
 
-- **env_server** （``components/sim/libero/env_server.py``）—— 负责运行 LIBERO 的 MuJoCo 环境并通过 EGL 渲染。它通过 RPC 传输（默认使用 HTTP；添加 ``--transport socket`` 后使用 pickle-framed socket）对外暴露 ``reset``、``step``、``chunk_step``、``render_camera``、 ``get_camera_meta`` 等接口。
-- **vla_server** （``components/models/openpi/server.py``）—— 持有 Pi0.5 权重，通过同一套 RPC 传输（HTTP 或 socket）暴露 ``predict``。
-- **sam3_server** （``components/models/sam3/server.py``）—— 加载 SAM 3.0，根据文字描述或目标物体上的一个像素点，分割出目标区域。如果模型给出多个候选结果，只保留评分最高的一个，并通过同一套 RPC 传输（HTTP 或 socket）返回压缩 PNG 格式的分割掩码（mask）。
-- **toolkit（工具集）** （``robots/libero/toolkit.py``）—— 定义 LLM 能调用的工具：``pi0_pick`` （交给 Pi0.5）、``move_to``、``rotate_wrist``、 ``back_project``、``view_env_state``、``finish``…
+- **env_server** —— 负责运行 LIBERO 的 MuJoCo 环境并通过 EGL 渲染，通过 RPC 传输（默认使用 HTTP；添加 ``--transport socket`` 后使用 socket）提供环境重置、动作步进、相机渲染与相机参数查询。
+- **vla_server** —— 持有 Pi0.5 权重，通过同一套 RPC 传输（HTTP 或 socket）提供动作预测服务。
+- **sam3_server** —— 加载 SAM 3.0，根据文字描述或目标物体上的一个像素点，分割出目标区域。如果模型给出多个候选结果，只保留评分最高的一个，并通过同一套 RPC 传输（HTTP 或 socket）返回压缩 PNG 格式的分割掩码（mask）。
+- **toolkit（工具集）** —— 定义规划器可调用的工具：``pi0_pick``\ （交给 Pi0.5）、``move_to``、``rotate_wrist``、``back_project``、``view_env_state``、``finish`` 等。
 
 规划器可调用的工具
 --------------------
@@ -290,8 +294,8 @@ Dashboard
 
 如果你有一个与 LIBERO 兼容、但并非 Pi0.5 的 VLA，可以在不修改机器人实现的情况下替换 model client：
 
-1. 写一个新的 ``vla_server.py``，暴露相同的 ``predict`` RPC 契约（HTTP 或 socket 均可）。
+1. 写一个新的模型服务，暴露相同的 ``predict`` RPC 契约（HTTP 或 socket 均可）。
 2. 用 ``--am-endpoint [protocol://]host:port`` 指向它。
-3. 如果可用工具需要调整（比如将 ``pi0_pick`` 改成 ``mymodel_pick``），相应更新 ``robots/libero/toolkit.py``。
+3. 如果可用工具需要调整（例如将 ``pi0_pick`` 改成 ``mymodel_pick``），相应更新 LIBERO 工具集。
 
 完整流程见 :doc:`../development/add_primitive`。

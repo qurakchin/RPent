@@ -329,11 +329,11 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 任务记忆与探索模式
 ------------------
 
-使用记忆与探索模式见 :doc:`../guides/memory`。
+本节说明 RoboDojo 专属的记忆读取规则与探索参数；通用记忆工作流见 :doc:`../guides/memory`。
 
-评测时，规划器只读取记忆库中的内容，不对其进行修改。规划器参考同一任务版本在 seed 0、layout 0 上生成的 JSON 任务记录和 JSONL 动作序列，以及对应的 task-family 经验和相关 global 经验。普通版与 ``*_random`` 版本的参考文件分开使用；缺少参考时，规划器记录缺失并根据当前观测继续。其他探索场景的产物可以作为经验保留，但不是评测 prompt 的默认参考。
+评测时，规划器只读取记忆库内容，不修改文件。规划器参考同一任务版本在 seed 0、layout 0 上生成的 JSON 任务记录和 JSONL 动作序列，以及对应的 task-family 经验和相关 global 经验。普通版与 ``*_random`` 版本的参考文件分开使用；缺少参考时，规划器记录缺失并根据当前观测继续。其他探索场景的产物可以作为经验保留，但不是评测 prompt 的默认参考。
 
-使用已准备的本地记忆进行评测：
+使用已准备的本地记忆评测：
 
 .. code-block:: bash
 
@@ -358,7 +358,9 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
      --max-turns 10000 --max-episode-steps 10000 --planner-timeout-s 4800 \
      --output-dir /path/to/explore-output
 
-使用 ``--task stack_blocks_random`` 探索保存好的随机化版本。``--random`` 参数会生成新场景，因此探索模式不支持它。两个示例中的 ``--max-episode-steps 10000`` 都不会提高任务自身的原生动作步数上限。``--planner-timeout-s`` 限制每个规划会话的总耗时，包括模型推理和工具调用。
+使用 ``--task stack_blocks_random`` 探索保存好的随机化版本。``--random`` 参数会生成新场景，因此探索模式不支持它。
+
+两个示例中的 ``--max-episode-steps 10000`` 都不会提高任务自身的原生动作步数上限。``--planner-timeout-s`` 限制每个规划会话的总耗时，包括模型推理和工具调用。
 
 探索结束后，检查以下本地产物：
 

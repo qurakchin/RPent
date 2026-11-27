@@ -12,7 +12,7 @@ and their results. Environments that support action recording also capture the
 subtask instructions given to the vision-language-action (VLA) model, the actions
 the robot executes, and the corresponding observations.
 
-``rpent-flywheel`` currently exports only VLA training data. It writes samples
+``rpent-flywheel`` exports only VLA training data. It writes samples
 from successful trajectories to a LeRobot dataset for supervised fine-tuning with
 RLinf. In the evaluations below, replacing the original VLA with the fine-tuned
 model raised RPent's task success rate from 70% to 73% on LIBERO-PRO and from
@@ -27,16 +27,18 @@ assets; configure API credentials in :doc:`configure_planner`. ``robot-libero``
 requires ``tool-flywheel``, so the LIBERO environment installed from the
 installation page already carries the exporter.
 
-``./rpent-install.sh install tool-flywheel --venv .venv-flywheel`` creates an
-environment with only the exporter; it does not add the simulator.
+To export existing trajectories without installing a simulator, create a
+standalone exporter environment with
+``./rpent-install.sh install tool-flywheel --venv .venv-flywheel``.
 
 Record a Trajectory
 -------------------
 
-Recording is off by default. Recording with ``--planner claude_code`` requires
-``claude-agent-sdk 0.2.154+`` and ``Claude Code 2.1.274+``.
-LIBERO, RoboCasa365, RoboTwin, and RoboDojo record executed actions and observations
-only in evaluation mode.
+Trajectory recording is disabled by default and enabled per run with
+``--record-trajectory``. Before recording, note two constraints:
+``--planner claude_code`` requires ``claude-agent-sdk 0.2.154+`` and
+``Claude Code 2.1.274+``, and LIBERO, RoboCasa365, RoboTwin, and RoboDojo
+record executed actions and observations only in evaluation mode.
 
 Enable recording and choose a run directory:
 

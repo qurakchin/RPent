@@ -178,7 +178,7 @@ result; a step-limit episode is not a success.
 Task Memory
 -----------
 
-No published RoboLab task-memory corpus is currently provided. RPent creates
+No published RoboLab task-memory corpus is provided. RPent creates
 a local directory for RoboLab memory, which is initially empty on a fresh
 installation. It does not download a memory corpus by default. To reuse your own task
 notes, pass ``--memory-profile local --memory-dir /path/to/memory``.

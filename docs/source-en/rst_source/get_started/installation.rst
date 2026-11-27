@@ -95,15 +95,18 @@ and create a virtual environment:
    ./rpent-install.sh install robot-libero --venv .venv-libero
    source .venv-libero/bin/activate
 
-Once activated, ``rpent-install`` is available directly inside the environment.
-Pass multiple component names to compose one environment (for example,
-``model-openpi infra-rlinf`` for a standalone Pi0.5 VLA host, or
-``robot-libero infra-dev`` for development with test tools). Pass
-``--python <version>`` (such as ``3.11``) to choose a specific supported Python
-version, or ``--dry-run`` to inspect the generated requirements without
-installing.
+Once activated, ``rpent-install`` is available directly inside the environment:
 
-**PyPI Mirrors and CUDA PyTorch Backends**
+- **Compose components:** Pass multiple names to share one environment (for
+  example, ``model-openpi infra-rlinf`` for a standalone Pi0.5 VLA host, or
+  ``robot-libero infra-dev`` for development with test tools).
+- **Select Python:** Pass ``--python <version>`` (such as ``3.11``) to choose a
+  specific supported Python version.
+- **Preview requirements:** Pass ``--dry-run`` to inspect the generated
+  requirements without installing.
+
+PyPI Mirrors and CUDA PyTorch Backends
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Pass ``--index-url`` to install through a PyPI mirror, or ``--torch-backend``
 to select a PyTorch wheel index (``auto``, ``cpu``, ``cu124``, ``cu126``,
