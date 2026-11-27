@@ -52,7 +52,7 @@ def test_suite_case(
         pytest.skip("; ".join(resolved["missing"]))
 
     for key, value in resolved["env"].items():
-        if key == "LIBERO_CONFIG_PATH" and value:
+        if value.startswith(f"{case_output}/") and not Path(value).suffix:
             Path(value).mkdir(parents=True, exist_ok=True)
         monkeypatch.setenv(key, value)
 

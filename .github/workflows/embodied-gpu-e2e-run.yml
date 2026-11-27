@@ -55,7 +55,7 @@ jobs:
           uv --version
           uv cache dir
           uv python dir
-          python3 tests/tooling/run_ci_jobs.py e2e "$run_dir" "$venv_dir"
+          python3 tests/tooling/run_ci_jobs.py "$run_dir" "$venv_dir"
 
       - name: Upload suite diagnostics
         if: always()
@@ -64,6 +64,7 @@ jobs:
           name: gpu-e2e-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/*.log
+            ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/*/rpent-install.json
             ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/**/*-junit.xml
             ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/**/*server.log
             ${{ runner.temp }}/rpent-gpu-${{ env.E2E_RUN_ID }}/**/tool-coverage.json

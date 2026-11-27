@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Run simulator environment builds or GPU E2E suites concurrently in CI."""
+"""Run selected GPU E2E suites concurrently across available GPUs in CI."""
 
 from __future__ import annotations
 
@@ -68,69 +68,12 @@ def _append_summary(lines: list[str]) -> None:
         handle.write("\n".join(lines) + "\n")
 
 
-def _print_failure_tail(name: str, log_path: Path, tail_lines: int) -> None:
+def _print_failure_tail(name: str, log_path: Path, tail_lines: int = 80) -> None:
     tail = log_path.read_text(encoding="utf-8", errors="replace").splitlines()[
         -tail_lines:
     ]
     print(f"--- tail of {name}.log ---", flush=True)
     print("\n".join(tail), flush=True)
-
-
-def run_builds(components: list[str], run_dir: Path, venv_dir: Path) -> int:
-    """Build each simulator component in a fresh venv with bounded parallelism."""
-    if not components:
-        return 0
-    parallelism = int(os.environ.get("RPENT_BUILD_PARALLELISM", "2"))
-    max_workers = max(1, min(parallelism, len(components)))
-
-    def run_one(component: str) -> dict[str, Any]:
-        t0 = time.monotonic()
-        log_path = run_dir / f"{component}.log"
-        cmd = [
-            "bash",
-            RUNNER_SCRIPT,
-            f"build:{component}",
-            str(run_dir / component),
-            str(venv_dir / component),
-        ]
-        with log_path.open("w", encoding="utf-8") as log_file:
-            proc = subprocess.run(
-                cmd, stdout=log_file, stderr=subprocess.STDOUT, check=False
-            )
-        return {
-            "name": component,
-            "rc": proc.returncode,
-            "duration": int(time.monotonic() - t0),
-            "log": log_path,
-        }
-
-    results: list[dict[str, Any]] = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
-        futures = {pool.submit(run_one, comp): comp for comp in components}
-        for future in concurrent.futures.as_completed(futures):
-            res = future.result()
-            results.append(res)
-            status = "PASSED" if res["rc"] == 0 else f"FAILED (rc={res['rc']})"
-            print(
-                f"[build:{res['name']}] {status} in {res['duration']}s",
-                flush=True,
-            )
-            if res["rc"] != 0:
-                _print_failure_tail(res["name"], res["log"], tail_lines=60)
-
-    by_name = {res["name"]: res for res in results}
-    ordered = [by_name[comp] for comp in components]
-    lines = [
-        "### Simulator Environment Builds",
-        "",
-        "| Component | Status | Duration |",
-        "| --- | --- | --- |",
-    ]
-    for res in ordered:
-        badge = "passed" if res["rc"] == 0 else f"failed (rc={res['rc']})"
-        lines.append(f"| `{res['name']}` | {badge} | {res['duration']}s |")
-    _append_summary(lines)
-    return 1 if any(res["rc"] != 0 for res in ordered) else 0
 
 
 def run_e2e(suites: list[str], run_dir: Path, venv_dir: Path) -> int:
@@ -186,7 +129,7 @@ def run_e2e(suites: list[str], run_dir: Path, venv_dir: Path) -> int:
                 flush=True,
             )
             if res["rc"] != 0:
-                _print_failure_tail(res["name"], res["log"], tail_lines=80)
+                _print_failure_tail(res["name"], res["log"])
 
     by_name = {res["name"]: res for res in results}
     ordered = [by_name[suite] for suite in suites]
@@ -208,28 +151,25 @@ def run_e2e(suites: list[str], run_dir: Path, venv_dir: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("build", "e2e"))
     parser.add_argument("run_dir", type=Path)
     parser.add_argument("venv_dir", type=Path)
     parser.add_argument(
         "--targets-json",
         default=None,
-        help="JSON list of targets (defaults to COMPONENTS_JSON or SUITES_JSON).",
+        help="JSON list of suites (defaults to SUITES_JSON).",
     )
     args = parser.parse_args(argv)
 
-    env_var = "COMPONENTS_JSON" if args.mode == "build" else "SUITES_JSON"
     raw_targets = (
-        args.targets_json if args.targets_json is not None else os.environ[env_var]
+        args.targets_json
+        if args.targets_json is not None
+        else os.environ["SUITES_JSON"]
     )
-    targets = json.loads(raw_targets)
+    suites = json.loads(raw_targets)
 
     args.run_dir.mkdir(parents=True, exist_ok=True)
     args.venv_dir.mkdir(parents=True, exist_ok=True)
-
-    if args.mode == "build":
-        return run_builds(targets, args.run_dir, args.venv_dir)
-    return run_e2e(targets, args.run_dir, args.venv_dir)
+    return run_e2e(suites, args.run_dir, args.venv_dir)
 
 
 if __name__ == "__main__":

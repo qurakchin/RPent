@@ -39,7 +39,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 SUITES, OPTIONAL, _ = load_suite_maps(_REPO_ROOT)
 
 
-def targets(paths: list[str], root: Path) -> tuple[list[str], list[str]]:
+def targets(paths: list[str], root: Path) -> list[str]:
     """Map shared code to all suites and component code to its consumers."""
     suites_map, optional_map, suite_to_component = load_suite_maps(root)
     manifests = {}
@@ -103,8 +103,13 @@ def targets(paths: list[str], root: Path) -> tuple[list[str], list[str]]:
             "tests/tooling/run_ci_jobs.py",
         }:
             selected.update(suites_map)
-    builds = [component for component in suites_map if component in selected]
-    return builds, [suite for component in builds for suite in suites_map[component]]
+    suites = [
+        suite
+        for component in suites_map
+        if component in selected
+        for suite in suites_map[component]
+    ]
+    return suites
 
 
 if __name__ == "__main__":
@@ -116,8 +121,7 @@ if __name__ == "__main__":
         paths = [os.fsdecode(path) for path in raw.split(b"\0") if path]
     else:
         paths = ["rpent-install.sh"]
-    builds, suites = targets(paths, Path.cwd())
+    suites = targets(paths, Path.cwd())
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-        for label, values in (("builds", builds), ("suites", suites)):
-            print(f"{label}={json.dumps(values)}", file=output)
-            print(f"{label}: {', '.join(values) or 'none'}")
+        print(f"suites={json.dumps(suites)}", file=output)
+        print(f"suites: {', '.join(suites) or 'none'}")

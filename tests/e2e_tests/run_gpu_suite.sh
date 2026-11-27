@@ -20,7 +20,7 @@ set -euo pipefail
 unset PYTHONPATH VIRTUAL_ENV CONDA_PREFIX UV_NO_CACHE
 
 if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <suite|all|build:<component>> <output-dir> <venv-root>"
+  echo "Usage: $0 <suite|all> <output-dir> <venv-root>"
   echo "Each target installs the matching robot component into a clean environment."
   exit 2
 fi
@@ -30,7 +30,7 @@ output_dir=$2
 venv_root=$3
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 
-if [[ "$target" != build:* && ! "${CUDA_VISIBLE_DEVICES:-}" =~ ^[0-9]+$ ]]; then
+if [[ ! "${CUDA_VISIBLE_DEVICES:-}" =~ ^[0-9]+$ ]]; then
   echo "CUDA_VISIBLE_DEVICES must expose exactly one selected GPU"
   exit 1
 fi
@@ -237,31 +237,19 @@ install_test_runner() {
     uv pip install --python "$python" pytest pytest-timeout
 }
 
-build_component_env() {
-  local component=$1
-  local venv_dir="$venv_root/$component"
-
-  run_rpent_install install "$component" --venv "$venv_dir"
-  cp "$venv_dir/rpent-install.json" "$output_dir/"
-  run_rpent_install doctor --venv "$venv_dir"
-  "$venv_dir/bin/rpent" --help >/dev/null
-}
-
 run_declarative_suite() {
   local name=$1
   local venv_dir="$venv_root/$name"
   local SUITE_COMPONENT=""
   local SUITE_REINSTALL_PKG=""
-  local -a SUITE_MKDIRS=()
   local -a SUITE_POST_INSTALL_CMD=()
 
   eval "$(python3 "$repo_root/tests/e2e_tests/suite.py" shell-meta "$name" "$output_dir")"
 
-  if ((${#SUITE_MKDIRS[@]} > 0)); then
-    mkdir -p "${SUITE_MKDIRS[@]}"
-  fi
-
   run_rpent_install install "$SUITE_COMPONENT" --venv "$venv_dir"
+  cp "$venv_dir/rpent-install.json" "$output_dir/"
+  run_rpent_install doctor --venv "$venv_dir"
+  "$venv_dir/bin/rpent" --help >/dev/null
   install_test_runner "$venv_dir/bin/python"
 
   if [[ -n "$SUITE_REINSTALL_PKG" ]]; then
@@ -290,9 +278,6 @@ run_declarative_suite() {
 
 cd "$repo_root"
 case "$target" in
-  build:*)
-    build_component_env "${target#build:}"
-    ;;
   all)
     status=0
     while IFS= read -r suite; do

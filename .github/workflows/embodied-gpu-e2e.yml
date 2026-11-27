@@ -19,7 +19,6 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     outputs:
-      builds: ${{ steps.targets.outputs.builds }}
       suites: ${{ steps.targets.outputs.suites }}
     steps:
       - uses: actions/checkout@v7
@@ -32,13 +31,6 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: python3 tests/tooling/ci_targets.py "$BASE" "$GITHUB_SHA"
 
-  build:
-    needs: select
-    if: needs.select.outputs.builds != '[]'
-    uses: ./.github/workflows/environment-build.yml
-    with:
-      components: ${{ needs.select.outputs.builds }}
-
   e2e:
     needs: select
     if: needs.select.outputs.suites != '[]'
@@ -50,7 +42,7 @@ jobs:
   simulator-ci:
     name: simulator-ci
     if: always()
-    needs: [select, build, e2e]
+    needs: [select, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -58,7 +50,6 @@ jobs:
         run: |
           failed=0
           for result in 'select:${{ needs.select.result }}' \
-                        'build:${{ needs.build.result }}' \
                         'e2e:${{ needs.e2e.result }}'; do
             echo "check result: $result"
             case "${result#*:}" in

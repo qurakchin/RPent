@@ -40,23 +40,27 @@ def shared_root(environ: Mapping[str, str] | None = None) -> str:
     return env.get("RPENT_SHARED_ROOT", DEFAULT_SHARED_ROOT).rstrip("/")
 
 
+def _load_suite_file(path: Path) -> dict[str, Any]:
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    suite_name = path.stem
+    data.setdefault("suite", suite_name)
+    data.setdefault("robot", suite_name)
+    data.setdefault("optional_models", [])
+    data.setdefault("env", {})
+    data.setdefault("base_args", [])
+    data.setdefault("setup", {})
+    data.setdefault("cases", [])
+    return data
+
+
 def discover_suites(suites_dir: Path = SUITES_DIR) -> dict[str, dict[str, Any]]:
     """Load all declarative suite TOMLs sorted by suite name."""
-    suites: dict[str, dict[str, Any]] = {}
     if not suites_dir.is_dir():
-        return suites
-    for path in sorted(suites_dir.glob("*.toml"), key=lambda p: p.stem):
-        data = tomllib.loads(path.read_text(encoding="utf-8"))
-        suite_name = path.stem
-        data.setdefault("suite", suite_name)
-        data.setdefault("robot", suite_name)
-        data.setdefault("optional_models", [])
-        data.setdefault("env", {})
-        data.setdefault("base_args", [])
-        data.setdefault("setup", {})
-        data.setdefault("cases", [])
-        suites[suite_name] = data
-    return suites
+        return {}
+    return {
+        path.stem: _load_suite_file(path)
+        for path in sorted(suites_dir.glob("*.toml"), key=lambda p: p.stem)
+    }
 
 
 def load_suite(name: str, suites_dir: Path = SUITES_DIR) -> dict[str, Any]:
@@ -66,7 +70,7 @@ def load_suite(name: str, suites_dir: Path = SUITES_DIR) -> dict[str, Any]:
         raise FileNotFoundError(
             f"Unknown E2E suite {name!r}; available: {available or 'none'}"
         )
-    return discover_suites(suites_dir)[name]
+    return _load_suite_file(path)
 
 
 def resolve_value(
@@ -160,7 +164,6 @@ def resolve_case(
             **(case.get("tool_args") or {}),
         },
         "require_post_action_image": bool(case.get("require_post_action_image", False)),
-        "timeout": int(case.get("timeout", 1200)),
         "missing": missing,
     }
 
@@ -172,12 +175,6 @@ def _print_shell_meta(suite_name: str, output_dir: str) -> None:
 
     print(f"SUITE_COMPONENT={shlex.quote(suite['component'])}")
     print(f"SUITE_REINSTALL_PKG={shlex.quote(setup.get('reinstall_copy_pkg', ''))}")
-
-    mkdirs = [
-        resolve_value(p, shared=shared, output_dir=output_dir)
-        for p in (setup.get("mkdir") or [])
-    ]
-    print("SUITE_MKDIRS=(" + " ".join(shlex.quote(p) for p in mkdirs) + ")")
 
     post_cmd = [
         resolve_value(p, shared=shared, output_dir=output_dir)

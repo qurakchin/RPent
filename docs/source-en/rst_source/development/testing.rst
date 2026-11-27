@@ -3,9 +3,10 @@ Testing and CI
 
 GitHub runs CPU unit tests and reports line coverage in the test logs.
 On PR updates and pushes to ``main``, **Simulator CI** automatically selects
-environment builds and GPU end-to-end suites from the changed paths. For
-example, RLDX changes trigger RoboCasa, shared planner changes trigger all
-seven suites, and documentation-only changes skip simulator CI.
+affected GPU end-to-end suites from the changed paths, installs each component
+into a fresh virtual environment with ``rpent-install.sh``, and runs its
+suite. For example, RLDX changes trigger RoboCasa, shared planner changes
+trigger all seven suites, and documentation-only changes skip simulator CI.
 
 Each selected GPU suite exercises every advertised tool one at a time through
 the public CLI and ends by calling ``finish``.
