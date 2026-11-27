@@ -1,19 +1,14 @@
 Testing and CI
 ==============
 
-GitHub runs the CPU unit tests and reports line coverage in the test logs.
-On same-repository PRs and pushes to ``main``, **Simulator CI** selects
-environment builds and GPU suites from the changed paths. For example,
-RLDX changes select RoboCasa. Shared planner changes select all seven suites.
-Documentation-only changes select none. The workflow log also lists selected targets for fork PRs. Self-hosted runners
-execute jobs from branches in this repository.
+GitHub runs CPU unit tests and reports line coverage in the test logs.
+On PR updates and pushes to ``main``, **Simulator CI** automatically selects
+environment builds and GPU end-to-end suites from the changed paths. For
+example, RLDX changes trigger RoboCasa, shared planner changes trigger all
+seven suites, and documentation-only changes skip simulator CI.
 
-Each simulator build and GPU suite creates a fresh virtual environment and
-reuses the shared uv cache. Missing dependencies download normally.
-
-Each selected GPU job exercises every advertised tool one at a time through the
-public CLI, then calls ``finish``, and uploads ``tool-coverage.json`` alongside
-the JUnit and server logs.
+Each selected GPU suite exercises every advertised tool one at a time through
+the public CLI and ends by calling ``finish``.
 
 Test Structure
 --------------
@@ -76,6 +71,24 @@ When adding a robot under ``robots/<name>/`` (and an optional simulator under ``
 
    - Declare the install component, shared asset/model paths, and one or more ``[[cases]]`` entries (one per action-model backend).
    - CI automatically discovers every ``suites/*.toml`` file and runs all advertised tools through the public CLI.
+
+   For example, ``tests/e2e_tests/suites/robocasa.toml``:
+
+   .. code-block:: toml
+
+      component = "robot-robocasa"
+      env = { ROBOCASA_ASSETS_PATH = "assets/robocasa-kitchen" }
+
+      [[cases]]
+      name = "rldx"
+      args = [
+        "--task-name", "OpenDrawer", "--split", "target", "--seed", "0",
+        "--am-checkpoint", "models/RLDX-1-FT-RC365",
+        "--env-cuda-device", "{gpu}", "--vla-cuda-device", "{gpu}",
+      ]
+      action_tool = "rldx_skill"
+      action_count_field = "executed_steps"
+      tool_args = { rldx_skill = { max_chunks = 1, language_instruction = "open the drawer" } }
 
 See :doc:`add_robot` for the full robot integration guide.
 

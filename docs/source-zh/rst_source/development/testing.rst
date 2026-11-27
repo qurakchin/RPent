@@ -1,11 +1,9 @@
 测试与 CI
 =========
 
-GitHub 自动运行 CPU 单元测试，测试日志中包含代码行覆盖率。同仓库 PR 更新或提交合入 ``main`` 时，**Simulator CI** 根据改动选择环境构建和 GPU 测试。例如，修改 RLDX 会触发 RoboCasa，修改共享规划器会触发全部七个套件，只改文档则跳过仿真测试。来自 fork 的 PR 可以在日志中查看目标清单；自托管机器执行本仓库分支的任务。
+GitHub 自动运行 CPU 单元测试，并在日志中输出代码行覆盖率。PR 更新或提交合入 ``main`` 时，**Simulator CI** 会根据改动路径自动选择对应的仿真环境构建和 GPU 端到端测试。例如：修改 RLDX 会触发 RoboCasa，修改共享规划器会触发全部七个套件，只改文档则跳过仿真测试。
 
-仿真环境构建和 GPU 测试每次都新建虚拟环境，并复用共享 uv 缓存。缺少的依赖会正常联网下载。
-
-每个 GPU 任务都会通过公开 CLI 逐个调用当前环境提供的工具并最终调用 ``finish``，在 Actions 产物中上传 ``tool-coverage.json``、JUnit 报告与服务日志。
+每个 GPU 套件都会通过公开 CLI 依次调用当前环境暴露的全部工具并最终调用 ``finish``。
 
 
 测试结构
@@ -57,7 +55,7 @@ GitHub 自动运行 CPU 单元测试，测试日志中包含代码行覆盖率�
 接入新机器人或仿真环境
 ~~~~~~~~~~~~~~~~~~~~~~
 
-在 ``robots/<name>/`` 下新增机器人（或同时在 ``components/sim/<name>/`` 下新增仿真器）时，需补充以下三部分：
+在 ``robots/<name>/`` 下新增机器人（或同时在 ``components/sim/<name>/`` 下新增仿真器）时，需补充以下两部分：
 
 1. **离线 CPU 单元测试**\ （位于 ``tests/unit_tests/robots/<name>/``）：
 
@@ -69,6 +67,24 @@ GitHub 自动运行 CPU 单元测试，测试日志中包含代码行覆盖率�
 
    - 声明安装组件、共享资产与权重路径，以及一条或多条 ``[[cases]]``\ （每个动作模型后端对应一条用例）。
    - CI 会自动发现 ``suites/*.toml``，无需修改运行脚本或工作流配置。
+
+   例如 ``tests/e2e_tests/suites/robocasa.toml``：
+
+   .. code-block:: toml
+
+      component = "robot-robocasa"
+      env = { ROBOCASA_ASSETS_PATH = "assets/robocasa-kitchen" }
+
+      [[cases]]
+      name = "rldx"
+      args = [
+        "--task-name", "OpenDrawer", "--split", "target", "--seed", "0",
+        "--am-checkpoint", "models/RLDX-1-FT-RC365",
+        "--env-cuda-device", "{gpu}", "--vla-cuda-device", "{gpu}",
+      ]
+      action_tool = "rldx_skill"
+      action_count_field = "executed_steps"
+      tool_args = { rldx_skill = { max_chunks = 1, language_instruction = "open the drawer" } }
 
 完整的机器人接入步骤见 :doc:`add_robot`。
 
