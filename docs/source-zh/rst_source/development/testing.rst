@@ -86,6 +86,12 @@ GitHub 自动运行 CPU 单元测试，并在日志中输出代码行覆盖率�
       action_count_field = "executed_steps"
       tool_args = { rldx_skill = { max_chunks = 1, language_instruction = "open the drawer" } }
 
+   常用字段与路径约定：
+
+   - **路径展开与占位符**：``env`` 和 ``args`` 中以 ``assets/``、``models/`` 或 ``venvs/`` 开头的相对路径会自动拼接到 ``RPENT_SHARED_ROOT``\ （默认 ``/mnt/public/rpent_shared``）下；``{gpu}``、``{output_dir}`` 和 ``{env:VAR}`` 会在运行时展开，外部已导出的环境变量优先级高于 ``env`` 默认值。
+   - **自动跳过规则**：当解析后的共享路径不存在、``require_env`` 中的环境变量未设置，或 ``opt_in_env`` 未设为 ``1`` 时，该用例会自动 ``skip``。注意不能通过把路径留空（``""``）来跳过，空字符串会直接传给 CLI；若整套套件中所有用例都被跳过，则该套件判失败。
+   - **动作验收字段（均可选）**：``action_tool`` 指定必须在 ``states.json`` 中成功记录的核心动作工具名；``action_count_field`` 指定其返回结果中累加值必须 ``> 0`` 的步数/块数字段名；``require_post_action_image = true`` 断言动作执行后的下一轮请求必须包含新渲染图像；``tool_args`` 用于覆盖按 Schema 自动生成的最小参数。
+
 完整的机器人接入步骤见 :doc:`add_robot`。
 
 接入新模型
