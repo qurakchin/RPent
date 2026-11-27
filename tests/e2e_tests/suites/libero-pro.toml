@@ -24,12 +24,26 @@ tool_args = { pi0_doubled = { prompt = "perform one bounded action chunk for the
 
 [[cases]]
 name = "apxinf"
-require_env = ["RPENT_APXINF_ENDPOINT"]
 args = [
   "--env-cuda-device", "{gpu}",
   "--sam3-cuda-device", "{gpu}",
-  "--vla-endpoint", "{env:RPENT_APXINF_ENDPOINT}",
+  "--vla-endpoint", "{sidecar_endpoint}",
 ]
 action_tool = "pi0_doubled"
 action_count_field = "chunks_used"
 tool_args = { pi0_doubled = { prompt = "perform one bounded action chunk for the current task", max_chunks = 1 } }
+
+[cases.sidecar]
+endpoint_env = "RPENT_APXINF_ENDPOINT"
+cmd = [
+  "venvs/apxinf/bin/python", "-m", "components.models.apxinf.server",
+  "--embodiment", "libero",
+  "--model-path", "models/RLinf-Pi05-LIBERO-130-fullshot-SFT",
+  "--transport", "http",
+  "--host", "127.0.0.1",
+  "--port", "{port}",
+  "--cuda-device", "{gpu}",
+  "--parent-watch",
+]
+endpoint = "http://127.0.0.1:{port}"
+ready_timeout_s = 300

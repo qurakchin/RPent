@@ -17,12 +17,18 @@
 from __future__ import annotations
 
 import os
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from tests.e2e_tests.runner import publish_check, run_case, selected_cuda_ordinal
+from tests.e2e_tests.runner import (
+    publish_check,
+    run_case,
+    run_sidecar,
+    selected_cuda_ordinal,
+)
 from tests.e2e_tests.suite import load_suite, resolve_case
 
 
@@ -51,19 +57,34 @@ def test_suite_case(
     if resolved["missing"]:
         pytest.skip("; ".join(resolved["missing"]))
 
-    for key, value in resolved["env"].items():
-        if value.startswith(f"{case_output}/") and not Path(value).suffix:
-            Path(value).mkdir(parents=True, exist_ok=True)
-        monkeypatch.setenv(key, value)
-
-    result = run_case(
-        robot=resolved["robot"],
-        robot_argv=resolved["args"],
-        output_dir=case_output,
-        action_tool=resolved["action_tool"],
-        action_count_field=resolved["action_count_field"],
-        tool_args=resolved["tool_args"],
-        require_post_action_image=resolved["require_post_action_image"],
+    sidecar = resolved["sidecar"]
+    sidecar_ctx = (
+        run_sidecar(sidecar, output_dir=case_output)
+        if sidecar is not None
+        else nullcontext("")
     )
+    with sidecar_ctx as sidecar_endpoint:
+        robot_argv = [
+            arg.replace("{sidecar_endpoint}", sidecar_endpoint)
+            for arg in resolved["args"]
+        ]
+        for key, value in resolved["env"].items():
+            resolved_val = value.replace("{sidecar_endpoint}", sidecar_endpoint)
+            if (
+                resolved_val.startswith(f"{case_output}/")
+                and not Path(resolved_val).suffix
+            ):
+                Path(resolved_val).mkdir(parents=True, exist_ok=True)
+            monkeypatch.setenv(key, resolved_val)
+
+        result = run_case(
+            robot=resolved["robot"],
+            robot_argv=robot_argv,
+            output_dir=case_output,
+            action_tool=resolved["action_tool"],
+            action_count_field=resolved["action_count_field"],
+            tool_args=resolved["tool_args"],
+            require_post_action_image=resolved["require_post_action_image"],
+        )
     assert result["status"] == "passed"
     publish_check(f"{suite['suite']}_{case['name']}", result)

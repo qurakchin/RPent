@@ -119,6 +119,43 @@ def resolve_case(
                 )
 
     combined_env = {**env_src, **case_env}
+
+    raw_sidecar = case.get("sidecar")
+    sidecar: dict[str, Any] | None = None
+    external_sidecar_endpoint = ""
+    if isinstance(raw_sidecar, dict):
+        endpoint_env = str(raw_sidecar.get("endpoint_env", "")).strip()
+        if endpoint_env and combined_env.get(endpoint_env, "").strip():
+            external_sidecar_endpoint = combined_env[endpoint_env].strip()
+        else:
+            sidecar_env = {
+                key: resolve_value(
+                    str(raw),
+                    shared=shared,
+                    output_dir=out_str,
+                    gpu=gpu,
+                    environ=combined_env,
+                )
+                for key, raw in (raw_sidecar.get("env") or {}).items()
+            }
+            sidecar_cmd = [
+                resolve_value(
+                    str(token),
+                    shared=shared,
+                    output_dir=out_str,
+                    gpu=gpu,
+                    environ={**combined_env, **sidecar_env},
+                )
+                for token in (raw_sidecar.get("cmd") or [])
+            ]
+            sidecar = {
+                "cmd": sidecar_cmd,
+                "env": sidecar_env,
+                "endpoint": str(raw_sidecar.get("endpoint", "http://127.0.0.1:{port}")),
+                "ready_url": raw_sidecar.get("ready_url"),
+                "ready_timeout_s": int(raw_sidecar.get("ready_timeout_s", 300)),
+            }
+
     raw_args = [*(suite.get("base_args") or []), *(case.get("args") or [])]
     args = [
         resolve_value(
@@ -130,6 +167,14 @@ def resolve_case(
         )
         for arg in raw_args
     ]
+    if external_sidecar_endpoint:
+        args = [
+            arg.replace("{sidecar_endpoint}", external_sidecar_endpoint) for arg in args
+        ]
+        case_env = {
+            k: v.replace("{sidecar_endpoint}", external_sidecar_endpoint)
+            for k, v in case_env.items()
+        }
 
     missing: list[str] = []
     for var in case.get("require_env") or []:
@@ -146,7 +191,11 @@ def resolve_case(
 
     shared_prefix = shared + "/"
     seen_paths: set[str] = set()
-    for val in (*case_env.values(), *args):
+    resource_values: list[str] = [*case_env.values(), *args]
+    if sidecar is not None:
+        resource_values.extend(sidecar["env"].values())
+        resource_values.extend(sidecar["cmd"])
+    for val in resource_values:
         if val.startswith(shared_prefix) and val not in seen_paths:
             seen_paths.add(val)
             if not Path(val).exists():
@@ -157,6 +206,7 @@ def resolve_case(
         "robot": suite["robot"],
         "args": args,
         "env": case_env,
+        "sidecar": sidecar,
         "action_tool": case.get("action_tool"),
         "action_count_field": case.get("action_count_field"),
         "tool_args": {
