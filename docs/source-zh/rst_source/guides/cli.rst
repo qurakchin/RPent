@@ -42,7 +42,7 @@
      - 在线规划器的推理强度：``none``、``low``、``medium``、``high`` 或 ``xhigh``，实际支持取决于后端和模型。在我们的 LIBERO Pro Long 评测中，关闭 reasoning 将平均运行时间从约 13.2 分钟缩短至 7.9 分钟（约 40%）。较高强度可能提升任务成功率，但也有可能增大任务完成时间。
    * - ``--planner-timeout-s``
      - ``—``
-     - 超时值（秒）优先使用显式传入的值；未传入时按优先级取默认值，具体顺序见代码。
+     - 在线规划器运行的墙钟超时（秒；终端交互式 API/Claude 会话不受限）。默认按优先级取 ``CODEX_TIMEOUT_S``\ （仅 ``codex``）、``GEMINI_CLI_TIMEOUT_S``\ （仅 ``gemini_cli``）、``CELL_TIMEOUT_S`` 或 ``1200``。
    * - ``--codex-sandbox``
      - ``full-access``
      - Codex Shell 沙箱，可选 ``read-only``、``workspace-write`` 或 ``full-access``。其他规划器会忽略此参数。
@@ -98,7 +98,7 @@
 环境参数
 ------------
 
-LIBERO 使用 ``--suite``、``--task``、``--seed`` 和 ``--libero-type`` 选择任务；默认类型为 ``LIBERO_TYPE`` 或 ``pro``。RoboCasa365 和 RoboTwin 使用 ``--task-name``。Franka 使用 ``--task-id`` 和 ``--robot-config``。具体选项见 :doc:`../simulators/libero`、:doc:`../simulators/robocasa`、:doc:`../simulators/robotwin`、:doc:`../real_world_robots/franka` 和 :doc:`../real_world_robots/dual_franka`。
+LIBERO 使用 ``--suite``、``--task``、``--seed`` 和 ``--libero-type`` 选择任务；未指定时优先读取 ``LIBERO_TYPE``，否则按 suite 推断（基础套件为 ``standard``，扰动套件为 ``pro``）。RoboCasa365 和 RoboTwin 使用 ``--task-name``。Franka 使用 ``--task-id`` 和 ``--robot-config``。具体选项见 :doc:`../simulators/libero`、:doc:`../simulators/robocasa`、:doc:`../simulators/robotwin`、:doc:`../real_world_robots/franka` 和 :doc:`../real_world_robots/dual_franka`。
 
 ``--env-endpoint``、``--am-endpoint`` 和 LIBERO 的 ``--sam3-endpoint`` 分别连接已有的环境、动作模型（VLA 或 WAM）和 SAM3 服务。RPent RPC 地址格式为 ``[protocol://]host:port``，默认协议为 ``http``；LingBot 使用原生 WebSocket，见 :doc:`../simulators/robotwin`。GPU 分配和远程服务见 :doc:`advanced_deployment`。
 

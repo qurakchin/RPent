@@ -62,6 +62,13 @@ Ray 在启动时会捕获环境变量，因此必须先设置 node rank 再启�
    ray stop --force
    ray start --head
 
+安全要求
+--------
+
+.. warning::
+
+   开启机器人运动时，操作员必须值守在硬件急停（E-stop）旁，并在执行任何运动命令前确认工作空间净空。尝试抓取前，先用极小幅度动作验证任务 ``0``。一旦相机与状态结果不一致、目标运动未到位，或任何标定存在疑问，应立即触发急停。急停或异常停止后，先检查现场并清除障碍，复位机器人控制器后再重启会话。
+
 运行冒烟测试
 ------------
 
@@ -97,11 +104,6 @@ RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vl
 
 Franka 扩展提供 ``view_env_state``、``view_camera_meta``、``move_delta``、 ``rotate_delta``、``open_gripper``、``close_gripper`` 和 ``vla_grasp``。所有会改变环境状态的工具都会把机器人状态、腕部与外部 RGB 图像、可选的对齐深度数组和相机元数据保存到 RPent 统一的 ``EnvState`` 中。
 
-安全要求
---------
-
-操作员必须守在急停按钮旁。在尝试抓取之前，先用极小幅度动作验证任务 ``0``。一旦相机与状态结果不一致、目标运动没有到位，或任何标定存在疑问，应立即停止。
-
 .. _franka-flash:
 
 Franka Flash 任务卡
@@ -115,8 +117,9 @@ Franka Flash 任务卡
 用当前定位的锚点加上该偏移得到新目标，再减去当前 TCP 位置得到移动量。
 动作顺序保持不变，连续运动的插值仍由现有控制器负责。
 
-先按本页配置机器人及 ``perception.calibration``，启动 Molmo 服务，并记录一次
-成功操作。检查 ``states.json``，按原始步骤编号填写 ``annotations.json``::
+先按本页配置机器人及 ``perception.calibration``，启动 Molmo 服务，并记录一次成功操作。检查 ``states.json``，按原始步骤编号填写 ``annotations.json``：
+
+.. code-block:: json
 
    {
      "1": {"intent": "approach the cup rim", "phrase": "visible cup rim", "camera": "third_person"},
@@ -128,7 +131,9 @@ Franka Flash 任务卡
 ``left_wrist``、``right_wrist``。所选视角必须具有深度和有效标定。
 单步平移限制为 0.20 m，单步旋转限制为 0.35 rad。
 
-从审阅后的记录生成任务卡；此操作不连接机器人，但需要可访问的 Molmo 服务::
+从审阅后的记录生成任务卡；此操作不连接机器人，但需要可访问的 Molmo 服务：
+
+.. code-block:: bash
 
    python -m robots.franka.flash.generate \
      --robot franka --task franka_t0 \
@@ -144,7 +149,9 @@ Franka Flash 任务卡
 避免拼接不同尝试。
 双臂改用 ``--robot dual_franka --task dual_franka_t0``。
 
-在独立操作员终端中回放::
+在独立操作员终端中回放：
+
+.. code-block:: bash
 
    rpent --robot franka --planner flash --task-id 0 \
      --robot-config /path/to/robot.yaml --flash-plan plan.json \
@@ -164,6 +171,7 @@ Franka Flash 任务卡
 真机任务成功。
 
 .. _agent:
+.. _optional-agent-grounding-fallback:
 
 Flash 模式加入大模型 Agent 介入选点
 ------------------------------------------

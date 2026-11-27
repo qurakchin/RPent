@@ -2,7 +2,7 @@
 
 This file tells coding agents how to build, test, and change RPent so that the result passes CI and review. `CLAUDE.md` is a symlink to it, and [`.gemini/settings.json`](.gemini/settings.json) loads it for Gemini CLI. It holds only rules that apply across the repository: the contribution process is in [CONTRIBUTING.md](CONTRIBUTING.md), writing and documentation rules are in the docs skill's [rules](.agents/skills/docs/rules/base.md) (indexed by [docs/STYLE_GUIDE.md](docs/STYLE_GUIDE.md)), and step-by-step workflows are skills under `.agents/skills/`. When this file disagrees with the code, the code is right; fix this file in the same change.
 
-RPent is a recursive physical agent framework that coordinates high-level planners (`api`, `claude_code`, `codex`, `gemini_cli`, `flash`) with robot-owned toolkits, RPC-backed Env/VLA/perception services, shared prompts, and task memory. A run loads a robot's `RobotSpec` and `Toolkit` through `rpent/robots/base.py`, spawns or connects to its runtime services via `rpent/robots/runtime.py`, runs a planner session or Dashboard loop, and saves step artifacts and final evaluation status. User and developer documentation lives under `docs/source-en/rst_source/` and `docs/source-zh/rst_source/`.
+RPent is a recursive physical agent framework that coordinates high-level planners (`api`, `claude_code`, `codex`, `gemini_cli`, `opencode`, `flash`) with robot-owned toolkits, RPC-backed Env/VLA/perception services, shared prompts, and task memory. A run loads a robot's `RobotSpec` and `Toolkit` through `rpent/robots/base.py`, spawns or connects to its runtime services via `rpent/robots/runtime.py`, runs a planner session or Dashboard loop, and saves step artifacts and final evaluation status. User and developer documentation lives under `docs/source-en/rst_source/` and `docs/source-zh/rst_source/`.
 
 ## Working with a human submitter
 
@@ -50,7 +50,7 @@ python3 .agents/skills/docs/check.py
 
 ## Repository map
 
-- `rpent/planner/`, `rpent/session/`, `rpent/prompt/` – planner adapters (`api`, `claude_code`, `codex`, `gemini_cli`, `flash`), execution sessions, observation/step capture, and shared prompt construction.
+- `rpent/planner/`, `rpent/session/`, `rpent/prompt/` – planner adapters (`api`, `claude_code`, `codex`, `gemini_cli`, `opencode`, `flash`), execution sessions, observation/step capture, and shared prompt construction.
 - `rpent/tools/` and `rpent/memory/` – `Toolkit` container, scheduling/cancellation, common/HIL tools, and task memory sync and retrieval.
 - `rpent/robots/` and `rpent/components/` – robot discovery (`base.py`), `RobotSpec`/`RunConfig`/`PromptBundle`, shared daemon lifecycle (`runtime.py`), and shared Env/VLA/perception contracts and facades (`rpent/components/env/`, `rpent/components/models/`).
 - `rpent/cli/`, `rpent/dashboard/`, `rpent/evaluation/`, `rpent/install/`, `rpent/utils/` – CLI entry points, interactive Dashboard, run finalization, component installer (`component.toml` manifests, resolution, fingerprints), and RPC/daemon/logging helpers.
@@ -84,7 +84,7 @@ Plug into an existing contract instead of adding robot- or planner-name branches
 
 ## Tests
 
-- Mirror production layout under `tests/unit_tests/rpent/`, `tests/unit_tests/robots/<robot>/`, `tests/unit_tests/components/`, and `tests/unit_tests/skills/` (see [Testing and CI](https://rpent.readthedocs.io/en/latest/rst_source/development/testing.html)).
+- Mirror production layout under `tests/unit_tests/rpent/`, `tests/unit_tests/robots/<robot>/`, `tests/unit_tests/components/`, `tests/unit_tests/installs/`, `tests/unit_tests/tooling/`, and `tests/unit_tests/skills/` (see [Testing and CI](https://rpent.readthedocs.io/en/latest/rst_source/development/testing.html)).
 - Test observable contracts and concrete regressions offline on CPU; use real local loopback transports or fakes at external edges (LLM APIs, simulators, hardware SDKs).
 - Never weaken product code (for example replacing direct member access with `getattr`/`hasattr` or adding guard branches) so an incomplete mock or stub test passes; construct the real object or satisfy its contract in the test.
 - Never weaken or delete a failing test to make CI pass. Delete a test when you cannot name the change that would make it fail.
@@ -110,7 +110,7 @@ Skills live in `.agents/skills/<name>/SKILL.md` ([.agents/skills/README.md](.age
 |---|---|
 | Code, tests, tools, and CI: `rpent/`, `robots/`, `components/`, `tests/`, `.github/`, `pyproject.toml`, `setup.py`, any `.py` file | `code` |
 | Docs: `docs/`, `README.md`, `README.zh-CN.md`, `CONTRIBUTING.md`, `CONTRIBUTING_zh.md` | `docs` |
-| Robots, component manifests, and GPU e2e: `robots/`, `components/`, `rpent/robots/`, `pyproject.toml`, `tests/e2e_tests/`, `.github/workflows/embodied-gpu-e2e*.yml` | `robots` |
+| Robots, component manifests, and GPU e2e: `robots/`, `components/`, `rpent/robots/`, `rpent/components/`, `pyproject.toml`, `tests/e2e_tests/`, `tests/tooling/ci_targets.py`, `.github/workflows/embodied-gpu-e2e*.yml` | `robots` |
 
 | Task | Skill |
 |---|---|

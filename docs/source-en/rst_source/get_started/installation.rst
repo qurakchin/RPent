@@ -211,10 +211,24 @@ Verify that an installed virtual environment matches its manifests, passes
    ./rpent-install.sh doctor --venv .venv-libero --fingerprint
 
 ``--fingerprint`` prints the stored ``rpent-install.json`` metadata and its
-hash without running checks. If you overlaid extra packages into the
-environment (such as ``modelscope`` or a custom CUDA PyTorch wheel) and both
-``uv pip check`` and all component probes succeed, ``doctor`` reports a
-``warn`` line instead of failing.
+hash without running checks. A healthy environment prints ``ok`` lines for
+targets, installation inputs, package set, ``uv pip check``, and each component
+import probe:
+
+.. code-block:: text
+
+   ok   targets: robot-libero
+   ok   installed at: 2026-11-28T00:00:00Z
+   ok   installation inputs unchanged
+   ok   python: 3.12.11
+   ok   platform: linux-x86_64
+   ok   installed package set matches the fingerprint
+   ok   uv pip check
+   ok   probe robot-libero: import robots.libero
+
+If you overlaid extra packages into the environment (such as ``modelscope`` or
+a custom CUDA PyTorch wheel) and both ``uv pip check`` and all component probes
+succeed, ``doctor`` reports a ``warn`` line instead of failing.
 
 FAQ
 ---
@@ -235,13 +249,16 @@ LIBERO / LIBERO-PRO Missing Assets After Setting Config Path
 When ``UV_LINK_MODE=symlink`` is enabled, ``rpent-liberopro`` and
 ``rpent-libero`` files inside the virtual environment are symlinks into the
 read-only ``uv`` cache, so relative asset lookups resolve into the cache
-directory instead of the environment. Recreate the environment without
-``symlink`` mode using
-``UV_LINK_MODE=copy ./rpent-install.sh install robot-libero --venv .venv-libero --force``.
-Alternatively, copy the frozen requirement line for ``rpent-liberopro`` or
-``rpent-libero`` from ``uv pip freeze`` and reinstall it with
-``uv pip install --link-mode copy --reinstall-package <package> --no-deps "<requirement>"``
-so its files are materialized inside the virtual environment.
+directory instead of the environment. Recreate the environment in ``copy``
+mode, or materialize just the affected package from its ``uv pip freeze`` line:
+
+.. code-block:: bash
+
+   # Option 1: recreate the environment without symlink mode
+   UV_LINK_MODE=copy ./rpent-install.sh install robot-libero --venv .venv-libero --force
+
+   # Option 2: reinstall only the affected package in copy mode
+   uv pip install --link-mode copy --reinstall-package <package> --no-deps "<requirement>"
 
 Slow Installs, GitHub Clone Stalls, or Cache Lock Timeouts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

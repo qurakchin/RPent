@@ -171,7 +171,20 @@
    ./rpent-install.sh doctor --venv .venv-libero
    ./rpent-install.sh doctor --venv .venv-libero --fingerprint
 
-``--fingerprint`` 只打印环境中记录的 ``rpent-install.json`` 指纹及其哈希，不执行检查。如果在环境中额外叠加安装了其他包（例如 ``modelscope`` 或自定义 CUDA 版本的 PyTorch），只要 ``uv pip check`` 与全部组件导入探针均通过，``doctor`` 只输出 ``warn`` 提示，不会判定失败。
+``--fingerprint`` 只打印环境中记录的 ``rpent-install.json`` 指纹及其哈希，不执行检查。健康环境会在目标组件、清单输入、已安装包集合、``uv pip check`` 与各组件导入探针上均输出 ``ok``：
+
+.. code-block:: text
+
+   ok   targets: robot-libero
+   ok   installed at: 2026-11-28T00:00:00Z
+   ok   installation inputs unchanged
+   ok   python: 3.12.11
+   ok   platform: linux-x86_64
+   ok   installed package set matches the fingerprint
+   ok   uv pip check
+   ok   probe robot-libero: import robots.libero
+
+如果在环境中额外叠加安装了其他包（例如 ``modelscope`` 或自定义 CUDA 版本的 PyTorch），只要 ``uv pip check`` 与全部组件导入探针均通过，``doctor`` 只输出 ``warn`` 提示，不会判定失败。
 
 常见问题（FAQ）
 ---------------
@@ -184,7 +197,15 @@
 配置路径后 LIBERO / LIBERO-PRO 仍报找不到资源
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-开启 ``UV_LINK_MODE=symlink`` 时，环境里的 ``rpent-liberopro`` 和 ``rpent-libero`` 只是指向只读 ``uv`` 缓存的软链接。运行时按相对路径找资产会落进缓存目录，导致报错。请改用 ``UV_LINK_MODE=copy ./rpent-install.sh install robot-libero --venv .venv-libero --force`` 重建环境；也可从 ``uv pip freeze`` 取出对应包的完整依赖行，再运行 ``uv pip install --link-mode copy --reinstall-package <包名> --no-deps "<依赖行>"``，以复制模式重装并将文件写入虚拟环境。
+开启 ``UV_LINK_MODE=symlink`` 时，环境里的 ``rpent-liberopro`` 和 ``rpent-libero`` 只是指向只读 ``uv`` 缓存的软链接，运行时按相对路径找资产会落进缓存目录导致报错。可改用复制模式重建环境，或从 ``uv pip freeze`` 取出对应包的依赖行并单独以复制模式重装：
+
+.. code-block:: bash
+
+   # 方式一：以 copy 模式重建环境
+   UV_LINK_MODE=copy ./rpent-install.sh install robot-libero --venv .venv-libero --force
+
+   # 方式二：仅将对应包以 copy 模式写入虚拟环境
+   uv pip install --link-mode copy --reinstall-package <包名> --no-deps "<依赖行>"
 
 安装很慢、拉取 GitHub 卡住或并发锁超时
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
