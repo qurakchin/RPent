@@ -93,7 +93,7 @@ When adding a robot under ``robots/<name>/`` (and an optional simulator under ``
    Key TOML conventions:
 
    - **Paths and placeholders**: Any value in ``env`` or ``args`` starting with ``assets/``, ``models/``, or ``venvs/`` is resolved under ``RPENT_SHARED_ROOT`` (default ``/mnt/public/rpent_shared``). ``{gpu}``, ``{output_dir}``, and ``{env:VAR}`` expand at runtime, and already-set external environment variables override defaults in ``env``.
-   - **Automatic skips**: A case is skipped if any resolved shared path does not exist, if a variable in ``require_env`` is unset, or if ``opt_in_env`` is not set to ``1``. Setting a path to ``""`` does not skip the case; it passes an empty string to the CLI. If every case in a suite is skipped, the suite fails.
+   - **Automatic skips**: A case is skipped if any resolved shared path does not exist. Setting a path to ``""`` does not skip the case; it passes an empty string to the CLI. If every case in a suite is skipped, the suite fails.
    - **Action verification (optional)**: ``action_tool`` names the primary action tool that must succeed in ``states.json``; ``action_count_field`` names the result field whose sum must be ``> 0`` (confirming simulator steps advanced); ``require_post_action_image = true`` checks that the next planner turn receives a new image; ``tool_args`` overrides auto-generated minimal schema arguments for specific tools.
 
 See :doc:`add_robot` for the full robot integration guide.
