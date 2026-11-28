@@ -51,10 +51,10 @@ Agent 容器、运行 RPent、记录 Verifier 评分并清理容器。
      - 支持 ``eai-standard/2.2`` 与 ``2.4`` 协议。仿真器在收到 Agent 动作后推进步进。
    * - ``standard-realtime``
      - 84
-     - 暂不支持（使用 ``eai-standard/2.3`` 或 ``eai-standard-realtime/1.0`` 协议）。
+     - 不支持（使用 ``eai-standard/2.3`` 或 ``eai-standard-realtime/1.0`` 协议）。
    * - ``privileged``
      - 959
-     - 暂不支持（要求提交完整轨迹或策略文件，而非逐步交互控制）。
+     - 不支持（要求提交完整轨迹或策略文件，而非逐步交互控制）。
 
 .. note::
 

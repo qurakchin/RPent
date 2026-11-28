@@ -21,7 +21,7 @@
   <sub>RPent: 面向物理世界的智能体基础设施</sub>
 </h1>
 
-**RPent (Recursive Physical Agent)** 是一个用于构建具身智能体的开放框架，使智能体能够通过与物理世界的递归交互持续演化。RPent 并不预设单一基础模型，而是提供一个递归智能体框架，将感知、推理、记忆、执行与自我演化等异构智能统一到一个物理智能体中。通过持续交互、反思与适应，RPent 使物理智能体能够获得新的能力，并超越其初始设计不断演进。我们将 RPent 构建于**服务化**、**标准化**和**可组合**的设计原则之上，确保框架具备高度的可扩展性。
+**RPent（Recursive Physical Agent）** 是一个开源具身智能体框架，让智能体在与物理世界的递归交互中持续演进。它不绑定单一基础模型，而是将感知、推理、记忆、执行与自我演化整合进统一架构。智能体据此在交互、反思与适应中习得新能力。框架遵循**服务化**、**标准化**和**可组合**原则设计，便于按需扩展。
 
 <div align="center">
   <img src="https://github.com/RLinf/misc/raw/main/pic/rpent_framework.png" alt="RPent framework"/>
@@ -40,10 +40,10 @@ Codex / GPT-6 Astra / low / reasoning 已完成全部八套 LIBERO-PRO，**Overa
 
 RPent 面向以下四类用户：
 
-- **具身智能研究者**：希望在具身任务与基准上取得更高成功率，尤其是长程操作任务。RPent 基于记忆引导的智能体组合方案，能够显著提升任务成功率，超越单纯依赖冻结 VLA 的效果。
+- **具身智能研究者**：希望在具身任务与基准上取得更高成功率，尤其是长程操作任务。RPent 基于记忆引导的智能体组合方案，可稳定提升任务成功率，超越单纯依赖冻结 VLA 的效果。
 - **在线学习 / 强化学习研究者**：致力于研究可自我演化的具身智能体。RPent 提供的递归交互、反思与记忆蒸馏闭环，可作为在物理世界中开展持续学习与强化学习研究的现成基础。
 - **机器人应用开发者**：希望将具身方案部署到真实机器人硬件上。RPent 的服务化、标准化架构以及可定制的智能体控制逻辑，能够提升真实场景下的任务成功率，并缩短从原型到生产部署的周期。
-- **具身智能体的最终用户**：即上一类开发者所服务的用户。只需安装 RPent 及相应的真实机器人扩展，即可开箱即用地运行预定义任务，无需具备机器学习专业知识。
+- **具身智能体的最终用户**：即上一类开发者所服务的用户。安装 RPent 及对应的真实机器人扩展后即可运行预定义任务，无需具备机器学习专业知识。
 
 ## 最新动态
 
@@ -51,7 +51,7 @@ RPent 面向以下四类用户：
 - [2026/11] 🔥 RPent 支持通过 Harbor 运行 Embodied First Exam（EFE）任务，可使用 Skills 或任务原生动作。详见 [EFE 使用指南](https://rpent.readthedocs.io/zh-cn/latest/rst_source/simulators/efe.html)。
 - [2026/11] 🔥 新增[具身 RGB-D 工具包](https://rpent.readthedocs.io/zh-cn/latest/rst_source/toolkits/rgbd.html)，可从已记录的相机观测中读取三维坐标、分割物体并测量指定部位的尺寸。
 - [2026/11] 🔥 RPent 支持通过 `--mcp-config` 接入外部 Streamable HTTP MCP 服务，在所有在线规划器中调用其工具。详见 [外部 MCP 工具指南](https://rpent.readthedocs.io/zh-cn/latest/rst_source/toolkits/mcp.html)。
-- [2026/11] 🔥 新增数据飞轮。支持轨迹采集和数据清洗功能，用采集的成功轨迹对 VLA 进行监督微调后，RPent 在 RoboTwin 评测中的任务成功率从 48% 升至 72%，提高 **24 个百分点**。详见 [使用指南](https://rpent.readthedocs.io/zh-cn/latest/rst_source/guides/flywheel.html)。
+- [2026/11] 🔥 新增数据飞轮。支持轨迹采集和数据清洗功能，用采集的成功轨迹监督微调 VLA 后，RPent 在 RoboTwin 评测中的任务成功率从 48% 升至 72%，提高 **24 个百分点**。详见 [使用指南](https://rpent.readthedocs.io/zh-cn/latest/rst_source/guides/flywheel.html)。
 - [2026/10] 🔥 新增可选的 APXInf VLA endpoint 接入，参见 [部署指南](https://rpent.readthedocs.io/zh-cn/latest/rst_source/guides/advanced_deployment.html#apxinf-vla-service-optional)。
 - [2026/09] 🔥 新增交互式 RPent 排行榜，覆盖 LIBERO、LIBERO-PRO、RoboCasa365 与 RoboTwin，提供模型对比及套件汇总。查看 [排行榜](https://rpent.readthedocs.io/zh-cn/latest/rst_source/leaderboard/index.html)。
 - [2026/09] 🔥 RPent 支持 Franka 单臂与双臂真机扩展。文档：[Franka](https://rpent.readthedocs.io/zh-cn/latest/rst_source/real_world_robots/franka.html) · [Dual Franka](https://rpent.readthedocs.io/zh-cn/latest/rst_source/real_world_robots/dual_franka.html)。
@@ -160,6 +160,8 @@ liberopro-download-assets --skip-existing
 ```bash
 # Anthropic 密钥；使用官方端点时无需 export base url。
 export ANTHROPIC_API_KEY=sk-xxx
+# 可选：下载权重前先验证规划器连通性。
+rpent-check-llm --planner claude_code --model claude-opus-4-8
 
 # VLA checkpoint —— 从以下地址下载：
 # https://huggingface.co/RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT
@@ -185,8 +187,7 @@ rpent --robot libero --libero-type pro --suite libero_object_swap --task 2 --see
   --planner claude_code --model claude-opus-4-8
 ```
 
-其他规划器（`api`、`codex`、`gemini_cli`、`opencode`）与模型提供商的配置见[规划器文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/guides/configure_planner.html)。
-探索模式与本地 memory 评测详见 [LIBERO 文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/simulators/libero.html#libero-exploration)。
+运行结束时终端会打印输出目录，内含 `run.log`、`transcript_*.json` 和 `episode.mp4`；LIBERO 任务是否成功以仿真器原生 `terminated` 信号为准（不等同于规划器调用 `finish`）。预期日志与排障见 [快速开始](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/quickstart.html)，其他规划器（`api`、`codex`、`gemini_cli`、`opencode`）见 [规划器文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/guides/configure_planner.html)，探索模式与本地 memory 评测详见 [LIBERO 文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/simulators/libero.html#libero-exploration)。
 
 ### 交互模式
 
@@ -214,7 +215,7 @@ rpent --robot libero --dashboard --dashboard-language zh-cn \
 
 我们很高兴看到 RPent 已被领先企业和科研机构采用，其用户与合作伙伴包括 NVIDIA、华为、腾讯、老板电器、Z-Trans AI（Zetta 项目）、清华大学、北京大学和新加坡国立大学等。
 
-✨ 如果您觉得 RPent 对具身智能研究或机器人应用开发有所帮助，欢迎联系我们或提交 PR，将您的组织加入该列表。
+✨ 如果你觉得 RPent 对具身智能研究或机器人应用开发有所帮助，欢迎联系我们或提交 PR，将你的组织加入该列表。
 
 <div align="center">
   <img src="https://cdn.jsdelivr.net/gh/RLinf/misc@beb75d9289a0dee012004c26436f8fb1c688f310/rpent/adoption/adoption.png" alt="RPent 社区：上方为含 Z-Trans AI（Zetta 项目） 和老板电器在内的 10 家企业，下方为 22 所高校和 8 家科研机构"/>

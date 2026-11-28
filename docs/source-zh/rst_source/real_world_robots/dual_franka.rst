@@ -55,7 +55,7 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
 标定
 ----
 
-``base_camera`` 和 ``d455_camera`` 都需要标定到 **右臂基座**。可使用 ``robots/dual_franka/calibration/`` 或 ROS `easy_handeye <https://github.com/IFL-CAMP/easy_handeye>`_，最终加载格式均为 YAML。腕部相机默认仅用于观测；若使用腕部 RGBD 相机进行投影，需要配置手眼标定和投影视图。
+``base_camera`` 和 ``d455_camera`` 都需要标定到 **右臂基座**。可使用下方的内置标定工具或 ROS `easy_handeye <https://github.com/IFL-CAMP/easy_handeye>`_，最终加载格式均为 YAML。腕部相机默认仅用于观测；若使用腕部 RGBD 相机投影，需要配置手眼标定和投影视图。
 
 采集器使用 RealSense RGB 图像，支持零畸变系数或非零的 ``distortion.brown_conrady`` 系数；其他非零畸变模型会拒绝采样。
 
@@ -77,7 +77,7 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
      -DCMAKE_PREFIX_PATH=/absolute/path/to/libfranka/install
    cmake --build robots/dual_franka/calibration/build --parallel
 
-编译后得到 ``robots/dual_franka/calibration/build/read_franka_state``。标定时用它读取机械臂状态，不会移动机械臂。
+编译后会在构建目录生成 ``read_franka_state`` 可执行文件。标定时用它读取机械臂状态，不会移动机械臂。
 
 * 本机读取：读取程序与采集器在同一节点，不传 ``--ssh-host``。
 * 远程读取：用 ``--ssh-host`` 指定读取程序所在节点，并提前配置 SSH 免密登录。
@@ -123,7 +123,7 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
 
    ssh -L 8767:127.0.0.1:8767 CAMERA_HOST
 
-标定 D455 时复用采集命令，将序列号改为 ``D455_SERIAL``、URL 改为 ``http://127.0.0.1:8765/raw/d455``、输出目录改为 ``robots/dual_franka/calibration/sessions/d455-to-right``。
+标定 D455 时复用采集命令，将序列号改为 ``D455_SERIAL``、URL 改为 ``http://127.0.0.1:8765/raw/d455``，并将 ``--output`` 中的会话目录改为 ``d455-to-right``。
 
 **3. 求解并导出**
 
@@ -135,11 +135,7 @@ RPent 通过 RLinf ``RealWorldEnv`` worker 控制双节点双臂 Franka 系统�
      robots/dual_franka/calibration/sessions/base-to-right/base_camera_extrinsic_candidate.json \
      --output robots/dual_franka/calibration/exports/base_to_right.yaml
 
-D455 使用同样步骤，将会话目录和输出文件改为 ``d455-to-right`` 和
-``d455_to_right.yaml``。检查会话中的 ``quality_report.json``，并通过独立实物
-测量验证候选外参；求解成功或导出 YAML 不代表精度已验证。导出不会覆盖已有文件。
-重新求解后，导出时使用新文件名，例如 ``robots/dual_franka/calibration/exports/base_to_right_v2.yaml``。
-验证新结果后，再更新 ``perception.calibration`` 中的文件路径。
+D455 使用同样步骤，将会话目录和输出文件改为 ``d455-to-right`` 和 ``d455_to_right.yaml``。检查会话中的 ``quality_report.json``，并通过独立实物测量验证候选外参；求解成功或导出 YAML 不代表精度已验证。导出不会覆盖已有文件。重新求解后，导出时使用新文件名，例如 ``robots/dual_franka/calibration/exports/base_to_right_v2.yaml``。验证新结果后，再更新 ``perception.calibration`` 中的文件路径。
 
 **4. 配置 RPent**
 
@@ -155,16 +151,11 @@ D455 使用同样步骤，将会话目录和输出文件改为 ``d455-to-right``
 通过下文的 ``--robot-config`` 加载配置。
 保留并核对 ``perception.base_frames`` 和定位边界；本工具不会自动标定左右基座关系。
 
-腕部投影为可选功能。在示例配置中取消 ``perception.calibration`` 和
-``perception.projection_views`` 下腕部条目的注释，并配置具有对齐深度和 RGB
-内参的 RGBD 相机。每份腕部标定 YAML 顶层需包含 ``arm: left`` 或 ``arm: right``，
-设置 ``parameters.eye_on_hand: true``，并将
-``parameters.robot_effector_frame`` 设置为 ``left_ee_O_T_EE`` 或
-``right_ee_O_T_EE``。``transformation`` 将相机坐标转换到对应末端坐标系。
-RPent 将其与所选快照中的末端位姿组合；若位姿使用 ``left_base``，还会应用
-配置的基座变换，最终输出 ``right_base`` 坐标。快照 TCP 位姿必须对应 O_T_EE，
-并声明基座坐标系。默认的 Lumos 观测相机不会自动启用 RGBD 投影；选择腕部锚点前
-必须完成这些配置。
+腕部投影为可选功能。默认的 Lumos 观测相机不会自动启用 RGBD 投影，选择腕部锚点前须先完成以下配置：
+
+- **启用配置与相机**：在示例配置中取消 ``perception.calibration`` 和 ``perception.projection_views`` 下的腕部条目注释，并配置具备对齐深度与 RGB 内参的 RGBD 相机。
+- **标定 YAML 字段**：每份腕部标定 YAML 顶层须包含 ``arm: left`` 或 ``arm: right``，并设置 ``parameters.eye_on_hand: true`` 与 ``parameters.robot_effector_frame``\ （``left_ee_O_T_EE`` 或 ``right_ee_O_T_EE``），其中 ``transformation`` 将相机坐标转换到对应末端坐标系。
+- **坐标转换要求**：快照 TCP 位姿须对应 ``O_T_EE`` 并声明基座坐标系。RPent 将其与腕部外参组合（若位姿使用 ``left_base``，还会叠加已配置的基座变换），最终统一输出 ``right_base`` 坐标。
 
 标定结束后，停止本次标定启动的全部相机服务、采集器和机器人状态读取程序，再启动 RPent。
 
@@ -264,7 +255,7 @@ Codex 配置
 启动双节点 Ray 集群
 --------------------
 
-启动 Ray 前，在两个节点分别激活安装好的 ``.venv-dual-franka-real``。``robots/dual_franka/runtime_config.py`` 的默认部署为：
+启动 Ray 前，在两个节点分别激活安装好的 ``.venv-dual-franka-real``。默认的双节点部署为：
 
 * 节点 ``0`` 是 Ray head：运行 RPent、环境 worker、左臂及夹爪控制器、base 相机和左腕相机。额外的 D455 由 RPent 在此本地打开；按需启动的本地 VLA、SAM3 服务也运行在这里。
 * 节点 ``1`` 是 Ray worker：运行右臂及夹爪控制器和右腕相机，需要安装环境并启动 Ray，但不需要另起 RPent runner。
@@ -301,7 +292,11 @@ RLinf 按配置的节点创建相机句柄，不会跨节点搜索被移动的 U
    python robots/dual_franka/dual_franka_manual_call.py --list-primitives
    python robots/dual_franka/dual_franka_manual_call.py --schema vla_right_grasp
 
-未指定服务地址时，脚本自动启动并连接所需服务，无需手动填写端口；退出时只关闭本次启动的服务。传入 ``--env-endpoint``、``--am-endpoint`` 或 ``--sam3-endpoint`` 可复用已有服务。连接已有 Env 不会复位。若新启动 Env，手动动作前先请求场景确认并执行一次复位；显式调用手动 ``reset`` 也会等待确认。列出技能和查看参数不启动服务。
+服务生命周期与复位规则：
+
+- **自动启停与复用**：未指定服务地址时，脚本自动启动并连接所需服务，无需手动填写端口，退出时只关闭本次启动的服务；传入 ``--env-endpoint``、``--am-endpoint`` 或 ``--sam3-endpoint`` 可复用已有服务。
+- **复位条件**：连接已有 Env 不会复位；新启动 Env 执行手动动作前会先请求场景确认并复位一次，显式调用手动 ``reset`` 同样需要确认。
+- **只读查询**：列出技能和查看参数不会启动服务。
 
 例如，先看 schema，再执行左臂小幅平移：
 

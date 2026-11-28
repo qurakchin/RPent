@@ -76,7 +76,7 @@ Calibration
 -----------
 
 Both ``base_camera`` and ``d455_camera`` must be calibrated against the
-**right-arm base**. Use ``robots/dual_franka/calibration/`` or ROS
+**right-arm base**. Use the bundled calibration scripts below or ROS
 `easy_handeye <https://github.com/IFL-CAMP/easy_handeye>`_; both export YAML.
 Wrist cameras are observation-only in the default configuration. To use a
 wrist RGBD camera for projection, configure its calibration and projection view
@@ -108,7 +108,7 @@ configuration. Then compile the state reader:
      -DCMAKE_PREFIX_PATH=/absolute/path/to/libfranka/install
    cmake --build robots/dual_franka/calibration/build --parallel
 
-The build produces ``robots/dual_franka/calibration/build/read_franka_state``. Calibration
+The build produces the ``read_franka_state`` binary in the calibration build directory. Calibration
 uses it to read robot state without moving the arm.
 
 * Local reader: omit ``--ssh-host`` when the reader and collector run on the same node.
@@ -162,8 +162,8 @@ address above:
    ssh -L 8767:127.0.0.1:8767 CAMERA_HOST
 
 For D455, reuse the collection command with serial ``D455_SERIAL``, URL
-``http://127.0.0.1:8765/raw/d455``, and output directory
-``robots/dual_franka/calibration/sessions/d455-to-right``.
+``http://127.0.0.1:8765/raw/d455``, and ``d455-to-right`` as the session
+directory name under ``--output``.
 
 **3. Fit and export**
 
@@ -198,18 +198,20 @@ Load this configuration with ``--robot-config`` below. Preserve and verify
 ``perception.base_frames`` and localization bounds; these tools do not calibrate
 the relationship between the two arm bases.
 
-Wrist projection is optional. Uncomment the wrist entries under
-``perception.calibration`` and ``perception.projection_views`` in the example
-configuration, and configure RGBD cameras with aligned depth and color intrinsics.
-Each wrist calibration YAML needs ``arm: left`` or ``arm: right`` at the top
-level, ``parameters.eye_on_hand: true``, and
-``parameters.robot_effector_frame: left_ee_O_T_EE`` or ``right_ee_O_T_EE``.
-Its ``transformation`` maps camera coordinates into that end-effector frame.
-RPent combines it with the selected snapshot's end-effector pose and, for poses
-in ``left_base``, the configured base-frame transform, to produce ``right_base``
-points. Snapshot TCP poses must represent O_T_EE and declare their base frame.
-The default Lumos observation cameras are not automatically enabled for RGBD
-projection; selecting a wrist anchor requires this configuration.
+Wrist projection is optional. The default Lumos observation cameras do not enable
+RGBD projection automatically; complete these steps before selecting a wrist anchor:
+
+- **Enable cameras and config**: Uncomment the wrist entries under
+  ``perception.calibration`` and ``perception.projection_views`` in the example
+  configuration, and attach RGBD cameras with aligned depth and color intrinsics.
+- **Calibration YAML fields**: Include top-level ``arm: left`` or ``arm: right``,
+  ``parameters.eye_on_hand: true``, and
+  ``parameters.robot_effector_frame: left_ee_O_T_EE`` or ``right_ee_O_T_EE``.
+  Its ``transformation`` maps camera coordinates into that end-effector frame.
+- **Coordinate frame rules**: Snapshot TCP poses must represent ``O_T_EE`` and
+  declare their base frame. RPent combines the pose with the wrist transform—and
+  the configured base-frame transform when the pose is in ``left_base``—to
+  produce ``right_base`` points.
 
 After calibration, stop all camera services, collectors, and robot-state readers
 started for calibration before starting RPent.
@@ -349,7 +351,7 @@ Start the Two-node Ray Cluster
 ------------------------------
 
 Activate the installed ``.venv-dual-franka-real`` on each node before starting Ray. The default
-placement in ``robots/dual_franka/runtime_config.py`` is:
+two-node placement is:
 
 * Node ``0`` is the Ray head: it runs RPent, the environment worker, the
   **left** arm/gripper controller, the base camera and the left wrist camera.
@@ -394,13 +396,17 @@ skill. From the repository root:
    python robots/dual_franka/dual_franka_manual_call.py --list-primitives
    python robots/dual_franka/dual_franka_manual_call.py --schema vla_right_grasp
 
-Without service addresses, the script starts and connects to the required
-services automatically; no port selection is needed. It stops only the services
-it started when it exits. Supply ``--env-endpoint``, ``--am-endpoint`` or
-``--sam3-endpoint`` to reuse an existing service. Attaching to an existing Env
-does not reset it. With a newly started Env, a manual action first requests
-scene confirmation and performs one reset. An explicit manual ``reset`` also
-waits for confirmation. Listing tools and printing schemas never starts services.
+Service lifecycle and reset behavior:
+
+- **Auto-start and reuse**: Without service addresses, the script starts and
+  connects to required services automatically (no port selection needed) and
+  stops only the services it started on exit. Pass ``--env-endpoint``,
+  ``--am-endpoint``, or ``--sam3-endpoint`` to reuse an existing service.
+- **Reset rules**: Attaching to an existing Env does not reset it. With a newly
+  started Env, a manual action first requests scene confirmation and performs
+  one reset; an explicit manual ``reset`` also waits for confirmation.
+- **Read-only inspection**: Listing tools and printing schemas never starts
+  services.
 
 For example, check the schema before running a small left-arm translation:
 

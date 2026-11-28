@@ -208,13 +208,16 @@ and SAM3 setup above. Pi0.5 weights are not needed for WAM. With Cosmos on port 
 
 Fast-WAM uses ``--am-backend fast-wam`` and its worker endpoint. For LIBERO-Pro,
 select a Pro suite and ``--libero-type pro`` in a Pro environment. WAM excludes
-LIBERO-Plus, Flash and exploration. WAM uses a required local memory manager
-and file tools, with a backend-specific directory that may be empty.
-Use ``--memory-dir`` to select a compatible local corpus; HF memory is unsupported.
+LIBERO-Plus, Flash, and exploration.
+
+WAM uses a required local memory manager and file tools, with a backend-specific
+directory that may be empty. Use ``--memory-dir`` to select a compatible local
+corpus; HF memory is unsupported.
+
 ``wam_act(prompt=None, max_chunks=1)`` replaces the Pi0.5 tools and executes one
 to four chunks with fresh observations. The worker's ``chunk_size`` metadata
-declares the number of actions per chunk. A prompt override applies to
-that call only. Chunk budgets do not specify where to stop inside a chunk.
+declares the number of actions per chunk. A prompt override applies to that call
+only, and chunk budgets do not specify where to stop inside a chunk.
 
 View Results
 ------------
@@ -288,21 +291,17 @@ What Runs Where
 LIBERO separates simulation and model inference into services. The toolkit
 uses their clients to execute the planner's requests.
 
-- **env_server** (``components/sim/libero/env_server.py``) — owns the LIBERO
-  MuJoCo env and EGL rendering. Exposes ``reset``, ``step``,
-  ``chunk_step``, ``render_camera``, ``get_camera_meta``, … over an RPC
-  transport (HTTP by default; socket via ``--transport socket``).
-- **vla_server** (``components/models/openpi/server.py``) — owns the Pi0.5
-  weights. Exposes ``predict`` over the same RPC transport (HTTP or
-  socket).
-- **sam3_server** (``components/models/sam3/server.py``) — loads SAM 3.0 and
-  segments a target region from a text description or one pixel on the target
-  object. If the model produces multiple candidates, it selects the one with
-  the highest model score and returns its mask as a compressed PNG through the
-  same RPC transports (HTTP or socket).
-- **toolkit** (``robots/libero/toolkit.py``) — defines the tools the
-  LLM can call: ``pi0_pick`` (fed to Pi0.5), ``move_to``,
-  ``rotate_wrist``, ``back_project``, ``view_env_state``,
+- **env_server** — owns the LIBERO MuJoCo environment and EGL rendering, serving
+  environment resets, action stepping, camera rendering, and camera metadata over
+  RPC (HTTP by default; socket via ``--transport socket``).
+- **vla_server** — holds the Pi0.5 weights and serves action prediction over the
+  same RPC transport (HTTP or socket).
+- **sam3_server** — loads SAM 3.0 and segments a target region from a text
+  description or one pixel on the target object. If the model produces multiple
+  candidates, it selects the one with the highest model score and returns its
+  mask as a compressed PNG through the same RPC transports (HTTP or socket).
+- **toolkit** — exposes the tools the planner can call: ``pi0_pick`` (fed to
+  Pi0.5), ``move_to``, ``rotate_wrist``, ``back_project``, ``view_env_state``,
   ``finish``, …
 
 Tools the Planner Can Call
@@ -352,10 +351,10 @@ Bringing Your Own VLA
 If you have a LIBERO-compatible VLA that is not Pi0.5, swap the model
 client without touching the robot by:
 
-1. Writing a new ``vla_server.py`` that exposes the same ``predict``
-   RPC contract (over HTTP or socket).
+1. Writing a new model service that exposes the same ``predict`` RPC contract
+   (over HTTP or socket).
 2. Pointing at it with ``--am-endpoint [protocol://]host:port``.
-3. Optionally updating ``robots/libero/toolkit.py`` if the tool
-   surface (e.g. ``pi0_pick`` → ``mymodel_pick``) needs to change.
+3. Optionally updating the LIBERO toolkit if the tool surface (for example,
+   ``pi0_pick`` → ``mymodel_pick``) needs to change.
 
 See :doc:`../development/add_primitive` for the full walkthrough.

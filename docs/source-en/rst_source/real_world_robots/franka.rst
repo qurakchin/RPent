@@ -110,7 +110,7 @@ correctly. To run it, launch RPent with task ``0``:
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
-RPent starts ``robots/franka/env_server.py`` with the current interpreter,
+RPent starts the Franka environment server with the current interpreter,
 loads the RPent robot config, generates the internal RLinf adapter config,
 connects to Ray, waits for ``healthz``, and records the initial state as step
 ``0``.
@@ -119,9 +119,9 @@ VLA Grasp Demo
 --------------
 
 RPent provides a demo that uses a VLA to grasp objects. Task ``1`` exposes
-``vla_grasp``. Single Franka currently requires a compatible external VLA
-service whose observation layout, action layout, checkpoint, and normalization
-statistics match the current Franka training configuration:
+``vla_grasp``. Single Franka requires a compatible external VLA service whose
+observation layout, action layout, checkpoint, and normalization statistics
+match the current Franka training configuration:
 
 .. code-block:: bash
 
@@ -130,9 +130,9 @@ statistics match the current Franka training configuration:
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
-The VLA server must be deployed separately for now. Without
-``--am-endpoint``, analytic motion and gripper tools remain available, but
-``vla_grasp`` raises a runtime error.
+The VLA server must be deployed separately. Without ``--am-endpoint``,
+analytic motion and gripper tools remain available, but ``vla_grasp`` raises a
+runtime error.
 
 Tools and Artifacts
 -------------------
@@ -159,7 +159,9 @@ Action order is fixed; interpolation remains the existing controller's responsib
 
 First configure the robot and ``perception.calibration`` using the setup above,
 start a Molmo service, and record a successful run. Review ``states.json`` and
-write ``annotations.json`` keyed by the source step number::
+write ``annotations.json`` keyed by the source step number:
+
+.. code-block:: json
 
    {
      "1": {"intent": "approach the cup rim", "phrase": "visible cup rim", "camera": "third_person"},
@@ -172,7 +174,9 @@ Every translation needs a semantic anchor; every rotation needs an intent and
 The selected view must have depth and valid calibration. Keep each recorded
 translation within 0.20 m and each rotation within 0.35 rad.
 
-Generate a plan offline from the reviewed recording (Molmo must be reachable)::
+Generate a plan offline from the reviewed recording (Molmo must be reachable):
+
+.. code-block:: bash
 
    python -m robots.franka.flash.generate \
      --robot franka --task franka_t0 \
@@ -181,16 +185,22 @@ Generate a plan offline from the reviewed recording (Molmo must be reachable)::
      --molmo-endpoint http://localhost:9000 --destination plan.json
 
 Confirm the source success when prompted. The generator rejects unsupported
-commands and does not overwrite an existing destination. It stores hashes of
-the robot configuration and calibration files. New recordings save
-``recording_fingerprint.json``; generation rejects missing fingerprints or
-configuration/calibration changes since recording before localizing anchors.
-Re-record after such changes; older recordings without provenance cannot be used.
-Replay also checks the plan against the current files. Known observation/verdict
-records and an initial confirmed scene reset are excluded from the plan; resets
-after task actions are rejected to prevent combining attempts. Dual Franka uses ``--robot dual_franka --task dual_franka_t0``.
+commands and does not overwrite an existing destination. For dual Franka, pass
+``--robot dual_franka --task dual_franka_t0``.
 
-Replay from a dedicated operator terminal::
+New recordings save ``recording_fingerprint.json`` with hashes of the robot
+configuration and calibration files. Before localizing anchors, generation
+rejects recordings that lack a fingerprint or whose configuration or
+calibration changed since recording; re-record after such changes. Replay also
+verifies the plan against the current files.
+
+Known observation/verdict records and an initial confirmed scene reset are
+excluded from the plan, while resets after task actions are rejected to avoid
+combining separate attempts.
+
+Replay from a dedicated operator terminal:
+
+.. code-block:: bash
 
    rpent --robot franka --planner flash --task-id 0 \
      --robot-config /path/to/robot.yaml --flash-plan plan.json \
@@ -258,4 +268,4 @@ agent point-selection requests are not included in the Flash planner's counts.
 Stop the Run
 ------------
 
-Press Ctrl+C in the terminal to request RPent shutdown; use the hardware emergency stop for an emergency. Check the arm and gripper before shutting down services through the controller’s shutdown procedure.
+Press Ctrl+C in the terminal to stop RPent normally. For any emergency, use the hardware emergency stop. Check the arm and gripper before shutting down services through the controller's shutdown procedure.

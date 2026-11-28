@@ -109,7 +109,7 @@ LIBERO 的任务成功以最终环境状态的顶层 ``terminated`` 为准，可
    * - 模型服务连接失败
      - 检查 Key、模型访问权限和服务地址，重新运行 ``rpent-check-llm``。
    * - 资源下载失败
-     - 重新运行下载命令。访问 Hugging Face 较慢时，可为相应命令设置 ``HF_ENDPOINT=https://hf-mirror.com``。
+     - 重新运行下载命令。访问 Hugging Face 较慢时，可在下载命令前加上 ``HF_ENDPOINT=https://hf-mirror.com``。
    * - 环境或模型启动失败
      - 先检查两个 checkpoint 路径，再查看 ``env_server.log``、``vla_server.log`` 或 ``sam3_server.log``；显存不足时检查其他 GPU 进程。
    * - 任务运行但未成功

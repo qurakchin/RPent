@@ -121,35 +121,35 @@ directory, defaulting to the RPent checkout; Cosmos Policy requires its source
 directory.
 
 Cosmos Policy, Cosmos3 and Fast-WAM use the ``local`` memory profile with memory file tools and a
-backend-specific directory; ``--memory-dir`` overrides it. WAM currently rejects
-HF memory, Flash and exploration for these backends. UniWAM retains RoboTwin
+backend-specific directory; ``--memory-dir`` overrides it. These backends reject
+HF memory, Flash, and exploration. UniWAM retains RoboTwin
 exploration and memory selection; see :doc:`../simulators/robotwin`. See
 :doc:`../development/add_action_model` for model launch options and supported pairs.
 
 ``--predict-future`` enables future-state/value outputs during local deployment.
-Currently only Cosmos Policy supports this option; other backends reject it.
+Only Cosmos Policy supports this option; other backends reject it.
 Configure it when starting the worker if connecting with ``--am-endpoint``.
 RPent does not yet use these outputs for planning.
 
-``--am-cuda-device`` selects the local model GPU independently of the simulator.
-Local model deployment is supported by LIBERO, RoboTwin, RoboCasa, RoboDojo and
-dual-Franka. Franka and YAM connect to externally deployed VLA services;
-select their GPU when deploying the service.
-LIBERO, RoboTwin, RoboCasa and RoboDojo use ``--env-cuda-device`` for the environment.
-LIBERO, RoboDojo and dual-Franka use ``--sam3-cuda-device`` for local SAM3.
-These services may share a GPU when memory permits. External endpoints
-use the GPU configuration set when their services were started.
-The original ``--cuda-device`` option remains a shared default for local services.
-Per-service options take precedence, independent of argument order; without either
-option, services inherit ``CUDA_VISIBLE_DEVICES``. For example,
+Local services can share a GPU when memory permits, or bind to separate GPUs with per-service flags:
+
+- ``--am-cuda-device``: local model GPU (supported by LIBERO, RoboTwin, RoboCasa, RoboDojo, and dual-Franka).
+- ``--env-cuda-device``: local simulator GPU (LIBERO, RoboTwin, RoboCasa, and RoboDojo).
+- ``--sam3-cuda-device``: local SAM3 GPU (LIBERO, RoboDojo, and dual-Franka).
+
+``--cuda-device`` remains a shared default for local services, while per-service
+options take precedence regardless of argument order; without either option,
+services inherit ``CUDA_VISIBLE_DEVICES`` (for example,
 ``--cuda-device 0 --am-cuda-device 1`` starts the environment and SAM3 on GPU 0
-and the WAM worker on GPU 1.
-Standalone service commands retain their own ``--cuda-device`` where supported.
+and the WAM worker on GPU 1). External endpoints—including Franka and YAM VLA
+services—use the GPU configured when those services were started, and standalone
+service commands retain their own ``--cuda-device`` where supported.
+
 ``rpent --robot libero --am-backend fast-wam --help`` groups connection,
-local deployment and selected-model options. Model-specific options retain
-their model prefix; options for another model are rejected. The action-model guide separates
-one-time worker deployment from repeated task commands and includes examples
-for both external services and workers started by RPent.
+local deployment, and selected-model options. Model-specific options retain
+their model prefix, and options for another model are rejected. The action-model
+guide separates one-time worker deployment from repeated task commands and
+includes examples for both external services and workers started by RPent.
 
 The following defaults apply to LIBERO; check each other environment’s ``--help`` for its defaults.
 

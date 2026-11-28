@@ -21,7 +21,7 @@
   <sub>RPent: Agentic Infrastructure for the Physical World</sub>
 </h1>
 
-**RPent (Recursive Physical Agent)** is an open framework for building embodied agents that continuously evolve through recursive interaction with the physical world. Rather than prescribing a single foundation model, RPent provides a recursive agent framework that harnesses heterogeneous intelligence, including perception, reasoning, memory, execution, and self-evolution, into a unified physical agent. Through continuous interaction, reflection, and adaptation, RPent enables physical agents to acquire new capabilities and evolve beyond their initial design. We build RPent upon a foundation of **service-oriented**, **standardized**, and **composable** design principles, ensuring the framework remains highly extensible.
+**RPent (Recursive Physical Agent)** is an open framework for embodied agents that improve through recursive interaction with the physical world. Rather than prescribing a single foundation model, RPent integrates perception, reasoning, memory, execution, and self-evolution into one architecture so agents acquire new capabilities through interaction and reflection. Designed around **service-oriented**, **standardized**, and **composable** principles, it is straightforward to extend across simulators, models, and real robots.
 
 <div align="center">
   <img src="https://github.com/RLinf/misc/raw/main/pic/rpent_framework.png" alt="RPent framework"/>
@@ -160,6 +160,8 @@ See the [installation docs](https://rpent.readthedocs.io/en/latest/rst_source/ge
 ```bash
 # Anthropic key; no need to export the base url if you use the official endpoint.
 export ANTHROPIC_API_KEY=sk-xxx
+# Optional: verify planner connectivity before downloading weights.
+rpent-check-llm --planner claude_code --model claude-opus-4-8
 
 # VLA checkpoint — download from
 # https://huggingface.co/RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT
@@ -185,8 +187,7 @@ rpent --robot libero --libero-type pro --suite libero_object_swap --task 2 --see
   --planner claude_code --model claude-opus-4-8
 ```
 
-See the [planner docs](https://rpent.readthedocs.io/en/latest/rst_source/guides/configure_planner.html) to configure other planners (`api`, `codex`, `gemini_cli`, `opencode`) and model providers.
-For the exploration workflow and local-memory evaluation, see [LIBERO exploration mode](https://rpent.readthedocs.io/en/latest/rst_source/simulators/libero.html#libero-exploration).
+Each run prints its output directory containing `run.log`, `transcript_*.json`, and `episode.mp4`; LIBERO task success is determined by the simulator's native `terminated` signal (distinct from the planner's `finish` call). See the [Quickstart guide](https://rpent.readthedocs.io/en/latest/rst_source/get_started/quickstart.html) for expected logs and troubleshooting, the [planner docs](https://rpent.readthedocs.io/en/latest/rst_source/guides/configure_planner.html) for other planners (`api`, `codex`, `gemini_cli`, `opencode`), and [LIBERO exploration mode](https://rpent.readthedocs.io/en/latest/rst_source/simulators/libero.html#libero-exploration) for local-memory evaluation.
 
 ### Interactive CLI mode
 

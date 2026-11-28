@@ -59,11 +59,11 @@ LIBERO 的适配器按相机名（``agentview`` 或 ``wrist``）和步号读取 
 
 .. dropdown:: 观测适配器接口与工具注册示例
 
-   接入仿真器或真机时，由该平台的观测适配器实现 ``get_observation(camera=..., step=...)``，通过一个 ``components.tools.rgbd.observation.GeometryObservation`` 对象返回指定相机在该步的 RGB 图像和对应的三维数据。适配器可以直接提供与图像对齐的世界坐标图，给出每个像素对应的三维坐标（单位为米），也可以提供与图像对齐的光轴深度图（单位为米），并附上相机内参和相机到世界坐标系的变换。
+   接入仿真器或真机时，由该平台的观测适配器实现 ``get_observation(camera=..., step=...)``，返回指定相机在该步的 RGB 图像和对应的三维数据。适配器可以直接提供与图像对齐的世界坐标图，给出每个像素对应的三维坐标（单位为米），也可以提供与图像对齐的光轴深度图（单位为米），并附上相机内参和相机到世界坐标系的变换。
 
    用 ``back_project`` 按高度筛选采样点时，适配器还需提供世界坐标系的向上方向 ``up_direction``。用 ``geometry`` 测量 ``query`` 中描述的物体时，观测适配器需要同时提供 ``up_direction`` 和相机位姿 ``camera_to_world``。若有多台标定相机，可实现 ``additional_observations(primary)``，提供同一步、同一世界坐标系的其他视角。
 
-   在平台的 ``toolkit`` 中注册工具前，先准备观测适配器 ``observations``、当前会话的状态对象 ``state``\ （``EnvState`` 实例）和已初始化的分割客户端 ``segmenter``。
+   在平台的 ``toolkit`` 中注册工具前，先准备观测适配器 ``observations``、当前会话的环境状态对象 ``state`` 和已初始化的分割客户端 ``segmenter``。
 
    下面的示例在平台初始化 ``toolkit`` 时注册 ``back_project`` 和 ``segment``，供规划器在任务中调用。只使用这两个工具时，将 ``grounder`` 设为 ``None``。提供 ``grounder`` 时，还会注册 ``geometry``。
 
@@ -87,5 +87,6 @@ LIBERO 的适配器按相机名（``agentview`` 或 ``wrist``）和步号读取 
               grounder=grounder, check_cancelled=toolkit.raise_if_cancelled,
           )
           toolkit.add_tool(geometry.geometry)
+          # 若新 episode 从相同步号重新计数且沿用同一实例，请在新 episode 开始时调用 geometry.reset_cache()。
 
-   ``geometry`` 会缓存当前观测步的测量结果。如果新 episode 会从相同的步号重新计数，且沿用同一个几何工具实例，请在新 episode 开始时调用 ``geometry.reset_cache()`` 清除旧缓存。
+   ``geometry`` 会缓存当前观测步的测量结果。如果新 episode 会从相同的步号重新计数，且沿用同一个几何工具实例，请在新 episode 开始时清除旧缓存。

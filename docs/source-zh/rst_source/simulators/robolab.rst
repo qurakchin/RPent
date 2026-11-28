@@ -147,7 +147,7 @@ RoboLab
 任务记忆
 --------
 
-目前没有公开提供的 RoboLab 任务记忆库。RPent 会创建本地 RoboLab 记忆目录，全新安装时该目录为空，默认不下载记忆库。传入 ``--memory-profile local --memory-dir /path/to/memory`` 可复用自己的任务笔记。也可通过 ``--memory-repo owner/repo@revision``，将指定 Hugging Face 数据集的 ``robolab/`` 子目录下载到 RPent 记忆缓存；不要与 ``--memory-profile local`` 或 ``--memory-dir`` 同时使用。RoboLab 暂不支持 RPent 探索模式。
+尚无公开的 RoboLab 任务记忆库。RPent 会创建本地 RoboLab 记忆目录，首次安装时该目录为空，默认不下载记忆库。传入 ``--memory-profile local --memory-dir /path/to/memory`` 可复用自己的任务笔记。也可通过 ``--memory-repo owner/repo@revision``，将指定 Hugging Face 数据集的 ``robolab/`` 子目录下载到 RPent 记忆缓存；不要与 ``--memory-profile local`` 或 ``--memory-dir`` 同时使用。RoboLab 不支持 RPent 探索模式。
 
 问题排查
 --------

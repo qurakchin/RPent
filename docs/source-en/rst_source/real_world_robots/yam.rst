@@ -174,8 +174,9 @@ own model, you can also provide an RLinf checkpoint directory containing
 When deploying to a different physical robot, we recommend collecting new data and
 retraining the model.
 
-The VLA service uses ``pi05_yam_joint`` with camera order ``top/left/right``. Each call
-executes the first five action steps.
+The VLA service runs ``pi05_yam_joint`` with cameras ordered ``top/left/right``
+and executes the first five action steps per call; match this camera ordering
+when configuring your cameras or deploying a custom checkpoint.
 
 .. _yam-training:
 

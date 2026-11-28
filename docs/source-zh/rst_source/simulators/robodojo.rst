@@ -329,11 +329,11 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 任务记忆与探索模式
 ------------------
 
-使用记忆与探索模式见 :doc:`../guides/memory`。
+本节说明 RoboDojo 专属的记忆读取规则与探索参数；通用记忆工作流见 :doc:`../guides/memory`。
 
-评测时，规划器只读取记忆库中的内容，不对其进行修改。规划器参考同一任务版本在 seed 0、layout 0 上生成的 JSON 任务记录和 JSONL 动作序列，以及对应的 task-family 经验和相关 global 经验。普通版与 ``*_random`` 版本的参考文件分开使用；缺少参考时，规划器记录缺失并根据当前观测继续。其他探索场景的产物可以作为经验保留，但不是评测 prompt 的默认参考。
+评测时，规划器只读取记忆库内容，不修改文件。规划器参考同一任务版本在 seed 0、layout 0 上生成的 JSON 任务记录和 JSONL 动作序列，以及对应的 task-family 经验和相关 global 经验。普通版与 ``*_random`` 版本的参考文件分开使用；缺少参考时，规划器记录缺失并根据当前观测继续。其他探索场景的产物可以作为经验保留，但不是评测 prompt 的默认参考。
 
-使用已准备的本地记忆进行评测：
+使用已准备的本地记忆评测：
 
 .. code-block:: bash
 
@@ -358,7 +358,9 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
      --max-turns 10000 --max-episode-steps 10000 --planner-timeout-s 4800 \
      --output-dir /path/to/explore-output
 
-使用 ``--task stack_blocks_random`` 探索保存好的随机化版本。``--random`` 参数会生成新场景，因此探索模式不支持它。两个示例中的 ``--max-episode-steps 10000`` 都不会提高任务自身的原生动作步数上限。``--planner-timeout-s`` 限制每个规划会话的总耗时，包括模型推理和工具调用。
+使用 ``--task stack_blocks_random`` 探索保存好的随机化版本。``--random`` 参数会生成新场景，因此探索模式不支持它。
+
+两个示例中的 ``--max-episode-steps 10000`` 都不会提高任务自身的原生动作步数上限。``--planner-timeout-s`` 限制每个规划会话的总耗时，包括模型推理和工具调用。
 
 探索结束后，检查以下本地产物：
 
@@ -376,7 +378,7 @@ SAM3 用于物体分割。先在 `facebook/sam3 模型页面 <https://huggingfac
 使用 ``--task`` 选择任务。固定场景通过 ``--seed`` 选择官方布局组，通过 ``--layout`` 选择组内布局，两者默认均为 ``0``。例如，``--task stack_blocks --seed 0 --layout 2`` 使用第 0 组的第 2 个布局。需要随机生成场景时，添加 ``--random``，此时 ``--layout`` 不生效。
 
 - ``--env-cuda-device``、``--am-cuda-device``、``--sam3-cuda-device``：分别选择本地服务的 GPU；省略时回退到 ``--cuda-device``，再沿用 ``CUDA_VISIBLE_DEVICES``。
-- ``--am-backend``：选择动作模型，目前支持 ``vpp2``\ （默认）或 ``awomo05``。
+- ``--am-backend``：选择动作模型，支持 ``vpp2``\ （默认）或 ``awomo05``。
 - ``--am-checkpoint``：指向包含 ``policy/`` 和 ``checkpoints/`` 的资源根目录，覆盖所选后端的 ``VPP2_MODEL_PATH`` 或 ``AWOMO05_MODEL_PATH``。
 - ``--env-endpoint``、``--sam3-endpoint``、``--am-endpoint``：连接已有 RPent RPC 服务；VLA 协议必须匹配所选后端。
 - ``--source-root``：使用本地 RoboDojo 源码替代包内源码。

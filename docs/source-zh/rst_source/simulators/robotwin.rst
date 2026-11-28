@@ -191,7 +191,7 @@ Fast-WAM 配置
      --am-backend fast-wam --am-endpoint http://127.0.0.1:8117 \
      --memory-profile local --planner api --model <planner-model>
 
-``wam_act(prompt=None, max_chunks=1)`` 替换 ``lingbot_act``；每个 chunk 通过 ``action_type="qpos"`` 执行 worker 配置的 ``execute_steps`` 个动作。Fast-WAM 必须启用本地记忆管理器和文件工具，默认目录按后端区分，语料允许为空；可通过 ``--memory-dir`` 指定兼容的本地语料，目前不支持 HF 记忆和探索。任务成功由原生 ``eval_success`` 判断。下文的 LingBot 和 HF 记忆流程适用于 VLA 路径。
+``wam_act(prompt=None, max_chunks=1)`` 替换 ``lingbot_act``；每个 chunk 通过 ``action_type="qpos"`` 执行 worker 配置的 ``execute_steps`` 个动作。Fast-WAM 必须启用本地记忆管理器和文件工具，默认目录按后端区分，语料允许为空；可通过 ``--memory-dir`` 指定兼容的本地语料，不支持 HF 记忆和探索。任务成功由原生 ``eval_success`` 判断。下文的 LingBot 和 HF 记忆流程适用于 VLA 路径。
 
 运行一个任务
 ------------
@@ -212,7 +212,7 @@ Fast-WAM 配置
 
 .. note::
 
-   ``--seed`` 是 RoboTwin 的精确场景随机种子。使用标准 ``demo_randomized`` 配置进行评测时，请从 `RoboTwin evaluation suite <https://github.com/RLinf/RPent/blob/main/components/sim/robotwin/eval/demo_randomized.json>`_ 中选择当前任务对应的 5 个已验证 seed。
+   ``--seed`` 是 RoboTwin 的精确场景随机种子。使用标准 ``demo_randomized`` 配置评测时，请从 `RoboTwin evaluation suite <https://github.com/RLinf/RPent/blob/main/components/sim/robotwin/eval/demo_randomized.json>`_ 中选择当前任务对应的 5 个已验证 seed。
 
    这些 seed 已通过 RoboTwin expert 执行筛选；无法稳定初始化或 expert 执行未成功的候选 seed 已被跳过。自定义运行仍可显式指定表中没有的其他 seed。
 
@@ -306,7 +306,7 @@ HF 语料选择
 CLI 与 Dashboard 默认继续使用 HF ``main`` 的未分版本 ``robotwin/`` 语料。
 如需显式选择已发布的子目录，添加
 ``--memory-profile hf --memory-version <语料目录名>``，读取
-``robotwin/<语料目录名>/``。目前不预设模型与语料的映射。
+``robotwin/<语料目录名>/``。不预设模型与语料的映射。
 可用 ``--memory-repo owner/dataset@revision`` 选择其他数据集或版本。
 离线评测前先下载对应子目录，再使用
 ``--memory-profile local --memory-dir <下载的语料目录>``，不传

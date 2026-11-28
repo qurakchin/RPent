@@ -30,7 +30,7 @@ order:
 
 1. Register the ``RobotSpec`` and toolkit factory in the
    :ref:`entry point <add-robot-entry>` and declare ``component.toml``.
-2. Implement :ref:`env_client and env_server <add-robot-env-rpc>`. To
+2. Implement :ref:`the environment adapter <add-robot-env-rpc>`. To
    integrate a VLA service and model client, see :ref:`Add a VLA (or other
    model-based primitive) <add-primitive-model-based>`.
 3. :ref:`Define the prompts <add-robot-prompts>`.
@@ -241,11 +241,12 @@ in §5.
 
 .. _add-robot-env-rpc:
 
-1. ``env_client.py`` + ``env_server.py``
------------------------------------------
+1. Environment Adapter
+----------------------
 
-These files connect the agent process to ``env_server``. The client converts
-method calls into RPC requests, and ``env_server`` handles those requests.
+The adapter exposes the environment to the agent over RPC using ``env_client.py``
+and ``env_server.py``. The client converts method calls into RPC requests, and
+the server-side facade handles those requests.
 
 1.1 Env Client (agent Side)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -327,12 +328,13 @@ teardown.
 
 .. _add-robot-prompts:
 
-2. ``prompt_bundle.py``
------------------------
+2. Prompts
+----------
 
-Define two prompt factories, ``system_prompt()`` and ``user_prompt()``, and
-build a ``PromptBundle(system=system_prompt, user=user_prompt)`` in the
-robot's ``robot_spec.py`` (see the entry point above). Each factory returns an ordered
+Prompt factories belong in ``prompt_bundle.py``. Define two factories,
+``system_prompt()`` and ``user_prompt()``, and build a
+``PromptBundle(system=system_prompt, user=user_prompt)`` in the robot's
+``robot_spec.py`` (see the entry point above). Each factory returns an ordered
 ``dict[str, PromptNode]`` of titled sections; ``PromptBundle.render`` assembles
 and fills them. One prompt serves every planner (API loop, Claude Code, Codex):
 refer to tools by their bare names (``move_to``, ...) and note once that the
@@ -370,13 +372,13 @@ render time.
 
 .. _add-robot-toolkit:
 
-3. ``toolkit.py``
-------------------
+3. Native Tools and Toolkit
+---------------------------
 
-This module owns the tool schemas, primitives, per-step state records, and
-the list of tools available through MCP. LIBERO splits these between
-``tools.py`` and ``toolkit.py``; a new robot may keep them in one
-``toolkit.py`` module.
+``toolkit.py`` (optionally alongside ``tools.py``) owns the tool schemas,
+primitives, per-step state records, and the list of tools available through
+MCP. LIBERO keeps the two pieces separate; a new robot may start with one
+module.
 
 A toolkit module typically contains four pieces:
 
@@ -593,8 +595,7 @@ cannot leave a partial result:
        )
 
 Register the callback as ``RobotSpec(..., finalize_run=_finalize_run)``. This
-hook is currently limited to normal terminal runs; the Dashboard does not call
-it. Keep benchmark manifests, robot-specific runtime fields, and aggregation
+hook is limited to normal terminal runs; the Dashboard does not call it. Keep benchmark manifests, robot-specific runtime fields, and aggregation
 logic in the robot package rather than the shared CLI.
 
 .. _add-robot-testing:

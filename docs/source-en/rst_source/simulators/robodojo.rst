@@ -392,7 +392,8 @@ concurrent runs. For live monitoring, see :doc:`../guides/dashboard`.
 Task Memory and Exploration Mode
 --------------------------------
 
-For instructions on using memory and exploration mode, see :doc:`../guides/memory`.
+This section covers RoboDojo-specific memory layout and exploration flags; see
+:doc:`../guides/memory` for the general memory workflow.
 
 During evaluation, the planner reads the memory corpus without modifying it.
 The planner references
@@ -439,6 +440,7 @@ then run:
 
 Use ``--task stack_blocks_random`` to explore the saved randomized variant.
 The ``--random`` flag generates a new scene and is unavailable in exploration.
+
 In both examples, ``--max-episode-steps 10000`` does not increase the task's
 native action limit. ``--planner-timeout-s`` limits the total duration of each
 planner session, including reasoning and tool calls.
