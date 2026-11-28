@@ -386,8 +386,21 @@ def _prepare_destination(
 ) -> Path | None:
     """Validate ``destination`` and optionally move it aside for rebuild."""
     _check_not_non_venv_path(destination)
-    if force or destination.with_name(f".{destination.name}.replacing").exists():
+    if force:
         return _replace(destination)
+
+    # Restore a backup left by an interrupted rebuild before inspecting the
+    # destination so the closure-mismatch guard below still protects against
+    # overwriting a different environment without `--force`.
+    backup = destination.with_name(f".{destination.name}.replacing")
+    if backup.exists():
+        if destination.exists():
+            if not (destination / "pyvenv.cfg").is_file():
+                raise InstallError(
+                    f"{destination} is not a virtualenv; refusing to replace it"
+                )
+            shutil.rmtree(destination)
+        backup.rename(destination)
 
     python = venv_python(destination)
     if (destination / "pyvenv.cfg").is_file() and not python.exists():

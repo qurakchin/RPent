@@ -244,7 +244,7 @@ When using external MCP servers via ``--mcp-config``, ``MCP_CALL_TIMEOUT_S`` (po
 Output Files
 ------------
 
-``--output-dir`` selects the run directory. It must be empty or not yet exist: RPent claims the directory by creating ``run.json`` exclusively and rejects reuse with ``already records a run``. Without ``--output-dir``, LIBERO writes to ``logs/<timestamp>_<suite>_t<task>_s<seed>/`` under the repository; other environments describe their directory names on their own pages.
+``--output-dir`` selects the run directory. RPent claims the directory by creating ``run.json`` exclusively and rejects reuse of a directory that already contains ``run.json`` with ``already records a run`` (a non-empty directory without ``run.json`` logs a warning). Without ``--output-dir``, LIBERO writes to ``logs/<timestamp>_<suite>_t<task>_s<seed>/`` under the repository; other environments describe their directory names on their own pages.
 
 The table uses LIBERO as an example. Files depend on the environment, recording, and run outcome.
 
@@ -254,7 +254,7 @@ The table uses LIBERO as an example. Files depend on the environment, recording,
    * - File or path
      - Purpose
    * - ``run.json``
-     - Run manifest: installation snapshot, output artifact paths, and unified verdict fields (``accepted``, ``retryable``, ``failure_category``, ``stop_reason``, ``truth_source``).
+     - Run manifest: installation snapshot, output artifact paths, ``error`` / ``artifact_error``, and unified verdict fields (``accepted``, ``retryable``, ``failure_category``, ``stop_reason``, ``truth_source``).
    * - ``transcript.json``
      - Planner conversation, tool calls, ``recipe_tag``, verdict fields, and completion status.
    * - ``trajectories/<task_id>/``
@@ -287,10 +287,10 @@ Evaluation runs map the unified verdict recorded in ``run.json`` to the process 
    * - Code
      - Meaning
    * - ``0``
-     - The environment or operator verdict accepted the run (``accepted: true``) with no artifact write failure.
+     - The environment or operator verdict accepted the run (``accepted: true``) with no ``artifact_error``.
    * - ``1``
-     - The task failed (``accepted: false``), a planner/runtime error occurred, or writing run artifacts failed (``artifact_error``).
+     - The task failed (``accepted: false``), the run had no verdict with a planner/runtime error (``accepted: null`` and non-null ``error``), or writing run artifacts failed (``artifact_error``).
    * - ``75``
-     - The run finished without a verdict (``accepted: null``, ``retryable: true``) — for example, a hidden-success benchmark or an unjudged real-robot evaluation — and may be retried or graded externally.
+     - The run finished cleanly without a verdict (``accepted: null``, ``error: null``, no ``artifact_error``, ``retryable: true``) — for example, a hidden-success benchmark or an unjudged real-robot evaluation — and may be retried or graded externally.
 
 Exploration runs (``--explore``) publish a corpus rather than an evaluation verdict, so they exit ``0`` unless a planner, runtime, or artifact error occurred (``1``).

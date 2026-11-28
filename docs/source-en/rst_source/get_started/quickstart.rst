@@ -81,16 +81,17 @@ Run task ``2`` in ``libero_object_swap`` with scene seed ``0``:
      --planner claude_code --model claude-opus-4-8 \
      --output-dir ./logs/first-libero-pro
 
-The terminal shows environment, VLA, and SAM3 service startup, followed by planner messages and tool calls. Inspect ``logs/first-libero-pro/`` when the run ends. Choose a new output directory for later runs to preserve this record.
+The terminal shows environment, VLA, and SAM3 service startup, followed by planner messages and tool calls. Inspect ``logs/first-libero-pro/`` when the run ends. Use a new ``--output-dir`` for each run: reusing a directory that already contains ``run.json`` fails with ``already records a run``.
 
 5. Inspect the Result
 ---------------------
 
+- ``run.json``: check the run manifest and native verdict fields (``accepted``, ``stop_reason``, ``failure_category``).
 - ``episode.mp4``: replay the robot’s actions.
-- ``transcript.json``: inspect planner messages, tool calls, and the finish state.
+- ``transcript.json``: inspect planner messages, tool calls, ``environment_success``, and the finish state.
 - ``run.log``: inspect runtime messages and errors.
 
-For LIBERO, success is the top-level ``terminated`` value in the final environment state, available in the result of ``view_env_state(step=-1)``. The planner’s ``finish`` status alone does not establish environment success.
+For LIBERO evaluation runs, read the native success verdict from ``run.json`` (``accepted``) or ``transcript.json`` (``environment_success``). In evaluation mode, ``view_env_state`` exposes only ``episode_over`` and withholds ``terminated``; the planner’s ``finish`` status alone does not establish environment success.
 
 See :ref:`run-output-files` for default directory names, exported action sequences, and step artifacts.
 

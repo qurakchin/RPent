@@ -83,11 +83,13 @@ Planner
 
 用 ``@tool`` 声明函数或方法，参数类型注解和 Google 风格 docstring 提供 schema 与说明；``@tool(readonly=True)`` 允许只读工具并行执行，并跳过动作后的状态采集。处理函数返回 ``ToolResult(data=..., images=...)``：``data`` 保存 JSON 数据，按需包含 ``error`` 或 ``_finish``；``images`` 保存 PNG 字节。
 
-``ToolResult`` 还包含 ``call_ok`` 与 ``no_execution`` 两个调用级标记。调用在到达工具前被拒绝时（未知工具、参数不匹配 schema 或签名、``ToolRejected`` 前置拒收、``ToolLimitExceeded`` 或调度前取消），框架会设置 ``call_ok=False`` 和 ``no_execution=True``，并由 ``to_dict()`` 一并输出。
+``ToolResult`` 还通过 ``call_ok`` 与 ``no_execution`` 区分不同层级的失败：
 
-若工具执行中抛出未捕获异常（或结果序列化失败），框架设置 ``call_ok=False`` 但保持 ``no_execution=False``，因为环境可能已发生变化。工具正常执行并在载荷中返回 ``error`` 时，``call_ok`` 保持为 ``True``。``ToolResult.is_error`` 统一汇总 ``not call_ok`` 与载荷中的 ``error``。
+- **执行前拒收**\ （``call_ok=False``、``no_execution=True``）：未知工具、参数不匹配 schema 或签名、``ToolRejected`` 前置拒收、``ToolLimitExceeded`` 或调度前取消；工具未执行，``to_dict()`` 会同时输出两个标记。
+- **执行异常或序列化失败**\ （``call_ok=False``、``no_execution=False``）：工具函数抛出未捕获异常或结果无法序列化，此时环境可能已发生变化。
+- **载荷错误**\ （``call_ok=True``）：工具正常执行，但在 ``data`` 中返回了 ``error``。
 
-``Toolkit.solved()`` 返回 ``bool | None``，以区分“尚未判定”（``None``）与“判定失败”（``False``）。
+``ToolResult.is_error`` 汇总 ``not call_ok`` 与载荷中的 ``error``。回合结束且在途工具排空后，运行器调用 ``Toolkit.solved() -> bool | None`` 获取任务判定，区分“尚未判定”（``None``）与“判定失败”（``False``）。
 
 必须传入 ``MemoryManager``，基类始终注册公共文件工具和 ``finish``。子类 ``super().__init__()`` 后追加本机器人工具即可。逐步状态与 ``view_env_state`` 见 :doc:`add_primitive`。
 

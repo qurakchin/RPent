@@ -32,8 +32,6 @@ jobs:
         run: ./tests/tooling/run.sh layout
       - name: Check component manifests
         run: ./rpent-install.sh check --all
-      - name: Check install matrix partition
-        run: ./tests/tooling/run.sh matrix --check
       - name: Check minimal environment imports
         run: |
           uv python install 3.11

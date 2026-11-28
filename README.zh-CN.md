@@ -187,7 +187,7 @@ rpent --robot libero --libero-type pro --suite libero_object_swap --task 2 --see
   --planner claude_code --model claude-opus-4-8
 ```
 
-运行结束时终端会打印输出目录，内含 `run.log`、`transcript_*.json` 和 `episode.mp4`；LIBERO 任务是否成功以仿真器原生 `terminated` 信号为准（不等同于规划器调用 `finish`）。预期日志与排障见 [快速开始](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/quickstart.html)，其他规划器（`api`、`codex`、`gemini_cli`、`opencode`）见 [规划器文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/guides/configure_planner.html)，探索模式与本地 memory 评测详见 [LIBERO 文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/simulators/libero.html#libero-exploration)。
+运行结束时终端会打印输出目录，内含 `run.json`、`run.log`、`transcript.json` 和 `episode.mp4`；LIBERO 任务是否成功以记录在 `run.json` 与 `transcript.json` 中的仿真器原生 `terminated` 信号为准（不等同于规划器调用 `finish`）。预期日志与排障见 [快速开始](https://rpent.readthedocs.io/zh-cn/latest/rst_source/get_started/quickstart.html)，其他规划器（`api`、`codex`、`gemini_cli`、`opencode`）见 [规划器文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/guides/configure_planner.html)，探索模式与本地 memory 评测详见 [LIBERO 文档](https://rpent.readthedocs.io/zh-cn/latest/rst_source/simulators/libero.html#libero-exploration)。
 
 ### 交互模式
 

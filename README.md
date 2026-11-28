@@ -187,7 +187,7 @@ rpent --robot libero --libero-type pro --suite libero_object_swap --task 2 --see
   --planner claude_code --model claude-opus-4-8
 ```
 
-Each run prints its output directory containing `run.log`, `transcript_*.json`, and `episode.mp4`; LIBERO task success is determined by the simulator's native `terminated` signal (distinct from the planner's `finish` call). See the [Quickstart guide](https://rpent.readthedocs.io/en/latest/rst_source/get_started/quickstart.html) for expected logs and troubleshooting, the [planner docs](https://rpent.readthedocs.io/en/latest/rst_source/guides/configure_planner.html) for other planners (`api`, `codex`, `gemini_cli`, `opencode`), and [LIBERO exploration mode](https://rpent.readthedocs.io/en/latest/rst_source/simulators/libero.html#libero-exploration) for local-memory evaluation.
+Each run prints its output directory containing `run.json`, `run.log`, `transcript.json`, and `episode.mp4`; LIBERO task success is determined by the simulator's native `terminated` signal recorded in `run.json` / `transcript.json` (distinct from the planner's `finish` call). See the [Quickstart guide](https://rpent.readthedocs.io/en/latest/rst_source/get_started/quickstart.html) for expected logs and troubleshooting, the [planner docs](https://rpent.readthedocs.io/en/latest/rst_source/guides/configure_planner.html) for other planners (`api`, `codex`, `gemini_cli`, `opencode`), and [LIBERO exploration mode](https://rpent.readthedocs.io/en/latest/rst_source/simulators/libero.html#libero-exploration) for local-memory evaluation.
 
 ### Interactive CLI mode
 

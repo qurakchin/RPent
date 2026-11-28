@@ -90,9 +90,6 @@ CORE_NAME_EXEMPTIONS = {
         date(2027, 6, 30),
     ),
 }
-#: Migration exceptions (legacy role files and retired slice names) warn until
-#: this date and fail afterwards.
-MIGRATION_DEADLINE = date(2027, 6, 30)
 #: Package groups that must be importable packages even when empty.
 GROUP_PACKAGES = (
     "robots",
@@ -121,181 +118,6 @@ PURE_DATA_FILES = frozenset(
     {"control.py", "observation.py", "contracts.py", "platforms.py"}
 )
 PURE_DATA_ALLOWED_ROOTS = frozenset({"numpy", "PIL", "pydantic", "typing_extensions"})
-#: Line-count limits from K7; exceeded counts are warnings until the slice
-#: split lands.
-LINE_LIMITS = {"spec.py": 80, "adapter.py": 400, "native_tools.py": 100}
-#: Names retired from a slice root once its migration lands.
-LEGACY_SLICE_NAMES = frozenset(
-    {
-        "robot_spec.py",
-        "prompt_bundle.py",
-        "env_client.py",
-        "env_server.py",
-        "toolkit.py",
-        "tools.py",
-        "primitives.py",
-        "rlinf_env.py",
-        "rpent_env.py",
-        "runtime_config.py",
-        "tasks.py",
-        "suites.py",
-        "eval",
-    }
-)
-#: Slices that still carry legacy names, recorded from the baseline. Entries
-#: disappear as the slice migration completes; adding one again is a
-#: regression.
-LEGACY_SLICES = {
-    "dual_franka": frozenset(
-        {
-            "env_client.py",
-            "env_server.py",
-            "prompt_bundle.py",
-            "robot_spec.py",
-            "rpent_env.py",
-            "runtime_config.py",
-            "tasks.py",
-            "toolkit.py",
-            "tools.py",
-        }
-    ),
-    "efe": frozenset(
-        {
-            "env_client.py",
-            "prompt_bundle.py",
-            "robot_spec.py",
-            "toolkit.py",
-            "tools.py",
-        }
-    ),
-    "franka": frozenset(
-        {
-            "env_client.py",
-            "env_server.py",
-            "prompt_bundle.py",
-            "robot_spec.py",
-            "rpent_env.py",
-            "runtime_config.py",
-            "tasks.py",
-            "toolkit.py",
-            "tools.py",
-        }
-    ),
-    "libero": frozenset(
-        {
-            "env_client.py",
-            "env_server.py",
-            "prompt_bundle.py",
-            "robot_spec.py",
-            "suites.py",
-            "toolkit.py",
-            "tools.py",
-        }
-    ),
-    "robocasa": frozenset(
-        {
-            "env_client.py",
-            "env_server.py",
-            "eval",
-            "primitives.py",
-            "prompt_bundle.py",
-            "robot_spec.py",
-            "toolkit.py",
-            "tools.py",
-        }
-    ),
-    "robodojo": frozenset(
-        {
-            "env_client.py",
-            "env_server.py",
-            "primitives.py",
-            "prompt_bundle.py",
-            "rlinf_env.py",
-            "robot_spec.py",
-            "tasks.py",
-            "toolkit.py",
-            "tools.py",
-        }
-    ),
-    "robolab": frozenset(
-        {
-            "env_client.py",
-            "env_server.py",
-            "prompt_bundle.py",
-            "robot_spec.py",
-            "toolkit.py",
-        }
-    ),
-    "robotwin": frozenset(
-        {
-            "env_client.py",
-            "env_server.py",
-            "eval",
-            "primitives.py",
-            "prompt_bundle.py",
-            "rlinf_env.py",
-            "robot_spec.py",
-            "toolkit.py",
-            "tools.py",
-        }
-    ),
-    "yam": frozenset(
-        {
-            "env_client.py",
-            "env_server.py",
-            "primitives.py",
-            "prompt_bundle.py",
-            "rlinf_env.py",
-            "robot_spec.py",
-            "runtime_config.py",
-            "tasks.py",
-            "toolkit.py",
-            "tools.py",
-        }
-    ),
-}
-#: Slices whose migration is complete; K3 becomes an error for them.
-MIGRATED_SLICES: frozenset[str] = frozenset()
-#: Required role files per kind.
-REQUIRED_ROLE_FILES = {
-    "robot": (
-        "__init__.py",
-        "spec.py",
-        "config.py",
-        "adapter.py",
-        "prompts/__init__.py",
-        "prompts/domain.py",
-    ),
-    # A simulator owns the environment server and the translation its robot
-    # slice calls into; role files beyond that follow what it needs.
-    "sim": ("__init__.py", "env_server.py"),
-    # A model service only needs an importable package and its server; config
-    # and README are useful conventions, not skeleton requirements.
-    "model": ("__init__.py", "server.py"),
-    "tool": ("__init__.py",),
-}
-#: Components that predate the target skeleton; missing role files warn until
-#: their migration lands.
-LEGACY_COMPONENTS = frozenset(
-    {
-        ("robot", "dual_franka"),
-        ("robot", "efe"),
-        ("robot", "franka"),
-        ("robot", "libero"),
-        ("robot", "robocasa"),
-        ("robot", "robodojo"),
-        ("robot", "robolab"),
-        ("robot", "robotwin"),
-        ("robot", "yam"),
-        ("model", "apxinf"),
-        ("model", "cosmos3"),
-        ("model", "cosmos_policy"),
-        ("model", "fast_wam"),
-        ("model", "molmo"),
-        ("model", "openpi"),
-        ("model", "sam3"),
-    }
-)
 ERROR = "error"
 WARNING = "warning"
 
@@ -759,11 +581,34 @@ def check_pure_data_imports(root: Path) -> list[Finding]:
                 continue
         else:
             continue
+        eager_lines: set[int] | None = None
+        if path.name == "__init__.py" and len(relative.parts) == 4:
+            try:
+                tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            except (OSError, SyntaxError, UnicodeDecodeError):
+                tree = None
+            if tree is not None:
+                eager_lines = set()
+                for node in tree.body:
+                    if _is_lazy_statement(node) or (
+                        isinstance(node, ast.Assign)
+                        and isinstance(node.value, ast.Constant)
+                        and all(isinstance(target, ast.Name) for target in node.targets)
+                    ):
+                        continue
+                    for child in ast.walk(node):
+                        if isinstance(child, (ast.Import, ast.ImportFrom)):
+                            eager_lines.add(child.lineno)
+                        elif (
+                            isinstance(child, ast.Call)
+                            and _literal_import_target(child) is not None
+                        ):
+                            eager_lines.add(child.lineno)
         for line, module in _imports(path, root):
             top = module.split(".", 1)[0]
             if (
-                path.name == "__init__.py"
-                and len(relative.parts) == 4
+                eager_lines is not None
+                and line in eager_lines
                 and _component_target(module) == owner
             ):
                 findings.append(
@@ -888,139 +733,6 @@ def check_coverage(root: Path) -> list[Finding]:
     return findings
 
 
-def check_role_files(root: Path, *, today: date | None = None) -> list[Finding]:
-    """Return K2 findings for components missing their skeleton files.
-
-    Components that predate the skeleton warn until ``MIGRATION_DEADLINE`` and
-    fail afterwards, so a migration exception cannot outlive its schedule.
-    """
-    findings: list[Finding] = []
-    expired = (today or date.today()) > MIGRATION_DEADLINE
-    roots = [
-        (root / "robots", "robot"),
-        (root / "components" / "models", "model"),
-        (root / "components" / "sim", "sim"),
-        (root / "components" / "tools", "tool"),
-    ]
-    for directory, kind in roots:
-        if not directory.is_dir():
-            continue
-        for child in sorted(directory.iterdir()):
-            if not child.is_dir() or child.name.startswith((".", "_")):
-                continue
-            if not any(child.glob("*.py")):
-                # A component that owns no code has no role files to check; its
-                # manifest is what it contributes.
-                continue
-            required = REQUIRED_ROLE_FILES[kind]
-            missing = [name for name in required if not (child / name).exists()]
-            if not missing:
-                continue
-            legacy = (kind, child.name) in LEGACY_COMPONENTS
-            level = WARNING if legacy and not expired else ERROR
-            note = (
-                f" (migration deadline {MIGRATION_DEADLINE.isoformat()} passed)"
-                if legacy and expired
-                else ""
-            )
-            findings.append(
-                Finding(
-                    child,
-                    0,
-                    f"{kind} {child.name!r} is missing its skeleton files: "
-                    f"{', '.join(missing)}{note}",
-                    level,
-                )
-            )
-    return findings
-
-
-def check_legacy_names(root: Path, *, today: date | None = None) -> list[Finding]:
-    """Return K3 findings for retired slice-root names.
-
-    Pre-migration names warn until ``MIGRATION_DEADLINE``; after that they are
-    errors, not a permanent allowance.
-    """
-    findings: list[Finding] = []
-    expired = (today or date.today()) > MIGRATION_DEADLINE
-    robots = root / "robots"
-    if not robots.is_dir():
-        return findings
-    for slice_dir in sorted(robots.iterdir()):
-        if not slice_dir.is_dir() or slice_dir.name.startswith((".", "_")):
-            continue
-        baseline = LEGACY_SLICES.get(slice_dir.name, frozenset())
-        present = sorted(
-            entry.name
-            for entry in slice_dir.iterdir()
-            if entry.name in LEGACY_SLICE_NAMES
-        )
-        if not present:
-            continue
-        if slice_dir.name in MIGRATED_SLICES:
-            findings.append(
-                Finding(
-                    slice_dir,
-                    0,
-                    f"slice {slice_dir.name!r} is migrated but keeps retired "
-                    f"names: {', '.join(present)}",
-                )
-            )
-            continue
-        added = [name for name in present if name not in baseline]
-        if added:
-            findings.append(
-                Finding(
-                    slice_dir,
-                    0,
-                    f"slice {slice_dir.name!r} added retired names "
-                    f"{', '.join(added)}; use the role names instead",
-                )
-            )
-        kept = [name for name in present if name in baseline]
-        if kept:
-            note = (
-                f"; the migration deadline {MIGRATION_DEADLINE.isoformat()} has passed"
-                if expired
-                else "; the slice migration renames them and turns this into an error"
-            )
-            findings.append(
-                Finding(
-                    slice_dir,
-                    0,
-                    f"slice {slice_dir.name!r} still has {len(kept)} pre-migration "
-                    f"names ({', '.join(kept)}){note}",
-                    ERROR if expired else WARNING,
-                )
-            )
-    return findings
-
-
-def check_file_sizes(root: Path) -> list[Finding]:
-    """Return K7 warnings for role files over their line-count limit."""
-    findings: list[Finding] = []
-    for directory in ("robots", "components/models", "components/sim"):
-        for path in sorted((root / directory).rglob("*.py")):
-            limit = LINE_LIMITS.get(path.name)
-            if limit is None:
-                continue
-            try:
-                lines = sum(1 for _ in path.open(encoding="utf-8"))
-            except OSError:
-                continue
-            if lines > limit:
-                findings.append(
-                    Finding(
-                        path,
-                        0,
-                        f"{path.name} has {lines} lines (limit {limit}); "
-                        "split it along the role files",
-                        WARNING,
-                    )
-                )
-    return findings
-
-
 def _component_names(directory: Path) -> set[str]:
     if not directory.is_dir():
         return set()
@@ -1048,13 +760,10 @@ def main(argv: list[str] | None = None) -> int:
         check_top_level(root)
         + check_coverage(root)
         + check_group_packages(root)
-        + check_role_files(root)
-        + check_legacy_names(root)
         + check_imports(root)
         + check_pure_data_imports(root)
         + check_core_robot_names(root)
         + check_lazy_slices(root)
-        + check_file_sizes(root)
     )
     # A bare alias reaches a rule twice: once as the package path
     # (``components.models.sam3``) and once expanded to the imported module

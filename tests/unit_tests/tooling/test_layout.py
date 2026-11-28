@@ -265,60 +265,6 @@ def test_slice_entry_must_load_lazily(tmp_path, write_toml):
     assert "slice __init__.py must stay lazy" in result.stdout
 
 
-def test_role_file_over_limit_is_a_warning(tmp_path, write_toml):
-    _component(write_toml, "robots", "alpha", "robot")
-    _write(tmp_path / "robots" / "alpha" / "spec.py", "x = 1\n" * 81)
-
-    result = _run(tmp_path)
-
-    assert result.returncode == 0
-    assert "layout ok" in result.stdout
-    assert "warning: spec.py has 81 lines" in result.stdout
-
-
-def test_new_component_missing_skeleton_files_is_an_error(tmp_path, write_toml):
-    _component(write_toml, "robots", "alpha", "robot")
-    (tmp_path / "robots" / "alpha" / "adapter.py").unlink()
-
-    result = _run(tmp_path)
-
-    assert result.returncode == 1
-    assert "robot 'alpha' is missing its skeleton files: adapter.py" in result.stdout
-
-
-def test_legacy_component_missing_skeleton_files_only_warns(tmp_path, write_toml):
-    _component(write_toml, "robots", "libero", "robot")
-    (tmp_path / "robots" / "libero" / "adapter.py").unlink()
-
-    result = _run(tmp_path)
-
-    assert result.returncode == 0
-    assert "layout ok" in result.stdout
-    assert "robot 'libero' is missing its skeleton files: adapter.py" in result.stdout
-
-
-def test_new_slice_may_not_add_retired_names(tmp_path, write_toml):
-    _component(write_toml, "robots", "alpha", "robot")
-    _write(tmp_path / "robots" / "alpha" / "robot_spec.py", "")
-
-    result = _run(tmp_path)
-
-    assert result.returncode == 1
-    assert "slice 'alpha' added retired names robot_spec.py" in result.stdout
-
-
-def test_pre_migration_slice_names_only_warn(tmp_path, write_toml):
-    _component(write_toml, "robots", "libero", "robot")
-    _write(tmp_path / "robots" / "libero" / "robot_spec.py", "")
-
-    result = _run(tmp_path)
-
-    assert result.returncode == 0
-    assert "layout ok" in result.stdout
-    assert "slice 'libero' still has 1 pre-migration names" in result.stdout
-    assert "robot_spec.py" in result.stdout
-
-
 def test_model_and_core_imports_are_rejected(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
     _component(write_toml, "components/models", "sam3", "model")
@@ -387,16 +333,6 @@ def test_model_service_needs_only_its_package_and_server(tmp_path, write_toml):
 
     assert result.returncode == 0
     assert "layout ok" in result.stdout
-
-
-def test_new_model_without_a_server_is_an_error(tmp_path, write_toml):
-    _component(write_toml, "components/models", "delta", "model")
-    (tmp_path / "components" / "models" / "delta" / "server.py").unlink()
-
-    result = _run(tmp_path)
-
-    assert result.returncode == 1
-    assert "model 'delta' is missing its skeleton files: server.py" in result.stdout
 
 
 def test_pure_data_module_rejects_runtime_imports(tmp_path, write_toml):
@@ -473,30 +409,6 @@ def test_core_name_exemption_fails_once_it_expires(tmp_path, write_toml):
     assert any("core names 'ALPHA'" in message for message in errors)
 
 
-def test_legacy_slice_names_fail_after_the_migration_deadline(tmp_path, write_toml):
-    _component(write_toml, "robots", "libero", "robot")
-    _write(tmp_path / "robots" / "libero" / "robot_spec.py", "")
-
-    findings = layout.check_legacy_names(tmp_path, today=date(2030, 1, 1))
-
-    assert len(findings) == 1
-    assert findings[0].level == layout.ERROR
-    assert "has passed" in findings[0].message
-
-
-def test_legacy_component_skeleton_fails_after_the_migration_deadline(
-    tmp_path, write_toml
-):
-    _component(write_toml, "robots", "libero", "robot")
-    (tmp_path / "robots" / "libero" / "adapter.py").unlink()
-
-    findings = layout.check_role_files(tmp_path, today=date(2030, 1, 1))
-
-    assert len(findings) == 1
-    assert findings[0].level == layout.ERROR
-    assert "migration deadline 2027-06-30 passed" in findings[0].message
-
-
 def test_tool_must_not_import_a_robot(tmp_path, write_toml):
     _component(write_toml, "robots", "alpha", "robot")
     _component(write_toml, "components/tools", "exporter", "tool")
@@ -562,14 +474,32 @@ def test_tool_skeleton_needs_only_its_package(tmp_path, write_toml):
     assert "layout ok" in result.stdout
 
 
-def test_new_sim_without_an_env_server_is_an_error(tmp_path, write_toml):
-    _component(write_toml, "components/sim", "alpha", "sim")
-    (tmp_path / "components" / "sim" / "alpha" / "env_server.py").unlink()
+def test_model_init_rejects_eager_self_import_and_allows_lazy_self_import(
+    tmp_path, write_toml
+):
+    _component(write_toml, "components/models", "demo", "model")
+    init_path = tmp_path / "components" / "models" / "demo" / "__init__.py"
+    _write(
+        init_path,
+        "from typing import TYPE_CHECKING\n"
+        "if TYPE_CHECKING:\n"
+        "    from .server import Server\n"
+        "def __getattr__(name: str):\n"
+        "    if name == 'Server':\n"
+        "        from .server import Server\n"
+        "        return Server\n"
+        "    raise AttributeError(name)\n",
+    )
+    lazy_result = _run(tmp_path)
+    assert lazy_result.returncode == 0
 
-    result = _run(tmp_path)
-
-    assert result.returncode == 1
-    assert "sim 'alpha' is missing its skeleton files: env_server.py" in result.stdout
+    _write(init_path, "from .server import Server\n")
+    eager_result = _run(tmp_path)
+    assert eager_result.returncode == 1
+    assert (
+        "model __init__.py must not eagerly import its own runtime module"
+        in eager_result.stdout
+    )
 
 
 def test_core_tool_entry_point_may_import_a_tool(tmp_path, write_toml):

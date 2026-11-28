@@ -78,16 +78,17 @@ Pi0.5 用于执行机器人动作，SAM3 用于定位图像中的物体。SAM3 �
      --planner claude_code --model claude-opus-4-8 \
      --output-dir ./logs/first-libero-pro
 
-终端会依次显示环境、VLA 和 SAM3 服务的启动状态，随后输出规划器对话与工具调用。结束后查看 ``logs/first-libero-pro/``。再次运行时，请换一个输出目录以保留前一次记录。
+终端会依次显示环境、VLA 和 SAM3 服务的启动状态，随后输出规划器对话与工具调用。结束后查看 ``logs/first-libero-pro/``。每次运行请使用新的 ``--output-dir``：复用已含 ``run.json`` 的目录会直接报错 ``already records a run``。
 
 5. 查看结果
 ---------------
 
+- ``run.json``：查看运行清单与原生判定字段（``accepted``、``stop_reason``、``failure_category``）。
 - ``episode.mp4``：回看机器人操作过程。
-- ``transcript.json``：查看规划器对话、工具调用和结束状态。
+- ``transcript.json``：查看规划器对话、工具调用、``environment_success`` 和结束状态。
 - ``run.log``：查看运行日志和错误。
 
-LIBERO 的任务成功以最终环境状态的顶层 ``terminated`` 为准，可通过 ``view_env_state(step=-1)`` 的工具结果查看。规划器在 ``finish`` 中声明成功，不等于环境判定成功。
+LIBERO 评测结果请以 ``run.json``\ （``accepted``）或 ``transcript.json``\ （``environment_success``）中的原生判定为准。评测模式下 ``view_env_state`` 仅暴露 ``episode_over`` 并屏蔽 ``terminated``；规划器在 ``finish`` 中声明成功，不等于环境判定成功。
 
 默认目录命名、动作序列与逐步观测文件的说明见 :ref:`run-output-files`。
 

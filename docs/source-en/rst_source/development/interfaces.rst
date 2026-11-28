@@ -106,19 +106,23 @@ allows concurrent readonly calls and skips post-action state capture. Handlers r
 ``data`` holds the JSON payload, including ``error`` or ``_finish`` when needed,
 and ``images`` holds PNG bytes.
 
-``ToolResult`` also carries two call-level flags: ``call_ok`` and
-``no_execution``. The framework sets ``call_ok=False`` and
-``no_execution=True`` when a call never reaches the tool — an unknown tool,
-schema or signature mismatch, ``ToolRejected`` precondition refusal,
-``ToolLimitExceeded``, or pre-dispatch cancellation — and ``to_dict()``
-publishes both flags. An unhandled handler exception (or serialization failure)
-sets ``call_ok=False`` while keeping ``no_execution=False`` because the robot
-may already have acted. A tool that ran and reported ``error`` in its payload
-keeps ``call_ok=True``. ``ToolResult.is_error`` is the union of
-``not call_ok`` and a payload ``error``.
+``ToolResult`` also carries two call-level flags (``call_ok`` and
+``no_execution``) alongside payload errors:
 
-``Toolkit.solved()`` returns ``bool | None`` so unjudged episodes (``None``)
-stay distinct from judged failures (``False``).
+- **Pre-execution refusal** (``call_ok=False``, ``no_execution=True``): unknown
+  tool, schema or signature mismatch, ``ToolRejected`` precondition refusal,
+  ``ToolLimitExceeded``, or pre-dispatch cancellation. ``to_dict()`` publishes
+  both flags because the tool never ran.
+- **Handler or serialization failure** (``call_ok=False``,
+  ``no_execution=False``): an unhandled exception inside the handler or a JSON
+  serialization failure, where the robot may already have acted.
+- **Payload error** (``call_ok=True``): the tool ran and reported an ``error``
+  key in ``data``.
+
+``ToolResult.is_error`` combines ``not call_ok`` with a payload ``error`` so
+planners check one boolean. For episode grading, the runner queries
+``Toolkit.solved() -> bool | None`` after draining active calls, keeping
+unjudged episodes (``None``) distinct from judged failures (``False``).
 
 The base class requires a ``MemoryManager`` and always registers common file
 tools and ``finish``; call ``super().__init__()`` then ``add_tool`` for robot

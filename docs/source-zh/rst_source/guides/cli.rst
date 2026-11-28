@@ -210,7 +210,7 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
 输出文件
 ------------
 
-``--output-dir`` 指定本次运行的输出目录。该目录必须不存在或为空：RPent 会独占创建 ``run.json`` 认领目录，复用已有运行目录会报错 ``already records a run``。LIBERO 未指定该参数时，默认保存在仓库下的 ``logs/<timestamp>_<suite>_t<task>_s<seed>/``；其他环境的目录命名见各环境页。
+``--output-dir`` 指定本次运行的输出目录。RPent 会独占创建 ``run.json`` 认领目录，复用已含 ``run.json`` 的目录会报错 ``already records a run``\ （非空但无 ``run.json`` 的目录仅打印告警）。LIBERO 未指定该参数时，默认保存在仓库下的 ``logs/<timestamp>_<suite>_t<task>_s<seed>/``；其他环境的目录命名见各环境页。
 
 下表以 LIBERO 为例。实际生成的文件取决于环境、录像和任务运行结果。
 
@@ -220,7 +220,7 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
    * - 文件或路径
      - 用途
    * - ``run.json``
-     - 运行清单：记录安装环境快照、产物路径及统一判定字段（``accepted``、``retryable``、``failure_category``、``stop_reason``、``truth_source``）。
+     - 运行清单：记录安装环境快照、产物路径、``error`` / ``artifact_error`` 及统一判定字段（``accepted``、``retryable``、``failure_category``、``stop_reason``、``truth_source``）。
    * - ``transcript.json``
      - 规划器对话、工具调用、``recipe_tag``、判定字段及结束信息。
    * - ``trajectories/<task_id>/``
@@ -253,10 +253,10 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
    * - 退出码
      - 含义
    * - ``0``
-     - 环境或操作员判定通过（``accepted: true``），且产物写入正常。
+     - 环境或操作员判定通过（``accepted: true``），且无 ``artifact_error``。
    * - ``1``
-     - 任务未通过（``accepted: false``）、规划器或运行时报错，或产物写入失败（``artifact_error``）。
+     - 任务未通过（``accepted: false``）、无判定但规划器或运行时报错（``accepted: null`` 且 ``error`` 非空），或产物写入失败（``artifact_error``）。
    * - ``75``
-     - 运行完成但无判定（``accepted: null``、``retryable: true``），例如隐藏成功信号的基准或未由操作员判定的真机评测，可重试或交由外部评分。
+     - 运行正常结束但无判定（``accepted: null``、``error: null``、无 ``artifact_error``、``retryable: true``），例如隐藏成功信号的基准或未由操作员判定的真机评测，可重试或交由外部评分。
 
 探索运行（``--explore``）以沉淀语料为目标，不返回评测判定：无错误时退出 ``0``，仅在规划器、运行时或产物写入出错时退出 ``1``。

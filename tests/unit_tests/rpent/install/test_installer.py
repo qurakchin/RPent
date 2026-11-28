@@ -939,3 +939,19 @@ def test_cli_check_all_empty_catalog_returns_1(tmp_path, capsys):
     )
     assert cli_install.main(["--root", str(repo), "check", "--all"]) == 1
     assert "no components found" in capsys.readouterr().err
+
+
+def test_install_replacing_backup_still_rejects_different_closure_without_force(
+    tmp_path, monkeypatch
+):
+    repo = _write_repo(tmp_path / "repo")
+    venv = _fake_venv(tmp_path / ".venv-a")
+    _write_valid_fingerprint(repo, venv, "infra-a")
+    stale_backup = venv.with_name(f".{venv.name}.replacing")
+    venv.rename(stale_backup)
+
+    monkeypatch.setattr(installer, "find_uv", lambda: "uv")
+    with pytest.raises(InstallError, match="already holds a different environment"):
+        installer.install(["infra-b"], root=repo, venv=venv, verbose=False)
+    assert venv.is_dir()
+    assert not stale_backup.exists()

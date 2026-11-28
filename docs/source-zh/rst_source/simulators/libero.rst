@@ -92,7 +92,7 @@ LIBERO
 
 评测模式下，规划器看不到基准判定。``view_env_state`` 与所有有状态工具只暴露 ``episode_over``\ （涵盖任务完成与步数上限截断），省略 ``terminated``、``truncated`` 及各类成功标志（包括步骤日志中的嵌套副本）。``pi0_pick`` 上报 ``grasp_detected`` 而非成功标志。
 
-runner 在内部步骤记录中保留完整判定，因此动作序列、指标以及写入 ``run.json`` 和 ``transcript.json`` 的运行判定不受影响。探索模式保留规划器视角下的 ``terminated``，便于判断哪些回合已解决。
+运行器在内部步骤记录中保留完整判定，因此动作序列、指标以及写入 ``run.json`` 和 ``transcript.json`` 的运行判定不受影响。探索模式保留规划器视角下的 ``terminated``，便于判断哪些回合已解决。
 
 安装与资源准备
 --------------

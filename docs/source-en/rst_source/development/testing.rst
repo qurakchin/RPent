@@ -20,7 +20,7 @@ Test Structure
    * - ``tests/unit_tests/``
      - Offline CPU unit tests that run without a GPU, simulator, or model weights. They verify interfaces, configuration parsing, data transforms, and process cleanup using lightweight in-memory test doubles.
    * - ``tests/tooling/``
-     - Standalone scripts (``./tests/tooling/run.sh {layout|matrix|affected}``) that validate repository layout, ``component.toml`` manifests, install matrix partitions, and affected-scope selection before any Python environment is installed.
+     - Standalone scripts (``./tests/tooling/run.sh layout``, ``ci_targets.py``, ``gpu_slots.py``) that validate repository layout, ``component.toml`` manifests, import boundaries, and GPU CI target selection.
    * - ``tests/e2e_tests/``
      - Declarative GPU end-to-end suites under ``suites/*.toml`` driven by a shared runner (``run_gpu_suite.sh``) that exercises every advertised tool through the public CLI.
 
@@ -54,8 +54,7 @@ Follow these conventions when adding tests:
 Simulator CI Selection and Execution
 ------------------------------------
 
-GitHub runs CPU unit tests, ``./tests/tooling/run.sh layout``, ``./tests/tooling/run.sh matrix --check``, and ``./rpent-install.sh check --all --resolve`` on every push and pull request, reporting line
-coverage in the test logs. **Simulator CI** validates installation and GPU
+GitHub runs ``./tests/tooling/run.sh layout``, ``./rpent-install.sh check --all --resolve``, and CPU unit tests (with line coverage reported in the unit-test job) on pushes to ``main`` and non-draft pull requests. **Simulator CI** validates installation and GPU
 suites under the following rules:
 
 - **Trigger and gate**: Runs on pushes to ``main``, on non-draft PRs labeled
