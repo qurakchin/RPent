@@ -165,10 +165,11 @@ You can also set ``UV_INDEX_URL``, ``UV_DEFAULT_INDEX``, or
 
    - **Default path:** omitting ``--venv`` installs into
      ``.rpent/venvs/<components joined by +>`` inside the checkout.
-   - **Reuse, auto-rebuild, and overlays:** re-running ``install`` for the same
-     component closure updates packages in place and preserves overlaid packages
-     (such as ``modelscope``, ``pre-commit``, or editable RLinf checkouts) when
-     installation inputs are unchanged. When manifests, override files,
+   - **Reuse and overlays:** re-running ``install`` for the same component
+     closure with unchanged inputs updates packages in place and preserves
+     overlaid packages (such as ``modelscope``, ``pre-commit``, or editable
+     RLinf checkouts).
+   - **Auto-rebuild and conflict protection:** when manifests, override files,
      ``pyproject.toml`` dependencies, or index settings change, ``install``
      automatically rebuilds the virtual environment cleanly in place. If the
      existing environment holds a different component set, ``install`` refuses

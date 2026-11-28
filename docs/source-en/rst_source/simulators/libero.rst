@@ -95,11 +95,12 @@ In evaluation mode, the benchmark's verdict is withheld from the planner.
 ``view_env_state`` and every stateful tool expose only ``episode_over`` (covering
 both task completion and step-limit truncation) and omit ``terminated``,
 ``truncated``, and any success flag, including the copy nested in the step log.
-``pi0_pick`` reports ``grasp_detected`` instead of a success flag. The runner
-keeps the withheld verdict in its own step records, so recipes, metrics, and the
-verdict written to ``run.json`` and ``transcript.json`` are unchanged.
-Exploration mode keeps ``terminated`` in the planner's view so a hunting session
-can tell which episodes it solved.
+``pi0_pick`` reports ``grasp_detected`` instead of a success flag.
+
+The runner keeps the withheld verdict in its own step records, so recipes,
+metrics, and the verdict written to ``run.json`` and ``transcript.json`` are
+unchanged. Exploration mode keeps ``terminated`` in the planner's view so a
+hunting session can tell which episodes it solved.
 
 .. _installation-and-variants:
 

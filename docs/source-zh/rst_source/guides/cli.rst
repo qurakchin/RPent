@@ -222,7 +222,7 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
    * - ``run.json``
      - 运行清单：记录安装环境快照、产物路径、``error`` / ``artifact_error`` 及统一判定字段（``accepted``、``retryable``、``failure_category``、``stop_reason``、``truth_source``）。
    * - ``transcript.json``
-     - 规划器对话、工具调用、``recipe_tag``、判定字段及结束信息。
+     - 规划器对话、工具调用、``recipe_tag``、``environment_success``、判定字段及结束信息。
    * - ``trajectories/<task_id>/``
      - ``--record-trajectory`` 保存的任务记录及附件。探索模式的记录位于各 ``sessions/session_*/`` 目录下。详见 :doc:`flywheel`。
    * - ``episode.mp4``

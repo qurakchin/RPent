@@ -256,7 +256,7 @@ The table uses LIBERO as an example. Files depend on the environment, recording,
    * - ``run.json``
      - Run manifest: installation snapshot, output artifact paths, ``error`` / ``artifact_error``, and unified verdict fields (``accepted``, ``retryable``, ``failure_category``, ``stop_reason``, ``truth_source``).
    * - ``transcript.json``
-     - Planner conversation, tool calls, ``recipe_tag``, verdict fields, and completion status.
+     - Planner conversation, tool calls, ``recipe_tag``, ``environment_success``, verdict fields, and completion status.
    * - ``trajectories/<task_id>/``
      - Task records and attachments saved by ``--record-trajectory``. Exploration records are under each ``sessions/session_*/`` directory. See :doc:`flywheel`.
    * - ``episode.mp4``

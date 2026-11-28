@@ -19,11 +19,8 @@ Rules:
 - K1: top-level directories and root files match the repository layout
   whitelist.
 - K2: every component directory declares a ``component.toml`` with the
-  matching kind (manifest validity is left to ``rpent-install check``) and has
-  the role files its kind requires.
-- K3: a slice root must not add a retired name, and a migrated slice must not
-  keep one. Components that predate the skeleton only warn until their
-  migration lands.
+  matching kind (manifest validity is left to ``rpent-install check``), and
+  package groups carry ``__init__.py``.
 - K4: the component layers are ``rpent`` ← ``components/sim`` ←
   ``components/models`` ← ``robots``. A component may import the layers below
   it and never a sibling; a robot slice may import another robot only when its
@@ -33,13 +30,12 @@ Rules:
   it never imports robots, simulators, or another tool. Core ``rpent/**``
   must not import a component or a concrete
   ``robots.<name>``; importing the ``robots`` package itself for discovery is
-  allowed.
+  allowed. Pure-data modules and model ``__init__.py`` entry points must not
+  eagerly import third-party runtimes or their own runtime modules.
 - K5: core ``rpent/**`` must not name a robot or benchmark (R8).
   ``rpent/components/models/`` is exempt: model-side contracts and the backend table name
   the embodiment they speak to.
 - K6: a slice ``robots/<name>/__init__.py`` only re-exports lazily.
-- K7: ``spec.py`` > 80, ``adapter.py`` > 400, and ``native_tools.py`` > 100
-  lines are reported as warnings until the slice split lands.
 """
 
 from __future__ import annotations
