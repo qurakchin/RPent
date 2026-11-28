@@ -20,7 +20,7 @@ Test Structure
    * - ``tests/unit_tests/``
      - Offline CPU unit tests that run without a GPU, simulator, or model weights. They verify interfaces, configuration parsing, data transforms, and process cleanup using lightweight in-memory test doubles.
    * - ``tests/tooling/``
-     - Standalone scripts that validate repository layout, ``component.toml`` manifests, and import boundaries before any Python environment is installed.
+     - Standalone scripts (``./tests/tooling/run.sh {layout|matrix|affected}``) that validate repository layout, ``component.toml`` manifests, install matrix partitions, and affected-scope selection before any Python environment is installed.
    * - ``tests/e2e_tests/``
      - Declarative GPU end-to-end suites under ``suites/*.toml`` driven by a shared runner (``run_gpu_suite.sh``) that exercises every advertised tool through the public CLI.
 
@@ -54,12 +54,13 @@ Follow these conventions when adding tests:
 Simulator CI Selection and Execution
 ------------------------------------
 
-GitHub runs CPU unit tests on every push and pull request, reporting line
+GitHub runs CPU unit tests, ``./tests/tooling/run.sh layout``, ``./tests/tooling/run.sh matrix --check``, and ``./rpent-install.sh check --all --resolve`` on every push and pull request, reporting line
 coverage in the test logs. **Simulator CI** validates installation and GPU
 suites under the following rules:
 
-- **Trigger and gate**: Runs on pushes to ``main`` and on non-draft PRs labeled
-  ``run-ci``. Draft or unlabeled PRs fail the selection gate until marked ready
+- **Trigger and gate**: Runs on pushes to ``main``, on non-draft PRs labeled
+  ``run-ci``, and on manual ``workflow_dispatch`` runs (which accept a single
+  ``suite`` input or ``all``). Draft or unlabeled PRs fail the selection gate until marked ready
   and labeled (fork PRs require re-applying ``run-ci`` after new pushes).
 - **Split install and eval**: Splits work into per-component ``install`` jobs
   (0 GPU slots; concurrency-limited via ``gpu_slots.py --kind install``) and

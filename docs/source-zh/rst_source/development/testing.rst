@@ -18,7 +18,7 @@ RPent 的测试体系分为离线 CPU 单元测试、仓库布局检查和声明
    * - ``tests/unit_tests/``
      - 离线 CPU 单元测试，无需 GPU、仿真器或模型权重。不启动真实服务，使用轻量级内存替代实现验证接口、配置解析、数据格式转换与进程清理。
    * - ``tests/tooling/``
-     - 独立检查脚本，无需安装 Python 环境即可运行，用于校验目录结构、``component.toml`` 依赖清单与模块导入边界。
+     - 独立检查脚本（``./tests/tooling/run.sh {layout|matrix|affected}``），无需安装 Python 环境即可校验目录结构、``component.toml`` 依赖清单、安装矩阵划分与受影响范围。
    * - ``tests/e2e_tests/``
      - 声明式 GPU 端到端测试套件（``suites/*.toml``）与通用运行脚本（``run_gpu_suite.sh``），通过公开 CLI 依次覆盖当前环境暴露的全部工具。
 
@@ -52,9 +52,9 @@ RPent 的测试体系分为离线 CPU 单元测试、仓库布局检查和声明
 Simulator CI 选择与运行机制
 ---------------------------
 
-GitHub 在每次推送和 PR 时自动运行 CPU 单元测试，并在日志中输出代码行覆盖率。**Simulator CI** 按以下规则验证安装流程与 GPU 套件：
+GitHub 在每次推送和 PR 时自动运行 CPU 单元测试、``./tests/tooling/run.sh layout``、``./tests/tooling/run.sh matrix --check`` 与 ``./rpent-install.sh check --all --resolve``，并在日志中输出代码行覆盖率。**Simulator CI** 按以下规则验证安装流程与 GPU 套件：
 
-- **触发与门禁**：在提交合入 ``main`` 或非草稿 PR 贴上 ``run-ci`` 标签时运行。未贴标签或仍为草稿的 PR 会在选择阶段拦截；fork PR 推送新提交后需重新贴上 ``run-ci`` 标签。
+- **触发与门禁**：在提交合入 ``main``、非草稿 PR 贴上 ``run-ci`` 标签，或手动触发 ``workflow_dispatch``\ （支持指定单个 ``suite`` 或 ``all``）时运行。未贴标签或仍为草稿的 PR 会在选择阶段拦截；fork PR 推送新提交后需重新贴上 ``run-ci`` 标签。
 - **安装与评测拆分**：任务拆分为组件级 ``install``\ （不占 GPU 槽位，通过 ``gpu_slots.py --kind install`` 控制安装并发）与用例级 ``eval``\ （``<suite>:<case>``）。GPU 槽位由 ``tests/tooling/gpu_slots.py`` 的本机 ``flock`` 槽位池按需分配（1 张或多张）。
 - **缓存环境复用**：改动涉及安装器、打包或 ``component.toml`` 依赖清单时，先执行干净环境的 ``install``。纯运行时代码改动会跳过 ``install``，直接复用按依赖哈希缓存的虚拟环境执行 ``eval``。
 - **按路径精准筛选**：贴上 ``run-ci`` 后，修改 RLDX 运行时代码只触发 ``robocasa:rldx``，修改共享运行时代码触发全部 ``eval`` 用例，只改文档则跳过 GPU 测试并直接通过。

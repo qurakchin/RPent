@@ -125,12 +125,23 @@ class Scope:
 
 def _is_docs(path: str) -> bool:
     """Return True when ``path`` only changes documentation."""
-    return path.startswith("docs/") or path.endswith((".md", ".rst"))
+    return path.startswith("docs/") or (
+        path.endswith((".md", ".rst"))
+        and not path.startswith(("robots/", "rpent/", "components/"))
+    )
 
 
 def _component_for(path: str) -> tuple[str, str] | None:
     """Return ``(kind, name)`` when ``path`` belongs to one component."""
     parts = path.split("/")
+    # Declarative E2E suite manifests under tests/e2e_tests/suites/<suite>.toml
+    # map to their robot slice (e.g., libero-pro.toml -> robot-libero,
+    # libero-plus.toml -> robot-libero_plus).
+    if parts[:3] == ["tests", "e2e_tests", "suites"] and len(parts) == 4:
+        stem = parts[3].removesuffix(".toml")
+        if stem == "libero-pro":
+            return "robot", "robot-libero"
+        return "robot", f"robot-{stem.replace('-', '_')}"
     # An integration suite mirrors one robot slice; it names a component like a
     # slice path does instead of widening to the core.
     if parts[:2] == ["tests", "e2e_tests"] and len(parts) > 2:

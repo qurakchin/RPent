@@ -187,7 +187,7 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
      - API Key
      - 服务地址
    * - ``api`` / Anthropic; ``claude_code``
-     - ``ANTHROPIC_API_KEY``
+     - ``ANTHROPIC_API_KEY``\ （``claude_code`` 也支持 ``ANTHROPIC_AUTH_TOKEN``\ ）
      - ``ANTHROPIC_BASE_URL``
    * - ``api`` / OpenAI
      - ``OPENAI_API_KEY``
@@ -210,7 +210,7 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
 输出文件
 ------------
 
-``--output-dir`` 指定本次运行的输出目录。LIBERO 未指定该参数时，默认保存在仓库下的 ``logs/<timestamp>_<suite>_t<task>_s<seed>/``；其他环境的目录命名见各环境页。
+``--output-dir`` 指定本次运行的输出目录。该目录必须不存在或为空：RPent 会独占创建 ``run.json`` 认领目录，复用已有运行目录会报错 ``already records a run``。LIBERO 未指定该参数时，默认保存在仓库下的 ``logs/<timestamp>_<suite>_t<task>_s<seed>/``；其他环境的目录命名见各环境页。
 
 下表以 LIBERO 为例。实际生成的文件取决于环境、录像和任务运行结果。
 
@@ -219,8 +219,10 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
 
    * - 文件或路径
      - 用途
-   * - ``transcript_*.json``
-     - 规划器对话、工具调用及结束信息。
+   * - ``run.json``
+     - 运行清单：记录安装环境快照、产物路径及统一判定字段（``accepted``、``retryable``、``failure_category``、``stop_reason``、``truth_source``）。
+   * - ``transcript.json``
+     - 规划器对话、工具调用、``recipe_tag``、判定字段及结束信息。
    * - ``trajectories/<task_id>/``
      - ``--record-trajectory`` 保存的任务记录及附件。探索模式的记录位于各 ``sessions/session_*/`` 目录下。详见 :doc:`flywheel`。
    * - ``episode.mp4``
@@ -237,3 +239,24 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
      - 逐步保存的观测示例：目录名是逻辑文件名，目录内按步数编号，如 ``00.npz``、``01.npz``。
 
 整次运行的文件保存在输出目录根部，逐步观测保存在各自的子目录中。成功判定以各环境页的原生判定为准；动作序列、录像和规划器总结本身都不能替代该判定。
+
+.. _cli-exit-codes:
+
+退出码
+------
+
+评测运行按 ``run.json`` 中的统一判定返回进程退出码：
+
+.. list-table::
+   :header-rows: 1
+
+   * - 退出码
+     - 含义
+   * - ``0``
+     - 环境或操作员判定通过（``accepted: true``），且产物写入正常。
+   * - ``1``
+     - 任务未通过（``accepted: false``）、规划器或运行时报错，或产物写入失败（``artifact_error``）。
+   * - ``75``
+     - 运行完成但无判定（``accepted: null``、``retryable: true``），例如隐藏成功信号的基准或未由操作员判定的真机评测，可重试或交由外部评分。
+
+探索运行（``--explore``）以沉淀语料为目标，不返回评测判定：无错误时退出 ``0``，仅在规划器、运行时或产物写入出错时退出 ``1``。

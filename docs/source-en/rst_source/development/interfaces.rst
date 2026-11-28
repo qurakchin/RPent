@@ -48,6 +48,11 @@ functions implemented in ``robot_spec.py`` for ``main.py`` to call:
        normal CLI passes ``None``; the Dashboard passes explicit shared and
        unique subsets derived from its spec. A ``DashboardEventSink``
        reports status.
+   * - ``truth_source`` / ``collects_verdict``
+     - ``truth_source`` declares whether the environment (``"environment"``,
+       default) or an operator (``"operator"``) establishes the run verdict.
+       ``collects_verdict(planner)`` reports whether the runner collects a
+       verdict for the selected planner.
 
 ``get_toolkit`` usually passes ``runtime_kwargs`` into your robot subclass;
 ``dashboard_events`` and ``config`` are supplied by the active runner. It must
@@ -101,18 +106,23 @@ allows concurrent readonly calls and skips post-action state capture. Handlers r
 ``data`` holds the JSON payload, including ``error`` or ``_finish`` when needed,
 and ``images`` holds PNG bytes.
 
-``call_ok`` and ``no_execution`` describe the call rather than the payload. The
-framework sets them when it rejects a call — an unknown tool, arguments the
-schema or handler signature rejected, a ``ToolRejected`` precondition refusal,
-or a cancellation — and ``to_dict()`` then publishes ``call_ok: false``, plus
-``no_execution: true`` when the tool never ran and so changed no environment
-state. A tool that ran and reported ``error`` in its payload keeps ``call_ok``
-true. ``Toolkit.solved()`` returns ``bool | None`` so unjudged episodes stay
-distinct from judged failures.
+``ToolResult`` also carries two call-level flags: ``call_ok`` and
+``no_execution``. The framework sets ``call_ok=False`` and
+``no_execution=True`` when a call never reaches the tool — an unknown tool,
+schema or signature mismatch, ``ToolRejected`` precondition refusal,
+``ToolLimitExceeded``, or pre-dispatch cancellation — and ``to_dict()``
+publishes both flags. An unhandled handler exception (or serialization failure)
+sets ``call_ok=False`` while keeping ``no_execution=False`` because the robot
+may already have acted. A tool that ran and reported ``error`` in its payload
+keeps ``call_ok=True``. ``ToolResult.is_error`` is the union of
+``not call_ok`` and a payload ``error``.
 
-The base class registers common file tools when a memory manager is provided; call ``super().__init__()`` then
-``add_tool`` for robot tools. Per-step state and ``view_env_state`` are in
-:doc:`add_primitive`.
+``Toolkit.solved()`` returns ``bool | None`` so unjudged episodes (``None``)
+stay distinct from judged failures (``False``).
+
+The base class requires a ``MemoryManager`` and always registers common file
+tools and ``finish``; call ``super().__init__()`` then ``add_tool`` for robot
+tools. Per-step state and ``view_env_state`` are in :doc:`add_primitive`.
 
 Tools without ``readonly=True`` run exclusively, in admission order. Waiting
 exclusive calls take priority over new readonly calls. Exclusive execution

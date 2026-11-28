@@ -265,6 +265,11 @@ def test_result_uses_current_run_metrics_in_reused_directory(tmp_path, metrics):
     result = json.loads(path.read_text(encoding="utf-8"))
     assert result["success"] is native_success
     assert result["environment_result_available"] is (native_success is not None)
+    assert result["accepted"] is (bool(native_success) if metrics else None)
+    assert result["retryable"] is (not metrics)
+    assert "failure_category" in result
+    assert "stop_reason" in result
+    assert "truth_source" in result
 
 
 def test_robolab_pi05_encoder_preserves_droid_contract():
@@ -347,6 +352,7 @@ def test_policy_tool_executes_until_native_success_and_records_state(tmp_path):
         output_dir=tmp_path / "run",
     )
     assert toolkit.evaluation_metrics(success=False) == {"success": None}
+    assert toolkit.solved() is None
     assert toolkit.state.get(0).state["success"] is None
     result = toolkit.execute_tool("pi05_act", {"steps": 5})
     assert result.data["state"]["success"] is True

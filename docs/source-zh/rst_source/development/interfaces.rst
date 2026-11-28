@@ -42,9 +42,11 @@
    * - ``init_runtime``
      - 启动或连接全部 runtime components，或只处理指定名称的子集，并构造对应的
        ``runtime_kwargs``。普通 CLI 传 ``None``；Dashboard 从 spec 得到显式声明的 shared 和 unique 子集后分别传入。``DashboardEventSink`` 用于上报运行时状态。
+   * - ``truth_source`` / ``collects_verdict``
+     - ``truth_source`` 声明运行判定来自环境（默认 ``"environment"``）还是操作员（``"operator"``）。``collects_verdict(planner)`` 判断当前规划器下是否采集判定结果。
 
-``get_toolkit`` 一般只需把 ``runtime_kwargs`` 传给机器人子类； ``dashboard_events`` 和 ``config`` 由当前 runner 传入。启用记忆时，需要构造一个
-:class:`~rpent.memory.MemoryManager`（root 取自
+``get_toolkit`` 一般只需把 ``runtime_kwargs`` 传给机器人子类；``dashboard_events`` 和 ``config`` 由当前 runner 传入。必须构造一个
+:class:`~rpent.memory.MemoryManager`\ （root 取自
 ``config.prompt_vars["memory_dir"]``，未设置时回退到 ``get_memory_dir(robot_name)``）并传给 toolkit。Memory 访问权限在 ``MemoryManager`` 上配置。如果某个机器人还需要额外参数，可以继续声明 keyword-only 参数；例如 LIBERO 还使用 ``mode``、``attempts_per_session`` 和 ``state_output_dir``。
 
 参考实现：``robots/libero/robot_spec.py``。
@@ -81,7 +83,11 @@ Planner
 
 用 ``@tool`` 声明函数或方法，参数类型注解和 Google 风格 docstring 提供 schema 与说明；``@tool(readonly=True)`` 允许只读工具并行执行，并跳过动作后的状态采集。处理函数返回 ``ToolResult(data=..., images=...)``：``data`` 保存 JSON 数据，按需包含 ``error`` 或 ``_finish``；``images`` 保存 PNG 字节。
 
-``call_ok`` 与 ``no_execution`` 描述调用本身而非业务载荷。框架拒绝调用时（未知工具、参数不匹配 schema 或函数签名、工具抛出 ``ToolRejected`` 前置拒收、或调用被取消），``to_dict()`` 会输出 ``call_ok: false``；若工具根本未执行且未改变环境状态，还会额外输出 ``no_execution: true``。工具正常执行后在载荷里返回 ``error`` 时，``call_ok`` 保持为真。``Toolkit.solved()`` 返回 ``bool | None``，以区分「尚未判定」与「判定失败」。
+``ToolResult`` 还包含 ``call_ok`` 与 ``no_execution`` 两个调用级标记。调用在到达工具前被拒绝时（未知工具、参数不匹配 schema 或签名、``ToolRejected`` 前置拒收、``ToolLimitExceeded`` 或调度前取消），框架会设置 ``call_ok=False`` 和 ``no_execution=True``，并由 ``to_dict()`` 一并输出。
+
+若工具执行中抛出未捕获异常（或结果序列化失败），框架设置 ``call_ok=False`` 但保持 ``no_execution=False``，因为环境可能已发生变化。工具正常执行并在载荷中返回 ``error`` 时，``call_ok`` 保持为 ``True``。``ToolResult.is_error`` 统一汇总 ``not call_ok`` 与载荷中的 ``error``。
+
+``Toolkit.solved()`` 返回 ``bool | None``，以区分“尚未判定”（``None``）与“判定失败”（``False``）。
 
 必须传入 ``MemoryManager``，基类始终注册公共文件工具和 ``finish``。子类 ``super().__init__()`` 后追加本机器人工具即可。逐步状态与 ``view_env_state`` 见 :doc:`add_primitive`。
 

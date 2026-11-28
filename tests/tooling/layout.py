@@ -762,6 +762,19 @@ def check_pure_data_imports(root: Path) -> list[Finding]:
         for line, module in _imports(path, root):
             top = module.split(".", 1)[0]
             if (
+                path.name == "__init__.py"
+                and len(relative.parts) == 4
+                and _component_target(module) == owner
+            ):
+                findings.append(
+                    Finding(
+                        path,
+                        line,
+                        "model __init__.py must not eagerly import its own runtime module",
+                    )
+                )
+                continue
+            if (
                 top in stdlib
                 or top in PURE_DATA_ALLOWED_ROOTS
                 or top in {"rpent", "robots", "components"}

@@ -1248,3 +1248,27 @@ def test_claude_code_api_error_status_429_is_provider_error(
     result = check_llm(LlmCheckRequest(planner="claude_code"))
 
     assert result.status == STATUS_PROVIDER_ERROR
+
+
+def test_claude_code_accepts_and_redacts_anthropic_auth_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from claude_agent_sdk import TextBlock
+
+    from rpent.planner.check import redact_secrets
+
+    _patch_claude_query(
+        monkeypatch,
+        [_assistant([TextBlock(text="ok")]), _result_message(is_error=False)],
+    )
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "secret-auth-token-12345")
+
+    result = check_llm(LlmCheckRequest(planner="claude_code"))
+
+    assert result.ok is True
+    assert result.credential_env == "ANTHROPIC_AUTH_TOKEN"
+    assert result.credential_present is True
+    assert redact_secrets("leaked secret-auth-token-12345 here") == (
+        "leaked <ANTHROPIC_AUTH_TOKEN> here"
+    )

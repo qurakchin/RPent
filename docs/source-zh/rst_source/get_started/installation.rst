@@ -149,7 +149,7 @@ PyPI 镜像与 CUDA PyTorch 后端
 .. dropdown:: 环境复用、叠加包与 Wheel 范围
 
    - **默认路径：** 省略 ``--venv`` 时，环境创建在源码目录的 ``.rpent/venvs/<组件名以 + 连接>`` 下。
-   - **复用、自动重建与叠加包：** 对相同组件集合重复执行 ``install`` 时，若安装输入未变化，会在原环境中原地更新并保留用户额外安装的包（如 ``modelscope``、``pre-commit`` 或可编辑安装的 RLinf）；若清单或 override 已变化，会自动原地洁净重建。随时可传入 ``--force`` 强制重建，若重建失败会自动恢复原有环境。对 ``doctor`` 传入 ``--strict`` 可将依赖漂移或 override 引起的 ``uv pip check`` 告警视为失败。
+   - **复用、自动重建与叠加包：** 对相同组件集合重复执行 ``install`` 时，若安装输入未变化，会在原环境中原地更新并保留用户额外安装的包（如 ``modelscope``、``pre-commit`` 或可编辑安装的 RLinf）。若清单、override 文件、``pyproject.toml`` 依赖或镜像索引配置发生变化，工具会自动清空并重建该环境。若目录中已安装不同组件集合，工具会报错提示更换 ``--venv`` 或传入 ``--force``。随时可传入 ``--force`` 强制彻底重建；若重建失败，原有环境会被自动恢复。
    - **外部管理的虚拟环境：** ``rpent-install`` 不会覆盖非空普通目录；对非本工具创建的已有虚拟环境，未传 ``--force`` 时也会拒绝写入。若环境由外部工具维护，只运行服务的主机（如 :doc:`../real_world_robots/yam` 中的推理机）请执行 ``uv pip install -e .``；还需运行 ``rpent`` CLI 的环境（如 :doc:`../simulators/efe` 中的 Harbor）请执行 ``uv pip install -e ".[planner]"``。
    - **PyPI wheel 与源码目录：** ``pip install rpent`` 只包含核心运行时（``rpent[planner]`` 额外包含规划器适配器与 Dashboard），不含机器人集成与仿真/模型组件。运行机器人请在源码目录中通过 ``./rpent-install.sh`` 创建环境。
 
@@ -174,6 +174,7 @@ PyPI 镜像与 CUDA PyTorch 后端
 .. code-block:: bash
 
    ./rpent-install.sh doctor --venv .venv-libero
+   ./rpent-install.sh doctor --venv .venv-libero --strict
    ./rpent-install.sh doctor --venv .venv-libero --fingerprint
 
 ``--fingerprint`` 只打印环境中记录的 ``rpent-install.json`` 指纹及其哈希，不执行检查。健康环境会在目标组件、清单输入、已安装包集合、``uv pip check`` 与各组件导入探针上均输出 ``ok``：
@@ -189,7 +190,7 @@ PyPI 镜像与 CUDA PyTorch 后端
    ok   uv pip check
    ok   probe robot-libero: import robots.libero
 
-如果在环境中额外叠加安装了其他包（例如 ``modelscope`` 或自定义 CUDA 版本的 PyTorch），只要 ``uv pip check`` 与全部组件导入探针均通过，``doctor`` 只输出 ``warn`` 提示，不会判定失败。
+如果在环境中额外叠加安装了其他包（例如 ``modelscope`` 或自定义 CUDA 版本的 PyTorch），只要 ``uv pip check`` 与全部组件导入探针均通过，``doctor`` 只输出 ``warn`` 提示，不会判定失败。传入 ``--strict`` 可将已安装包漂移或 override 引起的 ``uv pip check`` 告警判为失败。
 
 常见问题（FAQ）
 ---------------

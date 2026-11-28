@@ -387,3 +387,25 @@ def test_runner_filter_narrows_every_environment_set(
     assert scope["components"] == ["robot-alpha"]
     assert scope["installs"] == ["robot-alpha"]
     assert scope["pr_installs"] == []
+
+
+def test_robot_markdown_guide_is_not_classified_as_docs_only() -> None:
+    assert affected._is_docs("docs/source-en/index.rst") is True
+    assert affected._is_docs("README.md") is True
+    assert affected._is_docs("robots/libero/guides/pro_hybrid_guide.md") is False
+    assert affected._is_docs("components/sim/libero/README.md") is False
+
+
+def test_declarative_suite_toml_maps_to_robot_component() -> None:
+    assert affected._component_for("tests/e2e_tests/suites/libero-pro.toml") == (
+        "robot",
+        "robot-libero",
+    )
+    assert affected._component_for("tests/e2e_tests/suites/libero-plus.toml") == (
+        "robot",
+        "robot-libero_plus",
+    )
+    assert affected._component_for("tests/e2e_tests/suites/robocasa.toml") == (
+        "robot",
+        "robot-robocasa",
+    )

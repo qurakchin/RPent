@@ -22,10 +22,11 @@ from rpent.tools.base import (
     tool,
     tool_error,
 )
-from rpent.tools.toolkit import Toolkit
+from rpent.tools.toolkit import ToolCancelled, Toolkit
 
 __all__ = [
     "Tool",
+    "ToolCancelled",
     "Toolkit",
     "ToolRejected",
     "ToolResult",

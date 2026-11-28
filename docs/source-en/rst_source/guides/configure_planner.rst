@@ -22,7 +22,7 @@ Select a backend with ``--planner`` and follow its setup section:
      - Environment variables; ``--base-url`` overrides the endpoint.
    * - :ref:`claude_code <planner-claude-code>`
      - Use Claude Code with an Anthropic Messages-compatible service.
-     - Claude login, or ``ANTHROPIC_API_KEY`` / ``ANTHROPIC_BASE_URL``.
+     - Claude login, or ``ANTHROPIC_API_KEY`` / ``ANTHROPIC_AUTH_TOKEN`` / ``ANTHROPIC_BASE_URL``.
    * - :ref:`codex <planner-codex>`
      - Use Codex with an OpenAI Responses-compatible service.
      - Codex login, or ``CODEX_API_KEY`` / ``CODEX_BASE_URL``.
@@ -105,7 +105,7 @@ The Claude Code Planner
 ----------------------------
 
 RPent includes the Claude Code dependencies, so no separate CLI installation is
-needed. Configure a Claude login or ``ANTHROPIC_API_KEY``, then run:
+needed. Configure a Claude login, ``ANTHROPIC_API_KEY``, or ``ANTHROPIC_AUTH_TOKEN``, then run:
 
 .. code-block:: bash
 

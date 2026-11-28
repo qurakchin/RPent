@@ -165,8 +165,9 @@ Linux 宿主机前置要求：
        ├── agent/
        │   ├── setup/           # 容器内 Agent 安装日志
        │   └── rpent/           # 对应容器内 /logs/agent/rpent/
-       │       ├── transcript_*.json # CLI 对话与规划器统计
-       │       ├── efe-result.json   # EFE 指标与收尾结果
+       │       ├── run.json          # 运行清单、环境快照与统一判定
+       │       ├── transcript.json   # CLI 对话与规划器统计
+       │       ├── efe-result.json   # EFE 指标、判定字段与收尾结果
        │       ├── codex_*.txt       # 规划器对话记录
        │       ├── codex-home/       # 本次 Trial 独立的 CODEX_HOME
        │       └── memory/           # 本次 Trial 的记忆目录
@@ -176,14 +177,14 @@ Linux 宿主机前置要求：
        ├── lock.json
        └── trial.log
 
-若 Trial 中途失败导致缺少 ``result.json`` 或 ``transcript_*.json``，请先排查 \
+若 Trial 中途失败导致缺少 ``result.json``、``run.json`` 或 ``transcript.json``，请先排查 \
 ``trial.log`` 与 ``agent/rpent/run.log``。
 
 成功判定
 ~~~~~~~~
 
 - **任务成功指标**：以 ``<trial_name>/result.json`` 中的 ``verifier_result.rewards.success`` 为准（源自 ``verifier/reward.json``）。支持重试的任务还会记录首次尝试的 ``first_success``，最终得分取最后一次尝试。
-- 规划器调用 ``finish(status="completed")`` 或 CLI 退出码为 ``0`` 仅代表进程正常结束，不代表任务成功。
+- 规划器调用 ``finish(status="completed")`` 本身不代表任务成功。独立运行 ``rpent --robot efe`` 时遵循 :ref:`cli-exit-codes` 的三态退出码（``0`` 通过、``1`` 失败或报错、``75`` 无判定，如隐藏成功标志的任务）；Harbor 通过 ``run.json`` 识别已正常结束的回合，并照常交由评分程序给出原生得分。
 - 规划器用完时间预算时，Trial 仍会评分：适配器把预算耗尽当作正常结束，评分程序照常检查最后一次尝试的最终状态。
 
 批量运行 benchmark

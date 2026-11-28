@@ -17,7 +17,7 @@ RPent 可以直接调用模型 API，也可以通过 Claude Code、Codex 等工�
      - 环境变量；可用 ``--base-url`` 覆盖地址。
    * - :ref:`claude_code <planner-claude-code>`
      - 使用 Claude Code；支持 Anthropic Messages 兼容服务。
-     - Claude 登录，或 ``ANTHROPIC_API_KEY`` / ``ANTHROPIC_BASE_URL``。
+     - Claude 登录，或 ``ANTHROPIC_API_KEY`` / ``ANTHROPIC_AUTH_TOKEN`` / ``ANTHROPIC_BASE_URL``。
    * - :ref:`codex <planner-codex>`
      - 使用 Codex；支持 OpenAI Responses 兼容服务。
      - Codex 登录，或 ``CODEX_API_KEY`` / ``CODEX_BASE_URL``。
@@ -90,7 +90,7 @@ API 规划器（直接调用模型 API）
 Claude Code 规划器
 ------------------------
 
-RPent 已包含 Claude Code 所需依赖，因此无需单独安装 CLI。先配置 Claude 登录或 ``ANTHROPIC_API_KEY``，再运行：
+RPent 已包含 Claude Code 所需依赖，因此无需单独安装 CLI。先配置 Claude 登录、``ANTHROPIC_API_KEY`` 或 ``ANTHROPIC_AUTH_TOKEN``，再运行：
 
 .. code-block:: bash
 

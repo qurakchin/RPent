@@ -816,3 +816,126 @@ def test_install_rejects_broken_venv_with_same_closure_fingerprint_without_delet
         installer.install(["infra-a"], root=repo, venv=venv, verbose=False)
     assert venv.is_dir()
     assert marker.read_text(encoding="utf-8") == "do-not-delete"
+
+
+def test_find_uv_rejects_non_executable_override(tmp_path, monkeypatch):
+    bad = tmp_path / "not-exec-uv"
+    bad.write_text("#!/bin/sh\n", encoding="utf-8")
+    bad.chmod(0o644)
+    monkeypatch.setenv("RPENT_UV", str(bad))
+    with pytest.raises(InstallError, match="is not an executable file"):
+        installer.find_uv()
+
+
+def test_install_auto_rebuilds_on_input_drift_and_recovers_replacing_without_force(
+    tmp_path, monkeypatch
+):
+    repo = _write_repo(tmp_path / "repo")
+    venv = _fake_venv(tmp_path / ".venv-a")
+    _write_valid_fingerprint(repo, venv, "infra-a")
+    # Mutate fingerprint requirements_sha256 to simulate manifest/override drift.
+    fp = installer.read_fingerprint(venv)
+    assert fp is not None
+    fp["requirements_sha256"] = "0" * 64
+    installer.write_fingerprint(venv, fp)
+
+    commands: list[list[str]] = []
+
+    def fake_run(cmd, *, env=None, capture=False, cwd=None, timeout=3600.0):
+        commands.append(cmd)
+        if cmd[:2] == ["uv", "venv"]:
+            _fake_venv(Path(cmd[-1]))
+            return ""
+        if "platform.python_version()" in " ".join(cmd):
+            return "3.11.9\n"
+        if cmd[:3] == ["uv", "pip", "freeze"]:
+            return "pkg==1.0\n"
+        return ""
+
+    monkeypatch.setattr(installer, "find_uv", lambda: "uv")
+    monkeypatch.setattr(installer, "run_command", fake_run)
+    new_fp = installer.install(["infra-a"], root=repo, venv=venv, verbose=False)
+    assert new_fp["fingerprint_schema"] == installer.FINGERPRINT_SCHEMA
+    assert any(cmd[:2] == ["uv", "venv"] for cmd in commands)
+    assert installer.freeze_path(venv).is_file()
+
+    # Simulate an interrupted rebuild that left .replacing behind and retry without --force.
+    stale_backup = venv.with_name(f".{venv.name}.replacing")
+    venv.rename(stale_backup)
+    (stale_backup / "sentinel.txt").write_text("saved", encoding="utf-8")
+
+    def fail_pip(cmd, *, env=None, capture=False, cwd=None, timeout=3600.0):
+        if cmd[:2] == ["uv", "venv"]:
+            _fake_venv(Path(cmd[-1]))
+            return ""
+        if "platform.python_version()" in " ".join(cmd):
+            return "3.11.9\n"
+        if cmd[:3] == ["uv", "pip", "install"]:
+            raise InstallError("network down")
+        return ""
+
+    monkeypatch.setattr(installer, "run_command", fail_pip)
+    with pytest.raises(InstallError, match="network down"):
+        installer.install(["infra-a"], root=repo, venv=venv, verbose=False)
+    assert (venv / "sentinel.txt").read_text(encoding="utf-8") == "saved"
+    assert not stale_backup.exists()
+
+
+def test_install_passes_reinstall_after_interrupted_install(tmp_path, monkeypatch):
+    repo = _write_repo(tmp_path / "repo")
+    venv = _fake_venv(tmp_path / ".venv-a")
+    installer.requirements_file(venv).write_text(
+        f"{installer.REQUIREMENTS_MARKER} infra-a\n", encoding="utf-8"
+    )
+    commands: list[list[str]] = []
+
+    def fake_run(cmd, *, env=None, capture=False, cwd=None, timeout=3600.0):
+        commands.append(cmd)
+        if "platform.python_version()" in " ".join(cmd):
+            return "3.11.9\n"
+        if cmd[:3] == ["uv", "pip", "freeze"]:
+            return "pkg==1.0\n"
+        return ""
+
+    monkeypatch.setattr(installer, "find_uv", lambda: "uv")
+    monkeypatch.setattr(installer, "run_command", fake_run)
+    installer.install(["infra-a"], root=repo, venv=venv, verbose=False)
+    pip_cmds = [c for c in commands if c[:3] == ["uv", "pip", "install"] and "-r" in c]
+    assert pip_cmds and "--reinstall" in pip_cmds[0]
+
+
+def test_doctor_strict_promotes_freeze_drift_to_fail(tmp_path, monkeypatch):
+    repo = _write_repo(tmp_path / "repo")
+    venv = _fake_venv(tmp_path / ".venv-a")
+    _write_valid_fingerprint(repo, venv, "infra-a")
+    monkeypatch.setattr(installer, "find_uv", lambda: "uv")
+
+    def fake_diag(cmd):
+        if cmd[:3] == ["uv", "pip", "freeze"]:
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout="extra-pkg==2.0\n", stderr=""
+            )
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(installer, "_run_diag", fake_diag)
+    default_checks = installer.check_installation(venv, root=repo, strict=False)
+    assert not any(c.status == installer.FAIL for c in default_checks)
+    assert any(c.status == installer.WARN for c in default_checks)
+
+    strict_checks = installer.check_installation(venv, root=repo, strict=True)
+    assert any(
+        c.status == installer.FAIL and "differ from recorded freeze" in c.message
+        for c in strict_checks
+    )
+
+
+def test_cli_check_all_empty_catalog_returns_1(tmp_path, capsys):
+    from rpent.cli import install as cli_install
+
+    repo = tmp_path / "empty-repo"
+    (repo / "components").mkdir(parents=True)
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname = "rpent"\ndependencies = []\n', encoding="utf-8"
+    )
+    assert cli_install.main(["--root", str(repo), "check", "--all"]) == 1
+    assert "no components found" in capsys.readouterr().err

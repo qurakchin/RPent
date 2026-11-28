@@ -266,7 +266,25 @@ def run_case(
         check=False,
     )
     coverage = inspect_trajectory(output_dir, action_tool, skip_tools=skip_tools)
-    if completed.returncode or not coverage["passed"]:
+    run_manifest_path = output_dir / "run.json"
+    run_manifest: dict[str, Any] = {}
+    if run_manifest_path.is_file():
+        try:
+            loaded = json.loads(run_manifest_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                run_manifest = loaded
+        except (OSError, json.JSONDecodeError):
+            run_manifest = {}
+    # Tool-walker E2E exercises every tool without solving the benchmark, so the
+    # CLI exits 1 (unsolved) or 75 (unjudged). Treat those as normal completion
+    # when run.json recorded a clean finish with no planner or artifact error.
+    clean_verdict_exit = (
+        completed.returncode in (0, 1, 75)
+        and bool(run_manifest.get("finished_at"))
+        and run_manifest.get("error") is None
+        and run_manifest.get("artifact_error") is None
+    )
+    if (completed.returncode and not clean_verdict_exit) or not coverage["passed"]:
         raise RuntimeError(
             f"{robot} planner exit={completed.returncode}, "
             f"missing={coverage['missing']}, failures={coverage['failures']}. "

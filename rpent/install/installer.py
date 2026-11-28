@@ -386,7 +386,7 @@ def _prepare_destination(
 ) -> Path | None:
     """Validate ``destination`` and optionally move it aside for rebuild."""
     _check_not_non_venv_path(destination)
-    if force:
+    if force or destination.with_name(f".{destination.name}.replacing").exists():
         return _replace(destination)
 
     python = venv_python(destination)

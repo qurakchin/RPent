@@ -29,7 +29,11 @@ from robots.robolab.prompt_bundle import system_prompt, user_prompt
 from rpent.components.models.backends import add_am_args, select_am
 from rpent.dashboard.events import DashboardEventSink
 from rpent.dashboard.spec import DashboardSpec
-from rpent.evaluation import RunFinalizationContext, write_json_atomic
+from rpent.evaluation import (
+    RunFinalizationContext,
+    verdict_fields,
+    write_json_atomic,
+)
 from rpent.memory import MemoryManager
 from rpent.memory.source import prepare_explicit_source
 from rpent.robots.prompt_bundle import PromptBundle
@@ -105,6 +109,7 @@ def finalize_run(context: RunFinalizationContext) -> Path:
             "task": context.task_desc["task"],
             "seed": context.task_desc["seed"],
             "success": native_success,
+            **verdict_fields(context),
             "environment_result_available": native_success is not None,
             "agent_error_present": context.agent_error is not None,
             "elapsed_s": round(context.elapsed_s, 1),

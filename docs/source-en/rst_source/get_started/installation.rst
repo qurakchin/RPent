@@ -168,12 +168,13 @@ You can also set ``UV_INDEX_URL``, ``UV_DEFAULT_INDEX``, or
    - **Reuse, auto-rebuild, and overlays:** re-running ``install`` for the same
      component closure updates packages in place and preserves overlaid packages
      (such as ``modelscope``, ``pre-commit``, or editable RLinf checkouts) when
-     installation inputs are unchanged; when manifests or overrides have
-     changed, it automatically rebuilds the virtual environment cleanly in
-     place. Pass ``--force`` to force a clean rebuild at any time; if a rebuild
-     fails, the previous environment is restored. Pass ``--strict`` to
-     ``doctor`` to treat freeze drift or override-induced ``uv pip check``
-     warnings as failures.
+     installation inputs are unchanged. When manifests, override files,
+     ``pyproject.toml`` dependencies, or index settings change, ``install``
+     automatically rebuilds the virtual environment cleanly in place. If the
+     existing environment holds a different component set, ``install`` refuses
+     to overwrite it and asks for a different ``--venv`` or ``--force``. Pass
+     ``--force`` to rebuild at any time; if a rebuild fails, the previous
+     environment is restored.
    - **Foreign virtual environments:** ``rpent-install`` refuses to overwrite a
      non-empty non-venv directory, and it will not write into a virtualenv
      created by another tool unless ``--force`` is passed. For externally
@@ -215,6 +216,7 @@ Verify that an installed virtual environment matches its manifests, passes
 .. code-block:: bash
 
    ./rpent-install.sh doctor --venv .venv-libero
+   ./rpent-install.sh doctor --venv .venv-libero --strict
    ./rpent-install.sh doctor --venv .venv-libero --fingerprint
 
 ``--fingerprint`` prints the stored ``rpent-install.json`` metadata and its
@@ -235,7 +237,9 @@ import probe:
 
 If you overlaid extra packages into the environment (such as ``modelscope`` or
 a custom CUDA PyTorch wheel) and both ``uv pip check`` and all component probes
-succeed, ``doctor`` reports a ``warn`` line instead of failing.
+succeed, ``doctor`` reports a ``warn`` line instead of failing. Pass
+``--strict`` when freeze drift or override-induced ``uv pip check`` warnings
+should fail the check.
 
 FAQ
 ---

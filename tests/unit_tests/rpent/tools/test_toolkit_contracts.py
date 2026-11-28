@@ -88,6 +88,54 @@ class _ContractToolkit(Toolkit):
         return False
 
 
+@pytest.mark.parametrize("readonly", [False, True])
+def test_tool_budget_is_atomic_and_survives_resume(tmp_path, readonly):
+    from concurrent.futures import ThreadPoolExecutor
+
+    toolkit = _ContractToolkit(tmp_path)
+    entered = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    @tool(readonly=readonly)
+    def inspect_scene() -> ToolResult:
+        calls.append("executed")
+        entered.set()
+        assert release.wait(3)
+        return ToolResult(data={"error": "sensor unavailable"})
+
+    toolkit.add_tool(inspect_scene)
+    toolkit.set_tool_budget(1)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        first = pool.submit(toolkit.execute_tool, "inspect_scene", {})
+        try:
+            assert entered.wait(3)
+            others = [
+                pool.submit(toolkit.execute_tool, "inspect_scene", {}) for _ in range(3)
+            ]
+            other_results = [f.result(3) for f in others]
+            assert all(
+                r.data["code"] == "tool_limit" and not r.call_ok and r.no_execution
+                for r in other_results
+            )
+            assert not first.done()
+        finally:
+            release.set()
+        assert first.result(3).is_error
+    assert calls == ["executed"]
+    assert toolkit.tool_calls_used == 1
+    toolkit.cancel_active_and_wait()
+    toolkit.resume_calls()
+    after_resume = toolkit.execute_tool("inspect_scene", {})
+    assert after_resume.data["code"] == "tool_limit"
+    assert not after_resume.call_ok and after_resume.no_execution
+    toolkit.set_tool_budget(2)
+    assert not toolkit.tool_limit_reached
+    assert toolkit.tool_calls_used == 0
+    toolkit.execute_tool("inspect_scene", {})
+    assert toolkit.tool_calls_used == 1
+
+
 def test_toolkit_and_common_tools_require_memory() -> None:
     with pytest.raises(TypeError, match="memory"):
         Toolkit(dashboard_events=_RecordingEventSink())

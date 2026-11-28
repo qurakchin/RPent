@@ -221,7 +221,7 @@ Set the credentials and endpoint for your chosen planner in the launch shell.
      - API key
      - Endpoint
    * - ``api`` / Anthropic; ``claude_code``
-     - ``ANTHROPIC_API_KEY``
+     - ``ANTHROPIC_API_KEY`` (``claude_code`` also accepts ``ANTHROPIC_AUTH_TOKEN``)
      - ``ANTHROPIC_BASE_URL``
    * - ``api`` / OpenAI
      - ``OPENAI_API_KEY``
@@ -244,7 +244,7 @@ When using external MCP servers via ``--mcp-config``, ``MCP_CALL_TIMEOUT_S`` (po
 Output Files
 ------------
 
-``--output-dir`` selects the run directory. Without it, LIBERO writes to ``logs/<timestamp>_<suite>_t<task>_s<seed>/`` under the repository; other environments describe their directory names on their own pages.
+``--output-dir`` selects the run directory. It must be empty or not yet exist: RPent claims the directory by creating ``run.json`` exclusively and rejects reuse with ``already records a run``. Without ``--output-dir``, LIBERO writes to ``logs/<timestamp>_<suite>_t<task>_s<seed>/`` under the repository; other environments describe their directory names on their own pages.
 
 The table uses LIBERO as an example. Files depend on the environment, recording, and run outcome.
 
@@ -253,8 +253,10 @@ The table uses LIBERO as an example. Files depend on the environment, recording,
 
    * - File or path
      - Purpose
-   * - ``transcript_*.json``
-     - Planner conversation, tool calls, and completion information.
+   * - ``run.json``
+     - Run manifest: installation snapshot, output artifact paths, and unified verdict fields (``accepted``, ``retryable``, ``failure_category``, ``stop_reason``, ``truth_source``).
+   * - ``transcript.json``
+     - Planner conversation, tool calls, ``recipe_tag``, verdict fields, and completion status.
    * - ``trajectories/<task_id>/``
      - Task records and attachments saved by ``--record-trajectory``. Exploration records are under each ``sessions/session_*/`` directory. See :doc:`flywheel`.
    * - ``episode.mp4``
@@ -271,3 +273,24 @@ The table uses LIBERO as an example. Files depend on the environment, recording,
      - Example step artifact: the directory uses the logical artifact name and contains numbered steps such as ``00.npz`` and ``01.npz``.
 
 Run-level files live at the output root; step observations live in their own subdirectories. Use the native success criterion documented for each environment; a recipe, video, or planner summary does not replace it.
+
+.. _cli-exit-codes:
+
+Exit Codes
+----------
+
+Evaluation runs map the unified verdict recorded in ``run.json`` to the process exit status:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Code
+     - Meaning
+   * - ``0``
+     - The environment or operator verdict accepted the run (``accepted: true``) with no artifact write failure.
+   * - ``1``
+     - The task failed (``accepted: false``), a planner/runtime error occurred, or writing run artifacts failed (``artifact_error``).
+   * - ``75``
+     - The run finished without a verdict (``accepted: null``, ``retryable: true``) — for example, a hidden-success benchmark or an unjudged real-robot evaluation — and may be retried or graded externally.
+
+Exploration runs (``--explore``) publish a corpus rather than an evaluation verdict, so they exit ``0`` unless a planner, runtime, or artifact error occurred (``1``).

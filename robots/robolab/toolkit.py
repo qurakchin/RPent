@@ -163,9 +163,10 @@ class RoboLabToolkit(Toolkit):
                 break
         return ToolResult(data={"executed_steps": executed, **self.env.last_info})
 
-    def solved(self) -> bool:
-        """Use the benchmark's native success result."""
-        return self.env.get_status()["success"] is True
+    def solved(self) -> bool | None:
+        """Use the benchmark's native success result, preserving unjudged None."""
+        raw = self.env.get_status()["success"]
+        return None if raw is None else bool(raw)
 
     def evaluation_metrics(self, *, success: bool | None) -> dict[str, Any]:
         """Preserve the native outcome, including an unfinished episode."""

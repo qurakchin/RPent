@@ -56,7 +56,7 @@
       rpent --robot libero --mcp-config power.yaml \
         --suite libero_goal_task --task 1 --seed 0 --planner claude_code --tui
 
-任务启动后，RPent 会连接 ``power`` 服务并注册 ``power__read_power_meter``。使用 ``claude_code`` 等 CLI 规划器进入 ``--tui`` 时，输入框默认已填好 LIBERO 任务提示词，先删掉默认内容，再输入 ``Read the power meter``\ （如果改用 ``--planner api``，``--tui`` 会先直接开始运行 LIBERO 任务，等规划器完成一轮回复后再发送 ``Read the power meter``）。规划器会调用 ``power__read_power_meter`` 并收到 ``battery 82%, outlet idle``，调用记录也会写入输出目录的 ``transcript_*.json``\ （见 :ref:`run-output-files`\ ）。如果使用 Dashboard（见 :ref:`dashboard-usage`\ ），在页面提交任务后同样可以查看工具调用结果。
+任务启动后，RPent 会连接 ``power`` 服务并注册 ``power__read_power_meter``。使用 ``claude_code`` 等 CLI 规划器进入 ``--tui`` 时，输入框默认已填好 LIBERO 任务提示词，先删掉默认内容，再输入 ``Read the power meter``\ （如果改用 ``--planner api``，``--tui`` 会先直接开始运行 LIBERO 任务，等规划器完成一轮回复后再发送 ``Read the power meter``）。规划器会调用 ``power__read_power_meter`` 并收到 ``battery 82%, outlet idle``，调用记录也会写入输出目录的 ``transcript.json``\ （见 :ref:`run-output-files`\ ）。如果使用 Dashboard（见 :ref:`dashboard-usage`\ ），在页面提交任务后同样可以查看工具调用结果。
 
 如果服务连不上，或配置了服务端不存在的工具，RPent 会在规划开始前退出，并在终端和 ``run.log`` 中输出错误原因；如果是工具名不匹配，还会列出服务端实际提供的工具。
 
