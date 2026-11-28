@@ -62,6 +62,16 @@ _SUPPORTED_PROTOCOLS = ("eai-standard/2.2", "eai-standard/2.4")
 _SERVICE_POST_TIMEOUT_S = 600
 
 
+class ServiceRefused(RuntimeError):
+    """The client refused the call before sending any request.
+
+    Argument checks and episode guards raise this or ``ValueError``; both mean
+    the service never saw the call. Every other failure (a timeout, a
+    connection error, an error status) may already have reached the service
+    and is reported as an ordinary error.
+    """
+
+
 class EfeEnvClient:
     """Validated access to one EFE episode.
 
@@ -299,7 +309,7 @@ class EfeEnvClient:
         if self.reset_budget <= 0:
             raise ValueError("This task declares no reset budget")
         if self._done and not self._reset_allowed_after_end():
-            raise RuntimeError(
+            raise ServiceRefused(
                 f"Cannot reset: the episode ended "
                 f"({self.done_reason or 'no reason reported'})"
             )
@@ -328,12 +338,12 @@ class EfeEnvClient:
         if not self.success_hidden:
             raise ValueError("This task does not use agent-ended episodes")
         if self._done:
-            raise RuntimeError(
+            raise ServiceRefused(
                 f"Cannot finish: the episode ended "
                 f"({self.done_reason or 'no reason reported'})"
             )
         if self._base_url is None:
-            raise RuntimeError("The service client has no base URL")
+            raise ServiceRefused("The service client has no base URL")
         remaining = self.remaining_s
         timeout_s = 60.0 if remaining is None else min(60.0, remaining)
         status = self._bounded_call(
@@ -669,7 +679,7 @@ class EfeEnvClient:
 
     def _raise_if_done(self, call: str) -> None:
         if self._done:
-            raise RuntimeError(
+            raise ServiceRefused(
                 f"Cannot {call}: the episode ended "
                 f"({self.done_reason or 'no reason reported'})"
             )

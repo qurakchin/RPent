@@ -16,21 +16,20 @@ worker.
 Install
 -------
 
-Install libfranka 0.19.0 first by following the `official quick-install guide
-<https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_.
-
-Clone RPent and install its Python dependencies. If you already have the
-checkout, enter it and run ``uv sync``:
+Install ``robot-franka`` into its own environment:
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   uv sync --extra franka
+   ./rpent-install.sh install robot-franka --venv .venv-franka-real
+   source .venv-franka-real/bin/activate
 
-This installs RLinf ``release/v0.4``, ``rpent-openpi``, and Franka camera,
-gripper, and teleoperation dependencies into ``.venv``. The included
-``franky-control`` wheel bundles libfranka 0.19.0.
+It includes RLinf, ``rpent-openpi``, and the Franka camera, gripper, and
+teleoperation dependencies. The included ``franky-control`` wheel already
+bundles libfranka 0.19.0, so a separate system install is only needed if you
+replace the bundled wheel or use ROS tooling (see the `official quick-install
+guide <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_).
+The commands below run ``.venv-franka-real/bin/rpent`` so they use that
+environment; activating it and running ``rpent`` is equivalent.
 
 Calibration
 -----------
@@ -83,6 +82,19 @@ startup:
    ray stop --force
    ray start --head
 
+Safety
+------
+
+.. warning::
+
+   Keep an operator at the hardware emergency stop (E-stop) whenever motion is
+   enabled, and confirm the workspace is clear before starting any command.
+   Validate task ``0`` with very small motions before attempting a grasp. Stop
+   immediately if camera and state results disagree, if a requested motion is
+   not reached, or if any calibration is uncertain. After an E-stop or
+   unexpected stop, inspect the physical scene, clear any obstruction, reset
+   the robot controller, and restart the session before resuming.
+
 Run a Smoke Test
 ----------------
 
@@ -94,11 +106,11 @@ correctly. To run it, launch RPent with task ``0``:
 .. code-block:: bash
 
    # replace --robot-config with your own config
-   uv run --extra franka rpent --robot franka --task-id 0 \
+   .venv-franka-real/bin/rpent --robot franka --task-id 0 \
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
-RPent starts ``robots/franka/env_server.py`` with the current interpreter,
+RPent starts the Franka environment server with the current interpreter,
 loads the RPent robot config, generates the internal RLinf adapter config,
 connects to Ray, waits for ``healthz``, and records the initial state as step
 ``0``.
@@ -107,20 +119,20 @@ VLA Grasp Demo
 --------------
 
 RPent provides a demo that uses a VLA to grasp objects. Task ``1`` exposes
-``vla_grasp``. Single Franka currently requires a compatible external VLA
-service whose observation layout, action layout, checkpoint, and normalization
-statistics match the current Franka training configuration:
+``vla_grasp``. Single Franka requires a compatible external VLA service whose
+observation layout, action layout, checkpoint, and normalization statistics
+match the current Franka training configuration:
 
 .. code-block:: bash
 
-   uv run --extra franka rpent --robot franka --task-id 1 \
+   .venv-franka-real/bin/rpent --robot franka --task-id 1 \
      --am-endpoint http://VLA_HOST:PORT \
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
-The VLA server must be deployed separately for now. Without
-``--am-endpoint``, analytic motion and gripper tools remain available, but
-``vla_grasp`` raises a runtime error.
+The VLA server must be deployed separately. Without ``--am-endpoint``,
+analytic motion and gripper tools remain available, but ``vla_grasp`` raises a
+runtime error.
 
 Tools and Artifacts
 -------------------
@@ -129,13 +141,6 @@ The extension exposes ``view_env_state``, ``view_camera_meta``, ``move_delta``,
 ``rotate_delta``, ``open_gripper``, ``close_gripper``, and ``vla_grasp``.
 Mutating tools capture robot state, wrist and external RGB images, optional
 aligned depth arrays, and camera metadata in RPent's central ``EnvState``.
-
-Safety
-------
-
-Keep an operator at the emergency stop. Validate task ``0`` with very small
-motions before attempting a grasp. Stop when camera/state results disagree,
-when the requested motion is not reached, or when any calibration is uncertain.
 
 .. _franka-flash:
 
@@ -154,7 +159,9 @@ Action order is fixed; interpolation remains the existing controller's responsib
 
 First configure the robot and ``perception.calibration`` using the setup above,
 start a Molmo service, and record a successful run. Review ``states.json`` and
-write ``annotations.json`` keyed by the source step number::
+write ``annotations.json`` keyed by the source step number:
+
+.. code-block:: json
 
    {
      "1": {"intent": "approach the cup rim", "phrase": "visible cup rim", "camera": "third_person"},
@@ -167,7 +174,9 @@ Every translation needs a semantic anchor; every rotation needs an intent and
 The selected view must have depth and valid calibration. Keep each recorded
 translation within 0.20 m and each rotation within 0.35 rad.
 
-Generate a plan offline from the reviewed recording (Molmo must be reachable)::
+Generate a plan offline from the reviewed recording (Molmo must be reachable):
+
+.. code-block:: bash
 
    python -m robots.franka.flash.generate \
      --robot franka --task franka_t0 \
@@ -176,16 +185,22 @@ Generate a plan offline from the reviewed recording (Molmo must be reachable)::
      --molmo-endpoint http://localhost:9000 --destination plan.json
 
 Confirm the source success when prompted. The generator rejects unsupported
-commands and does not overwrite an existing destination. It stores hashes of
-the robot configuration and calibration files. New recordings save
-``recording_fingerprint.json``; generation rejects missing fingerprints or
-configuration/calibration changes since recording before localizing anchors.
-Re-record after such changes; older recordings without provenance cannot be used.
-Replay also checks the plan against the current files. Known observation/verdict
-records and an initial confirmed scene reset are excluded from the plan; resets
-after task actions are rejected to prevent combining attempts. Dual Franka uses ``--robot dual_franka --task dual_franka_t0``.
+commands and does not overwrite an existing destination. For dual Franka, pass
+``--robot dual_franka --task dual_franka_t0``.
 
-Replay from a dedicated operator terminal::
+New recordings save ``recording_fingerprint.json`` with hashes of the robot
+configuration and calibration files. Before localizing anchors, generation
+rejects recordings that lack a fingerprint or whose configuration or
+calibration changed since recording; re-record after such changes. Replay also
+verifies the plan against the current files.
+
+Known observation/verdict records and an initial confirmed scene reset are
+excluded from the plan, while resets after task actions are rejected to avoid
+combining separate attempts.
+
+Replay from a dedicated operator terminal:
+
+.. code-block:: bash
 
    rpent --robot franka --planner flash --task-id 0 \
      --robot-config /path/to/robot.yaml --flash-plan plan.json \
@@ -253,4 +268,4 @@ agent point-selection requests are not included in the Flash planner's counts.
 Stop the Run
 ------------
 
-Press Ctrl+C in the terminal to request RPent shutdown; use the hardware emergency stop for an emergency. Check the arm and gripper before shutting down services through the controller’s shutdown procedure.
+Press Ctrl+C in the terminal to stop RPent normally. For any emergency, use the hardware emergency stop. Check the arm and gripper before shutting down services through the controller's shutdown procedure.

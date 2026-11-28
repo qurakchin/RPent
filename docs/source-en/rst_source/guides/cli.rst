@@ -27,33 +27,36 @@ These options control the planner, memory, output directory, and Dashboard.
      - Select a discovered robot or simulator.
    * - ``--planner``
      - ``api``
-     - Choose ``api``, ``claude_code``, ``codex``, ``gemini_cli``, or ``flash``. See :doc:`configure_planner`.
+     - Choose ``api``, ``claude_code``, ``codex``, ``gemini_cli``, ``opencode``, or ``flash``. See :doc:`configure_planner`.
    * - ``--model``
      - ``—``
-     - ``api`` requires a provider prefix; ``claude_code``, ``codex``, and ``gemini_cli`` use their backend defaults unless overridden.
+     - ``api`` requires a provider prefix; ``claude_code``, ``codex``, ``gemini_cli``, and ``opencode`` use their backend defaults unless overridden.
    * - ``--max-turns``
      - ``100``
-     - Planner turn limit. For ``api``, counts model requests across the conversation, including retries and follow-ups.
+     - RPent tool-call budget for the whole task. Follow-up messages and interrupts do not reset it; see :ref:`planner-limits`.
    * - ``--max-tokens``
      - ``8192``
      - ``api`` only: token limit per model response.
    * - ``--reasoning-effort``
-     - ``api``: ``high``; ``claude_code``, ``codex``, ``gemini_cli``: ``none``
-     - Reasoning effort for ``api``, ``claude_code``, and ``codex``:
-       ``none``, ``low``, ``medium``, ``high``, or ``xhigh``. Disabling
-       reasoning reduced the average runtime from approximately 13.2 to
-       7.9 minutes (about 40%) in our LIBERO Pro Long evaluations.
-       Higher effort may improve task success rate. Supported levels
-       ultimately depend on the selected model. ``gemini_cli`` accepts only ``none``.
+     - ``api``: ``high``; ``claude_code``, ``codex``, ``gemini_cli``, ``opencode``: ``none``
+     - Reasoning effort for online planners:
+       ``none``, ``low``, ``medium``, ``high``, or ``xhigh``, subject to backend
+       and model support. Disabling reasoning reduced the
+       average runtime from approximately 13.2 to 7.9 minutes (about 40%) in our
+       LIBERO Pro Long evaluations. Higher effort may improve task success rate
+       but can also increase task duration.
    * - ``--planner-timeout-s``
      - ``—``
-     - Defaults to ``CODEX_TIMEOUT_S`` (Codex) or ``GEMINI_CLI_TIMEOUT_S`` (Gemini CLI), then ``CELL_TIMEOUT_S``, then 1200 seconds; terminal interactive API/Claude sessions are exempt.
+     - Wall-clock timeout in seconds for online planner runs (interactive API/Claude terminal sessions are exempt). Defaults to ``CODEX_TIMEOUT_S`` (``codex`` only), ``GEMINI_CLI_TIMEOUT_S`` (``gemini_cli`` only), ``CELL_TIMEOUT_S``, or ``1200``.
    * - ``--codex-sandbox``
      - ``full-access``
      - Codex shell sandbox: ``read-only``, ``workspace-write``, or ``full-access``. Other planners ignore this flag.
    * - ``--base-url``
      - ``—``
-     - ``api`` only: override the model endpoint. ``claude_code``, ``codex``, and ``gemini_cli`` use their existing backend configuration and reject this flag.
+     - ``api`` only: override the model endpoint. ``claude_code``, ``codex``, ``gemini_cli``, and ``opencode`` use their existing backend configuration and reject this flag.
+   * - ``--mcp-config``
+     - ``—``
+     - Path to an external MCP YAML file whose ``mcp_servers`` section is registered on the robot's toolkit for every run; supported by online planners (rejected by ``flash``). See :ref:`external-mcp-servers`.
    * - ``--no-images``
      - ``false``
      - ``api`` only: omit images from model requests.
@@ -100,7 +103,7 @@ These options control the planner, memory, output directory, and Dashboard.
 Environment Options
 -------------------
 
-LIBERO selects tasks with ``--suite``, ``--task``, ``--seed``, and ``--libero-type``; the variant defaults to ``LIBERO_TYPE`` or ``pro``. RoboCasa365 and RoboTwin use ``--task-name``. Franka uses ``--task-id`` and ``--robot-config``. See :doc:`../simulators/libero`, :doc:`../simulators/robocasa`, :doc:`../simulators/robotwin`, :doc:`../real_world_robots/franka`, and :doc:`../real_world_robots/dual_franka` for details.
+LIBERO selects tasks with ``--suite``, ``--task``, ``--seed``, and ``--libero-type``; when omitted, the variant uses ``LIBERO_TYPE`` if set, otherwise infers ``standard`` for base suites and ``pro`` for perturbation suites. RoboCasa365 and RoboTwin use ``--task-name``. Franka uses ``--task-id`` and ``--robot-config``. See :doc:`../simulators/libero`, :doc:`../simulators/robocasa`, :doc:`../simulators/robotwin`, :doc:`../real_world_robots/franka`, and :doc:`../real_world_robots/dual_franka` for details.
 
 ``--env-endpoint``, ``--am-endpoint``, and LIBERO’s ``--sam3-endpoint`` connect to existing environment, action-model (VLA or WAM), and SAM3 services respectively. RPent RPC addresses use ``[protocol://]host:port``, defaulting to ``http``. LingBot uses native WebSocket; see :doc:`../simulators/robotwin`. See :doc:`advanced_deployment` for GPU assignment and remote services.
 
@@ -118,35 +121,35 @@ directory, defaulting to the RPent checkout; Cosmos Policy requires its source
 directory.
 
 Cosmos Policy, Cosmos3 and Fast-WAM use the ``local`` memory profile with memory file tools and a
-backend-specific directory; ``--memory-dir`` overrides it. WAM currently rejects
-HF memory, Flash and exploration for these backends. UniWAM retains RoboTwin
+backend-specific directory; ``--memory-dir`` overrides it. These backends reject
+HF memory, Flash, and exploration. UniWAM retains RoboTwin
 exploration and memory selection; see :doc:`../simulators/robotwin`. See
 :doc:`../development/add_action_model` for model launch options and supported pairs.
 
 ``--predict-future`` enables future-state/value outputs during local deployment.
-Currently only Cosmos Policy supports this option; other backends reject it.
+Only Cosmos Policy supports this option; other backends reject it.
 Configure it when starting the worker if connecting with ``--am-endpoint``.
 RPent does not yet use these outputs for planning.
 
-``--am-cuda-device`` selects the local model GPU independently of the simulator.
-Local model deployment is supported by LIBERO, RoboTwin, RoboCasa, RoboDojo and
-dual-Franka. Franka and YAM connect to externally deployed VLA services;
-select their GPU when deploying the service.
-LIBERO, RoboTwin, RoboCasa and RoboDojo use ``--env-cuda-device`` for the environment.
-LIBERO, RoboDojo and dual-Franka use ``--sam3-cuda-device`` for local SAM3.
-These services may share a GPU when memory permits. External endpoints
-use the GPU configuration set when their services were started.
-The original ``--cuda-device`` option remains a shared default for local services.
-Per-service options take precedence, independent of argument order; without either
-option, services inherit ``CUDA_VISIBLE_DEVICES``. For example,
+Local services can share a GPU when memory permits, or bind to separate GPUs with per-service flags:
+
+- ``--am-cuda-device``: local model GPU (supported by LIBERO, RoboTwin, RoboCasa, RoboDojo, and dual-Franka).
+- ``--env-cuda-device``: local simulator GPU (LIBERO, RoboTwin, RoboCasa, and RoboDojo).
+- ``--sam3-cuda-device``: local SAM3 GPU (LIBERO, RoboDojo, and dual-Franka).
+
+``--cuda-device`` remains a shared default for local services, while per-service
+options take precedence regardless of argument order; without either option,
+services inherit ``CUDA_VISIBLE_DEVICES`` (for example,
 ``--cuda-device 0 --am-cuda-device 1`` starts the environment and SAM3 on GPU 0
-and the WAM worker on GPU 1.
-Standalone service commands retain their own ``--cuda-device`` where supported.
+and the WAM worker on GPU 1). External endpoints—including Franka and YAM VLA
+services—use the GPU configured when those services were started, and standalone
+service commands retain their own ``--cuda-device`` where supported.
+
 ``rpent --robot libero --am-backend fast-wam --help`` groups connection,
-local deployment and selected-model options. Model-specific options retain
-their model prefix; options for another model are rejected. The action-model guide separates
-one-time worker deployment from repeated task commands and includes examples
-for both external services and workers started by RPent.
+local deployment, and selected-model options. Model-specific options retain
+their model prefix, and options for another model are rejected. The action-model
+guide separates one-time worker deployment from repeated task commands and
+includes examples for both external services and workers started by RPent.
 
 The following defaults apply to LIBERO; check each other environment’s ``--help`` for its defaults.
 
@@ -164,7 +167,7 @@ The following defaults apply to LIBERO; check each other environment’s ``--hel
      - HF corpus: ``auto``, ``GPT_5.5_xhigh``, or ``GPT_6_astra_low``. See :doc:`memory`; explicit versions cannot be combined with local memory or exploration.
    * - ``--max-episode-steps``
      - ``10000``
-     - Environment step limit, separate from planner turns (``--max-turns``).
+     - Environment step limit, separate from the tool-call budget (``--max-turns``).
 
 Action-Model Compatibility
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -218,7 +221,7 @@ Set the credentials and endpoint for your chosen planner in the launch shell.
      - API key
      - Endpoint
    * - ``api`` / Anthropic; ``claude_code``
-     - ``ANTHROPIC_API_KEY``
+     - ``ANTHROPIC_API_KEY`` (``claude_code`` also accepts ``ANTHROPIC_AUTH_TOKEN``)
      - ``ANTHROPIC_BASE_URL``
    * - ``api`` / OpenAI
      - ``OPENAI_API_KEY``
@@ -230,16 +233,18 @@ Set the credentials and endpoint for your chosen planner in the launch shell.
      - ``CODEX_API_KEY``
      - ``CODEX_BASE_URL``
 
-Claude Code and Codex can also reuse existing CLI authentication. Gemini CLI uses its own authentication and endpoint configuration. See :doc:`configure_planner` for model selection, endpoint precedence, and local server examples. Use ``rpent-check-llm`` for connectivity checks and ``rpent-memory`` for the operations in :doc:`memory`.
+See :doc:`configure_planner` for model selection, endpoint precedence, and local server examples. Use ``rpent-install`` (or ``./rpent-install.sh`` from a fresh checkout) to create and diagnose component environments (see :doc:`../get_started/installation`), ``rpent-check-llm`` for connectivity checks, and ``rpent-memory`` for the operations in :doc:`memory`.
 
 Each environment reads its own resource variables, including LIBERO’s ``PI05_CHECKPOINT_PATH`` and ``SAM3_CHECKPOINT_PATH``, RoboCasa365’s ``ROBOCASA_ASSETS_PATH``, and RoboTwin’s ``ROBOTWIN_ASSETS_PATH`` and ``LINGBOT_MODEL_PATH``.
+
+When using external MCP servers via ``--mcp-config``, ``MCP_CALL_TIMEOUT_S`` (positive number of seconds, default ``60``) sets the per-request timeout for tool discovery and tool calls. A server's ``timeout_s`` setting in YAML takes precedence over this variable (see :ref:`external-mcp-servers`).
 
 .. _run-output-files:
 
 Output Files
 ------------
 
-``--output-dir`` selects the run directory. Without it, LIBERO writes to ``logs/<timestamp>_<suite>_t<task>_s<seed>/`` under the repository; other environments describe their directory names on their own pages.
+``--output-dir`` selects the run directory. RPent claims the directory by creating ``run.json`` exclusively and rejects reuse of a directory that already contains ``run.json`` with ``already records a run`` (a non-empty directory without ``run.json`` logs a warning). Without ``--output-dir``, LIBERO writes to ``logs/<timestamp>_<suite>_t<task>_s<seed>/`` under the repository; other environments describe their directory names on their own pages.
 
 The table uses LIBERO as an example. Files depend on the environment, recording, and run outcome.
 
@@ -248,8 +253,10 @@ The table uses LIBERO as an example. Files depend on the environment, recording,
 
    * - File or path
      - Purpose
-   * - ``transcript_*.json``
-     - Planner conversation, tool calls, and completion information.
+   * - ``run.json``
+     - Run manifest: installation snapshot, output artifact paths, ``error`` / ``artifact_error``, and unified verdict fields (``accepted``, ``retryable``, ``failure_category``, ``stop_reason``, ``truth_source``).
+   * - ``transcript.json``
+     - Planner conversation, tool calls, ``recipe_tag``, ``environment_success``, verdict fields, and completion status.
    * - ``trajectories/<task_id>/``
      - Task records and attachments saved by ``--record-trajectory``. Exploration records are under each ``sessions/session_*/`` directory. See :doc:`flywheel`.
    * - ``episode.mp4``
@@ -266,3 +273,24 @@ The table uses LIBERO as an example. Files depend on the environment, recording,
      - Example step artifact: the directory uses the logical artifact name and contains numbered steps such as ``00.npz`` and ``01.npz``.
 
 Run-level files live at the output root; step observations live in their own subdirectories. Use the native success criterion documented for each environment; a recipe, video, or planner summary does not replace it.
+
+.. _cli-exit-codes:
+
+Exit Codes
+----------
+
+Evaluation runs map the unified verdict recorded in ``run.json`` to the process exit status:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Code
+     - Meaning
+   * - ``0``
+     - The environment or operator verdict accepted the run (``accepted: true``) with no ``artifact_error``.
+   * - ``1``
+     - The task failed (``accepted: false``), the run had no verdict with a planner/runtime error (``accepted: null`` and non-null ``error``), or writing run artifacts failed (``artifact_error``).
+   * - ``75``
+     - The run finished cleanly without a verdict (``accepted: null``, ``error: null``, no ``artifact_error``, ``retryable: true``) — for example, a hidden-success benchmark or an unjudged real-robot evaluation — and may be retried or graded externally.
+
+Exploration runs (``--explore``) publish a corpus rather than an evaluation verdict, so they exit ``0`` unless a planner, runtime, or artifact error occurred (``1``).

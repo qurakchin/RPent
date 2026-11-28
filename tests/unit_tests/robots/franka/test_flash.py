@@ -23,6 +23,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+from components.models.molmo.client import MolmoResult
 from robots.franka.flash import common
 from robots.franka.flash.replay import (
     authorize_runtime,
@@ -30,7 +31,6 @@ from robots.franka.flash.replay import (
     prepare,
     replay,
 )
-from rpent.robots.components.molmo_client import MolmoResult
 from rpent.tools import ToolResult
 
 
@@ -164,6 +164,8 @@ def test_operator_abort_does_not_execute(scene):
         human=lambda *a: "abort",
     )
     assert not outcome["done"] and not scene.actions
+    # An abort leaves the replay unjudged rather than failed.
+    assert scene.toolkit._flash_solved is None
 
 
 def test_failed_primitive_stops_before_next_action(scene, monkeypatch):

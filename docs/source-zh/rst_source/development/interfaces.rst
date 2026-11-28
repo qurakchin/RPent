@@ -42,9 +42,11 @@
    * - ``init_runtime``
      - 启动或连接全部 runtime components，或只处理指定名称的子集，并构造对应的
        ``runtime_kwargs``。普通 CLI 传 ``None``；Dashboard 从 spec 得到显式声明的 shared 和 unique 子集后分别传入。``DashboardEventSink`` 用于上报运行时状态。
+   * - ``truth_source`` / ``collects_verdict``
+     - ``truth_source`` 声明运行判定来自环境（默认 ``"environment"``）还是操作员（``"operator"``）。``collects_verdict(planner)`` 判断当前规划器下是否采集判定结果。
 
-``get_toolkit`` 一般只需把 ``runtime_kwargs`` 传给机器人子类； ``dashboard_events`` 和 ``config`` 由当前 runner 传入。启用记忆时，需要构造一个
-:class:`~rpent.memory.MemoryManager`（root 取自
+``get_toolkit`` 一般只需把 ``runtime_kwargs`` 传给机器人子类；``dashboard_events`` 和 ``config`` 由当前 runner 传入。必须构造一个
+:class:`~rpent.memory.MemoryManager`\ （root 取自
 ``config.prompt_vars["memory_dir"]``，未设置时回退到 ``get_memory_dir(robot_name)``）并传给 toolkit。Memory 访问权限在 ``MemoryManager`` 上配置。如果某个机器人还需要额外参数，可以继续声明 keyword-only 参数；例如 LIBERO 还使用 ``mode``、``attempts_per_session`` 和 ``state_output_dir``。
 
 参考实现：``robots/libero/robot_spec.py``。
@@ -52,7 +54,7 @@
 Planner
 -------
 
-多数用户使用内置的 ``api``、``claude_code``、``codex`` 或 ``gemini_cli``，见 :doc:`../guides/configure_planner`。自定义 planner 才需实现
+多数用户使用内置的 ``api``、``claude_code``、``codex``、``gemini_cli`` 或 ``opencode``，见 :doc:`../guides/configure_planner`。自定义 planner 才需实现
 ``rpent.planner.base.Planner``：
 
 .. code-block:: python
@@ -68,7 +70,7 @@ Planner
        dashboard_interaction=None,
    ) -> PlannerResult: ...
 
-规划器通过 ``toolkit.list_tools()`` 获取工具定义并传给模型，通过 ``toolkit.execute_tool(name, input_dict)`` 执行模型发出的工具调用，再将工具返回结果传给模型。调用 ``finish`` 或达到轮数上限时，返回 ``PlannerResult``。
+规划器通过 ``toolkit.list_tools()`` 获取工具定义并传给模型，通过 ``toolkit.execute_tool(name, input_dict)`` 执行模型发出的工具调用，再将工具返回结果传给模型。调用 ``finish`` 或用完任务的工具调用额度后，返回 ``PlannerResult``。
 
 工具集
 ------
@@ -80,6 +82,14 @@ Planner
    def add_tool(self, tool: Tool, *, replace: bool = False) -> None: ...
 
 用 ``@tool`` 声明函数或方法，参数类型注解和 Google 风格 docstring 提供 schema 与说明；``@tool(readonly=True)`` 允许只读工具并行执行，并跳过动作后的状态采集。处理函数返回 ``ToolResult(data=..., images=...)``：``data`` 保存 JSON 数据，按需包含 ``error`` 或 ``_finish``；``images`` 保存 PNG 字节。
+
+``ToolResult`` 还通过 ``call_ok`` 与 ``no_execution`` 区分不同层级的失败：
+
+- **执行前拒收**\ （``call_ok=False``、``no_execution=True``）：未知工具、参数不匹配 schema 或签名、``ToolRejected`` 前置拒收、``ToolLimitExceeded`` 或调度前取消；工具未执行，``to_dict()`` 会同时输出两个标记。
+- **执行异常或序列化失败**\ （``call_ok=False``、``no_execution=False``）：工具函数抛出未捕获异常或结果无法序列化，此时环境可能已发生变化。
+- **载荷错误**\ （``call_ok=True``）：工具正常执行，但在 ``data`` 中返回了 ``error``。
+
+``ToolResult.is_error`` 汇总 ``not call_ok`` 与载荷中的 ``error``。回合结束且在途工具排空后，运行器调用 ``Toolkit.solved() -> bool | None`` 获取任务判定，区分“尚未判定”（``None``）与“判定失败”（``False``）。
 
 必须传入 ``MemoryManager``，基类始终注册公共文件工具和 ``finish``。子类 ``super().__init__()`` 后追加本机器人工具即可。逐步状态与 ``view_env_state`` 见 :doc:`add_primitive`。
 

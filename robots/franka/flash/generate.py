@@ -70,7 +70,8 @@ def generate(
         raise ValueError("source replay did not succeed")
     if robot not in {"franka", "dual_franka"}:
         raise ValueError("unsupported robot")
-    transcript = list(Path(run_dir).glob("transcript_*.json"))
+    # The CLI writes a fixed ``transcript.json``; older runs used one file per session.
+    transcript = list(Path(run_dir).glob("transcript*.json"))
     for path in transcript:
         record = json.loads(path.read_text())
         if (record.get("finish") or {}).get("status") in {"failure", "stuck"}:
@@ -164,9 +165,9 @@ def main() -> None:
     parser.add_argument("--molmo-endpoint", required=True)
     parser.add_argument("--destination", required=True, type=Path)
     args = parser.parse_args()
+    from components.models.molmo.client import MolmoClient
     from robots.franka.flash.replay import ask_human
     from robots.franka.runtime_config import set_robot_config_path
-    from rpent.robots.components.molmo_client import MolmoClient
     from rpent.utils.rpc import make_rpc_client
 
     if args.destination.exists():

@@ -15,7 +15,7 @@ LIBERO 环境服务
 .. code-block:: bash
 
    export LIBERO_TYPE=pro
-   python -m robots.libero.env_server \
+   python -m components.sim.libero.env_server \
      --suite libero_object_swap --task 2 --seed 0 \
      --max-episode-steps 10000 \
      --cuda-device 0 \
@@ -26,12 +26,14 @@ LIBERO 环境服务
 Pi0.5 VLA 服务
 --------------
 
-在 VLA 主机上设置 checkpoint 路径并启动 HTTP 服务：
+在 VLA 主机上把模型服务装进独立的环境，再设置 checkpoint 路径并启动 HTTP 服务：
 
 .. code-block:: bash
 
+   ./rpent-install.sh install model-openpi infra-rlinf --venv .venv-openpi
+   source .venv-openpi/bin/activate
    export PI05_CHECKPOINT_PATH=/path/to/rlinf-pi05-libero-130-fullshot-sft
-   python -m rpent.robots.components.pi05_vla_server \
+   python -m components.models.openpi.server \
      --embodiment libero \
      --cuda-device 0 \
      --transport http --host 0.0.0.0 --port VLA_PORT
@@ -51,7 +53,7 @@ APXInf 适配器可以替代 Pi0.5 服务。在已安装 RPent 的环境中，�
 
 .. code-block:: bash
 
-   python -m rpent.robots.components.apxinf_vla_server \
+   python -m components.models.apxinf.server \
      --embodiment libero \
      --model-path /path/to/pi05-libero \
      --tokenizer-path /path/to/tokenizer.model \
@@ -59,7 +61,7 @@ APXInf 适配器可以替代 Pi0.5 服务。在已安装 RPent 的环境中，�
      --precision bf16 \
      --transport http --host 127.0.0.1 --port 8220
 
-在 LIBERO 命令中增加 ``--vla-endpoint http://127.0.0.1:8220``。跨主机访问时，将服务绑定到可访问的网络接口，并使用服务端地址。用完后需自行停止这个外部服务；省略 endpoint 会启动 OpenPI。
+在 LIBERO 命令中增加 ``--am-endpoint http://127.0.0.1:8220``。跨主机访问时，将服务绑定到可访问的网络接口，并使用服务端地址。用完后需自行停止这个外部服务；省略 endpoint 会启动 OpenPI。
 APXInf-robo 原生的 OpenPI WebSocket 服务不是 RPent RPC endpoint，请使用上述适配器。
 
 适配器仅支持 eval 模式，模型配置如下：
@@ -68,7 +70,7 @@ APXInf-robo 原生的 OpenPI WebSocket 服务不是 RPent RPC endpoint，请使�
 - ``dual_franka``：采用本体坐标系增量 TCP rot6d 的模型，输入三个视角；返回 20 步绝对位姿动作，每步 20 维。
 - ``yam``：采用关节增量模型，输入三个视角；返回 30 步绝对 qpos14 动作，YAM 工具每次执行五步。
 
-修改 ``--embodiment`` 时，需选择匹配的 APXInf-robo 预设、模型权重和统计文件。双臂 Franka 和 YAM 仍处于实验阶段，权重导出、数值一致性和真机执行尚需验证。适配器需要 APXInf 兼容的权重，不会转换原始 RLinf ``actor/model_state_dict/full_weights.pt``；目前不支持单臂 ``franka``。
+修改 ``--embodiment`` 时，需选择匹配的 APXInf-robo 预设、模型权重和统计文件。双臂 Franka 和 YAM 仍处于实验阶段，权重导出、数值一致性和真机执行尚需验证。适配器需要 APXInf 兼容的权重，不会转换原始 RLinf ``actor/model_state_dict/full_weights.pt``；不支持单臂 ``franka``。
 
 SAM3 服务
 ---------
@@ -78,7 +80,7 @@ SAM3 服务
 .. code-block:: bash
 
    export SAM3_CHECKPOINT_PATH=/path/to/sam3/sam3.pt
-   python -m rpent.robots.components.sam3_server \
+   python -m components.models.sam3.server \
      --cuda-device 0 \
      --transport http --host 0.0.0.0 --port SAM3_PORT
 
@@ -118,11 +120,11 @@ SAM3 服务只加载一次模型，可以由多个 RPent 运行复用。
 并行评测
 --------
 
-以下以使用 Pi0.5 VLA 和 SAM3 的 LIBERO 评测为例说明如何进行并行评测。其他机器人或评测配置可能使用不同的服务和 endpoint。
+以下以使用 Pi0.5 VLA 和 SAM3 的 LIBERO 评测为例说明如何并行评测。其他机器人或评测配置可能使用不同的服务和 endpoint。
 
 要对同一个 LIBERO 任务并行运行多次评测，先按照上文的说明各启动一个 Pi0.5 VLA 服务和一个 SAM3 服务。等待两个服务输出 ``RPC server listening on ...`` 后，为每个并发的 ``rpent`` 进程传入相同的 endpoint： ``http://VLA_HOST:VLA_PORT`` 和 ``http://SAM3_HOST:SAM3_PORT``，其中各占位符替换为对应服务的主机地址和端口。
 
-如果服务与 RPent 在同一台机器上，host 可以使用 ``127.0.0.1``。这样所有进程会共同访问同一组 VLA 和 SAM3 服务。省略 ``--env-endpoint``，则每个进程会单独启动自己的 ``env_server``，评测环境彼此独立； VLA 和 SAM3 模型只需加载一次，无需为每次评测重复启动。
+如果服务与 RPent 在同一台机器上，host 可以使用 ``127.0.0.1``。这样所有进程会共同访问同一组 VLA 和 SAM3 服务。省略 ``--env-endpoint``，则每个进程会单独启动自己的 ``env_server``，评测环境彼此独立；VLA 和 SAM3 模型只加载一次，无需为每次评测重复启动。
 
 .. code-block:: bash
 

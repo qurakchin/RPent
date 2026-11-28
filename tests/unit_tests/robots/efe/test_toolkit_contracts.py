@@ -134,10 +134,39 @@ def test_state_records_keep_the_frames_of_their_episode(tmp_path, efe_client):
 def test_solved_reads_the_service_verdict_not_finish(tmp_path, efe_client):
     toolkit = _toolkit(tmp_path, efe_client)
 
-    assert toolkit.solved() is False
+    # An undecided episode has no verdict, not a failed one.
+    assert toolkit.solved() is None
     efe_client.done = True
     efe_client.done_reason = "success"
     assert toolkit.solved() is True
+
+
+def test_solved_leaves_a_hidden_success_unjudged(tmp_path, efe_client):
+    efe_client.spec["success_signal"] = "hidden"
+    efe_client.done = True
+    efe_client.done_reason = "finished"
+    toolkit = _toolkit(tmp_path, efe_client, skills=False)
+
+    # Only the verifier can score a hidden task.
+    assert toolkit.solved() is None
+
+
+def test_a_refused_submit_records_no_step(tmp_path, efe_client):
+    toolkit = _toolkit(tmp_path, efe_client, skills=False)
+
+    def refuse(*args, **kwargs):
+        # The client validates the chunk before it sends anything.
+        raise ValueError("Unknown action type 'jump'. Known: ['joint_position']")
+
+    efe_client.submit = refuse
+    result = toolkit.execute_tool(
+        "efe_submit", {"action_type": "jump", "actions": [[0.0] * 7]}
+    )
+
+    assert not result.call_ok and result.no_execution
+    assert efe_client.submitted == []
+    assert toolkit.state.latest_step is None
+    assert toolkit.metrics()["tool_calls"] == 0
 
 
 def test_metrics_count_session_calls_and_service_progress(tmp_path, efe_client):

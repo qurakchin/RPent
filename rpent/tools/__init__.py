@@ -14,12 +14,21 @@
 
 """Agent tool declarations, handlers, and result serialization."""
 
-from rpent.tools.base import Tool, ToolResult, iter_tools, tool, tool_error
-from rpent.tools.toolkit import Toolkit
+from rpent.tools.base import (
+    Tool,
+    ToolRejected,
+    ToolResult,
+    iter_tools,
+    tool,
+    tool_error,
+)
+from rpent.tools.toolkit import ToolCancelled, Toolkit
 
 __all__ = [
     "Tool",
+    "ToolCancelled",
     "Toolkit",
+    "ToolRejected",
     "ToolResult",
     "tool",
     "tool_error",

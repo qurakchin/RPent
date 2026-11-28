@@ -48,6 +48,11 @@ functions implemented in ``robot_spec.py`` for ``main.py`` to call:
        normal CLI passes ``None``; the Dashboard passes explicit shared and
        unique subsets derived from its spec. A ``DashboardEventSink``
        reports status.
+   * - ``truth_source`` / ``collects_verdict``
+     - ``truth_source`` declares whether the environment (``"environment"``,
+       default) or an operator (``"operator"``) establishes the run verdict.
+       ``collects_verdict(planner)`` reports whether the runner collects a
+       verdict for the selected planner.
 
 ``get_toolkit`` usually passes ``runtime_kwargs`` into your robot subclass;
 ``dashboard_events`` and ``config`` are supplied by the active runner. It must
@@ -64,7 +69,7 @@ Reference: ``robots/libero/robot_spec.py``.
 Planner
 -------
 
-Most users pick a built-in ``api``, ``claude_code``, ``codex``, or ``gemini_cli`` planner — see
+Most users pick a built-in ``api``, ``claude_code``, ``codex``, ``gemini_cli``, or ``opencode`` planner — see
 :doc:`../guides/configure_planner`. Only **custom planners** need
 ``rpent.planner.base.Planner``:
 
@@ -83,7 +88,7 @@ Most users pick a built-in ``api``, ``claude_code``, ``codex``, or ``gemini_cli`
 
 Contract: adapt the declarations from ``toolkit.list_tools()`` for the model; dispatch each call via
 ``toolkit.execute_tool(name, input_dict)``; feed results back to the model; return
-``PlannerResult`` on the ``finish`` tool or when turns are exhausted.
+``PlannerResult`` on the ``finish`` tool or when the task's tool-call budget is exhausted.
 
 Toolkit
 -------
@@ -101,9 +106,27 @@ allows concurrent readonly calls and skips post-action state capture. Handlers r
 ``data`` holds the JSON payload, including ``error`` or ``_finish`` when needed,
 and ``images`` holds PNG bytes.
 
-The base class registers common file tools when a memory manager is provided; call ``super().__init__()`` then
-``add_tool`` for robot tools. Per-step state and ``view_env_state`` are in
-:doc:`add_primitive`.
+``ToolResult`` also carries two call-level flags (``call_ok`` and
+``no_execution``) alongside payload errors:
+
+- **Pre-execution refusal** (``call_ok=False``, ``no_execution=True``): unknown
+  tool, schema or signature mismatch, ``ToolRejected`` precondition refusal,
+  ``ToolLimitExceeded``, or pre-dispatch cancellation. ``to_dict()`` publishes
+  both flags because the tool never ran.
+- **Handler or serialization failure** (``call_ok=False``,
+  ``no_execution=False``): an unhandled exception inside the handler or a JSON
+  serialization failure, where the robot may already have acted.
+- **Payload error** (``call_ok=True``): the tool ran and reported an ``error``
+  key in ``data``.
+
+``ToolResult.is_error`` combines ``not call_ok`` with a payload ``error`` so
+planners check one boolean. For episode grading, the runner queries
+``Toolkit.solved() -> bool | None`` after draining active calls, keeping
+unjudged episodes (``None``) distinct from judged failures (``False``).
+
+The base class requires a ``MemoryManager`` and always registers common file
+tools and ``finish``; call ``super().__init__()`` then ``add_tool`` for robot
+tools. Per-step state and ``view_env_state`` are in :doc:`add_primitive`.
 
 Tools without ``readonly=True`` run exclusively, in admission order. Waiting
 exclusive calls take priority over new readonly calls. Exclusive execution

@@ -27,28 +27,31 @@
      - 选择已发现的机器人或仿真环境。
    * - ``--planner``
      - ``api``
-     - 可选 ``api``、``claude_code``、``codex``、``gemini_cli`` 或 ``flash``。见 :doc:`configure_planner`。
+     - 可选 ``api``、``claude_code``、``codex``、``gemini_cli``、``opencode`` 或 ``flash``。见 :doc:`configure_planner`。
    * - ``--model``
      - ``—``
-     - ``api`` 要求服务提供方前缀；``claude_code``、``codex`` 和 ``gemini_cli`` 未显式指定时使用各自默认值。
+     - ``api`` 要求服务提供方前缀；``claude_code``、``codex``、``gemini_cli`` 和 ``opencode`` 未显式指定时使用各自默认值。
    * - ``--max-turns``
      - ``100``
-     - 规划器轮数上限；``api`` 按整段对话的模型请求次数计算，包括重试和后续输入。
+     - 整个任务的 RPent 工具调用上限，追加消息和中断均不重置额度。见 :ref:`planner-limits`。
    * - ``--max-tokens``
      - ``8192``
      - 仅 ``api``：每次模型回复的 Token 上限。
    * - ``--reasoning-effort``
-     - ``api``：``high``；``claude_code``、``codex``、``gemini_cli``：``none``
-     - ``api``、``claude_code`` 与 ``codex`` 的推理强度：``none``、``low``、``medium``、``high`` 或 ``xhigh``。在我们的 LIBERO Pro Long 评测中，关闭 reasoning 将平均运行时间从约 13.2 分钟缩短至 7.9 分钟（约 40%）。较高强度可能提升任务成功率；实际支持的档位取决于所选模型。``gemini_cli`` 仅接受 ``none``。
+     - ``api``：``high``；``claude_code``、``codex``、``gemini_cli``、``opencode``：``none``
+     - 在线规划器的推理强度：``none``、``low``、``medium``、``high`` 或 ``xhigh``，实际支持取决于后端和模型。在我们的 LIBERO Pro Long 评测中，关闭 reasoning 将平均运行时间从约 13.2 分钟缩短至 7.9 分钟（约 40%）。较高强度可能提升任务成功率，但也有可能增大任务完成时间。
    * - ``--planner-timeout-s``
      - ``—``
-     - 优先使用 ``CODEX_TIMEOUT_S`` （Codex）或 ``GEMINI_CLI_TIMEOUT_S`` （Gemini CLI），再依次使用 ``CELL_TIMEOUT_S`` 或 1200 秒；终端交互式 API/Claude 会话不受此限。
+     - 在线规划器运行的墙钟超时（秒；终端交互式 API/Claude 会话不受限）。默认按优先级取 ``CODEX_TIMEOUT_S``\ （仅 ``codex``）、``GEMINI_CLI_TIMEOUT_S``\ （仅 ``gemini_cli``）、``CELL_TIMEOUT_S`` 或 ``1200``。
    * - ``--codex-sandbox``
      - ``full-access``
      - Codex Shell 沙箱，可选 ``read-only``、``workspace-write`` 或 ``full-access``。其他规划器会忽略此参数。
    * - ``--base-url``
      - ``—``
-     - 仅 ``api``：覆盖模型服务地址。``claude_code``、``codex`` 和 ``gemini_cli`` 使用各自已有的后端配置，并拒绝此参数。
+     - 仅 ``api``：覆盖模型服务地址。``claude_code``、``codex``、``gemini_cli`` 和 ``opencode`` 使用各自已有的后端配置，并拒绝此参数。
+   * - ``--mcp-config``
+     - ``—``
+     - 外部 MCP 配置文件（YAML）路径，其中的 ``mcp_servers`` 会自动注册到当前机器人的 ``toolkit`` 中；支持在线规划器，``flash`` 会拒绝此参数。参见 :ref:`external-mcp-servers`。
    * - ``--no-images``
      - ``false``
      - 仅 ``api``：不向模型发送图像。
@@ -95,19 +98,23 @@
 环境参数
 ------------
 
-LIBERO 使用 ``--suite``、``--task``、``--seed`` 和 ``--libero-type`` 选择任务；默认类型为 ``LIBERO_TYPE`` 或 ``pro``。RoboCasa365 和 RoboTwin 使用 ``--task-name``。Franka 使用 ``--task-id`` 和 ``--robot-config``。具体选项见 :doc:`../simulators/libero`、:doc:`../simulators/robocasa`、:doc:`../simulators/robotwin`、:doc:`../real_world_robots/franka` 和 :doc:`../real_world_robots/dual_franka`。
+LIBERO 使用 ``--suite``、``--task``、``--seed`` 和 ``--libero-type`` 选择任务；未指定时优先读取 ``LIBERO_TYPE``，否则按 suite 推断（基础套件为 ``standard``，扰动套件为 ``pro``）。RoboCasa365 和 RoboTwin 使用 ``--task-name``。Franka 使用 ``--task-id`` 和 ``--robot-config``。具体选项见 :doc:`../simulators/libero`、:doc:`../simulators/robocasa`、:doc:`../simulators/robotwin`、:doc:`../real_world_robots/franka` 和 :doc:`../real_world_robots/dual_franka`。
 
 ``--env-endpoint``、``--am-endpoint`` 和 LIBERO 的 ``--sam3-endpoint`` 分别连接已有的环境、动作模型（VLA 或 WAM）和 SAM3 服务。RPent RPC 地址格式为 ``[protocol://]host:port``，默认协议为 ``http``；LingBot 使用原生 WebSocket，见 :doc:`../simulators/robotwin`。GPU 分配和远程服务见 :doc:`advanced_deployment`。
 
-``--am-backend`` 选择当前平台支持的一个动作模型；LIBERO 默认使用 ``pi05``，RoboTwin 支持 ``lingbot``（默认）、``fast-wam`` 和 ``uniwam``。VLA 和 WAM 共用 ``--am-endpoint`` 连接已有服务，共用 ``--am-checkpoint``、``--am-python``、``--am-root`` 和 ``--am-cuda-device`` 配置本地部署。使用 endpoint 时，显式传入本地部署参数会报错。
+``--am-backend`` 选择当前平台支持的一个动作模型；LIBERO 默认使用 ``pi05``，RoboTwin 支持 ``lingbot``\ （默认）、``fast-wam`` 和 ``uniwam``。VLA 和 WAM 共用 ``--am-endpoint`` 连接已有服务，共用 ``--am-checkpoint``、``--am-python``、``--am-root`` 和 ``--am-cuda-device`` 配置本地部署。使用 endpoint 时，显式传入本地部署参数会报错。
 
-``--am-checkpoint`` 按后端要求提供本地权重或服务模型标识；UniWAM 使用 :doc:`../simulators/robotwin` 中说明的资源根目录。``--am-python`` 指定已准备好的模型解释器，VLA 默认使用当前解释器；``--am-root`` 指定工作目录，默认使用 RPent 仓库目录，Cosmos Policy 则要求其源码目录。Franka 和 YAM 仅提供外部服务连接。
+``--am-checkpoint`` 按后端要求提供本地权重或服务模型标识；UniWAM 使用 :doc:`../simulators/robotwin` 中说明的资源根目录。``--am-python`` 指定已准备好的模型解释器，VLA 默认使用当前解释器；``--am-root`` 指定工作目录，默认使用 RPent 仓库目录，Cosmos Policy 则要求其源码目录。单臂 Franka 和 YAM 仅支持连接外部 VLA 服务。
 
-Cosmos Policy、Cosmos3 和 Fast-WAM 采用 ``local`` 记忆模式并注册记忆文件工具，默认目录按后端区分，可通过 ``--memory-dir`` 指定目录；目前不支持 HF 记忆、Flash 和探索模式。UniWAM 保留 RoboTwin 的探索和 memory 选择，见 :doc:`../simulators/robotwin`。模型启动参数及支持的组合见 :doc:`../development/add_action_model`。
+Cosmos Policy、Cosmos3 和 Fast-WAM 采用 ``local`` 记忆模式并注册记忆文件工具，默认目录按后端区分，可通过 ``--memory-dir`` 指定目录；这些后端不支持 HF 记忆、Flash 和探索模式。UniWAM 保留 RoboTwin 的探索和 memory 选择，见 :doc:`../simulators/robotwin`。模型启动参数及支持的组合见 :doc:`../development/add_action_model`。
 
-``--predict-future`` 在本地部署时开启未来状态和价值输出，目前仅 Cosmos Policy 支持，其他后端会拒绝此参数。使用 ``--am-endpoint`` 连接已有服务时，应在启动 worker 时配置。RPent 尚不利用这些输出进行规划。
+``--predict-future`` 在本地部署时开启未来状态和价值输出，仅 Cosmos Policy 支持，其他后端会拒绝此参数。使用 ``--am-endpoint`` 连接已有服务时，应在启动 worker 时配置。RPent 规划器尚未消费这些输出。
 
-``--am-cuda-device`` 独立选择本地模型的 GPU。LIBERO、RoboTwin、RoboCasa、RoboDojo 和 dual-Franka 支持本地模型部署；外部模型服务的 GPU 在部署时选择。LIBERO、RoboTwin、RoboCasa、RoboDojo 使用 ``--env-cuda-device`` 选择环境 GPU。LIBERO、RoboDojo 和 dual-Franka 使用 ``--sam3-cuda-device`` 选择本地 SAM3 的 GPU。
+本地服务可按需指定独立 GPU：
+
+- ``--am-cuda-device``：选择本地动作模型的 GPU（适用于 LIBERO、RoboTwin、RoboCasa、RoboDojo 和 dual-Franka；外部模型服务的 GPU 在部署时指定）。
+- ``--env-cuda-device``：选择本地仿真环境的 GPU（适用于 LIBERO、RoboTwin、RoboCasa、RoboDojo）。
+- ``--sam3-cuda-device``：选择本地 SAM3 的 GPU（适用于 LIBERO、RoboDojo 和 dual-Franka）。
 
 显存允许时，各服务可共用同一张 GPU。连接外部 endpoint 时，设备由该服务启动时的配置决定。
 
@@ -131,7 +138,7 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
      - HF 记忆版本：``auto``、``GPT_5.5_xhigh`` 或 ``GPT_6_astra_low``。详见 :doc:`memory`；显式版本不能与本地记忆或探索模式同时使用。
    * - ``--max-episode-steps``
      - ``10000``
-     - 环境步数上限，与规划器的 ``--max-turns`` 分开计算。
+     - 环境步数上限，与 ``--max-turns`` 的工具调用额度分开计算。
 
 动作模型参数兼容
 ~~~~~~~~~~~~~~~~
@@ -180,7 +187,7 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
      - API Key
      - 服务地址
    * - ``api`` / Anthropic; ``claude_code``
-     - ``ANTHROPIC_API_KEY``
+     - ``ANTHROPIC_API_KEY``\ （``claude_code`` 也支持 ``ANTHROPIC_AUTH_TOKEN``\ ）
      - ``ANTHROPIC_BASE_URL``
    * - ``api`` / OpenAI
      - ``OPENAI_API_KEY``
@@ -192,16 +199,18 @@ RPent CLI 保留原有 ``--cuda-device`` 作为本地服务的共享默认值；
      - ``CODEX_API_KEY``
      - ``CODEX_BASE_URL``
 
-Claude Code 和 Codex 也可复用已有的 CLI 认证。Gemini CLI 使用自身的认证和地址配置。模型选择、地址优先级和本地服务示例见 :doc:`configure_planner`。连接检查使用 ``rpent-check-llm``；记忆管理使用 ``rpent-memory``，操作方法见 :doc:`memory`。
+模型选择、地址优先级和本地服务示例见 :doc:`configure_planner`。环境安装与诊断使用 ``rpent-install``\ （首次在源码目录中运行使用 ``./rpent-install.sh``，见 :doc:`../get_started/installation`）；连接检查使用 ``rpent-check-llm``；记忆管理使用 ``rpent-memory``，操作方法见 :doc:`memory`。
 
 模型与资源路径由各环境读取，例如 LIBERO 的 ``PI05_CHECKPOINT_PATH``、``SAM3_CHECKPOINT_PATH``，RoboCasa365 的 ``ROBOCASA_ASSETS_PATH``，以及 RoboTwin 的 ``ROBOTWIN_ASSETS_PATH``、``LINGBOT_MODEL_PATH``。
+
+使用 ``--mcp-config`` 接入外部 MCP 服务时，环境变量 ``MCP_CALL_TIMEOUT_S``\ （正数，单位为秒，默认 ``60``）用于设置单次工具发现与调用的超时时间；如果 YAML 中已为单个服务配置 ``timeout_s``，则优先以 YAML 为准（见 :ref:`external-mcp-servers`\ ）。
 
 .. _run-output-files:
 
 输出文件
 ------------
 
-``--output-dir`` 指定本次运行的输出目录。LIBERO 未指定该参数时，默认保存在仓库下的 ``logs/<timestamp>_<suite>_t<task>_s<seed>/``；其他环境的目录命名见各环境页。
+``--output-dir`` 指定本次运行的输出目录。RPent 会独占创建 ``run.json`` 认领目录，复用已含 ``run.json`` 的目录会报错 ``already records a run``\ （非空但无 ``run.json`` 的目录仅打印告警）。LIBERO 未指定该参数时，默认保存在仓库下的 ``logs/<timestamp>_<suite>_t<task>_s<seed>/``；其他环境的目录命名见各环境页。
 
 下表以 LIBERO 为例。实际生成的文件取决于环境、录像和任务运行结果。
 
@@ -210,8 +219,10 @@ Claude Code 和 Codex 也可复用已有的 CLI 认证。Gemini CLI 使用自身
 
    * - 文件或路径
      - 用途
-   * - ``transcript_*.json``
-     - 规划器对话、工具调用及结束信息。
+   * - ``run.json``
+     - 运行清单：记录安装环境快照、产物路径、``error`` / ``artifact_error`` 及统一判定字段（``accepted``、``retryable``、``failure_category``、``stop_reason``、``truth_source``）。
+   * - ``transcript.json``
+     - 规划器对话、工具调用、``recipe_tag``、``environment_success``、判定字段及结束信息。
    * - ``trajectories/<task_id>/``
      - ``--record-trajectory`` 保存的任务记录及附件。探索模式的记录位于各 ``sessions/session_*/`` 目录下。详见 :doc:`flywheel`。
    * - ``episode.mp4``
@@ -228,3 +239,24 @@ Claude Code 和 Codex 也可复用已有的 CLI 认证。Gemini CLI 使用自身
      - 逐步保存的观测示例：目录名是逻辑文件名，目录内按步数编号，如 ``00.npz``、``01.npz``。
 
 整次运行的文件保存在输出目录根部，逐步观测保存在各自的子目录中。成功判定以各环境页的原生判定为准；动作序列、录像和规划器总结本身都不能替代该判定。
+
+.. _cli-exit-codes:
+
+退出码
+------
+
+评测运行按 ``run.json`` 中的统一判定返回进程退出码：
+
+.. list-table::
+   :header-rows: 1
+
+   * - 退出码
+     - 含义
+   * - ``0``
+     - 环境或操作员判定通过（``accepted: true``），且无 ``artifact_error``。
+   * - ``1``
+     - 任务未通过（``accepted: false``）、无判定但规划器或运行时报错（``accepted: null`` 且 ``error`` 非空），或产物写入失败（``artifact_error``）。
+   * - ``75``
+     - 运行正常结束但无判定（``accepted: null``、``error: null``、无 ``artifact_error``、``retryable: true``），例如隐藏成功信号的基准或未由操作员判定的真机评测，可重试或交由外部评分。
+
+探索运行（``--explore``）以沉淀语料为目标，不返回评测判定：无错误时退出 ``0``，仅在规划器、运行时或产物写入出错时退出 ``1``。

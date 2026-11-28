@@ -26,8 +26,10 @@ from pydantic import Field
 from rpent.dashboard.events import StepRecordEvent
 from rpent.memory import MemoryManager
 from rpent.memory import manager as memory_module
-from rpent.session import EnvState
-from rpent.tools import Toolkit, ToolResult, common, iter_tools, tool
+from rpent.session import EnvState, Payload
+from rpent.session.env_capture import ToolCallCapture
+from rpent.tools import Toolkit, ToolRejected, ToolResult, common, iter_tools, tool
+from rpent.tools.toolkit import ToolCancelled
 
 
 class _RecordingEventSink:
@@ -84,6 +86,54 @@ class _ContractToolkit(Toolkit):
 
     def solved(self) -> bool:
         return False
+
+
+@pytest.mark.parametrize("readonly", [False, True])
+def test_tool_budget_is_atomic_and_survives_resume(tmp_path, readonly):
+    from concurrent.futures import ThreadPoolExecutor
+
+    toolkit = _ContractToolkit(tmp_path)
+    entered = threading.Event()
+    release = threading.Event()
+    calls = []
+
+    @tool(readonly=readonly)
+    def inspect_scene() -> ToolResult:
+        calls.append("executed")
+        entered.set()
+        assert release.wait(3)
+        return ToolResult(data={"error": "sensor unavailable"})
+
+    toolkit.add_tool(inspect_scene)
+    toolkit.set_tool_budget(1)
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        first = pool.submit(toolkit.execute_tool, "inspect_scene", {})
+        try:
+            assert entered.wait(3)
+            others = [
+                pool.submit(toolkit.execute_tool, "inspect_scene", {}) for _ in range(3)
+            ]
+            other_results = [f.result(3) for f in others]
+            assert all(
+                r.data["code"] == "tool_limit" and not r.call_ok and r.no_execution
+                for r in other_results
+            )
+            assert not first.done()
+        finally:
+            release.set()
+        assert first.result(3).is_error
+    assert calls == ["executed"]
+    assert toolkit.tool_calls_used == 1
+    toolkit.cancel_active_and_wait()
+    toolkit.resume_calls()
+    after_resume = toolkit.execute_tool("inspect_scene", {})
+    assert after_resume.data["code"] == "tool_limit"
+    assert not after_resume.call_ok and after_resume.no_execution
+    toolkit.set_tool_budget(2)
+    assert not toolkit.tool_limit_reached
+    assert toolkit.tool_calls_used == 0
+    toolkit.execute_tool("inspect_scene", {})
+    assert toolkit.tool_calls_used == 1
 
 
 def test_toolkit_and_common_tools_require_memory() -> None:
@@ -281,6 +331,9 @@ def test_toolkit_reports_unknown_tools_and_invalid_arguments(
     assert unknown.data == {"error": "unknown tool: missing"}
     assert "bad arguments for read_text_file" in invalid.data["error"]
     assert unknown.is_error and invalid.is_error
+    # The framework rejected both calls before either tool could run.
+    assert not unknown.call_ok and unknown.no_execution
+    assert not invalid.call_ok and invalid.no_execution
     assert {error["type"] for error in invalid.data["errors"]} == error_types
     assert invalid.data["errors"][0]["loc"] == ("path",)
     assert toolkit.capture_calls == []
@@ -377,6 +430,137 @@ def test_invalid_vectors_never_execute_or_capture_state(tmp_path: Path, value) -
     assert toolkit.capture_calls == []
 
 
+def test_unbindable_handler_arguments_never_execute_or_capture_state(
+    tmp_path: Path,
+) -> None:
+    toolkit = _ContractToolkit(tmp_path)
+
+    @tool
+    def move(distance: int) -> ToolResult:
+        """Move by the given distance."""
+        return ToolResult(data={"moved": distance})
+
+    def narrower() -> ToolResult:
+        return ToolResult(data={"moved": True})
+
+    toolkit.add_tool(move.with_handler(narrower), replace=True)
+
+    result = toolkit.execute_tool("move", {"distance": 1})
+
+    assert not result.call_ok and result.no_execution
+    assert "bad arguments for move" in result.error
+    assert toolkit.capture_calls == []
+    # The rejected call never acquired a scheduler operation. A leaked
+    # exclusive operation would block every later call and every drain.
+    assert toolkit._scheduler.active == set()
+    assert toolkit._scheduler.pending == []
+
+
+def test_a_handler_that_raises_type_error_is_treated_as_an_executed_failure(
+    tmp_path: Path,
+) -> None:
+    toolkit = _ContractToolkit(tmp_path)
+
+    @tool
+    def move(distance: int) -> ToolResult:
+        """Move by the given distance."""
+        assert distance == 1
+        raise TypeError("unsupported operand type(s) for +: 'NoneType' and 'int'")
+
+    toolkit.add_tool(move)
+
+    result = toolkit.execute_tool("move", {"distance": 1})
+
+    # The arguments bound, so the call reached the handler. Its TypeError is a
+    # handler failure, not a rejected call: the environment may have changed,
+    # and the step has to be recorded.
+    assert not result.call_ok
+    assert not result.no_execution
+    assert "unsupported operand" in result.error
+    assert len(toolkit.capture_calls) == 1
+
+
+def test_a_rejected_call_is_not_an_executed_step(tmp_path: Path) -> None:
+    toolkit = _ContractToolkit(tmp_path)
+
+    @tool
+    def move(distance: int) -> ToolResult:
+        """Move by the given distance."""
+        raise ToolRejected("target is not reachable from here")
+
+    toolkit.add_tool(move)
+
+    result = toolkit.execute_tool("move", {"distance": 1})
+
+    # The tool refused the call before touching the environment, so nothing was
+    # captured and the session has no new step.
+    assert not result.call_ok and result.no_execution
+    assert result.data == {
+        "error": "target is not reachable from here",
+        "code": "tool_rejected",
+    }
+    assert toolkit.capture_calls == []
+    assert toolkit.state.latest_step is None
+    assert toolkit.events.events == []
+
+
+def test_a_rejected_call_is_recorded_as_never_executed(tmp_path: Path) -> None:
+    toolkit = _ContractToolkit(tmp_path / "state")
+
+    @tool
+    def move(distance: int) -> ToolResult:
+        """Move by the given distance."""
+        raise ToolRejected("target is not reachable from here")
+
+    toolkit.add_tool(move)
+    toolkit.state.start_task(instruction="Move.", config=Payload("json", {}))
+    tool_call_id = toolkit.state.register_tool_call(
+        planner_id=None, name="move", arguments=Payload("json", {"distance": 1})
+    )
+    capture = ToolCallCapture(toolkit.state, tool_call_id)
+
+    with capture.bind():
+        toolkit.execute_tool("move", {"distance": 1})
+
+    # Admission marked the call running before the tool refused it. The record
+    # must not keep that timestamp or a result: the step never happened.
+    record = toolkit.state.get_tool_call(tool_call_id)
+    assert record.status == "not_executed"
+    assert record.started_at is None
+    assert record.ended_at is None
+    assert record.raw_result is None
+    assert record.missing["raw_result"].reason == "not_applicable"
+
+
+def test_a_cancellation_before_dispatch_is_not_an_executed_step(
+    tmp_path: Path,
+) -> None:
+    toolkit = _ContractToolkit(tmp_path)
+
+    @tool
+    def move(distance: int) -> ToolResult:
+        """Move by the given distance."""
+        raise AssertionError("a cancelled call must not reach the tool")
+
+    toolkit.add_tool(move)
+
+    def cancelled() -> None:
+        raise ToolCancelled("tool operation interrupted")
+
+    toolkit.raise_if_cancelled = cancelled  # type: ignore[method-assign]
+
+    result = toolkit.execute_tool("move", {"distance": 1})
+
+    # The cancellation arrived before the tool ran, so the environment is
+    # unchanged and the call is not a step either.
+    assert not result.call_ok and result.no_execution
+    assert result.data["code"] == "tool_cancelled"
+    assert result.data["interrupted"] is True
+    assert toolkit.capture_calls == []
+    assert toolkit.state.latest_step is None
+    assert toolkit.events.events == []
+
+
 def test_stateful_dispatch_captures_state_and_emits_the_record(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -436,6 +620,8 @@ def test_handler_error_is_retained_when_state_capture_also_fails(
     assert failed.data["error"] == "handler exploded"
     assert failed.data["state_capture_error"] == "capture exploded"
     assert "ValueError: handler exploded" in failed.data["traceback"]
+    # The handler raised, so the environment may have changed.
+    assert not failed.call_ok and not failed.no_execution
     assert toolkit.events.events == []
     assert toolkit.execute_tool("probe", {}).data == {"ready": True}
 

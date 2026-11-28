@@ -10,31 +10,27 @@ Requirements
 
 - Linux, an NVIDIA GPU, and a driver compatible with the selected PyTorch CUDA build.
 - ``git``, ``bash``, and a C/C++ toolchain.
-- `uv <https://docs.astral.sh/uv/getting-started/installation/>`_ to create an isolated Python environment. These commands use Python 3.11.
+- `uv <https://docs.astral.sh/uv/getting-started/installation/>`_ to create the environment and install the components. The installer picks the newest Python minor the components support (3.12 for this example) and has uv install it.
 - An Anthropic API key with access to the example model, and network access to download assets and weights. Model calls incur API charges.
 
 1. Install RPent
 ----------------
 
-Create and activate an isolated Python environment:
+Create the LIBERO-PRO environment and activate it:
 
 .. code-block:: bash
 
    git clone https://github.com/RLinf/RPent.git
    cd RPent
-   uv venv --python 3.11
-   source .venv/bin/activate
+   ./rpent-install.sh install robot-libero --venv .venv-libero
+   source .venv-libero/bin/activate
 
-Install ``torch==2.7.1`` and ``torchvision==0.22.1`` as required by OpenPI.
-Choose a build compatible with your GPU and NVIDIA driver from the
-`PyTorch installation instructions <https://pytorch.org/get-started/previous-versions/>`_,
-replacing ``pip install`` with ``uv pip install``. Then install LIBERO-PRO:
+The components pin Python, the RLinf revision, Pi0.5, SAM3, and the LIBERO
+packages together. Pass ``--torch-backend <backend>`` (for example ``cu126`` or
+``cu128``) if your driver needs a specific PyTorch CUDA build. See
+:doc:`installation` for every component, its install command, and diagnostics.
 
-.. code-block:: bash
-
-   uv pip install -e ".[libero-pro]"
-
-Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv`` and set the checkpoint paths and API key again.
+Run the remaining commands in this terminal from the RPent repository root. In a new terminal, activate ``.venv-libero`` and set the checkpoint paths and API key again.
 
 2. Download Assets and Models
 -----------------------------
@@ -85,16 +81,17 @@ Run task ``2`` in ``libero_object_swap`` with scene seed ``0``:
      --planner claude_code --model claude-opus-4-8 \
      --output-dir ./logs/first-libero-pro
 
-The terminal shows environment, VLA, and SAM3 service startup, followed by planner messages and tool calls. Inspect ``logs/first-libero-pro/`` when the run ends. Choose a new output directory for later runs to preserve this record.
+The terminal shows environment, VLA, and SAM3 service startup, followed by planner messages and tool calls. Inspect ``logs/first-libero-pro/`` when the run ends. Use a new ``--output-dir`` for each run: reusing a directory that already contains ``run.json`` fails with ``already records a run``.
 
 5. Inspect the Result
 ---------------------
 
+- ``run.json``: check the run manifest and native verdict fields (``accepted``, ``stop_reason``, ``failure_category``).
 - ``episode.mp4``: replay the robot’s actions.
-- ``transcript_*.json``: inspect planner messages, tool calls, and the finish state.
+- ``transcript.json``: inspect planner messages, tool calls, ``environment_success``, and the finish state.
 - ``run.log``: inspect runtime messages and errors.
 
-For LIBERO, success is the top-level ``terminated`` value in the final environment state, available in the result of ``view_env_state(step=-1)``. The planner’s ``finish`` status alone does not establish environment success.
+For LIBERO evaluation runs, read the native success verdict from ``run.json`` (``accepted``) or ``transcript.json`` (``environment_success``). In evaluation mode, ``view_env_state`` exposes only ``episode_over`` and withholds ``terminated``; the planner’s ``finish`` status alone does not establish environment success.
 
 See :ref:`run-output-files` for default directory names, exported action sequences, and step artifacts.
 

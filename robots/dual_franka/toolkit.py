@@ -470,16 +470,23 @@ class DualFrankaToolkit(FrankaToolkit):
             self._clear_verdict()
             raise RuntimeError("incomplete post-action robot/camera observation")
 
-    def solved(self) -> bool:
+    def solved(self) -> bool | None:
+        """Return the operator's verdict, or ``None`` while nobody has judged.
+
+        An aborted or unprepared attempt is a failure; an attempt the operator
+        has not judged yet has no verdict at all.
+        """
         if self.flash_options is not None:
             return self._flash_solved
         if self._mode != "exploration":
+            if self._operator_verdict is None:
+                return None
             return self._operator_verdict == "success"
-        return (
-            self._scene_ready
-            and not self._operator_aborted
-            and self._operator_verdict == "success"
-        )
+        if self._operator_aborted or not self._scene_ready:
+            return False
+        if self._operator_verdict is None:
+            return None
+        return self._operator_verdict == "success"
 
     def write_recipe(self, recipe_tag: str) -> str | None:
         if self._mode != "exploration" or not self.solved():

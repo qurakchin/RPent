@@ -544,6 +544,21 @@ class EnvState:
                 if missing and missing.get(name) is not None:
                     setattr(record, name, None)
 
+    def mark_tool_call_not_executed(self, tool_call_id: str) -> None:
+        """Withdraw execution evidence from a call that was refused before running.
+
+        A tool can refuse a call after admission, so ``started_at`` may already
+        be recorded; clearing it keeps the record from reading as an executed
+        step that failed. ``update_tool_call`` cannot do this because it treats
+        ``None`` as "leave unchanged".
+        """
+        with self._records_lock:
+            self._running_task()
+            record = self._tool_calls[tool_call_id]
+            record.status = "not_executed"
+            record.started_at = None
+            record.ended_at = None
+
     @staticmethod
     def _update_call_record(
         record: PlannerRecord | ToolCallRecord,

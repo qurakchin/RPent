@@ -31,8 +31,8 @@ import numpy as np
 from pydantic import Field
 
 from robots.efe.env_client import EfeEnvClient
-from robots.efe.tools import proprio_map
-from rpent.tools import ToolResult, tool
+from robots.efe.tools import proprio_map, service_call
+from rpent.tools import ToolRejected, ToolResult, tool
 
 _JOINT_ACTION = "joint_position"
 _GRIPPER = "gripper"
@@ -325,14 +325,18 @@ class EfeSkills:
             gripper: Finger opening in metres. Default: keep the current command.
             max_iterations: Bounded correction steps.
         """
-        target_orientation = (
-            None
-            if orientation_wxyz is None
-            else _unit_quaternion(orientation_wxyz, name="Target orientation")
-        )
-        target = np.asarray([x, y, z], dtype=np.float64)
-        if not np.isfinite(target).all():
-            raise ValueError(f"Target must be finite, got {target.tolist()}")
+        try:
+            target_orientation = (
+                None
+                if orientation_wxyz is None
+                else _unit_quaternion(orientation_wxyz, name="Target orientation")
+            )
+            target = np.asarray([x, y, z], dtype=np.float64)
+            if not np.isfinite(target).all():
+                raise ValueError(f"Target must be finite, got {target.tolist()}")
+        except ValueError as exc:
+            # Rejected before the first command reaches the robot.
+            raise ToolRejected(str(exc)) from exc
         submit_calls = 0
         control_steps = 0
         position = None
@@ -343,7 +347,7 @@ class EfeSkills:
             self._check_cancelled()
             if self.client.done:
                 break
-            current = self._current_state()
+            current = service_call(self._current_state, executed=bool(submit_calls))
             position = current["position"]
             current_orientation = _unit_quaternion(
                 current["orientation"], name="Current orientation"
@@ -368,7 +372,13 @@ class EfeSkills:
                     float(gripper), current["gripper"]
                 ):
                     row = [*current["joints"], float(gripper)]
-                    result = self.client.submit(_JOINT_ACTION, [row], dt=self.chunk_s)
+                    result = service_call(
+                        self.client.submit,
+                        _JOINT_ACTION,
+                        [row],
+                        dt=self.chunk_s,
+                        executed=bool(submit_calls),
+                    )
                     submit_calls += 1
                     control_steps += int(result.meta.get("control_steps_chunk") or 0)
                 break
@@ -378,7 +388,12 @@ class EfeSkills:
                 else np.zeros(3, dtype=np.float64)
             )
             pose = [*(position + step), *target_orientation]
-            solution = self.client.ik({self.tcp: pose}, seed=current["joints"])
+            solution = service_call(
+                self.client.ik,
+                {self.tcp: pose},
+                seed=current["joints"],
+                executed=bool(submit_calls),
+            )
             if not solution.get("ok"):
                 detail = solution.get("error") or solution
                 return ToolResult(
@@ -436,7 +451,13 @@ class EfeSkills:
                 raise ValueError(f"IK returned an unusable solution: {solution['q']}")
             opening = current["gripper"] if gripper is None else float(gripper)
             row = [*joints.tolist(), opening]
-            result = self.client.submit(_JOINT_ACTION, [row], dt=self.chunk_s)
+            result = service_call(
+                self.client.submit,
+                _JOINT_ACTION,
+                [row],
+                dt=self.chunk_s,
+                executed=bool(submit_calls),
+            )
             submit_calls += 1
             control_steps += int(result.meta.get("control_steps_chunk") or 0)
         if self.client.last_meta.get("proprio"):
@@ -477,7 +498,7 @@ class EfeSkills:
                         f"({self.client.done_reason or 'no reason reported'})"
                     )
                 return ToolResult(data=end_data)
-            current = self._current_state()
+            current = service_call(self._current_state, executed=bool(submit_calls))
             position = current["position"]
             current_orientation = _unit_quaternion(
                 current["orientation"], name="Current orientation"
@@ -545,7 +566,8 @@ class EfeSkills:
         self._check_cancelled()
         opening = float(opening)
         if not math.isfinite(opening):
-            raise ValueError(f"Gripper opening must be finite, got {opening}")
+            # Rejected before the first command reaches the robot.
+            raise ToolRejected(f"Gripper opening must be finite, got {opening}")
         if self.client.done:
             return ToolResult(
                 data={
@@ -558,9 +580,9 @@ class EfeSkills:
                     "reason": self.client.done_reason,
                 }
             )
-        current = self._current_state()
+        current = service_call(self._current_state)
         row = [*current["joints"], opening]
-        result = self.client.submit(_JOINT_ACTION, [row], dt=self.chunk_s)
+        result = service_call(self.client.submit, _JOINT_ACTION, [row], dt=self.chunk_s)
         meta = result.meta
         measured = None
         if meta.get("proprio"):

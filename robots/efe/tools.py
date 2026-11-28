@@ -22,21 +22,23 @@ validated action chunks. They never read simulator internals.
 from __future__ import annotations
 
 import io
-from collections.abc import Mapping
-from typing import Annotated, Any, Literal
+from collections.abc import Callable, Mapping
+from typing import Annotated, Any, Literal, TypeVar
 
 import imageio.v2 as imageio
 import numpy as np
 from pydantic import Field
 
-from robots.efe.env_client import EfeEnvClient
+from robots.efe.env_client import EfeEnvClient, ServiceRefused
 from rpent.session import EnvState, StepRecord
-from rpent.tools import ToolResult, tool
+from rpent.tools import ToolRejected, ToolResult, tool
 
 # Downsampling factors for the tool's ``resolution`` argument. Camera
 # coordinates scale by the same integer, so a model that sees a frame at
 # ``low`` must multiply pixel coordinates by four.
 _RESOLUTION_FACTORS = {"full": 1, "low": 4}
+
+T = TypeVar("T")
 
 
 def _camera_slug(camera: str) -> str:
@@ -127,6 +129,25 @@ def _png_bytes(frame: np.ndarray) -> bytes:
     return buffer.getvalue()
 
 
+def service_call(
+    call: Callable[..., T], *args: Any, executed: bool = False, **kwargs: Any
+) -> T:
+    """Run one client call, reporting a pre-request refusal as a rejected call.
+
+    The client raises ``ValueError`` or :class:`ServiceRefused` only before it
+    sends a request, so the service never received the call. ``executed`` says a
+    chunk submitted earlier in the same tool call already moved the robot; the
+    same refusal then reports a step that did happen and stays an ordinary
+    error.
+    """
+    try:
+        return call(*args, **kwargs)
+    except (ServiceRefused, ValueError) as exc:
+        if executed:
+            raise
+        raise ToolRejected(str(exc)) from exc
+
+
 class EfeTools:
     """Agent-facing access to one EFE episode."""
 
@@ -175,11 +196,11 @@ class EfeTools:
                 before using them with camera metadata.
         """
         if resolution not in _RESOLUTION_FACTORS:
-            raise ValueError(
+            raise ToolRejected(
                 f"Unsupported resolution {resolution!r}; "
                 f"use {sorted(_RESOLUTION_FACTORS)}"
             )
-        result = self.client.observe(cameras=cameras, depth=depth)
+        result = service_call(self.client.observe, cameras=cameras, depth=depth)
         meta = result.meta
         factor = _RESOLUTION_FACTORS[resolution]
         # Keep the response order so each label stays with its image.
@@ -296,7 +317,7 @@ class EfeTools:
         Prefer the high-level skills when they are available. Invalid actions are
         rejected before the simulator runs, so a rejected call does not count.
         """
-        result = self.client.submit(action_type, actions, dt=dt)
+        result = service_call(self.client.submit, action_type, actions, dt=dt)
         meta = result.meta
         return ToolResult(
             data={
@@ -321,7 +342,7 @@ class EfeTools:
         Args:
             cameras: Camera names for the new episode's first frame.
         """
-        meta = self.client.reset(cameras=cameras)
+        meta = service_call(self.client.reset, cameras=cameras)
         # The new episode restarts at step 0. Earlier frames stay bound to the
         # records that captured them and must not attach to the new episode.
         self._frames = {}
@@ -349,7 +370,7 @@ class EfeTools:
         service never reports success, so the agent decides when it is done.
         Ending before the goal is a failure.
         """
-        status = self.client.finish()
+        status = service_call(self.client.finish)
         return ToolResult(
             data={
                 key: status.get(key)

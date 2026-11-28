@@ -24,7 +24,7 @@
 # in `pyproject.toml`):
 #
 # ```bash
-# rpent --robot libero --suite libero_object_task --task 0 --seed 0 [...]
+# rpent --robot <name> --suite <suite> --task 0 --seed 0 [...]
 # ```
 #
 # ## Note
@@ -36,24 +36,25 @@
 from __future__ import annotations
 
 import argparse
-import json
 import queue
 import shlex
 import sys
 import time
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import replace
+from importlib.util import find_spec
 from pathlib import Path
 
-from rpent.cli.tui import (
-    start_first_prompt_resolver,
-    start_interactive_reader,
-)
 from rpent.dashboard.events import (
     NullDashboardEventSink,
     RunStartedEvent,
 )
-from rpent.evaluation import RunFinalizationContext
+from rpent.evaluation import (
+    RunFinalizationContext,
+    verdict_fields,
+    write_json_atomic,
+)
+from rpent.install.snapshot import finish_run_manifest, start_run_manifest
 from rpent.memory import MemoryManager
 from rpent.planner.base import (
     CODEX_SANDBOX_CHOICES,
@@ -61,10 +62,40 @@ from rpent.planner.base import (
     build_planner,
     is_recoverable_agent_error,
 )
-from rpent.planner.check import EXTERNALLY_CONFIGURED_PLANNERS
-from rpent.robots import enumerate_robots, get_robot_spec, get_toolkit
-from rpent.session.planner_capture import end_planner_task, start_planner_task
+from rpent.planner.check import (
+    CHECK_PLANNERS,
+    EXTERNALLY_CONFIGURED_PLANNERS,
+)
+from rpent.robots import RunConfig, enumerate_robots, get_robot_spec, get_toolkit
 from rpent.utils.logging import get_logger, init_output_dir
+from rpent.utils.mcp_servers import (
+    McpServerSpec,
+    load_mcp_config,
+    merge_mcp_servers,
+)
+
+# The ``rpent`` console script ships with the core wheel, but a run needs the
+# planner layer.
+_PLANNER_CORE_MODULE = "pydantic_ai"
+
+
+def _missing_planner_module() -> str | None:
+    """Return the planner-layer module this environment lacks, if any.
+
+    Probe it explicitly instead of importing planner modules at module import
+    time, so ``--help`` and argument validation work in a core-only environment
+    and every planner import stays at its use site. ``pydantic_ai`` is the one
+    module every run needs, because ``build_planner`` imports it; an optional
+    package (``--tui``, MCP) or a backend that is missing fails at its own
+    import, which names it.
+    """
+    try:
+        found = find_spec(_PLANNER_CORE_MODULE) is not None
+    except ModuleNotFoundError:
+        # A meta-path finder reports a blocked module the same way.
+        found = False
+    return None if found else _PLANNER_CORE_MODULE
+
 
 logger = get_logger("agent")
 
@@ -100,6 +131,73 @@ def _serialize_messages(messages: list[dict]) -> list[dict]:
         }
         for m in messages
     ]
+
+
+def _read_solved(toolkit) -> bool | None:
+    """Return the toolkit's environment verdict, or None when it has none.
+
+    A toolkit that reports a three-state outcome (for example, an episode whose
+    success is graded externally) keeps ``None`` unjudged instead of letting
+    ``bool`` turn it into a task failure.
+    """
+    solved_fn = getattr(toolkit, "solved", None)
+    if not callable(solved_fn):
+        return None
+    verdict = solved_fn()
+    return None if verdict is None else bool(verdict)
+
+
+def _exit_code(accepted: bool | None, *, agent_error: str | None = None) -> int:
+    """Map a run verdict to the exit status: 0 accepted, 1 rejected, 75 none.
+
+    75 tells the caller the run completed without a verdict and may be retried.
+    A planner failure without a verdict is not that: the command itself failed.
+    """
+    if accepted is None:
+        return 1 if agent_error else 75
+    return 0 if accepted else 1
+
+
+def _close_unstarted_run(
+    output_dir: Path,
+    robot_name: str,
+    *,
+    args: argparse.Namespace,
+    task_desc: dict,
+    error: str,
+) -> None:
+    """Close the run record a setup failure would otherwise leave open.
+
+    The record is the entry point of the run directory; a reader must see that
+    this run ended in a failure rather than a still-running process. The
+    planner never ran, so the failure is not an agent error: the record keeps
+    the reason in ``error`` and reports no verdict, and it names the parameters
+    the user actually passed rather than placeholders.
+    """
+    context = RunFinalizationContext(
+        output_dir=Path(output_dir),
+        robot_name=robot_name,
+        task_desc=dict(task_desc),
+        environment_success=None,
+        agent_error=None,
+        elapsed_s=0.0,
+        planner=args.planner,
+        model=args.model,
+        reasoning_effort=args.reasoning_effort,
+        max_turns=args.max_turns,
+        planner_timeout_s=args.planner_timeout_s,
+        finish_result=None,
+        stats={},
+    )
+    try:
+        finish_run_manifest(
+            output_dir,
+            artifacts={},
+            verdict=verdict_fields(context),
+            error=error,
+        )
+    except Exception as exc:  # the original setup failure is what matters
+        logger.error("cannot close the interrupted run record: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -138,9 +236,9 @@ def _build_argparser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--planner",
         default="api",
-        choices=["api", "claude_code", "codex", "gemini_cli", "flash"],
-        help="Planner backend: api | claude_code | codex | gemini_cli are LLMs in the "
-        "loop; flash is evaluation-only and replays a plan from memory, re-localizing "
+        choices=[*CHECK_PLANNERS, "flash"],
+        help="Planner backend. Online planners use an LLM in the loop; "
+        "flash is evaluation-only and replays a plan from memory, re-localizing "
         "each waypoint's anchor.",
     )
     ap.add_argument(
@@ -148,8 +246,8 @@ def _build_argparser() -> argparse.ArgumentParser:
         default=None,
         help="Model id. For the 'api' planner, prefix the provider "
         "(e.g. anthropic:claude-opus-4-8, google:Argon, "
-        "openai:gpt-5.5, openai-chat:glm-5.2). For claude_code, codex, and "
-        "gemini_cli this overrides the backend or upstream default model.",
+        "openai:gpt-5.5, openai-chat:glm-5.2). For CLI/SDK planners this "
+        "overrides their default model.",
     )
     ap.add_argument(
         "--base-url",
@@ -161,14 +259,19 @@ def _build_argparser() -> argparse.ArgumentParser:
             "one of them is an error rather than a silent no-op."
         ),
     )
-    ap.add_argument("--max-turns", type=int, default=100)
+    ap.add_argument(
+        "--max-turns",
+        type=int,
+        default=100,
+        help="RPent tool-call budget for the whole task; follow-up input does not reset it.",
+    )
     ap.add_argument("--max-tokens", type=int, default=8192)
     ap.add_argument(
         "--reasoning-effort",
         choices=REASONING_EFFORTS,
         default="none",
-        help="Planner reasoning effort for api, claude_code, and "
-        "codex. gemini_cli supports none only. Higher effort may improve "
+        help="Planner reasoning effort; supported levels depend on the backend and model. "
+        "Gemini CLI supports up to high. For Gemini CLI and OpenCode, none keeps the CLI configuration. Higher effort may improve "
         "task success rate but increases runtime. Defaults to high for api "
         "and none for CLI/SDK planners.",
     )
@@ -184,7 +287,7 @@ def _build_argparser() -> argparse.ArgumentParser:
         "--planner-timeout-s",
         type=int,
         default=None,
-        help="Wall-clock cap for api/claude_code/codex/gemini_cli planner runs. "
+        help="Wall-clock cap for online planner runs. "
         "Terminal interactive API/Claude sessions are exempt. "
         "Defaults to CODEX_TIMEOUT_S (codex only), GEMINI_CLI_TIMEOUT_S "
         "(gemini_cli only), CELL_TIMEOUT_S, or 1200.",
@@ -199,8 +302,15 @@ def _build_argparser() -> argparse.ArgumentParser:
         "--claude-code-max-budget-usd",
         type=float,
         default=None,
-        help="Budget passed to claude -p --max-budget-usd. "
+        help="Spending limit in USD for the claude_code planner. "
         "Defaults to MAX_BUDGET_USD env or 10.",
+    )
+
+    ap.add_argument(
+        "--mcp-config",
+        default=None,
+        help="Path to an MCP config YAML file. Its mcp_servers section is "
+        "registered on the robot's toolkit for every run.",
     )
 
     # other config
@@ -319,6 +429,24 @@ def _handoff_message(
     )
 
 
+def _with_shared_mcp_servers(
+    run_config: RunConfig,
+    shared_servers: tuple[McpServerSpec, ...],
+) -> RunConfig:
+    """Merge shared MCP servers into a robot's run config.
+
+    The shared config applies to every robot, so the CLI adds its servers
+    after the robot's own ``parse_config``. Duplicate names are rejected: a
+    robot must not silently shadow a server from the shared config.
+    """
+    if not shared_servers:
+        return run_config
+    return replace(
+        run_config,
+        mcp_servers=merge_mcp_servers(run_config.mcp_servers, shared_servers),
+    )
+
+
 def _start_continuation_session(
     args,
     *,
@@ -371,6 +499,40 @@ def _start_continuation_session(
 
 def main() -> int:
     parser = _build_argparser()
+    help_requested = "-h" in sys.argv or "--help" in sys.argv
+    robot_requested = any(
+        arg in {"--robot", "--env"} or arg.startswith(("--robot=", "--env="))
+        for arg in sys.argv[1:]
+    )
+    # A run needs the planner layer; report it before argument validation runs:
+    # a core-only install also discovers no robots, so ``--robot <name>`` would
+    # otherwise fail the empty choice list instead of explaining what to
+    # install. ``--help`` stays available because it never needs a robot.
+    missing_planner = _missing_planner_module()
+    if missing_planner is not None and not help_requested:
+        print(
+            "the rpent CLI needs the planner layer, which this environment does "
+            f"not provide (missing {missing_planner!r}); install it with "
+            '`pip install "rpent[planner]"`, or run inside the environment '
+            "rpent-install created for the robot",
+            file=sys.stderr,
+        )
+        return 1
+    # The planner layer can be installed into a wheel-only environment too, and
+    # ``robots/`` still comes only from a checkout. Report that the same way:
+    # ``--robot <name>`` (including ``--robot <name> --help``) would otherwise
+    # fail the empty choice list.
+    if not enumerate_robots() and (not help_requested or robot_requested):
+        print(
+            "the rpent CLI found no robot components: robot packages live only "
+            "in a source checkout, which an installed wheel does not carry. "
+            "From a checkout, build the robot's environment with "
+            "`./rpent-install.sh install robot-<name> --venv <venv>` and run "
+            "the CLI inside it; RPENT_REPO_ROOT only adds a manual-run path "
+            "that no fingerprint or `doctor` check covers",
+            file=sys.stderr,
+        )
+        return 1
     # Two-phase argparse: first grab --robot / --env / --dashboard so we know
     # which robot's flags to add and whether to make its required flags optional.
     early, _ = parser.parse_known_args()
@@ -383,10 +545,18 @@ def main() -> int:
         logger.warning("--env is deprecated and will be removed; use --robot instead")
         early.robot_name = early.env_name
     if early.robot_name is None:
-        if "-h" not in sys.argv and "--help" not in sys.argv:
+        if not help_requested:
             parser.error("--robot is required")
     else:
-        robot_spec = get_robot_spec(early.robot_name)
+        try:
+            robot_spec = get_robot_spec(early.robot_name)
+        except ImportError as exc:
+            print(
+                f"cannot load robot {early.robot_name!r}: {exc}. Its environment "
+                "installs the packages it imports",
+                file=sys.stderr,
+            )
+            return 1
         robot_spec.add_cli_args(parser, use_dashboard=early.dashboard)
     parser.add_argument(
         "-h",
@@ -404,10 +574,6 @@ def main() -> int:
     )
     if args.dashboard and args.tui:
         parser.error("--dashboard and --tui cannot be used together")
-    if args.planner == "gemini_cli" and args.reasoning_effort != "none":
-        parser.error(
-            "--reasoning-effort is not supported by the gemini_cli planner; use 'none'"
-        )
     try:
         external_env_dashboard = (
             robot_spec.is_real_robot
@@ -441,6 +607,11 @@ def main() -> int:
     if args.planner == "flash":
         if args.explore:
             parser.error("Flash Mode is evaluation-only; remove --explore")
+        if args.mcp_config is not None:
+            parser.error(
+                "--mcp-config is not supported with --planner flash; "
+                "Flash Mode replays recorded plans without an LLM planner"
+            )
         if robot_spec.run_flash is None:
             parser.error(f"Flash Mode is not supported for robot {args.robot_name!r}")
     if args.explore and not robot_spec.supports_exploration:
@@ -478,7 +649,8 @@ def main() -> int:
             parse_repo(args.memory_repo)
         if robot_spec.validate_args is not None:
             robot_spec.validate_args(args)
-    except ValueError as exc:
+        args.shared_mcp_servers = load_mcp_config(args.mcp_config)
+    except (OSError, ValueError) as exc:
         parser.error(str(exc))
     if args.dashboard:
         from rpent.cli.dashboard import run_dashboard_session
@@ -486,7 +658,9 @@ def main() -> int:
         return run_dashboard_session(args, robot_spec, parser=parser)
 
     try:
-        run_config = robot_spec.parse_config(args)
+        run_config = _with_shared_mcp_servers(
+            robot_spec.parse_config(args), args.shared_mcp_servers
+        )
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     recipe_tag = run_config.recipe_tag
@@ -496,108 +670,165 @@ def main() -> int:
 
     robot_name = args.robot_name
 
+    # Memory sync resolves the model and may download a corpus. It runs before
+    # the run directory is claimed so a failure leaves the directory free for
+    # the next attempt, and the run record names the resolved model.
+    prepare_run_memory(args, robot_spec, run_config)
+
     # mkdir + logging wiring (robot-side already picked the path).
     output_dir = init_output_dir(output_dir, verbose=args.verbose)
+    try:
+        start_run_manifest(
+            output_dir,
+            robot=robot_spec.name,
+            planner=args.planner,
+            model=args.model,
+            task=task_desc,
+        )
+    except FileExistsError as exc:
+        parser.error(str(exc))
     logger.info("physical agent cmd: %s", shlex.join([sys.executable, *sys.argv]))
-
-    prepare_run_memory(args, robot_spec, run_config)
 
     dashboard_events = NullDashboardEventSink()
 
-    planner = build_planner(
-        args.planner,
-        output_dir=output_dir,
-        recipe_tag=recipe_tag,
-        robot_name=robot_name,
-        memory_dir=prompt_vars.get("memory_dir"),
-        base_url=args.base_url,
-        model=args.model,
-        max_tokens=args.max_tokens,
-        planner_timeout_s=args.planner_timeout_s,
-        reasoning_effort=args.reasoning_effort,
-        codex_sandbox=args.codex_sandbox,
-        claude_code_max_budget_usd=args.claude_code_max_budget_usd,
-        dashboard_events=dashboard_events,
-        no_images=args.no_images,
-        interactive=args.tui,
-    )
-    prompt_bundle = robot_spec.prompts
-    prompt_vars = {**prompt_vars, "output_dir": output_dir}
-    user_msg = prompt_bundle.render(
-        "user",
-        variables=prompt_vars,
-    )
+    try:
+        planner = build_planner(
+            args.planner,
+            output_dir=output_dir,
+            recipe_tag=recipe_tag,
+            robot_name=robot_name,
+            memory_dir=prompt_vars.get("memory_dir"),
+            base_url=args.base_url,
+            model=args.model,
+            max_tokens=args.max_tokens,
+            planner_timeout_s=args.planner_timeout_s,
+            reasoning_effort=args.reasoning_effort,
+            codex_sandbox=args.codex_sandbox,
+            claude_code_max_budget_usd=args.claude_code_max_budget_usd,
+            dashboard_events=dashboard_events,
+            no_images=args.no_images,
+            interactive=args.tui,
+        )
+        prompt_bundle = robot_spec.prompts
+        prompt_vars = {**prompt_vars, "output_dir": output_dir}
+        user_msg = prompt_bundle.render(
+            "user",
+            variables=prompt_vars,
+        )
+    except BaseException as exc:
+        _close_unstarted_run(
+            output_dir,
+            robot_name,
+            args=args,
+            task_desc=task_desc,
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        raise
 
     operator_input = None
-    if human_interactive_exploration:
-        from rpent.tools.human_in_the_loop import HumanInTheLoopInput
-
-        # The native CLI reads between runs, leaving the TTY available to tools.
-        operator_input = HumanInTheLoopInput(interactive=args.tui and not native_cli)
     input_queue: "queue.Queue[str | None] | None" = None
     await_first_prompt: "Callable[[], str | None] | None" = None
-    if args.tui and not native_cli:
-        input_queue = queue.Queue()
-        queued_help = (
-            "Claude Code/Codex/Gemini: messages queue until the current turn completes.\n"
-            "/interrupt [message] stops the current turn, then sends queued input "
-            "(or the supplied message first).\n"
-            if args.planner in {"claude_code", "codex", "gemini_cli"}
-            else ""
+    try:
+        if human_interactive_exploration:
+            from rpent.tools.human_in_the_loop import HumanInTheLoopInput
+
+            # The native CLI reads between runs, leaving the TTY available to tools.
+            operator_input = HumanInTheLoopInput(
+                interactive=args.tui and not native_cli
+            )
+        if args.tui and not native_cli:
+            from rpent.cli.tui import (
+                start_first_prompt_resolver,
+                start_interactive_reader,
+            )
+
+            input_queue = queue.Queue()
+            queued_help = (
+                "Messages queue until the current turn completes.\n"
+                "/interrupt [message] stops the current turn, then sends queued input "
+                "(or the supplied message first).\n"
+                if args.planner in EXTERNALLY_CONFIGURED_PLANNERS
+                else ""
+            )
+            # Pre-fill the first prompt with the rendered default task (editable
+            # preset);
+            start_interactive_reader(
+                input_queue,
+                first_prompt_default=user_msg,
+                extra_help=queued_help
+                + (operator_input.help_text if operator_input else ""),
+                **(
+                    {
+                        "line_handler": operator_input.route_line,
+                        "on_close": operator_input.close,
+                    }
+                    if operator_input is not None
+                    else {}
+                ),
+            )
+            logger.info(
+                "interactive mode on: the built-in task is pre-filled — "
+                "edit it and press Enter, submit it as-is, or clear it to "
+                "type your own. Follow-up messages queue until the turn completes; "
+                "use /interrupt [message] to interrupt and send ahead of the queue. "
+                "/help for commands."
+            )
+            # Resolve the opening prompt on a background thread so the user can type
+            # it while the (slow) env/VLA servers boot below.
+            await_first_prompt = start_first_prompt_resolver(input_queue)
+    except BaseException as exc:
+        # The operator interface owns the terminal until the agent loop closes
+        # it; a failure before that loop leaves run.json open and the terminal
+        # in raw mode.
+        if operator_input is not None:
+            operator_input.close()
+        _close_unstarted_run(
+            output_dir,
+            robot_name,
+            args=args,
+            task_desc=task_desc,
+            error=f"{type(exc).__name__}: {exc}",
         )
-        # Pre-fill the first prompt with the rendered default task (editable
-        # preset);
-        start_interactive_reader(
-            input_queue,
-            first_prompt_default=user_msg,
-            extra_help=queued_help
-            + (operator_input.help_text if operator_input else ""),
-            **(
-                {
-                    "line_handler": operator_input.route_line,
-                    "on_close": operator_input.close,
-                }
-                if operator_input is not None
-                else {}
-            ),
-        )
-        logger.info(
-            "interactive mode on: the built-in task is pre-filled — "
-            "edit it and press Enter, submit it as-is, or clear it to "
-            "type your own. Follow-up messages queue until the turn completes; "
-            "use /interrupt [message] to interrupt and send ahead of the queue. "
-            "/help for commands."
-        )
-        # Resolve the opening prompt on a background thread so the user can type
-        # it while the (slow) env/VLA servers boot below.
-        await_first_prompt = start_first_prompt_resolver(input_queue)
+        raise
 
     # --- initialise robot runtime --------------------------------------------
-    daemons, runtime_kwargs = robot_spec.init_runtime(
-        args,
-        output_dir,
-        dashboard_events,
-        None,
-    )
     try:
-        # Render the system prompt after the runtime so a robot can report the
-        # capabilities of the connected task, not only the requested options.
-        if robot_spec.prepare_prompt_vars is not None:
-            prompt_vars = {
-                **prompt_vars,
-                **robot_spec.prepare_prompt_vars(args, run_config, runtime_kwargs),
-            }
-            # ``prepare_prompt_vars`` may add variables the user prompt reads, so
-            # re-render it once the connected runtime has reported its capabilities.
-            # The interactive reader keeps the earlier render, which is only the
-            # editable default.
-            user_msg = prompt_bundle.render("user", variables=prompt_vars)
-        system_prompt = prompt_bundle.render("system", variables=prompt_vars)
-    except BaseException:
-        # The agent-loop ``finally`` below stops the daemons. A prompt or hook
-        # failure happens before it and must not leak the runtime.
-        for daemon in daemons:
-            daemon.stop()
+        daemons, runtime_kwargs = robot_spec.init_runtime(
+            args,
+            output_dir,
+            dashboard_events,
+            None,
+        )
+        try:
+            # Render the system prompt after the runtime so a robot can report the
+            # capabilities of the connected task, not only the requested options.
+            if robot_spec.prepare_prompt_vars is not None:
+                prompt_vars = {
+                    **prompt_vars,
+                    **robot_spec.prepare_prompt_vars(args, run_config, runtime_kwargs),
+                }
+                # ``prepare_prompt_vars`` may add variables the user prompt reads, so
+                # re-render it once the connected runtime has reported its capabilities.
+                # The interactive reader keeps the earlier render, which is only the
+                # editable default.
+                user_msg = prompt_bundle.render("user", variables=prompt_vars)
+            system_prompt = prompt_bundle.render("system", variables=prompt_vars)
+        except BaseException:
+            # The agent-loop ``finally`` below stops the daemons. A prompt or hook
+            # failure happens before it and must not leak the runtime.
+            for daemon in daemons:
+                daemon.stop()
+            raise
+    except BaseException as exc:
+        if operator_input is not None:
+            operator_input.close()
+        _close_unstarted_run(
+            output_dir,
+            robot_name,
+            args=args,
+            task_desc=task_desc,
+            error=f"{type(exc).__name__}: {exc}",
+        )
         raise
 
     # --- agent loop --------------------------------------------------------
@@ -621,6 +852,7 @@ def main() -> int:
     environment_success: bool | None = None
     environment_metrics: dict = {}
     memory_manager: MemoryManager | None = None
+    collects_verdict = robot_spec.collects_verdict(args.planner)
     try:
         if first_user_msg is not None:
             dashboard_events.emit(RunStartedEvent())
@@ -684,6 +916,12 @@ def main() -> int:
                     return True
 
                 operator_input.bind_verdict(accept_verdict)
+            from rpent.session.planner_capture import (
+                end_planner_task,
+                start_planner_task,
+                task_config_snapshot,
+            )
+
             task_state = None
             result = None
             finish_result = None
@@ -693,7 +931,7 @@ def main() -> int:
                     task_state = start_planner_task(
                         toolkit.state,
                         instruction=session_msg,
-                        config={"arguments": vars(args), "run": asdict(run_config)},
+                        config=task_config_snapshot(vars(args), run_config),
                     )
                 result = planner.solve(
                     system_prompt=system_prompt,
@@ -713,29 +951,27 @@ def main() -> int:
                             "Planner stopped after operator verdict: %s", agent_error
                         )
                         stats["planner_error_at_operator_verdict"] = agent_error
-                solved_fn = getattr(toolkit, "solved", None)
-                if getattr(robot_spec, "supports_exploration", False) and callable(
-                    solved_fn
-                ):
-                    solved = bool(solved_fn())
-                    environment_success = solved
-                    write_recipe = getattr(toolkit, "write_recipe", None)
-                    if solved and callable(write_recipe):
-                        recipe_path = write_recipe(recipe_tag) or recipe_path
             finally:
                 if operator_input is not None and input_queue is not None:
                     operator_input.bind_verdict(None)
                 try:
-                    if robot_spec.finalize_run is not None:
+                    if collects_verdict:
+                        # A tool may still be moving the robot; quiesce before
+                        # reading the verdict and collecting metrics.
                         toolkit.cancel_active_and_wait()
-                        solved_fn = getattr(toolkit, "solved", None)
-                        environment_success = (
-                            bool(solved_fn()) if callable(solved_fn) else None
-                        )
-                        solved = bool(environment_success)
-                        environment_metrics = toolkit.evaluation_metrics(
-                            success=environment_success
-                        )
+                        environment_success = _read_solved(toolkit)
+                        solved = environment_success is True
+                        write_recipe = getattr(toolkit, "write_recipe", None)
+                        if (
+                            robot_spec.supports_exploration
+                            and solved
+                            and callable(write_recipe)
+                        ):
+                            recipe_path = write_recipe(recipe_tag) or recipe_path
+                        if robot_spec.finalize_run is not None:
+                            environment_metrics = toolkit.evaluation_metrics(
+                                success=environment_success
+                            )
                 finally:
                     try:
                         toolkit.close()
@@ -781,20 +1017,63 @@ def main() -> int:
             d.stop()
 
     elapsed = time.time() - t0
+    context = RunFinalizationContext(
+        output_dir=Path(output_dir),
+        robot_name=robot_name,
+        task_desc=dict(task_desc),
+        environment_success=environment_success,
+        environment_metrics=environment_metrics,
+        agent_error=agent_error,
+        elapsed_s=elapsed,
+        planner=args.planner,
+        model=args.model,
+        reasoning_effort=args.reasoning_effort,
+        max_turns=args.max_turns,
+        planner_timeout_s=args.planner_timeout_s,
+        finish_result=dict(finish_result) if finish_result is not None else None,
+        stats=dict(stats),
+        # ``truth_source`` names who established the verdict, so it stays unset
+        # when the run produced none (such as a real-robot run nobody judged).
+        truth_source=(
+            robot_spec.truth_source
+            if collects_verdict and environment_success is not None
+            else None
+        ),
+    )
 
-    transcript_path = Path(output_dir) / f"transcript_{recipe_tag}.json"
-    record = {
-        **task_desc,
-        "model": args.model,
-        "elapsed_s": round(elapsed, 1),
-        "finish": finish_result,
-        "error": agent_error,
-        "environment_success": environment_success,
-        "stats": stats,
-        "messages": _serialize_messages(messages),
-    }
-    with open(transcript_path, "a") as f:
-        json.dump(record, f, indent=2, default=str)
+    # Artifact failures leave the verdict unchanged but make the command fail:
+    # the run is not reproducible from what it wrote. They are recorded in
+    # ``artifact_error`` so ``error`` keeps naming the agent-side failure the
+    # verdict was derived from.
+    command_failed = False
+    artifact_error: str | None = None
+
+    transcript_path = Path(output_dir) / "transcript.json"
+    transcript_written = False
+    try:
+        write_json_atomic(
+            transcript_path,
+            {
+                "recipe_tag": recipe_tag,
+                **task_desc,
+                "model": args.model,
+                "elapsed_s": round(elapsed, 1),
+                "finish": finish_result,
+                "error": agent_error,
+                "environment_success": environment_success,
+                **verdict_fields(context),
+                "stats": stats,
+                "messages": _serialize_messages(messages),
+            },
+            default=str,
+        )
+        transcript_written = True
+    except Exception as exc:
+        # Record the failure and keep finalizing: the result artifact and the
+        # run manifest still describe what the episode did.
+        command_failed = True
+        artifact_error = f"transcript write failed: {type(exc).__name__}: {exc}"
+        logger.error("%s", artifact_error)
 
     logger.info("elapsed: %.1fs", elapsed)
     logger.info(
@@ -803,35 +1082,22 @@ def main() -> int:
         stats.get("total_output_tokens", "?"),
         stats.get("tool_calls", "?"),
     )
-    logger.info("transcript: %s", transcript_path)
+    if not command_failed:
+        logger.info("transcript: %s", transcript_path)
 
+    result_path: Path | str | None = None
     if robot_spec.finalize_run is not None:
         try:
-            result_path = robot_spec.finalize_run(
-                RunFinalizationContext(
-                    output_dir=Path(output_dir),
-                    robot_name=robot_name,
-                    task_desc=dict(task_desc),
-                    environment_success=environment_success,
-                    environment_metrics=environment_metrics,
-                    agent_error=agent_error,
-                    elapsed_s=elapsed,
-                    planner=args.planner,
-                    model=args.model,
-                    reasoning_effort=args.reasoning_effort,
-                    max_turns=args.max_turns,
-                    planner_timeout_s=args.planner_timeout_s,
-                    finish_result=(
-                        dict(finish_result) if finish_result is not None else None
-                    ),
-                    stats=dict(stats),
-                )
-            )
+            result_path = robot_spec.finalize_run(context)
             if result_path:
                 logger.info("run result: %s", result_path)
         except Exception as exc:
-            agent_error = f"result finalization failed: {type(exc).__name__}: {exc}"
-            logger.error("%s", agent_error)
+            message = f"result finalization failed: {type(exc).__name__}: {exc}"
+            artifact_error = (
+                f"{artifact_error}; {message}" if artifact_error else message
+            )
+            command_failed = True
+            logger.error("%s", message)
 
     # Publish exploration artifacts into the corpus after the session loop.
     if (
@@ -850,10 +1116,36 @@ def main() -> int:
             if merge_result:
                 logger.info("memory merged: %s", merge_result)
         except Exception as exc:
-            agent_error = f"memory finalization failed: {type(exc).__name__}: {exc}"
-            logger.error("%s", agent_error)
+            message = f"memory finalization failed: {type(exc).__name__}: {exc}"
+            artifact_error = (
+                f"{artifact_error}; {message}" if artifact_error else message
+            )
+            command_failed = True
+            logger.error("%s", message)
 
-    return 1 if agent_error else 0
+    try:
+        finish_run_manifest(
+            output_dir,
+            artifacts={
+                "transcript": transcript_path if transcript_written else None,
+                "result": result_path,
+                "recipe": recipe_path,
+            },
+            verdict=verdict_fields(context),
+            error=agent_error,
+            artifact_error=artifact_error,
+        )
+    except Exception as exc:
+        command_failed = True
+        logger.error("run manifest update failed: %s", exc)
+
+    if getattr(args, "explore", False):
+        # Exploration publishes a corpus; its session outcome is not a verdict,
+        # but a run whose artifacts failed is still a failed command.
+        return 1 if agent_error or command_failed else 0
+    if command_failed:
+        return 1
+    return _exit_code(context.accepted, agent_error=agent_error)
 
 
 if __name__ == "__main__":

@@ -15,17 +15,16 @@ RPent 可以通过 RLinf 的 ``RealWorldEnv`` worker 控制单台 Franka 机械�
 安装
 ----
 
-请先按照 `libfranka 官方快速安装指南 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_ 安装 libfranka 0.19.0。
-
-克隆 RPent 并安装 Python 依赖。若已有仓库，进入仓库后执行 ``uv sync``：
+把 ``robot-franka`` 安装到独立环境：
 
 .. code-block:: bash
 
-   git clone https://github.com/RLinf/RPent.git
-   cd RPent
-   uv sync --extra franka
+   ./rpent-install.sh install robot-franka --venv .venv-franka-real
+   source .venv-franka-real/bin/activate
 
-该命令将 RLinf ``release/v0.4``、``rpent-openpi`` 以及 Franka 的相机、夹爪和遥操作依赖安装到 ``.venv``。其中的 ``franky-control`` wheel 已包含 libfranka 0.19.0。
+该组件包含 RLinf、``rpent-openpi`` 以及 Franka 的相机、夹爪和遥操作依赖。其中的 ``franky-control`` wheel 已打包 libfranka 0.19.0，通常无需单独安装系统库；替换内置 wheel 或使用 ROS 工具时，再按 `libfranka 官方快速安装指南 <https://docs.ros.org/en/humble/p/libfranka/__README.html#quick-install>`_ 安装 0.19.0。
+
+下文命令直接运行 ``.venv-franka-real/bin/rpent``，先激活环境再运行 ``rpent`` 效果相同。
 
 标定（Calibration）
 ----------------------
@@ -48,7 +47,7 @@ RPent 会直接加载这些 YAML 文件：在机器人配置的 ``perception.cal
 
 仓库中给出的值是开发默认值，在启用机械臂运动前必须逐项核对：
 
-* ``robots/franka/config/example.yaml``，包含机器人身份（机器人 IP、相机序列号、夹爪）、工作空间几何（目标/复位位姿、安全边界）和 easy_handeye YAML 映射（见上方标定说明）。示例设置 ``backend: franky`` 和 ``realtime_config: ignore``。如果需要强制 RPent 在 PREEMPT_RT 内核上运行，可将 ``realtime_config`` 改为 ``enforce``，此时若 RPent 无法获得实时保证，将拒绝启动。
+* ``robots/franka/config/example.yaml``，包含机器人身份（机器人 IP、相机序列号、夹爪）、工作空间几何（目标/复位位姿、安全边界）和 easy_handeye YAML 映射（见上方标定说明）。示例设置 ``backend: franky`` 和 ``realtime_config: ignore``。在 PREEMPT_RT 内核上，可将 ``realtime_config`` 改为 ``enforce``；无法获得实时保证时，RPent 会拒绝启动。
 
 RPent 会把这份机器人配置转换成内部的 RLinf cluster 和环境对象。如需改用其他文件，请传入 ``--robot-config /path/to/robot_config.yaml``。
 
@@ -63,6 +62,13 @@ Ray 在启动时会捕获环境变量，因此必须先设置 node rank 再启�
    ray stop --force
    ray start --head
 
+安全要求
+--------
+
+.. warning::
+
+   开启机器人运动时，操作员必须值守在硬件急停（E-stop）旁，并在执行任何运动命令前确认工作空间净空。尝试抓取前，先用极小幅度动作验证任务 ``0``。一旦相机与状态结果不一致、目标运动未到位，或任何标定存在疑问，应立即触发急停。急停或异常停止后，先检查现场并清除障碍，复位机器人控制器后再重启会话。
+
 运行冒烟测试
 ------------
 
@@ -73,35 +79,30 @@ Ray 在启动时会捕获环境变量，因此必须先设置 node rank 再启�
 .. code-block:: bash
 
    # replace --robot-config with your own config
-   uv run --extra franka rpent --robot franka --task-id 0 \
+   .venv-franka-real/bin/rpent --robot franka --task-id 0 \
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
-RPent 会使用当前解释器启动 ``robots/franka/env_server.py``：加载机器人配置、生成内部的 RLinf 适配器配置、连接 Ray、等待 ``healthz``，并将初始状态记录为第 ``0`` 步。
+RPent 会使用当前解释器启动 Franka 环境服务：加载机器人配置、生成内部的 RLinf 适配器配置、连接 Ray、等待 ``healthz``，并将初始状态记录为第 ``0`` 步。
 
 VLA 抓取演示
 -------------
 
-RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vla_grasp`` 工具。当前单臂 Franka 需要兼容的外部 VLA 服务，其观测布局、动作布局、checkpoint 和归一化统计必须与 Franka 训练配置一致：
+RPent 提供了一个使用 VLA 抓取物品的演示。任务 ``1`` 提供 ``vla_grasp`` 工具。单臂 Franka 需要兼容的外部 VLA 服务，其观测布局、动作布局、checkpoint 和归一化统计必须与 Franka 训练配置一致：
 
 .. code-block:: bash
 
-   uv run --extra franka rpent --robot franka --task-id 1 \
+   .venv-franka-real/bin/rpent --robot franka --task-id 1 \
      --am-endpoint http://VLA_HOST:PORT \
      --planner claude_code --model claude-opus-4-8 \
      --robot-config robots/franka/config/example.yaml
 
-目前 VLA 服务需要单独部署。若未设置 ``--am-endpoint``，解析式运动和夹爪工具仍然可用，但 ``vla_grasp`` 会抛出运行时错误。
+VLA 服务需要单独部署。若未设置 ``--am-endpoint``，解析式运动和夹爪工具仍然可用，但 ``vla_grasp`` 会抛出运行时错误。
 
 工具与状态产物
 --------------
 
 Franka 扩展提供 ``view_env_state``、``view_camera_meta``、``move_delta``、 ``rotate_delta``、``open_gripper``、``close_gripper`` 和 ``vla_grasp``。所有会改变环境状态的工具都会把机器人状态、腕部与外部 RGB 图像、可选的对齐深度数组和相机元数据保存到 RPent 统一的 ``EnvState`` 中。
-
-安全要求
---------
-
-操作员必须守在急停按钮旁。在尝试抓取之前，先用极小幅度动作验证任务 ``0``。一旦相机与状态结果不一致、目标运动没有到位，或任何标定存在疑问，应立即停止。
 
 .. _franka-flash:
 
@@ -116,8 +117,9 @@ Franka Flash 任务卡
 用当前定位的锚点加上该偏移得到新目标，再减去当前 TCP 位置得到移动量。
 动作顺序保持不变，连续运动的插值仍由现有控制器负责。
 
-先按本页配置机器人及 ``perception.calibration``，启动 Molmo 服务，并记录一次
-成功操作。检查 ``states.json``，按原始步骤编号填写 ``annotations.json``::
+先按本页配置机器人及 ``perception.calibration``，启动 Molmo 服务，并记录一次成功操作。检查 ``states.json``，按原始步骤编号填写 ``annotations.json``：
+
+.. code-block:: json
 
    {
      "1": {"intent": "approach the cup rim", "phrase": "visible cup rim", "camera": "third_person"},
@@ -129,7 +131,9 @@ Franka Flash 任务卡
 ``left_wrist``、``right_wrist``。所选视角必须具有深度和有效标定。
 单步平移限制为 0.20 m，单步旋转限制为 0.35 rad。
 
-从审阅后的记录生成任务卡；此操作不连接机器人，但需要可访问的 Molmo 服务::
+从审阅后的记录生成任务卡；此操作不连接机器人，但需要可访问的 Molmo 服务：
+
+.. code-block:: bash
 
    python -m robots.franka.flash.generate \
      --robot franka --task franka_t0 \
@@ -137,15 +141,15 @@ Franka Flash 任务卡
      --run-dir /path/to/successful-run --annotations annotations.json \
      --molmo-endpoint http://localhost:9000 --destination plan.json
 
-按提示确认原始操作成功。生成器拒绝不支持的命令，且不会覆盖已有目标文件。
-新记录保存 ``recording_fingerprint.json``，包含机器人配置及标定文件的哈希。
-生成器在定位锚点前拒绝缺少指纹或录制后配置、标定发生变化的记录；此时需重新录制，
-没有来源指纹的旧记录不能使用。回放仍检查任务卡与当前文件是否一致。
-已知观察、确认记录及初始确认的场景重置不进入任务卡；任务动作之后的重置会被拒绝，
-避免拼接不同尝试。
-双臂改用 ``--robot dual_franka --task dual_franka_t0``。
+按提示确认原始操作成功。生成器拒绝不支持的命令，且不会覆盖已有目标文件。双臂改用 ``--robot dual_franka --task dual_franka_t0``。
 
-在独立操作员终端中回放::
+新记录保存 ``recording_fingerprint.json``，包含机器人配置及标定文件的哈希。生成器在定位锚点前会拒绝缺少指纹或配置、标定已变更的记录；此时需重新录制。回放也会校验任务卡与当前文件是否一致。
+
+观测记录、确认记录与初始场景重置不会写入任务卡；任务动作之后的重置会被拒绝，避免拼接不同尝试。
+
+在独立操作员终端中回放：
+
+.. code-block:: bash
 
    rpent --robot franka --planner flash --task-id 0 \
      --robot-config /path/to/robot.yaml --flash-plan plan.json \
@@ -165,6 +169,7 @@ Franka Flash 任务卡
 真机任务成功。
 
 .. _agent:
+.. _optional-agent-grounding-fallback:
 
 Flash 模式加入大模型 Agent 介入选点
 ------------------------------------------
@@ -195,7 +200,7 @@ Flash 模式加入大模型 Agent 介入选点
 需要更换模型端点时，可增加 ``--grounding-agent-base-url``。
 
 
-Codex 复用已有的模型/provider 配置和文件登录，来加载介入的agent，不加载用户的 MCP 和插件。
+Codex 复用已有的模型/provider 配置和文件登录来运行介入 Agent，不加载用户的 MCP 和插件。
 如果检测到启用的 MCP，发送图片前会停止请求。若登录凭据只保存在系统钥匙串中，
 请改用文件登录或设置 ``CODEX_API_KEY``。
 

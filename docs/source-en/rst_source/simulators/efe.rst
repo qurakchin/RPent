@@ -112,12 +112,12 @@ Prerequisites on the Linux host:
       export RPENT_ROOT=/absolute/path/to/RPent
       export EFE_ROOT=/absolute/path/to/embodied-first-exam
       uv sync --project "$EFE_ROOT" --python 3.12
-      uv pip install --python "$EFE_ROOT/.venv/bin/python" -e "$RPENT_ROOT"
+      uv pip install --python "$EFE_ROOT/.venv/bin/python" -e "$RPENT_ROOT[planner]"
       docker info
       uv run --project "$EFE_ROOT" harbor --version
       test -f "$RPENT_ROOT/robots/efe/harbor_agent.py"
 
-   - ``uv pip install ... -e "$RPENT_ROOT"`` is only needed for manual host runs (``rpent --robot efe``); Harbor trials build and install RPent inside the task container automatically.
+   - ``uv pip install ... -e "$RPENT_ROOT[planner]"`` is only needed for manual host runs (``rpent --robot efe``); Harbor trials build and install RPent inside the task container automatically, including the planner extra.
    - Verify that ``docker info`` succeeds, ``harbor --version`` reports ``0.23.0``, and ``test -f`` exits with ``0``.
 
 3. Select the example AutoBio centrifuge task and configure model credentials:
@@ -169,8 +169,9 @@ Each ``harbor run`` creates a timestamped job directory under ``--jobs-dir``:
        ├── agent/
        │   ├── setup/           # Container agent install log
        │   └── rpent/           # Mounted from /logs/agent/rpent/ in container
-       │       ├── transcript_*.json # CLI transcript and planner stats
-       │       ├── efe-result.json   # EFE metrics and finalization data
+       │       ├── run.json          # Run manifest, environment snapshot, and verdict
+       │       ├── transcript.json   # CLI transcript and planner stats
+       │       ├── efe-result.json   # EFE metrics, verdict fields, and finalization data
        │       ├── codex_*.txt       # Planner transcript
        │       ├── codex-home/       # Isolated CODEX_HOME for this trial
        │       └── memory/           # Memory directory for this trial
@@ -180,14 +181,14 @@ Each ``harbor run`` creates a timestamped job directory under ``--jobs-dir``:
        ├── lock.json
        └── trial.log
 
-If a trial aborts before writing ``result.json`` or ``transcript_*.json``,
-inspect ``trial.log`` and ``agent/rpent/run.log`` first.
+If a trial aborts before writing ``result.json``, ``run.json``, or
+``transcript.json``, inspect ``trial.log`` and ``agent/rpent/run.log`` first.
 
 Success Criterion
 ~~~~~~~~~~~~~~~~~
 
 - **Native evaluation score**: read ``verifier_result.rewards.success`` in ``<trial_name>/result.json`` (copied from ``verifier/reward.json``). Tasks with retries also log ``first_success`` for the first attempt, while ``success`` reflects the final attempt.
-- Neither ``finish(status="completed")`` nor a ``0`` CLI exit code indicates task success.
+- Calling ``finish(status="completed")`` does not by itself indicate task success. The standalone ``rpent --robot efe`` CLI uses the three-state exit codes in :ref:`cli-exit-codes` (``0`` accepted, ``1`` failed or error, ``75`` unjudged such as hidden-success tasks); Harbor reads ``run.json`` so any closed episode is still passed to the verifier for native grading.
 - A trial whose planner exhausts its time budget is still graded: the adapter
   treats budget exhaustion as a normal stop, so the verifier checks the final
   state of the last attempt as usual.
@@ -233,7 +234,7 @@ Pass adapter options via ``--agent-kwarg key=value``:
      - Codex reasoning effort: ``none``, ``low``, ``medium``, ``high``, or ``xhigh``.
    * - ``max_turns=N``
      - ``200``
-     - Maximum planner model turns (not shell command count).
+     - RPent tool-call budget for the trial.
    * - ``memory_source=/path``
      - Unset
      - Upload an existing RPent memory directory into the trial (starts with an empty ``memory/`` when unset).

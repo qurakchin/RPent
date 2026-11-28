@@ -26,7 +26,7 @@ Check the model, task, and runtime requirements before following the installatio
 
    .. grid-item-card:: Planners
 
-      ``api``, ``claude_code``, ``codex``, ``gemini_cli``; also see :doc:`../guides/flash`.
+      ``api``, ``claude_code``, ``codex``, ``gemini_cli``, ``opencode``; also see :doc:`../guides/flash`.
 
    .. grid-item-card:: Tasks
 
@@ -34,7 +34,7 @@ Check the model, task, and runtime requirements before following the installatio
 
    .. grid-item-card:: Hardware
 
-      Linux, NVIDIA GPU; Python 3.11; CUDA and EGL.
+      Linux, NVIDIA GPU; Python 3.12; CUDA and EGL.
 
 .. _core-libero-pro-suites:
 
@@ -87,9 +87,20 @@ The table distinguishes planner tools, model inputs, and the environment’s suc
    * - Action
      - The planner calls Pi0.5 tools or motion primitives such as ``move_to`` and ``set_gripper``; these execute environment actions.
    * - Reward / success
-     - Evaluate success using the final state’s top-level ``terminated`` value. A step limit or planner ``finish`` is not a success label.
+     - Native success comes from the environment's ``terminated`` flag. In evaluation mode, the planner sees only ``episode_over``; a step limit or planner ``finish`` is not a success label.
    * - Task prompt
      - The task language comes from the selected suite/task and the current environment.
+
+In evaluation mode, the benchmark's verdict is withheld from the planner.
+``view_env_state`` and every stateful tool expose only ``episode_over`` (covering
+both task completion and step-limit truncation) and omit ``terminated``,
+``truncated``, and any success flag, including the copy nested in the step log.
+``pi0_pick`` reports ``grasp_detected`` instead of a success flag.
+
+The runner keeps the withheld verdict in its own step records, so recipes,
+metrics, and the verdict written to ``run.json`` and ``transcript.json`` are
+unchanged. Exploration mode keeps ``terminated`` in the planner's view so a
+hunting session can tell which episodes it solved.
 
 .. _installation-and-variants:
 
@@ -98,28 +109,29 @@ Installation and Resources
 
 For a first LIBERO-PRO run, complete the installation, asset downloads, and model setup in :doc:`../get_started/quickstart`. Continue here to select tasks and reproduce experiments.
 
-For another variant, install the matching extra in an isolated environment and download its assets. Install only one LIBERO variant per Python environment:
+``robot-libero`` installs the standard LIBERO and LIBERO-PRO packages together.
+For LIBERO-plus (which requires ``robosuite<1.5``), install ``robot-libero_plus``
+in its own virtual environment. Choose the variant at runtime with
+``--libero-type`` and download the matching assets:
 
 .. list-table::
    :header-rows: 1
 
-   * - Variant
+   * - ``--libero-type``
      - Install
      - Assets
    * - ``standard``
-     - ``uv pip install -e ".[libero]"``
+     - ``./rpent-install.sh install robot-libero --venv .venv-libero``
      - ``libero-download-assets --skip-existing``
    * - ``pro``
-     - ``uv pip install -e ".[libero-pro]"``
+     - ``./rpent-install.sh install robot-libero --venv .venv-libero``
      - ``liberopro-download-assets --skip-existing``
    * - ``plus``
-     - ``uv pip install -e ".[libero-plus]"``
+     - ``./rpent-install.sh install robot-libero_plus --venv .venv-libero-plus``
      - ``liberoplus-download-assets --skip-existing``
 
-Each extra includes Pi0.5 (``rpent-openpi``), SAM3, and the RLinf runtime
-(``rpent-rlinf``). Download model weights separately as described below.
-
-At runtime, set ``--libero-type`` to match the installed variant.
+Each environment includes Pi0.5 (``rpent-openpi``), SAM3, and the RLinf runtime
+(``infra-rlinf``). Download model weights separately as described below.
 
 VLA Configuration
 -----------------
@@ -132,6 +144,7 @@ then point at it via ``PI05_CHECKPOINT_PATH``:
 .. code-block:: bash
 
    hf download RLinf/RLinf-Pi05-LIBERO-130-fullshot-SFT \
+     --exclude optimizer.pt \
      --local-dir /path/to/rlinf-pi05-libero-130-fullshot-sft
 
    export PI05_CHECKPOINT_PATH=/path/to/rlinf-pi05-libero-130-fullshot-sft
@@ -206,20 +219,23 @@ and SAM3 setup above. Pi0.5 weights are not needed for WAM. With Cosmos on port 
 
 Fast-WAM uses ``--am-backend fast-wam`` and its worker endpoint. For LIBERO-Pro,
 select a Pro suite and ``--libero-type pro`` in a Pro environment. WAM excludes
-LIBERO-Plus, Flash and exploration. WAM uses a required local memory manager
-and file tools, with a backend-specific directory that may be empty.
-Use ``--memory-dir`` to select a compatible local corpus; HF memory is unsupported.
+LIBERO-Plus, Flash, and exploration.
+
+WAM uses a required local memory manager and file tools, with a backend-specific
+directory that may be empty. Use ``--memory-dir`` to select a compatible local
+corpus; HF memory is unsupported.
+
 ``wam_act(prompt=None, max_chunks=1)`` replaces the Pi0.5 tools and executes one
 to four chunks with fresh observations. The worker's ``chunk_size`` metadata
-declares the number of actions per chunk. A prompt override applies to
-that call only. Chunk budgets do not specify where to stop inside a chunk.
+declares the number of actions per chunk. A prompt override applies to that call
+only, and chunk budgets do not specify where to stop inside a chunk.
 
 View Results
 ------------
 
-The terminal shows server startup, planner conversation, and tool calls. After the run, inspect ``episode.mp4``, ``transcript_*.json``, and ``run.log`` in the output directory; see :ref:`run-output-files` for default paths and step artifacts.
+The terminal shows server startup, planner conversation, and tool calls. After the run, inspect ``run.json``, ``transcript.json``, ``episode.mp4``, and ``run.log`` in the output directory; see :ref:`run-output-files` for default paths and step artifacts.
 
-Inspect the final state with ``view_env_state(step=-1)``. Its top-level ``terminated`` value is the native success result; ``finish`` ends planning. See :doc:`../guides/dashboard` for live monitoring.
+Read the native evaluation verdict from ``run.json`` (``accepted``, ``stop_reason``, ``failure_category``) or ``transcript.json`` (``environment_success``); ``finish`` only ends planning. In exploration mode, ``view_env_state(step=-1)`` also exposes top-level ``terminated``. See :doc:`../guides/dashboard` for live monitoring.
 
 .. _libero-exploration:
 
@@ -286,21 +302,17 @@ What Runs Where
 LIBERO separates simulation and model inference into services. The toolkit
 uses their clients to execute the planner's requests.
 
-- **env_server** (``robots/libero/env_server.py``) — owns the LIBERO
-  MuJoCo env and EGL rendering. Exposes ``reset``, ``step``,
-  ``chunk_step``, ``render_camera``, ``get_camera_meta``, … over an RPC
-  transport (HTTP by default; socket via ``--transport socket``).
-- **vla_server** (``rpent/robots/components/pi05_vla_server.py``) — owns the Pi0.5
-  weights. Exposes ``predict`` over the same RPC transport (HTTP or
-  socket).
-- **sam3_server** (``rpent/robots/components/sam3_server.py``) — loads SAM 3.0 and
-  segments a target region from a text description or one pixel on the target
-  object. If the model produces multiple candidates, it selects the one with
-  the highest model score and returns its mask as a compressed PNG through the
-  same RPC transports (HTTP or socket).
-- **toolkit** (``robots/libero/toolkit.py``) — defines the tools the
-  LLM can call: ``pi0_pick`` (fed to Pi0.5), ``move_to``,
-  ``rotate_wrist``, ``back_project``, ``view_env_state``,
+- **env_server** — owns the LIBERO MuJoCo environment and EGL rendering, serving
+  environment resets, action stepping, camera rendering, and camera metadata over
+  RPC (HTTP by default; socket via ``--transport socket``).
+- **vla_server** — holds the Pi0.5 weights and serves action prediction over the
+  same RPC transport (HTTP or socket).
+- **sam3_server** — loads SAM 3.0 and segments a target region from a text
+  description or one pixel on the target object. If the model produces multiple
+  candidates, it selects the one with the highest model score and returns its
+  mask as a compressed PNG through the same RPC transports (HTTP or socket).
+- **toolkit** — exposes the tools the planner can call: ``pi0_pick`` (fed to
+  Pi0.5), ``move_to``, ``rotate_wrist``, ``back_project``, ``view_env_state``,
   ``finish``, …
 
 Tools the Planner Can Call
@@ -350,10 +362,10 @@ Bringing Your Own VLA
 If you have a LIBERO-compatible VLA that is not Pi0.5, swap the model
 client without touching the robot by:
 
-1. Writing a new ``vla_server.py`` that exposes the same ``predict``
-   RPC contract (over HTTP or socket).
+1. Writing a new model service that exposes the same ``predict`` RPC contract
+   (over HTTP or socket).
 2. Pointing at it with ``--am-endpoint [protocol://]host:port``.
-3. Optionally updating ``robots/libero/toolkit.py`` if the tool
-   surface (e.g. ``pi0_pick`` → ``mymodel_pick``) needs to change.
+3. Optionally updating the LIBERO toolkit if the tool surface (for example,
+   ``pi0_pick`` → ``mymodel_pick``) needs to change.
 
 See :doc:`../development/add_primitive` for the full walkthrough.

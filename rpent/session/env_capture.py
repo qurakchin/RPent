@@ -58,6 +58,16 @@ class ToolCallCapture:
         self.action_source = action_source
         self.started = True
 
+    def reject(self) -> None:
+        """Record that the tool refused the call before running it.
+
+        Admission already marked the call ``running``, so the started timestamp
+        has to be withdrawn; otherwise the record reads as an executed step
+        that failed.
+        """
+        self.state.mark_tool_call_not_executed(self.tool_call_id)
+        self.started = False
+
     def result(self, payload: Payload) -> None:
         """Save the original result before any adapter transformation."""
         self.state.update_tool_call(

@@ -7,7 +7,7 @@ Welcome to RPent
    :alt: RPent
    :class: rpent-home-logo
 
-RPent (Recursive Physical Agent) is an open-source framework for building embodied agents that continually evolve through recursive interaction with the physical world. It supports different foundation models and integrates perception, reasoning, memory, execution, and self-evolution in a unified agent framework. Through ongoing interaction, agents reflect on and adjust their behavior, accumulate experience, and develop new capabilities beyond their initial design.
+**RPent (Recursive Physical Agent)** is an open-source framework for embodied agents that improve through recursive interaction with the physical world. Rather than prescribing a single foundation model, it integrates perception, reasoning, memory, execution, and self-evolution into one architecture, using reusable services and unified interfaces across simulators and real robots.
 
 .. grid:: 1 1 2 2
    :gutter: 3
@@ -48,7 +48,7 @@ RPent (Recursive Physical Agent) is an open-source framework for building embodi
 
       Understand the execution flow and add robots, tools, or planners.
 
-Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboCasa365 <rst_source/simulators/robocasa>`, or :doc:`RoboTwin <rst_source/simulators/robotwin>`. For robot deployment, see :doc:`Single-Arm Franka <rst_source/real_world_robots/franka>` and :doc:`Dual-Arm Franka <rst_source/real_world_robots/dual_franka>`; :doc:`YAM <rst_source/real_world_demos/yam>` has a task demo.
+See :doc:`Installation <rst_source/get_started/installation>` for component setup, or jump to a simulator (:doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboCasa365 <rst_source/simulators/robocasa>`, :doc:`RoboTwin <rst_source/simulators/robotwin>`, :doc:`RoboDojo <rst_source/simulators/robodojo>`, :doc:`RoboLab <rst_source/simulators/robolab>`, :doc:`EFE <rst_source/simulators/efe>`) or real robot (:doc:`Single-Arm Franka <rst_source/real_world_robots/franka>`, :doc:`Dual-Arm Franka <rst_source/real_world_robots/dual_franka>`, :doc:`YAM <rst_source/real_world_robots/yam>`).
 
 .. toctree::
    :maxdepth: 2
@@ -58,6 +58,7 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    :caption: Get Started
 
    Introduction to RPent <rst_source/get_started/overview>
+   Installation <rst_source/get_started/installation>
    Quick Start <rst_source/get_started/quickstart>
 
 .. toctree::
@@ -88,7 +89,6 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    :caption: Guides
 
    Memory and Exploration <rst_source/guides/memory>
-   Action Primitives and Tools <rst_source/guides/configure_primitives>
    Planner Configuration <rst_source/guides/configure_planner>
    Command-Line Reference <rst_source/guides/cli>
    Interactive Usage <rst_source/guides/dashboard>
@@ -101,12 +101,24 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    :includehidden:
    :titlesonly:
    :hidden:
+   :caption: Toolkits
+
+   Action Primitives and Tools <rst_source/toolkits/overview>
+   Embodied RGB-D Toolkit <rst_source/toolkits/rgbd>
+   External MCP Tools <rst_source/toolkits/mcp>
+
+.. toctree::
+   :maxdepth: 2
+   :includehidden:
+   :titlesonly:
+   :hidden:
    :caption: Simulators
 
    LIBERO <rst_source/simulators/libero>
    RoboCasa365 <rst_source/simulators/robocasa>
    RoboTwin <rst_source/simulators/robotwin>
    RoboDojo <rst_source/simulators/robodojo>
+   RoboLab <rst_source/simulators/robolab>
    Embodied First Exam <rst_source/simulators/efe>
 
 .. toctree::
@@ -131,11 +143,11 @@ Choose an environment: :doc:`LIBERO <rst_source/simulators/libero>`, :doc:`RoboC
    Architecture and Execution <rst_source/development/architecture>
    Core Interfaces <rst_source/development/interfaces>
    Memory Design <rst_source/development/memory>
-   Generic RGB-D Toolkit <rst_source/development/generic_toolkit>
    Add a Robot or Simulator <rst_source/development/add_robot>
    Add an Action Primitive <rst_source/development/add_primitive>
    Add an Action Model <rst_source/development/add_action_model>
    Add a Planner <rst_source/development/add_planner>
+   Testing and CI <rst_source/development/testing>
 
 .. toctree::
    :maxdepth: 2
