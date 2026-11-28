@@ -383,7 +383,14 @@ def test_robocasa_registers_and_adapts_shared_result_finalizer(tmp_path, monkeyp
     path = finalize_cell_result(context)
 
     assert path == tmp_path / "result.json"
-    assert json.loads(path.read_text(encoding="utf-8")) == _cell_result(success=True)
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        **_cell_result(success=True),
+        "accepted": True,
+        "retryable": False,
+        "failure_category": None,
+        "stop_reason": "solved",
+        "truth_source": None,
+    }
 
 
 def test_robocasa_finalizer_marks_missing_environment_result_invalid(

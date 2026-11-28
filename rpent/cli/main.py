@@ -36,7 +36,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import queue
 import shlex
 import sys
@@ -50,7 +49,12 @@ from rpent.dashboard.events import (
     NullDashboardEventSink,
     RunStartedEvent,
 )
-from rpent.evaluation import RunFinalizationContext
+from rpent.evaluation import (
+    RunFinalizationContext,
+    verdict_fields,
+    write_json_atomic,
+)
+from rpent.install.snapshot import finish_run_manifest, start_run_manifest
 from rpent.memory import MemoryManager
 from rpent.planner.base import (
     CODEX_SANDBOX_CHOICES,
@@ -127,6 +131,73 @@ def _serialize_messages(messages: list[dict]) -> list[dict]:
         }
         for m in messages
     ]
+
+
+def _read_solved(toolkit) -> bool | None:
+    """Return the toolkit's environment verdict, or None when it has none.
+
+    A toolkit that reports a three-state outcome (for example, an episode whose
+    success is graded externally) keeps ``None`` unjudged instead of letting
+    ``bool`` turn it into a task failure.
+    """
+    solved_fn = getattr(toolkit, "solved", None)
+    if not callable(solved_fn):
+        return None
+    verdict = solved_fn()
+    return None if verdict is None else bool(verdict)
+
+
+def _exit_code(accepted: bool | None, *, agent_error: str | None = None) -> int:
+    """Map a run verdict to the exit status: 0 accepted, 1 rejected, 75 none.
+
+    75 tells the caller the run completed without a verdict and may be retried.
+    A planner failure without a verdict is not that: the command itself failed.
+    """
+    if accepted is None:
+        return 1 if agent_error else 75
+    return 0 if accepted else 1
+
+
+def _close_unstarted_run(
+    output_dir: Path,
+    robot_name: str,
+    *,
+    args: argparse.Namespace,
+    task_desc: dict,
+    error: str,
+) -> None:
+    """Close the run record a setup failure would otherwise leave open.
+
+    The record is the entry point of the run directory; a reader must see that
+    this run ended in a failure rather than a still-running process. The
+    planner never ran, so the failure is not an agent error: the record keeps
+    the reason in ``error`` and reports no verdict, and it names the parameters
+    the user actually passed rather than placeholders.
+    """
+    context = RunFinalizationContext(
+        output_dir=Path(output_dir),
+        robot_name=robot_name,
+        task_desc=dict(task_desc),
+        environment_success=None,
+        agent_error=None,
+        elapsed_s=0.0,
+        planner=args.planner,
+        model=args.model,
+        reasoning_effort=args.reasoning_effort,
+        max_turns=args.max_turns,
+        planner_timeout_s=args.planner_timeout_s,
+        finish_result=None,
+        stats={},
+    )
+    try:
+        finish_run_manifest(
+            output_dir,
+            artifacts={},
+            verdict=verdict_fields(context),
+            error=error,
+        )
+    except Exception as exc:  # the original setup failure is what matters
+        logger.error("cannot close the interrupted run record: %s", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -599,113 +670,165 @@ def main() -> int:
 
     robot_name = args.robot_name
 
+    # Memory sync resolves the model and may download a corpus. It runs before
+    # the run directory is claimed so a failure leaves the directory free for
+    # the next attempt, and the run record names the resolved model.
+    prepare_run_memory(args, robot_spec, run_config)
+
     # mkdir + logging wiring (robot-side already picked the path).
     output_dir = init_output_dir(output_dir, verbose=args.verbose)
+    try:
+        start_run_manifest(
+            output_dir,
+            robot=robot_spec.name,
+            planner=args.planner,
+            model=args.model,
+            task=task_desc,
+        )
+    except FileExistsError as exc:
+        parser.error(str(exc))
     logger.info("physical agent cmd: %s", shlex.join([sys.executable, *sys.argv]))
-
-    prepare_run_memory(args, robot_spec, run_config)
 
     dashboard_events = NullDashboardEventSink()
 
-    planner = build_planner(
-        args.planner,
-        output_dir=output_dir,
-        recipe_tag=recipe_tag,
-        robot_name=robot_name,
-        memory_dir=prompt_vars.get("memory_dir"),
-        base_url=args.base_url,
-        model=args.model,
-        max_tokens=args.max_tokens,
-        planner_timeout_s=args.planner_timeout_s,
-        reasoning_effort=args.reasoning_effort,
-        codex_sandbox=args.codex_sandbox,
-        claude_code_max_budget_usd=args.claude_code_max_budget_usd,
-        dashboard_events=dashboard_events,
-        no_images=args.no_images,
-        interactive=args.tui,
-    )
-    prompt_bundle = robot_spec.prompts
-    prompt_vars = {**prompt_vars, "output_dir": output_dir}
-    user_msg = prompt_bundle.render(
-        "user",
-        variables=prompt_vars,
-    )
+    try:
+        planner = build_planner(
+            args.planner,
+            output_dir=output_dir,
+            recipe_tag=recipe_tag,
+            robot_name=robot_name,
+            memory_dir=prompt_vars.get("memory_dir"),
+            base_url=args.base_url,
+            model=args.model,
+            max_tokens=args.max_tokens,
+            planner_timeout_s=args.planner_timeout_s,
+            reasoning_effort=args.reasoning_effort,
+            codex_sandbox=args.codex_sandbox,
+            claude_code_max_budget_usd=args.claude_code_max_budget_usd,
+            dashboard_events=dashboard_events,
+            no_images=args.no_images,
+            interactive=args.tui,
+        )
+        prompt_bundle = robot_spec.prompts
+        prompt_vars = {**prompt_vars, "output_dir": output_dir}
+        user_msg = prompt_bundle.render(
+            "user",
+            variables=prompt_vars,
+        )
+    except BaseException as exc:
+        _close_unstarted_run(
+            output_dir,
+            robot_name,
+            args=args,
+            task_desc=task_desc,
+            error=f"{type(exc).__name__}: {exc}",
+        )
+        raise
 
     operator_input = None
-    if human_interactive_exploration:
-        from rpent.tools.human_in_the_loop import HumanInTheLoopInput
-
-        # The native CLI reads between runs, leaving the TTY available to tools.
-        operator_input = HumanInTheLoopInput(interactive=args.tui and not native_cli)
     input_queue: "queue.Queue[str | None] | None" = None
     await_first_prompt: "Callable[[], str | None] | None" = None
-    if args.tui and not native_cli:
-        from rpent.cli.tui import (
-            start_first_prompt_resolver,
-            start_interactive_reader,
-        )
+    try:
+        if human_interactive_exploration:
+            from rpent.tools.human_in_the_loop import HumanInTheLoopInput
 
-        input_queue = queue.Queue()
-        queued_help = (
-            "Messages queue until the current turn completes.\n"
-            "/interrupt [message] stops the current turn, then sends queued input "
-            "(or the supplied message first).\n"
-            if args.planner in EXTERNALLY_CONFIGURED_PLANNERS
-            else ""
+            # The native CLI reads between runs, leaving the TTY available to tools.
+            operator_input = HumanInTheLoopInput(
+                interactive=args.tui and not native_cli
+            )
+        if args.tui and not native_cli:
+            from rpent.cli.tui import (
+                start_first_prompt_resolver,
+                start_interactive_reader,
+            )
+
+            input_queue = queue.Queue()
+            queued_help = (
+                "Messages queue until the current turn completes.\n"
+                "/interrupt [message] stops the current turn, then sends queued input "
+                "(or the supplied message first).\n"
+                if args.planner in EXTERNALLY_CONFIGURED_PLANNERS
+                else ""
+            )
+            # Pre-fill the first prompt with the rendered default task (editable
+            # preset);
+            start_interactive_reader(
+                input_queue,
+                first_prompt_default=user_msg,
+                extra_help=queued_help
+                + (operator_input.help_text if operator_input else ""),
+                **(
+                    {
+                        "line_handler": operator_input.route_line,
+                        "on_close": operator_input.close,
+                    }
+                    if operator_input is not None
+                    else {}
+                ),
+            )
+            logger.info(
+                "interactive mode on: the built-in task is pre-filled — "
+                "edit it and press Enter, submit it as-is, or clear it to "
+                "type your own. Follow-up messages queue until the turn completes; "
+                "use /interrupt [message] to interrupt and send ahead of the queue. "
+                "/help for commands."
+            )
+            # Resolve the opening prompt on a background thread so the user can type
+            # it while the (slow) env/VLA servers boot below.
+            await_first_prompt = start_first_prompt_resolver(input_queue)
+    except BaseException as exc:
+        # The operator interface owns the terminal until the agent loop closes
+        # it; a failure before that loop leaves run.json open and the terminal
+        # in raw mode.
+        if operator_input is not None:
+            operator_input.close()
+        _close_unstarted_run(
+            output_dir,
+            robot_name,
+            args=args,
+            task_desc=task_desc,
+            error=f"{type(exc).__name__}: {exc}",
         )
-        # Pre-fill the first prompt with the rendered default task (editable
-        # preset);
-        start_interactive_reader(
-            input_queue,
-            first_prompt_default=user_msg,
-            extra_help=queued_help
-            + (operator_input.help_text if operator_input else ""),
-            **(
-                {
-                    "line_handler": operator_input.route_line,
-                    "on_close": operator_input.close,
-                }
-                if operator_input is not None
-                else {}
-            ),
-        )
-        logger.info(
-            "interactive mode on: the built-in task is pre-filled — "
-            "edit it and press Enter, submit it as-is, or clear it to "
-            "type your own. Follow-up messages queue until the turn completes; "
-            "use /interrupt [message] to interrupt and send ahead of the queue. "
-            "/help for commands."
-        )
-        # Resolve the opening prompt on a background thread so the user can type
-        # it while the (slow) env/VLA servers boot below.
-        await_first_prompt = start_first_prompt_resolver(input_queue)
+        raise
 
     # --- initialise robot runtime --------------------------------------------
-    daemons, runtime_kwargs = robot_spec.init_runtime(
-        args,
-        output_dir,
-        dashboard_events,
-        None,
-    )
     try:
-        # Render the system prompt after the runtime so a robot can report the
-        # capabilities of the connected task, not only the requested options.
-        if robot_spec.prepare_prompt_vars is not None:
-            prompt_vars = {
-                **prompt_vars,
-                **robot_spec.prepare_prompt_vars(args, run_config, runtime_kwargs),
-            }
-            # ``prepare_prompt_vars`` may add variables the user prompt reads, so
-            # re-render it once the connected runtime has reported its capabilities.
-            # The interactive reader keeps the earlier render, which is only the
-            # editable default.
-            user_msg = prompt_bundle.render("user", variables=prompt_vars)
-        system_prompt = prompt_bundle.render("system", variables=prompt_vars)
-    except BaseException:
-        # The agent-loop ``finally`` below stops the daemons. A prompt or hook
-        # failure happens before it and must not leak the runtime.
-        for daemon in daemons:
-            daemon.stop()
+        daemons, runtime_kwargs = robot_spec.init_runtime(
+            args,
+            output_dir,
+            dashboard_events,
+            None,
+        )
+        try:
+            # Render the system prompt after the runtime so a robot can report the
+            # capabilities of the connected task, not only the requested options.
+            if robot_spec.prepare_prompt_vars is not None:
+                prompt_vars = {
+                    **prompt_vars,
+                    **robot_spec.prepare_prompt_vars(args, run_config, runtime_kwargs),
+                }
+                # ``prepare_prompt_vars`` may add variables the user prompt reads, so
+                # re-render it once the connected runtime has reported its capabilities.
+                # The interactive reader keeps the earlier render, which is only the
+                # editable default.
+                user_msg = prompt_bundle.render("user", variables=prompt_vars)
+            system_prompt = prompt_bundle.render("system", variables=prompt_vars)
+        except BaseException:
+            # The agent-loop ``finally`` below stops the daemons. A prompt or hook
+            # failure happens before it and must not leak the runtime.
+            for daemon in daemons:
+                daemon.stop()
+            raise
+    except BaseException as exc:
+        if operator_input is not None:
+            operator_input.close()
+        _close_unstarted_run(
+            output_dir,
+            robot_name,
+            args=args,
+            task_desc=task_desc,
+            error=f"{type(exc).__name__}: {exc}",
+        )
         raise
 
     # --- agent loop --------------------------------------------------------
@@ -729,6 +852,7 @@ def main() -> int:
     environment_success: bool | None = None
     environment_metrics: dict = {}
     memory_manager: MemoryManager | None = None
+    collects_verdict = robot_spec.collects_verdict(args.planner)
     try:
         if first_user_msg is not None:
             dashboard_events.emit(RunStartedEvent())
@@ -827,29 +951,27 @@ def main() -> int:
                             "Planner stopped after operator verdict: %s", agent_error
                         )
                         stats["planner_error_at_operator_verdict"] = agent_error
-                solved_fn = getattr(toolkit, "solved", None)
-                if getattr(robot_spec, "supports_exploration", False) and callable(
-                    solved_fn
-                ):
-                    solved = bool(solved_fn())
-                    environment_success = solved
-                    write_recipe = getattr(toolkit, "write_recipe", None)
-                    if solved and callable(write_recipe):
-                        recipe_path = write_recipe(recipe_tag) or recipe_path
             finally:
                 if operator_input is not None and input_queue is not None:
                     operator_input.bind_verdict(None)
                 try:
-                    if robot_spec.finalize_run is not None:
+                    if collects_verdict:
+                        # A tool may still be moving the robot; quiesce before
+                        # reading the verdict and collecting metrics.
                         toolkit.cancel_active_and_wait()
-                        solved_fn = getattr(toolkit, "solved", None)
-                        environment_success = (
-                            bool(solved_fn()) if callable(solved_fn) else None
-                        )
-                        solved = bool(environment_success)
-                        environment_metrics = toolkit.evaluation_metrics(
-                            success=environment_success
-                        )
+                        environment_success = _read_solved(toolkit)
+                        solved = environment_success is True
+                        write_recipe = getattr(toolkit, "write_recipe", None)
+                        if (
+                            robot_spec.supports_exploration
+                            and solved
+                            and callable(write_recipe)
+                        ):
+                            recipe_path = write_recipe(recipe_tag) or recipe_path
+                        if robot_spec.finalize_run is not None:
+                            environment_metrics = toolkit.evaluation_metrics(
+                                success=environment_success
+                            )
                 finally:
                     try:
                         toolkit.close()
@@ -895,20 +1017,63 @@ def main() -> int:
             d.stop()
 
     elapsed = time.time() - t0
+    context = RunFinalizationContext(
+        output_dir=Path(output_dir),
+        robot_name=robot_name,
+        task_desc=dict(task_desc),
+        environment_success=environment_success,
+        environment_metrics=environment_metrics,
+        agent_error=agent_error,
+        elapsed_s=elapsed,
+        planner=args.planner,
+        model=args.model,
+        reasoning_effort=args.reasoning_effort,
+        max_turns=args.max_turns,
+        planner_timeout_s=args.planner_timeout_s,
+        finish_result=dict(finish_result) if finish_result is not None else None,
+        stats=dict(stats),
+        # ``truth_source`` names who established the verdict, so it stays unset
+        # when the run produced none (such as a real-robot run nobody judged).
+        truth_source=(
+            robot_spec.truth_source
+            if collects_verdict and environment_success is not None
+            else None
+        ),
+    )
 
-    transcript_path = Path(output_dir) / f"transcript_{recipe_tag}.json"
-    record = {
-        **task_desc,
-        "model": args.model,
-        "elapsed_s": round(elapsed, 1),
-        "finish": finish_result,
-        "error": agent_error,
-        "environment_success": environment_success,
-        "stats": stats,
-        "messages": _serialize_messages(messages),
-    }
-    with open(transcript_path, "a") as f:
-        json.dump(record, f, indent=2, default=str)
+    # Artifact failures leave the verdict unchanged but make the command fail:
+    # the run is not reproducible from what it wrote. They are recorded in
+    # ``artifact_error`` so ``error`` keeps naming the agent-side failure the
+    # verdict was derived from.
+    command_failed = False
+    artifact_error: str | None = None
+
+    transcript_path = Path(output_dir) / "transcript.json"
+    transcript_written = False
+    try:
+        write_json_atomic(
+            transcript_path,
+            {
+                "recipe_tag": recipe_tag,
+                **task_desc,
+                "model": args.model,
+                "elapsed_s": round(elapsed, 1),
+                "finish": finish_result,
+                "error": agent_error,
+                "environment_success": environment_success,
+                **verdict_fields(context),
+                "stats": stats,
+                "messages": _serialize_messages(messages),
+            },
+            default=str,
+        )
+        transcript_written = True
+    except Exception as exc:
+        # Record the failure and keep finalizing: the result artifact and the
+        # run manifest still describe what the episode did.
+        command_failed = True
+        artifact_error = f"transcript write failed: {type(exc).__name__}: {exc}"
+        logger.error("%s", artifact_error)
 
     logger.info("elapsed: %.1fs", elapsed)
     logger.info(
@@ -917,35 +1082,22 @@ def main() -> int:
         stats.get("total_output_tokens", "?"),
         stats.get("tool_calls", "?"),
     )
-    logger.info("transcript: %s", transcript_path)
+    if not command_failed:
+        logger.info("transcript: %s", transcript_path)
 
+    result_path: Path | str | None = None
     if robot_spec.finalize_run is not None:
         try:
-            result_path = robot_spec.finalize_run(
-                RunFinalizationContext(
-                    output_dir=Path(output_dir),
-                    robot_name=robot_name,
-                    task_desc=dict(task_desc),
-                    environment_success=environment_success,
-                    environment_metrics=environment_metrics,
-                    agent_error=agent_error,
-                    elapsed_s=elapsed,
-                    planner=args.planner,
-                    model=args.model,
-                    reasoning_effort=args.reasoning_effort,
-                    max_turns=args.max_turns,
-                    planner_timeout_s=args.planner_timeout_s,
-                    finish_result=(
-                        dict(finish_result) if finish_result is not None else None
-                    ),
-                    stats=dict(stats),
-                )
-            )
+            result_path = robot_spec.finalize_run(context)
             if result_path:
                 logger.info("run result: %s", result_path)
         except Exception as exc:
-            agent_error = f"result finalization failed: {type(exc).__name__}: {exc}"
-            logger.error("%s", agent_error)
+            message = f"result finalization failed: {type(exc).__name__}: {exc}"
+            artifact_error = (
+                f"{artifact_error}; {message}" if artifact_error else message
+            )
+            command_failed = True
+            logger.error("%s", message)
 
     # Publish exploration artifacts into the corpus after the session loop.
     if (
@@ -964,10 +1116,36 @@ def main() -> int:
             if merge_result:
                 logger.info("memory merged: %s", merge_result)
         except Exception as exc:
-            agent_error = f"memory finalization failed: {type(exc).__name__}: {exc}"
-            logger.error("%s", agent_error)
+            message = f"memory finalization failed: {type(exc).__name__}: {exc}"
+            artifact_error = (
+                f"{artifact_error}; {message}" if artifact_error else message
+            )
+            command_failed = True
+            logger.error("%s", message)
 
-    return 1 if agent_error else 0
+    try:
+        finish_run_manifest(
+            output_dir,
+            artifacts={
+                "transcript": transcript_path if transcript_written else None,
+                "result": result_path,
+                "recipe": recipe_path,
+            },
+            verdict=verdict_fields(context),
+            error=agent_error,
+            artifact_error=artifact_error,
+        )
+    except Exception as exc:
+        command_failed = True
+        logger.error("run manifest update failed: %s", exc)
+
+    if getattr(args, "explore", False):
+        # Exploration publishes a corpus; its session outcome is not a verdict,
+        # but a run whose artifacts failed is still a failed command.
+        return 1 if agent_error or command_failed else 0
+    if command_failed:
+        return 1
+    return _exit_code(context.accepted, agent_error=agent_error)
 
 
 if __name__ == "__main__":

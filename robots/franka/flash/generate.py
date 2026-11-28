@@ -70,7 +70,8 @@ def generate(
         raise ValueError("source replay did not succeed")
     if robot not in {"franka", "dual_franka"}:
         raise ValueError("unsupported robot")
-    transcript = list(Path(run_dir).glob("transcript_*.json"))
+    # The CLI writes a fixed ``transcript.json``; older runs used one file per session.
+    transcript = list(Path(run_dir).glob("transcript*.json"))
     for path in transcript:
         record = json.loads(path.read_text())
         if (record.get("finish") or {}).get("status") in {"failure", "stuck"}:

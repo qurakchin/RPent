@@ -133,6 +133,9 @@ addopts = ["--import-mode=importlib"]
 pythonpath = ["."]
 timeout = 60
 
+[tool.coverage.run]
+source = ["rpent", "robots", "components"]
+
 [tool.ruff]
 line-length = 88
 indent-width = 4

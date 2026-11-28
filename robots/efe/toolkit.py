@@ -161,8 +161,14 @@ class EfeToolkit(Toolkit):
         return ToolResult(data={"_finish": True, "status": status, "summary": summary})
 
     def execute_tool(self, name: str, input_dict: dict[str, Any]) -> ToolResult:
-        """Count calls and failures for the comparison record."""
+        """Count the calls the environment received and the failures among them.
+
+        A rejected call never reached the robot, so it is not a tool call for
+        the comparison record.
+        """
         result = super().execute_tool(name, input_dict)
+        if result.no_execution:
+            return result
         self._call_counts[name] += 1
         if result.is_error:
             self._failed_counts[name] += 1
@@ -191,13 +197,20 @@ class EfeToolkit(Toolkit):
             out.data.update(result)
         return out
 
-    def solved(self) -> bool:
-        """Whether the service itself reported success.
+    def solved(self) -> bool | None:
+        """Whether the service itself reported success; ``None`` while undecided.
 
         A ``finish`` call is not a score. Only the service's own end reason is
-        trusted, and the Verifier still grades the episode.
+        trusted, and the Verifier still grades the episode. A task that hides
+        success never reports it, so its episodes stay unjudged here instead of
+        counting as failures. A success is sticky: it cannot be undone.
         """
-        self._solved |= self._client.done and self._client.done_reason == "success"
+        if self._solved:
+            return True
+        if not self._client.done or self._client.success_hidden:
+            return None
+        reason = (self._client.done_reason or "").strip().lower()
+        self._solved = "success" in reason
         return self._solved
 
     def metrics(self) -> dict[str, Any]:

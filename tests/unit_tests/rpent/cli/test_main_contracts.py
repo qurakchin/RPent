@@ -990,7 +990,7 @@ def test_full_cli_exploration_finalizes_memory_without_starting_gpu_runtime(
     assert calls["get_toolkit"][1]["runtime_kwargs"] == {"runtime": "simulated"}
     assert calls["get_toolkit"][1]["mode"] == "exploration"
     assert calls["get_toolkit"][1]["attempts_per_session"] == 2
-    transcript = json.loads((tmp_path / "transcript_libero_s0.json").read_text())
+    transcript = json.loads((tmp_path / "transcript.json").read_text())
     if outcome == "request_budget":
         assert calls["planner_count"] == 2
         assert [len(instance.calls) for instance in toolkits] == [4, 4]
@@ -1204,8 +1204,8 @@ def test_full_cli_calls_robot_result_finalizer_without_robot_special_case(
         ],
     )
 
-    assert cli.main() == (1 if planner_error else 0)
-    transcript = json.loads((tmp_path / "transcript_OpenDrawer_s1.json").read_text())
+    assert cli.main() == 1
+    transcript = json.loads((tmp_path / "transcript.json").read_text())
     assert transcript["error"] == planner_error
 
     assert len(captured) == 1
@@ -1418,6 +1418,8 @@ def test_cli_loads_mcp_config_and_merges_with_robot_servers(
             supports_exploration=False,
             supports_human_interactive_exploration=False,
             is_real_robot=False,
+            truth_source="environment",
+            collects_verdict=lambda planner: False,
         ),
     )
     monkeypatch.setattr(

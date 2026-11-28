@@ -5,6 +5,22 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled]
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Single suite to run (or 'all' for full matrix)
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - libero
+          - libero-pro
+          - libero-plus
+          - robocasa
+          - robodojo
+          - robolab
+          - robotwin
 
 permissions:
   contents: read
@@ -70,6 +86,7 @@ jobs:
         id: targets
         env:
           BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          RPENT_CI_SUITE: ${{ inputs.suite || '' }}
         run: python3 tests/tooling/ci_targets.py "$BASE" "$GITHUB_SHA"
 
   install:

@@ -37,6 +37,7 @@ from harbor.environments.base import BaseEnvironment
 from harbor.models.agent.context import AgentContext, ModelUsage
 
 from robots.efe.constants import SANDBOX_CHOICES, is_budget_stop
+from rpent.install.snapshot import RUN_MANIFEST_NAME
 
 # Harbor kills the agent process when its resolved ``agent_timeout_sec``
 # expires. Keep connection and planner budgets inside that limit so the generic
@@ -240,9 +241,8 @@ class RPentEfeAgent(BaseInstalledAgent):
                 "python3 -m venv /opt/rpent-efe/venv && "
                 "/opt/rpent-efe/venv/bin/python -m pip install --no-cache-dir "
                 "--disable-pip-version-check "
-                # The wheel carries only the runtime layer; the adapter runs the
-                # CLI with a planner, so the container environment installs the
-                # planner extra as well.
+                # The adapter drives the CLI with a planner, which lives in the
+                # core's optional planner layer rather than in the base wheel.
                 f"{shlex.quote(f'/opt/rpent-efe/{wheel_path.name}[planner]')}"
             ),
             timeout_sec=900,
@@ -431,26 +431,46 @@ class RPentEfeAgent(BaseInstalledAgent):
                 timeout_sec=self.exec_timeout_s,
             )
         except Exception:
-            if self._transcript_reports_budget_stop(self.logs_dir / "rpent"):
+            if self._finished_episode(self.logs_dir / "rpent"):
                 self.logger.info(
-                    "EFE planner used its time budget; Harbor will grade the episode."
+                    "EFE run recorded an outcome; Harbor will grade the episode."
                 )
                 return
             raise
 
+    @classmethod
+    def _finished_episode(cls, output_dir: Path) -> bool:
+        """Whether the CLI closed an episode Harbor can grade.
+
+        A non-zero exit still leaves a graded episode when the run recorded a
+        verdict (accepted or failed), completed without one (the retryable
+        exit status), or stopped at its time budget. Only a run with no closed
+        record, or one that failed before producing an outcome, is an agent
+        failure.
+        """
+        try:
+            record = json.loads(
+                (output_dir / RUN_MANIFEST_NAME).read_text(encoding="utf-8")
+            )
+        except (OSError, json.JSONDecodeError):
+            record = None
+        if isinstance(record, dict) and record.get("finished_at"):
+            if record.get("accepted") is not None:
+                return True
+            return record.get("error") is None or is_budget_stop(record.get("error"))
+        return cls._transcript_reports_budget_stop(output_dir)
+
     @staticmethod
     def _transcript_reports_budget_stop(output_dir: Path) -> bool:
         """Whether the generic CLI transcript records an intentional timeout."""
-        for transcript_path in sorted(output_dir.glob("transcript_*.json")):
-            try:
-                transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            if not isinstance(transcript, dict):
-                continue
-            if is_budget_stop(transcript.get("error")):
-                return True
-        return False
+        transcript_path = output_dir / "transcript.json"
+        try:
+            transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return False
+        if not isinstance(transcript, dict):
+            return False
+        return is_budget_stop(transcript.get("error"))
 
     @staticmethod
     def _recover_usage(output_dir: Path) -> tuple[dict[str, int], str] | None:
@@ -514,7 +534,9 @@ class RPentEfeAgent(BaseInstalledAgent):
         """
         output_dir = self.logs_dir / "rpent"
         stats: dict[str, object] = {}
-        for transcript_path in sorted(output_dir.glob("transcript_*.json")):
+        # The CLI writes a fixed ``transcript.json``; a reader must also find
+        # the per-session files older runs wrote.
+        for transcript_path in sorted(output_dir.glob("transcript*.json")):
             try:
                 transcript = json.loads(transcript_path.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):

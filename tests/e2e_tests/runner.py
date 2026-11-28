@@ -275,7 +275,7 @@ def run_case(
     if require_post_action_image and not coverage["post_action_new_image_count"]:
         raise RuntimeError("post-action planner request contained no new image")
 
-    transcript_paths = list(output_dir.glob("transcript_*.json"))
+    transcript_paths = list(output_dir.glob("transcript*.json"))
     if len(transcript_paths) != 1:
         raise RuntimeError(
             f"expected one planner transcript, found {len(transcript_paths)}"

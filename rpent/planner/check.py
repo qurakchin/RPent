@@ -155,6 +155,7 @@ _API_BASE_URL_ENV = {
 #: Credential env vars for the two child-process SDK backends. Both accept an
 #: existing CLI login instead, so a missing var is reported but not fatal.
 _CLAUDE_CODE_KEY_ENV = "ANTHROPIC_API_KEY"
+_CLAUDE_CODE_AUTH_TOKEN_ENV = "ANTHROPIC_AUTH_TOKEN"
 _CLAUDE_CODE_BASE_URL_ENV = "ANTHROPIC_BASE_URL"
 _CODEX_KEY_ENV = "CODEX_API_KEY"
 _CODEX_BASE_URL_ENV = "CODEX_BASE_URL"
@@ -166,6 +167,7 @@ _DETAIL_LIMIT = 2000
 #: check report is exactly the kind of output that gets pasted into an issue.
 _SECRET_ENV_NAMES = (
     "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN",
     "GOOGLE_API_KEY",
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
@@ -649,7 +651,15 @@ def _classify_transport_error(exc: Exception) -> str:
 def _check_claude_code(request: LlmCheckRequest) -> LlmCheckResult:
     """Probe the Claude Agent SDK with one tool-free, single-turn query."""
     model = (request.model or "").strip() or "sonnet"
-    key_present = bool(os.environ.get(_CLAUDE_CODE_KEY_ENV))
+    if os.environ.get(_CLAUDE_CODE_KEY_ENV):
+        credential_env = _CLAUDE_CODE_KEY_ENV
+        key_present = True
+    elif os.environ.get(_CLAUDE_CODE_AUTH_TOKEN_ENV):
+        credential_env = _CLAUDE_CODE_AUTH_TOKEN_ENV
+        key_present = True
+    else:
+        credential_env = _CLAUDE_CODE_KEY_ENV
+        key_present = False
 
     def _result(status: str, **kwargs: Any) -> LlmCheckResult:
         return LlmCheckResult(
@@ -657,7 +667,7 @@ def _check_claude_code(request: LlmCheckRequest) -> LlmCheckResult:
             status=status,
             planner="claude_code",
             model=model,
-            credential_env=_CLAUDE_CODE_KEY_ENV,
+            credential_env=credential_env,
             credential_present=key_present,
             base_url=os.environ.get(_CLAUDE_CODE_BASE_URL_ENV) or None,
             base_url_env=_CLAUDE_CODE_BASE_URL_ENV,
@@ -675,7 +685,10 @@ def _check_claude_code(request: LlmCheckRequest) -> LlmCheckResult:
         # an interactive CLI login, which is why the login check is here too.
         return _result(
             STATUS_MISSING_API_KEY,
-            detail=f"{_CLAUDE_CODE_KEY_ENV} is not set and no CLI login was found.",
+            detail=(
+                f"{_CLAUDE_CODE_KEY_ENV} (or {_CLAUDE_CODE_AUTH_TOKEN_ENV}) "
+                "is not set and no CLI login was found."
+            ),
         )
     timeout_s = _sdk_probe_budget(request, cli_login_only=not key_present)
     started = time.monotonic()

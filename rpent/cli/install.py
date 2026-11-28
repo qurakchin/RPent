@@ -122,12 +122,16 @@ def command_check(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
-    names = (
-        sorted(catalog.components) if args.all else list(dict.fromkeys(args.targets))
-    )
-    if not names:
-        print("pass a component name or --all", file=sys.stderr)
-        return 2
+    if args.all:
+        names = sorted(catalog.components)
+        if not names:
+            print(f"no components found under {args.root}", file=sys.stderr)
+            return 1
+    else:
+        names = list(dict.fromkeys(args.targets))
+        if not names:
+            print("pass a component name or --all", file=sys.stderr)
+            return 2
     unknown = [name for name in names if name not in catalog.components]
     for name in unknown:
         known = ", ".join(sorted(catalog.components))
@@ -199,7 +203,7 @@ def command_doctor(args: argparse.Namespace) -> int:
             else:
                 print(f"{key}: {value}")
         return 0
-    checks = check_installation(venv, root=args.root)
+    checks = check_installation(venv, root=args.root, strict=args.strict)
     for check in checks:
         print(f"{check.status:<4} {check.message}")
     return 1 if any(check.status == FAIL for check in checks) else 0
@@ -270,6 +274,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--fingerprint",
         action="store_true",
         help="print the stored installation fingerprint",
+    )
+    doctor.add_argument(
+        "--strict",
+        action="store_true",
+        help="treat freeze drift and override-induced pip check warnings as failures",
     )
     doctor.set_defaults(handler=command_doctor)
     return parser

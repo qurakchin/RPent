@@ -111,6 +111,11 @@ def test_finalize_run_writes_efe_metrics_to_the_cli_result(tmp_path):
     assert result_path.name == "efe-result.json"
     assert result["stats"]["total_input_tokens"] == 10
     assert result["metrics"]["efe_submit_calls"] == 2
+    # The result carries the shared verdict vocabulary: this run had no
+    # environment verdict and therefore no truth source.
+    assert result["accepted"] is None
+    assert result["failure_category"] == "no_verdict"
+    assert result["truth_source"] is None
     assert "reward" not in result
 
 
@@ -368,7 +373,10 @@ def test_generic_cli_renders_the_tools_the_session_registers(
         ],
     )
 
-    assert cli.main() == 0
+    # The scripted planner never ends the episode, so the service reports no
+    # verdict and the run stays retryable; the tool set it rendered is what this
+    # case checks.
+    assert cli.main() == 75
 
     tools = captured["tools"]
     prompt = captured["system_prompt"]

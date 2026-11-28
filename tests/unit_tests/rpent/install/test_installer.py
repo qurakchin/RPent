@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -314,16 +313,31 @@ def test_install_force_accepts_existing_empty_directory(tmp_path, monkeypatch):
     assert not failing.exists()
 
 
-def test_install_force_rejects_stale_backup_directory(tmp_path, monkeypatch):
+def test_install_force_recovers_stale_replacing_backup_on_failure(
+    tmp_path, monkeypatch
+):
     repo = _write_repo(tmp_path / "repo")
     venv = _fake_venv(tmp_path / ".venv-a")
-    stale_backup = venv.with_name(f".{venv.name}.replaced-{os.getpid()}")
-    stale_backup.mkdir()
+    stale_backup = venv.with_name(f".{venv.name}.replacing")
+    _fake_venv(stale_backup)
+    (stale_backup / "sentinel.txt").write_text("original", encoding="utf-8")
+
+    def fake_run(cmd, *, env=None, capture=False, cwd=None, timeout=3600.0):
+        if cmd[:2] == ["uv", "venv"]:
+            _fake_venv(Path(cmd[-1]))
+            return ""
+        if "platform.python_version()" in " ".join(cmd):
+            return "3.11.9\n"
+        if cmd[:3] == ["uv", "pip", "install"]:
+            raise InstallError("pip failed")
+        return ""
 
     monkeypatch.setattr(installer, "find_uv", lambda: "uv")
-    with pytest.raises(InstallError, match="interrupted --force rebuild"):
+    monkeypatch.setattr(installer, "run_command", fake_run)
+    with pytest.raises(InstallError, match="pip failed"):
         installer.install(["infra-a"], root=repo, venv=venv, force=True, verbose=False)
-    assert venv.is_dir()
+    assert (venv / "sentinel.txt").read_text(encoding="utf-8") == "original"
+    assert not stale_backup.exists()
 
 
 def test_install_removes_newly_created_venv_on_failure(tmp_path, monkeypatch):

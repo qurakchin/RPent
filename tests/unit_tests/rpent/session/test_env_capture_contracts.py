@@ -45,6 +45,24 @@ def captured_step(before, after, *, cached=False):
     }
 
 
+def test_a_rejected_call_withdraws_its_execution_evidence(capture):
+    capture.start()
+    assert capture.state.get_tool_call(capture.tool_call_id).status == "running"
+
+    capture.reject()
+    capture.finish("failed", "target is not reachable")
+
+    # The call was admitted, so ``start`` wrote a running status; the refusal
+    # has to take that evidence back rather than leave a step that failed.
+    record = capture.state.get_tool_call(capture.tool_call_id)
+    assert record.status == "not_executed"
+    assert record.started_at is None
+    assert record.ended_at is None
+    assert record.raw_result is None
+    assert record.missing["raw_result"].reason == "not_applicable"
+    assert record.missing["raw_result"].detail == "target is not reachable"
+
+
 @pytest.mark.parametrize("cached", [False, True])
 def test_failed_step_breaks_continuity_until_a_new_observation(capture, cached):
     client = Mock()

@@ -30,8 +30,10 @@ jobs:
       - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
       - name: Check repository layout
         run: ./tests/tooling/run.sh layout
-      - name: Check component manifests
-        run: ./rpent-install.sh check --all
+      - name: Check component manifests and resolution
+        run: ./rpent-install.sh check --all --resolve
+      - name: Check install matrix partition
+        run: ./tests/tooling/run.sh matrix --check
       - name: Check minimal environment imports
         run: |
           uv python install 3.11

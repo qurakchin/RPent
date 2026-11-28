@@ -206,7 +206,8 @@ def replay(
         "events": events,
         "human_verdict": None,
     }
-    toolkit._flash_solved = False
+    # A replay is unjudged until the operator answers; an abort keeps it unjudged.
+    toolkit._flash_solved = None
     if any(e["action"] in VLA_ACTIONS for e in card["plan"]):
         primitives = getattr(toolkit, "_primitives", None)
         if primitives is not None and primitives.model is None:

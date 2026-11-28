@@ -364,9 +364,9 @@ Pi0 never sees object coords in either mode, so there is no perception variant o
 the baseline. Expected behavior:
 
 - **P1 (task):** Pi0 "succeeds at the wrong task" — it picks the *base*-task
-  target object, places it on the plate, and `terminated=False` because the
-  goal predicate names a different object. This is exactly the gap the hybrid
-  closes.
+  target object, places it on the plate, and the benchmark scores it as a
+  failure because the goal predicate names a different object. This is exactly
+  the gap the hybrid closes.
 - **P2 (position):** Pi0 picks / places at the *base* (un-swapped) location.
 
 ### 4.4. Audit JSON — PRO + perception fields
@@ -387,15 +387,18 @@ add the PRO fields:
   "strategy_notes": "Camera, step, localization method and measured coordinates. For a swap, explain how you identified the relocated object or fixture.",
   "pick_result": { /* the pi0_pick step's result */ },
   "final_state": { /* latest view_env_state result's `state` field */ },
-  "terminated": true
+  "outcome": "success"
 }
 ```
+
+`outcome` is your own assessment of the episode; the benchmark grades it
+separately and its verdict is withheld from you.
 
 `strategy_notes` **must** describe the evidence used for localization. For
 manual samples, record the pixels and their world coordinates. For a geometry
 measurement, record the accepted quantity. For swap cells, describe the visual
 evidence that identified the relocated object or fixture. If unrecoverable after honest
-exploration, write `terminated: false` with what you tried and which step
+exploration, write `outcome: "failure"` with what you tried and which step
 failed — never warp (teleport primitives are deleted; see Rule 4 in the
 perception protocol). Write the audit with `write_text_file` to
 `{output_dir}/{recipe_tag}.json`, then call `finish`.
@@ -418,7 +421,7 @@ perception protocol). Write the audit with `write_text_file` to
   `finish`. `_swap` typically needs an in-episode retry — document it.
 - **Rule 4 (no teleport).** `set_object_pose`, `articulate_to`, `js_move_to`,
   `carry_object` are deleted. A goal past OSC reach with no physical approach →
-  honest `terminated:false`.
+  an honest failure audit.
 - **Rule 5 (assume solvable).** A localization that moves the gripper into thin
   air means you picked a wrong pixel (a reflection, a rim, a decoy object under
   the Object perturbation), not that the cell is unreachable. Re-look, re-pick,

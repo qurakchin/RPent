@@ -165,11 +165,15 @@ You can also set ``UV_INDEX_URL``, ``UV_DEFAULT_INDEX``, or
 
    - **Default path:** omitting ``--venv`` installs into
      ``.rpent/venvs/<components joined by +>`` inside the checkout.
-   - **Reuse and overlays:** re-running ``install`` for the same component
-     closure updates packages in place and preserves overlaid packages (such as
-     ``modelscope``, ``pre-commit``, or editable RLinf checkouts). Pass
-     ``--force`` to recreate the virtual environment cleanly; if recreation
-     fails, the previous environment is restored.
+   - **Reuse, auto-rebuild, and overlays:** re-running ``install`` for the same
+     component closure updates packages in place and preserves overlaid packages
+     (such as ``modelscope``, ``pre-commit``, or editable RLinf checkouts) when
+     installation inputs are unchanged; when manifests or overrides have
+     changed, it automatically rebuilds the virtual environment cleanly in
+     place. Pass ``--force`` to force a clean rebuild at any time; if a rebuild
+     fails, the previous environment is restored. Pass ``--strict`` to
+     ``doctor`` to treat freeze drift or override-induced ``uv pip check``
+     warnings as failures.
    - **Foreign virtual environments:** ``rpent-install`` refuses to overwrite a
      non-empty non-venv directory, and it will not write into a virtualenv
      created by another tool unless ``--force`` is passed. For externally

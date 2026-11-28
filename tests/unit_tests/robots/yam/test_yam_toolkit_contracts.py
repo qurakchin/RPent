@@ -22,7 +22,9 @@ def test_operator_ready_and_verdict_are_required(toolkit_factory, receipt):
     assert toolkit._session_attempt == 1
     pending = toolkit.execute_tool("finish", {"status": "success", "summary": "claim"})
     assert pending.data["awaiting_operator"] and not pending.data.get("_finish", False)
-    assert not toolkit.solved()
+    # The operator has not judged the episode yet; an unjudged episode is not a
+    # failed one.
+    assert toolkit.solved() is None
     assert toolkit.exploration_continuation() is None
     assert toolkit.exploration_continuation(explicit=True)
 

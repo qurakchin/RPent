@@ -339,7 +339,7 @@ class YamToolkit(Toolkit):
             projection_error = None
             try:
                 world = _world_from_depth_cv(depth, camera_meta)
-            except (ValueError, RuntimeError) as error:
+            except (ImportError, ValueError, RuntimeError) as error:
                 world = np.full((*np.asarray(depth).shape, 3), np.nan, dtype=np.float32)
                 projection_error = str(error)
             views[camera_name] = {
@@ -536,8 +536,12 @@ class YamToolkit(Toolkit):
                 fps=MODEL_SPEC.control_hz,
             )
 
-    def solved(self) -> bool:
-        return self.status().data.get("eval_success") is True
+    def solved(self) -> bool | None:
+        """Return the operator's verdict, or ``None`` while none has been given."""
+        status = self.status().data
+        if status.get("eval_success_source") == "operator_unset":
+            return None
+        return status.get("eval_success") is True
 
     def write_recipe(self, recipe_tag: str) -> str:
         if not self.solved():

@@ -309,12 +309,18 @@ def plan_ci(
 
 
 if __name__ == "__main__":
-    base, head = sys.argv[1:]
-    if base and set(base) != {"0"}:
-        raw = subprocess.check_output(
-            ["git", "diff", "--no-renames", "--name-only", "-z", base, head]
-        )
-        paths = [os.fsdecode(path) for path in raw.split(b"\0") if path]
+    suite_override = os.environ.get("RPENT_CI_SUITE", "").strip()
+    if suite_override and suite_override != "all":
+        paths = [f"tests/e2e_tests/suites/{suite_override}.toml"]
+    elif len(sys.argv) >= 3:
+        base, head = sys.argv[1:3]
+        if base and set(base) != {"0"}:
+            raw = subprocess.check_output(
+                ["git", "diff", "--no-renames", "--name-only", "-z", base, head]
+            )
+            paths = [os.fsdecode(path) for path in raw.split(b"\0") if path]
+        else:
+            paths = ["rpent-install.sh"]
     else:
         paths = ["rpent-install.sh"]
 

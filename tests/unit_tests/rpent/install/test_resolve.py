@@ -71,7 +71,8 @@ def test_resolve_detects_conflicts_and_index_disagreement(make_component, make_c
     res = resolve(["sim-a", "sim-b"], make_catalog([a, b]))
     assert not res.ok
     joined = "\n".join(res.errors)
-    assert "env_conflicts" in joined
+    assert "cannot share an environment" in joined
+    assert "sim-a: torch ==2.6.0 / sim-b: torch ==2.8.0" in joined
     assert "conflicting pins for 'torch'" in joined
     assert "selects index" in joined
     assert res.extra_index_urls == ("https://extra-1", "https://extra-2")

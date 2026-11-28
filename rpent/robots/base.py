@@ -53,15 +53,19 @@ def _resolve_robot(name: str) -> Any:
     if not name:
         raise ValueError("robot name must be non-empty")
     robot_name = name.lower()
+    module_name = f"robots.{robot_name}"
     try:
-        return importlib.import_module(f"robots.{robot_name}")
+        return importlib.import_module(module_name)
     except ModuleNotFoundError as e:
-        # Only a missing robot package is an unknown name. A robot whose own
-        # dependency is missing keeps that error, which names the package to
-        # install instead of blaming the robot name.
-        if e.name == f"robots.{robot_name}":
-            raise ValueError(f"unknown robot: {robot_name!r}") from e
-        raise
+        # Only a missing robot package (or missing top-level ``robots``) is an
+        # unknown name. A robot whose own dependency is missing keeps that
+        # error, which names the package to install instead of blaming the
+        # robot name.
+        if e.name is not None and not (
+            module_name == e.name or module_name.startswith(f"{e.name}.")
+        ):
+            raise
+        raise ValueError(f"unknown robot: {robot_name!r}") from e
 
 
 def enumerate_robots() -> tuple[str, ...]:

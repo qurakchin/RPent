@@ -23,7 +23,6 @@ import platform
 import shutil
 import subprocess
 import sys
-import tempfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -33,6 +32,8 @@ from typing import Any
 from rpent.install.errors import InstallError
 from rpent.install.manifest import Catalog, Component, discover
 from rpent.install.resolve import (
+    FINGERPRINT_SCHEMA,
+    REQUIREMENTS_MARKER,
     Resolution,
     choose_python,
     index_options,
@@ -47,6 +48,9 @@ from rpent.utils.config import get_repo_root
 
 STATE_DIR = ".rpent"
 FINGERPRINT_NAME = "rpent-install.json"
+FREEZE_NAME = "rpent-install.freeze.txt"
+REQUIREMENTS_NAME = "rpent-install.requirements.txt"
+FINGERPRINT_SCHEMA_FIELD = "fingerprint_schema"
 DEFAULT_COMMAND_TIMEOUT = 3600.0
 OK = "ok"
 WARN = "warn"
@@ -96,6 +100,26 @@ def fingerprint_path(venv: Path) -> Path:
     return Path(venv) / FINGERPRINT_NAME
 
 
+def freeze_path(venv: Path) -> Path:
+    """Return the recorded package listing path for ``venv``."""
+    return Path(venv) / FREEZE_NAME
+
+
+def requirements_file(venv: Path) -> Path:
+    """Return the rendered requirements path inside ``venv``."""
+    return Path(venv) / REQUIREMENTS_NAME
+
+
+def _write_atomic(destination: Path, text: str) -> None:
+    """Atomically write ``text`` to ``destination``."""
+    temporary = destination.with_name(f".{destination.name}.tmp")
+    try:
+        temporary.write_text(text, encoding="utf-8")
+        os.replace(temporary, destination)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def read_fingerprint(venv: Path) -> dict[str, Any] | None:
     """Return the venv's fingerprint dict, or ``None`` if absent or unreadable."""
     try:
@@ -108,16 +132,47 @@ def read_fingerprint(venv: Path) -> dict[str, Any] | None:
 def write_fingerprint(venv: Path, fingerprint: dict[str, Any]) -> Path:
     """Atomically write ``fingerprint`` into ``venv``."""
     destination = fingerprint_path(venv)
-    temporary = destination.with_name(f".{destination.name}.tmp")
-    try:
-        temporary.write_text(
-            json.dumps(fingerprint, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(temporary, destination)
-    finally:
-        temporary.unlink(missing_ok=True)
+    _write_atomic(destination, json.dumps(fingerprint, indent=2, sort_keys=True) + "\n")
     return destination
+
+
+def write_freeze(venv: Path, frozen: str) -> Path:
+    """Atomically record ``uv pip freeze`` beside the fingerprint."""
+    destination = freeze_path(venv)
+    _write_atomic(destination, frozen if frozen.endswith("\n") else frozen + "\n")
+    return destination
+
+
+def source_state(root: Path) -> tuple[str | None, bool]:
+    """Return the checkout's commit and whether its working tree differs.
+
+    Untracked source files are part of what an editable install runs, so they
+    count as a modified checkout just like an edited tracked file. Ignored
+    paths (the installer's own ``.rpent/`` state, virtualenvs) do not.
+    """
+    try:
+        commit = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        status = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "status",
+                "--porcelain",
+                "--untracked-files=normal",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None, False
+    return commit or None, bool(status.strip())
 
 
 def fingerprint_sha256(fingerprint: dict[str, Any]) -> str:
@@ -165,6 +220,11 @@ def find_uv() -> str:
     """Return the ``uv`` executable path or raise an actionable error."""
     override = os.environ.get("RPENT_UV")
     if override:
+        if not Path(override).is_file() or not os.access(override, os.X_OK):
+            raise InstallError(
+                f"RPENT_UV={override!r} is not an executable file; point it at "
+                "the uv binary or unset it to use the one on PATH"
+            )
         return override
     uv = shutil.which("uv")
     if uv is None:
@@ -277,27 +337,54 @@ def _check_not_non_venv_path(destination: Path) -> None:
         )
 
 
+def _recorded_requirements_components(destination: Path) -> tuple[str, ...] | None:
+    """Return the closure recorded in ``rpent-install.requirements.txt``, or ``None``."""
+    try:
+        with requirements_file(destination).open(encoding="utf-8") as file:
+            first = file.readline().strip()
+    except (OSError, UnicodeDecodeError):
+        return None
+    if not first.startswith(REQUIREMENTS_MARKER):
+        return None
+    names = first[len(REQUIREMENTS_MARKER) :].split(",")
+    return tuple(sorted(name.strip() for name in names if name.strip()))
+
+
 def _replace(destination: Path) -> Path | None:
-    """Move an existing virtualenv aside so a failed rebuild can restore it."""
+    """Move an existing virtualenv aside so a failed rebuild can restore it.
+
+    A ``.{name}.replacing`` backup left by an interrupted rebuild is restored
+    before moving ``destination`` aside so the previous working environment is
+    never lost.
+    """
+    backup = destination.with_name(f".{destination.name}.replacing")
+    if backup.exists():
+        if destination.exists():
+            if not (destination / "pyvenv.cfg").is_file():
+                raise InstallError(
+                    f"{destination} is not a virtualenv; refusing to replace it"
+                )
+            shutil.rmtree(destination)
+        backup.rename(destination)
     if not destination.exists():
         return None
     if not (destination / "pyvenv.cfg").is_file():
         if destination.is_dir() and not any(destination.iterdir()):
             return None
         raise InstallError(f"{destination} is not a virtualenv; refusing to replace it")
-    backup = destination.with_name(f".{destination.name}.replaced-{os.getpid()}")
-    if backup.exists():
-        raise InstallError(
-            f"{backup} is left from an interrupted --force rebuild; remove it and rerun"
-        )
     destination.rename(backup)
     return backup
 
 
 def _prepare_destination(
-    destination: Path, resolution: Resolution, *, force: bool
+    destination: Path,
+    resolution: Resolution,
+    *,
+    expected_inputs: str,
+    force: bool,
+    verbose: bool = True,
 ) -> Path | None:
-    """Validate ``destination`` and optionally move it aside for ``--force``."""
+    """Validate ``destination`` and optionally move it aside for rebuild."""
     _check_not_non_venv_path(destination)
     if force:
         return _replace(destination)
@@ -326,6 +413,16 @@ def _prepare_destination(
                 + "\n".join(details)
                 + "\nuse a different `--venv`, or pass `--force` to replace it"
             )
+        if (
+            existing.get(FINGERPRINT_SCHEMA_FIELD) != FINGERPRINT_SCHEMA
+            or existing.get("requirements_sha256") != expected_inputs
+        ):
+            if verbose:
+                print(f"{destination} installation inputs changed; rebuilding in place")
+            return _replace(destination)
+        return None
+
+    if _recorded_requirements_components(destination) == closure(resolution.components):
         return None
 
     if not python.exists():
@@ -432,7 +529,13 @@ def install(
         planner_dependencies=planner,
     )
     uv = find_uv()
-    replaced = _prepare_destination(destination, resolution, force=force)
+    replaced = _prepare_destination(
+        destination,
+        resolution,
+        expected_inputs=expected_inputs,
+        force=force,
+        verbose=verbose,
+    )
     cmd_env = dict(os.environ)
     if torch_backend:
         cmd_env["UV_TORCH_BACKEND"] = torch_backend
@@ -491,23 +594,20 @@ def install(
                 raise InstallError("\n".join(actual_unsupported))
 
         index_args = index_options(resolution, index_url_override=index_url)
-        with tempfile.NamedTemporaryFile(
-            "w", suffix=".txt", prefix="rpent-req-", encoding="utf-8", delete=False
-        ) as req_file:
-            req_file.write(requirements)
-            req_path = Path(req_file.name)
-        try:
-            install_cmd = [uv, "pip", "install", "--python", str(python)]
-            install_cmd.extend(index_args)
-            for component in resolution.components.values():
-                for override in component.overrides:
-                    install_cmd.extend(["--override", str(override)])
-            install_cmd.extend(["-r", str(req_path)])
-            if verbose:
-                print(f"$ {' '.join(install_cmd)}")
-            run_command(install_cmd, env=cmd_env, cwd=repo_root)
-        finally:
-            req_path.unlink(missing_ok=True)
+        req_path = requirements_file(destination)
+        interrupted = req_path.is_file() and read_fingerprint(destination) is None
+        req_path.write_text(requirements, encoding="utf-8")
+        install_cmd = [uv, "pip", "install", "--python", str(python)]
+        if interrupted:
+            install_cmd.append("--reinstall")
+        install_cmd.extend(index_args)
+        for component in resolution.components.values():
+            for override in component.overrides:
+                install_cmd.extend(["--override", str(override)])
+        install_cmd.extend(["-r", str(req_path)])
+        if verbose:
+            print(f"$ {' '.join(install_cmd)}")
+        run_command(install_cmd, env=cmd_env, cwd=repo_root)
 
         editable_cmd = [
             uv,
@@ -555,7 +655,10 @@ def install(
         frozen = run_command(
             [uv, "pip", "freeze", "--python", str(python)], capture=True, cwd=repo_root
         )
+        write_freeze(destination, frozen)
+        commit, dirty = source_state(repo_root)
         fingerprint = {
+            FINGERPRINT_SCHEMA_FIELD: FINGERPRINT_SCHEMA,
             "targets": list(resolution.targets),
             "python": _python_version(python),
             "platform": runtime_platform(),
@@ -565,6 +668,8 @@ def install(
             },
             "requirements_sha256": expected_inputs,
             "freeze_sha256": freeze_sha256(frozen),
+            "source_commit": commit,
+            "source_dirty": dirty,
             "installed_at": datetime.now(timezone.utc)
             .replace(microsecond=0)
             .isoformat()
@@ -604,7 +709,9 @@ def _run_diag(command: list[str]) -> subprocess.CompletedProcess[str]:
         raise InstallError(f"cannot run {command[0]}: {exc}") from exc
 
 
-def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
+def check_installation(
+    venv: Path, *, root: Path | None = None, strict: bool = False
+) -> list[Check]:
     """Diagnose ``venv`` against its recorded fingerprint and current manifests."""
     repo_root = (root or get_repo_root()).resolve()
     venv = Path(venv).resolve()
@@ -706,13 +813,14 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
         checks.append(Check(WARN, str(exc)))
         uv = None
     if uv is not None:
+        drift_status = FAIL if strict else WARN
         frozen = _run_diag([uv, "pip", "freeze", "--python", str(python)])
         if frozen.returncode != 0:
             checks.append(Check(FAIL, f"uv pip freeze failed: {frozen.stderr.strip()}"))
         elif freeze_sha256(frozen.stdout) != fingerprint.get("freeze_sha256"):
             checks.append(
                 Check(
-                    WARN,
+                    drift_status,
                     "installed packages differ from recorded freeze (e.g. overlaid "
                     f"packages); rerun `{repair_command(resolution, force=True)} "
                     f"--venv {venv}` to reset",
@@ -727,7 +835,7 @@ def check_installation(venv: Path, *, root: Path | None = None) -> list[Check]:
             if has_overrides:
                 checks.append(
                     Check(
-                        WARN,
+                        drift_status,
                         f"uv pip check reported override-induced mismatches: {detail}",
                     )
                 )

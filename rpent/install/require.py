@@ -77,9 +77,9 @@ def require(
     overlaid packages) works regardless of which component name was recorded in
     ``rpent-install.json``. Only when ``module`` or one of its parent packages
     is actually missing does this consult the fingerprint to build the hint.
-    Pass ``alternatives`` when another component (such as ``sim-robodojo``)
-    provides ``module`` in place of ``component`` so repair hints do not
-    suggest adding a conflicting component.
+    Pass ``alternatives`` when another component provides ``module`` in place
+    of ``component`` so repair hints do not suggest adding a conflicting
+    component.
     """
     try:
         return importlib.import_module(module)

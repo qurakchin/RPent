@@ -21,6 +21,7 @@ through :meth:`Toolkit.list_tools` and dispatch through :meth:`Toolkit.execute_t
 
 from __future__ import annotations
 
+import inspect
 import json
 import threading
 import time
@@ -36,7 +37,7 @@ from pydantic import ValidationError
 from rpent.dashboard.events import DashboardEventSink, StepRecordEvent
 from rpent.session import Payload
 from rpent.session.env_capture import current_tool_call
-from rpent.tools.base import Tool, ToolResult, iter_tools
+from rpent.tools.base import Tool, ToolRejected, ToolResult, iter_tools
 from rpent.utils.logging import get_logger
 from rpent.utils.templates import substitute
 
@@ -364,7 +365,11 @@ class Toolkit:
         """Validate one call, execute it, and capture state for advancing tools."""
         tool = self._tools.get(name)
         if tool is None:
-            return ToolResult(data={"error": f"unknown tool: {name}"})
+            return ToolResult(
+                data={"error": f"unknown tool: {name}"},
+                call_ok=False,
+                no_execution=True,
+            )
         try:
             parameters = tool.args_schema.model_validate(input_dict, strict=True)
         except ValidationError as exc:
@@ -376,7 +381,9 @@ class Toolkit:
                         include_context=False,
                         include_input=False,
                     ),
-                }
+                },
+                call_ok=False,
+                no_execution=True,
             )
         kwargs = {
             field: getattr(parameters, field) for field in type(parameters).model_fields
@@ -385,44 +392,79 @@ class Toolkit:
         # not declare (``extra="allow"``); forward them so the call carries
         # every argument the server accepted. Local schemas forbid extras.
         kwargs.update(parameters.model_extra or {})
+        try:
+            signature = inspect.signature(tool.handler)
+        except (TypeError, ValueError):
+            signature = None
+        if signature is not None:
+            try:
+                signature.bind(**kwargs)
+            except TypeError as exc:
+                # Check the signature before dispatch so a TypeError raised inside
+                # the handler body is reported as a handler bug, not bad arguments.
+                return ToolResult(
+                    data={
+                        "error": f"bad arguments for {name}: {exc}",
+                        "got": input_dict,
+                    },
+                    call_ok=False,
+                    no_execution=True,
+                )
 
         try:
             operation = self._scheduler.acquire(readonly=tool.readonly)
         except ToolLimitExceeded as exc:
-            return ToolResult(data={"error": str(exc), "code": "tool_limit"})
+            return ToolResult(
+                data={"error": str(exc), "code": "tool_limit"},
+                call_ok=False,
+                no_execution=True,
+            )
         except ToolCancelled as exc:
             return ToolResult(
-                data={"error": str(exc), "code": "tool_cancelled", "interrupted": True}
+                data={"error": str(exc), "code": "tool_cancelled", "interrupted": True},
+                call_ok=False,
+                no_execution=True,
             )
 
         try:
             started = time.perf_counter()
             capture = current_tool_call.get()
             token = _current_operation.set(operation)
+            dispatch_started = False
             try:
                 self.raise_if_cancelled()
                 if capture is not None:
                     capture.start(action_source=tool.action_source)
+                dispatch_started = True
                 native = tool(**kwargs)
-            except TypeError as exc:
+            except ToolRejected as exc:
+                # The tool checked the call and refused it before touching the
+                # environment, so this call is not an executed step.
+                if capture is not None:
+                    capture.reject()
                 native = ToolResult(
-                    data={
-                        "error": f"bad arguments for {name}: {exc}",
-                        "got": input_dict,
-                    }
+                    data={"error": str(exc), "code": "tool_rejected"},
+                    call_ok=False,
+                    no_execution=True,
                 )
             except ToolCancelled as exc:
+                # A cancellation before dispatch means the tool never ran; one
+                # raised inside a tool stopped it at a safe boundary and it may
+                # have acted already.
                 native = ToolResult(
                     data={
                         "error": str(exc),
                         "code": "tool_cancelled",
                         "interrupted": True,
-                    }
+                    },
+                    call_ok=False,
+                    no_execution=not dispatch_started,
                 )
             except Exception as exc:
                 logger.exception("Tool %s failed", name)
                 native = ToolResult(
-                    data={"error": str(exc), "traceback": traceback.format_exc()}
+                    data={"error": str(exc), "traceback": traceback.format_exc()},
+                    call_ok=False,
                 )
             finally:
                 _current_operation.reset(token)
@@ -437,7 +479,8 @@ class Toolkit:
                     )
                 )
 
-            if not tool.readonly:
+            # A rejected call changed no environment state, so it is not a step.
+            if not tool.readonly and not native.no_execution:
                 elapsed_s = round(time.perf_counter() - started, 2)
                 result_dict = native.to_dict()
                 command = {"action": name, **input_dict}
@@ -467,6 +510,7 @@ class Toolkit:
                     native = ToolResult(
                         data=observed.data,
                         images=native.images + observed.images,
+                        call_ok=native.call_ok,
                     )
                 if record is not None:
                     self._publish_step(record)
@@ -477,6 +521,7 @@ class Toolkit:
                 native = ToolResult(
                     data={"error": f"Tool result serialization failed: {exc}"},
                     images=native.images,
+                    call_ok=False,
                 )
             if capture is not None:
                 capture.finish(
@@ -537,12 +582,14 @@ class Toolkit:
         """Return a rule-checked continuation at an idle planner boundary."""
         return None
 
-    def solved(self) -> bool:
+    def solved(self) -> bool | None:
         """Whether the env has reported the task complete.
 
         Ground truth for the session loop: an agent may call ``finish`` with
         ``status="success"`` on a cell it did not actually finish, so the
-        handoff decision reads the environment, not the agent.
+        handoff decision reads the environment, not the agent. ``None`` means
+        the environment has not judged the task yet, which is distinct from a
+        judged failure and lets exploration runs exit without a false negative.
         """
         raise NotImplementedError
 
