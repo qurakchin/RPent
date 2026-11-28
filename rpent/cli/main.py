@@ -24,7 +24,7 @@
 # in `pyproject.toml`):
 #
 # ```bash
-# rpent --robot libero --suite libero_object_task --task 0 --seed 0 [...]
+# rpent --robot <name> --suite <suite> --task 0 --seed 0 [...]
 # ```
 #
 # ## Note
@@ -42,13 +42,10 @@ import shlex
 import sys
 import time
 from collections.abc import Callable
-from dataclasses import asdict
+from dataclasses import replace
+from importlib.util import find_spec
 from pathlib import Path
 
-from rpent.cli.tui import (
-    start_first_prompt_resolver,
-    start_interactive_reader,
-)
 from rpent.dashboard.events import (
     NullDashboardEventSink,
     RunStartedEvent,
@@ -61,10 +58,40 @@ from rpent.planner.base import (
     build_planner,
     is_recoverable_agent_error,
 )
-from rpent.planner.check import EXTERNALLY_CONFIGURED_PLANNERS
-from rpent.robots import enumerate_robots, get_robot_spec, get_toolkit
-from rpent.session.planner_capture import end_planner_task, start_planner_task
+from rpent.planner.check import (
+    CHECK_PLANNERS,
+    EXTERNALLY_CONFIGURED_PLANNERS,
+)
+from rpent.robots import RunConfig, enumerate_robots, get_robot_spec, get_toolkit
 from rpent.utils.logging import get_logger, init_output_dir
+from rpent.utils.mcp_servers import (
+    McpServerSpec,
+    load_mcp_config,
+    merge_mcp_servers,
+)
+
+# The ``rpent`` console script ships with the core wheel, but a run needs the
+# planner layer.
+_PLANNER_CORE_MODULE = "pydantic_ai"
+
+
+def _missing_planner_module() -> str | None:
+    """Return the planner-layer module this environment lacks, if any.
+
+    Probe it explicitly instead of importing planner modules at module import
+    time, so ``--help`` and argument validation work in a core-only environment
+    and every planner import stays at its use site. ``pydantic_ai`` is the one
+    module every run needs, because ``build_planner`` imports it; an optional
+    package (``--tui``, MCP) or a backend that is missing fails at its own
+    import, which names it.
+    """
+    try:
+        found = find_spec(_PLANNER_CORE_MODULE) is not None
+    except ModuleNotFoundError:
+        # A meta-path finder reports a blocked module the same way.
+        found = False
+    return None if found else _PLANNER_CORE_MODULE
+
 
 logger = get_logger("agent")
 
@@ -138,9 +165,9 @@ def _build_argparser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--planner",
         default="api",
-        choices=["api", "claude_code", "codex", "gemini_cli", "flash"],
-        help="Planner backend: api | claude_code | codex | gemini_cli are LLMs in the "
-        "loop; flash is evaluation-only and replays a plan from memory, re-localizing "
+        choices=[*CHECK_PLANNERS, "flash"],
+        help="Planner backend. Online planners use an LLM in the loop; "
+        "flash is evaluation-only and replays a plan from memory, re-localizing "
         "each waypoint's anchor.",
     )
     ap.add_argument(
@@ -148,8 +175,8 @@ def _build_argparser() -> argparse.ArgumentParser:
         default=None,
         help="Model id. For the 'api' planner, prefix the provider "
         "(e.g. anthropic:claude-opus-4-8, google:Argon, "
-        "openai:gpt-5.5, openai-chat:glm-5.2). For claude_code, codex, and "
-        "gemini_cli this overrides the backend or upstream default model.",
+        "openai:gpt-5.5, openai-chat:glm-5.2). For CLI/SDK planners this "
+        "overrides their default model.",
     )
     ap.add_argument(
         "--base-url",
@@ -161,14 +188,19 @@ def _build_argparser() -> argparse.ArgumentParser:
             "one of them is an error rather than a silent no-op."
         ),
     )
-    ap.add_argument("--max-turns", type=int, default=100)
+    ap.add_argument(
+        "--max-turns",
+        type=int,
+        default=100,
+        help="RPent tool-call budget for the whole task; follow-up input does not reset it.",
+    )
     ap.add_argument("--max-tokens", type=int, default=8192)
     ap.add_argument(
         "--reasoning-effort",
         choices=REASONING_EFFORTS,
         default="none",
-        help="Planner reasoning effort for api, claude_code, and "
-        "codex. gemini_cli supports none only. Higher effort may improve "
+        help="Planner reasoning effort; supported levels depend on the backend and model. "
+        "Gemini CLI supports up to high. For Gemini CLI and OpenCode, none keeps the CLI configuration. Higher effort may improve "
         "task success rate but increases runtime. Defaults to high for api "
         "and none for CLI/SDK planners.",
     )
@@ -184,7 +216,7 @@ def _build_argparser() -> argparse.ArgumentParser:
         "--planner-timeout-s",
         type=int,
         default=None,
-        help="Wall-clock cap for api/claude_code/codex/gemini_cli planner runs. "
+        help="Wall-clock cap for online planner runs. "
         "Terminal interactive API/Claude sessions are exempt. "
         "Defaults to CODEX_TIMEOUT_S (codex only), GEMINI_CLI_TIMEOUT_S "
         "(gemini_cli only), CELL_TIMEOUT_S, or 1200.",
@@ -199,8 +231,15 @@ def _build_argparser() -> argparse.ArgumentParser:
         "--claude-code-max-budget-usd",
         type=float,
         default=None,
-        help="Budget passed to claude -p --max-budget-usd. "
+        help="Spending limit in USD for the claude_code planner. "
         "Defaults to MAX_BUDGET_USD env or 10.",
+    )
+
+    ap.add_argument(
+        "--mcp-config",
+        default=None,
+        help="Path to an MCP config YAML file. Its mcp_servers section is "
+        "registered on the robot's toolkit for every run.",
     )
 
     # other config
@@ -319,6 +358,24 @@ def _handoff_message(
     )
 
 
+def _with_shared_mcp_servers(
+    run_config: RunConfig,
+    shared_servers: tuple[McpServerSpec, ...],
+) -> RunConfig:
+    """Merge shared MCP servers into a robot's run config.
+
+    The shared config applies to every robot, so the CLI adds its servers
+    after the robot's own ``parse_config``. Duplicate names are rejected: a
+    robot must not silently shadow a server from the shared config.
+    """
+    if not shared_servers:
+        return run_config
+    return replace(
+        run_config,
+        mcp_servers=merge_mcp_servers(run_config.mcp_servers, shared_servers),
+    )
+
+
 def _start_continuation_session(
     args,
     *,
@@ -371,6 +428,40 @@ def _start_continuation_session(
 
 def main() -> int:
     parser = _build_argparser()
+    help_requested = "-h" in sys.argv or "--help" in sys.argv
+    robot_requested = any(
+        arg in {"--robot", "--env"} or arg.startswith(("--robot=", "--env="))
+        for arg in sys.argv[1:]
+    )
+    # A run needs the planner layer; report it before argument validation runs:
+    # a core-only install also discovers no robots, so ``--robot <name>`` would
+    # otherwise fail the empty choice list instead of explaining what to
+    # install. ``--help`` stays available because it never needs a robot.
+    missing_planner = _missing_planner_module()
+    if missing_planner is not None and not help_requested:
+        print(
+            "the rpent CLI needs the planner layer, which this environment does "
+            f"not provide (missing {missing_planner!r}); install it with "
+            '`pip install "rpent[planner]"`, or run inside the environment '
+            "rpent-install created for the robot",
+            file=sys.stderr,
+        )
+        return 1
+    # The planner layer can be installed into a wheel-only environment too, and
+    # ``robots/`` still comes only from a checkout. Report that the same way:
+    # ``--robot <name>`` (including ``--robot <name> --help``) would otherwise
+    # fail the empty choice list.
+    if not enumerate_robots() and (not help_requested or robot_requested):
+        print(
+            "the rpent CLI found no robot components: robot packages live only "
+            "in a source checkout, which an installed wheel does not carry. "
+            "From a checkout, build the robot's environment with "
+            "`./rpent-install.sh install robot-<name> --venv <venv>` and run "
+            "the CLI inside it; RPENT_REPO_ROOT only adds a manual-run path "
+            "that no fingerprint or `doctor` check covers",
+            file=sys.stderr,
+        )
+        return 1
     # Two-phase argparse: first grab --robot / --env / --dashboard so we know
     # which robot's flags to add and whether to make its required flags optional.
     early, _ = parser.parse_known_args()
@@ -383,10 +474,18 @@ def main() -> int:
         logger.warning("--env is deprecated and will be removed; use --robot instead")
         early.robot_name = early.env_name
     if early.robot_name is None:
-        if "-h" not in sys.argv and "--help" not in sys.argv:
+        if not help_requested:
             parser.error("--robot is required")
     else:
-        robot_spec = get_robot_spec(early.robot_name)
+        try:
+            robot_spec = get_robot_spec(early.robot_name)
+        except ImportError as exc:
+            print(
+                f"cannot load robot {early.robot_name!r}: {exc}. Its environment "
+                "installs the packages it imports",
+                file=sys.stderr,
+            )
+            return 1
         robot_spec.add_cli_args(parser, use_dashboard=early.dashboard)
     parser.add_argument(
         "-h",
@@ -404,10 +503,6 @@ def main() -> int:
     )
     if args.dashboard and args.tui:
         parser.error("--dashboard and --tui cannot be used together")
-    if args.planner == "gemini_cli" and args.reasoning_effort != "none":
-        parser.error(
-            "--reasoning-effort is not supported by the gemini_cli planner; use 'none'"
-        )
     try:
         external_env_dashboard = (
             robot_spec.is_real_robot
@@ -441,6 +536,11 @@ def main() -> int:
     if args.planner == "flash":
         if args.explore:
             parser.error("Flash Mode is evaluation-only; remove --explore")
+        if args.mcp_config is not None:
+            parser.error(
+                "--mcp-config is not supported with --planner flash; "
+                "Flash Mode replays recorded plans without an LLM planner"
+            )
         if robot_spec.run_flash is None:
             parser.error(f"Flash Mode is not supported for robot {args.robot_name!r}")
     if args.explore and not robot_spec.supports_exploration:
@@ -478,7 +578,8 @@ def main() -> int:
             parse_repo(args.memory_repo)
         if robot_spec.validate_args is not None:
             robot_spec.validate_args(args)
-    except ValueError as exc:
+        args.shared_mcp_servers = load_mcp_config(args.mcp_config)
+    except (OSError, ValueError) as exc:
         parser.error(str(exc))
     if args.dashboard:
         from rpent.cli.dashboard import run_dashboard_session
@@ -486,7 +587,9 @@ def main() -> int:
         return run_dashboard_session(args, robot_spec, parser=parser)
 
     try:
-        run_config = robot_spec.parse_config(args)
+        run_config = _with_shared_mcp_servers(
+            robot_spec.parse_config(args), args.shared_mcp_servers
+        )
     except (OSError, ValueError) as exc:
         parser.error(str(exc))
     recipe_tag = run_config.recipe_tag
@@ -537,12 +640,17 @@ def main() -> int:
     input_queue: "queue.Queue[str | None] | None" = None
     await_first_prompt: "Callable[[], str | None] | None" = None
     if args.tui and not native_cli:
+        from rpent.cli.tui import (
+            start_first_prompt_resolver,
+            start_interactive_reader,
+        )
+
         input_queue = queue.Queue()
         queued_help = (
-            "Claude Code/Codex/Gemini: messages queue until the current turn completes.\n"
+            "Messages queue until the current turn completes.\n"
             "/interrupt [message] stops the current turn, then sends queued input "
             "(or the supplied message first).\n"
-            if args.planner in {"claude_code", "codex", "gemini_cli"}
+            if args.planner in EXTERNALLY_CONFIGURED_PLANNERS
             else ""
         )
         # Pre-fill the first prompt with the rendered default task (editable
@@ -684,6 +792,12 @@ def main() -> int:
                     return True
 
                 operator_input.bind_verdict(accept_verdict)
+            from rpent.session.planner_capture import (
+                end_planner_task,
+                start_planner_task,
+                task_config_snapshot,
+            )
+
             task_state = None
             result = None
             finish_result = None
@@ -693,7 +807,7 @@ def main() -> int:
                     task_state = start_planner_task(
                         toolkit.state,
                         instruction=session_msg,
-                        config={"arguments": vars(args), "run": asdict(run_config)},
+                        config=task_config_snapshot(vars(args), run_config),
                     )
                 result = planner.solve(
                     system_prompt=system_prompt,

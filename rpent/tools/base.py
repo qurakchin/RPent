@@ -28,7 +28,6 @@ from typing import Annotated, Any, Generic, Literal, ParamSpec, get_type_hints
 
 from pydantic import BaseModel, ConfigDict, Field, create_model
 from pydantic.json_schema import GenerateJsonSchema
-from pydantic_ai import Tool as PydanticTool
 from pydantic_core import core_schema
 
 ParamsT = ParamSpec("ParamsT")
@@ -132,6 +131,7 @@ class Tool(Generic[ParamsT]):
     handler: Callable[ParamsT, ToolResult]
     _input_schema: dict[str, Any]
     readonly: bool = False
+    preserve_result: bool = False
     _unbound_method: bool = False
     action_source: Literal["tool_computed", "direct"] = "tool_computed"
 
@@ -246,6 +246,11 @@ def _declare_tool(
             for name, parameter in parameters.items()
         ]
     )
+    # Only planner environments build model-facing tool definitions, so the
+    # runtime layer imports the planner-side schema builder here instead of at
+    # module import time.
+    from pydantic_ai import Tool as PydanticTool
+
     definition = PydanticTool(
         schema_function,
         name=tool_name,
